@@ -2,7 +2,10 @@
  (names main)
  (public_names -)
  (libraries
+  fmt
   logs
+  logs.fmt
+  fmt.tty
   longleaf
   containers
   containers-data

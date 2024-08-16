@@ -1,7 +1,7 @@
 (library
  (name longleaf)
  (public_name longleaf)
- (libraries pyml containers containers-data)
+ (libraries pyml logs fmt containers containers-data)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
 
