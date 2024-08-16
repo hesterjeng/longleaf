@@ -1,1 +1,1 @@
-let () = Format.printf "Hello!"
+let () = Format.printf "@[Hello!@]@."
