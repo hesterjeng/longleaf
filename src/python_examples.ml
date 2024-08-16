@@ -25,5 +25,5 @@ let call_python_function_from_ocaml () =
     |> Py.List.to_list_map Py.Float.to_float
   in
   assert (List.equal Float.equal result [2.0; 3.0]) ;
-  Log.err (fun k -> k "%a" Format.(list float) result) ;
+  Log.app (fun k -> k "%a" Format.(list float) result) ;
   ()

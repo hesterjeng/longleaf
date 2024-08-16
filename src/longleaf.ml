@@ -4,22 +4,19 @@ module A = struct
   let x = 0
 end
 
-module Libraries = struct
-  let numpy = ref Py.none
-
-  let pandas = ref Py.none
-
-  let yfinance = ref Py.none
-
-  let init () =
-    try
-      numpy := Py.import "numpy" ;
-      pandas := Py.import "pandas" ;
-      yfinance := Py.import "yfinance"
-    with Py.E _ as e ->
-      Log.err (fun k ->
-          k "@[Failed to import module, are we in the correct environment?@]@." ) ;
-      raise e
+module Tickers = struct
+  let get () =
+    let open Pyops in
+    let sp600_url =
+      {|https://en.wikipedia.org/wiki/List_of_S%26P_600_companies|}
+      |> Py.String.of_string
+    in
+    let pandas = Py.import "pandas" in
+    let read_html = pandas.&("read_html") in
+    let tables = read_html [|sp600_url|] in
+    let col = tables.![Py.Int.of_int 0] in
+    let ticker_symbols = col.!$["Symbol"] in
+    Py.List.to_array_map Py.Object.to_string ticker_symbols
 end
 
 module Dataframe = struct
@@ -30,8 +27,9 @@ module Dataframe = struct
 end
 
 let run () =
-  Libraries.init () ;
   let _ = Python_examples.ocaml_value_in_python () in
   let _ = Python_examples.ocaml_function_in_python () in
   let _ = Python_examples.call_python_function_from_ocaml () in
+  let tickers = Tickers.get () in
+  Log.app (fun k -> k "@[%a@]@." Format.(array string) tickers) ;
   ()
