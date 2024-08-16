@@ -1,0 +1,23 @@
+(library
+ (name longleaf)
+ (public_name longleaf)
+ (libraries
+   pyml
+ )
+ (preprocess
+  (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
+
+(env
+ (_
+  (flags
+   :standard
+   -w
+   -32
+   -warn-error
+   -a+8
+   -open
+   Containers
+   ; -open
+   ; Primitives
+   -strict-sequence
+   -safe-string)))

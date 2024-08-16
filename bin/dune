@@ -1,0 +1,19 @@
+(executables
+ (names main)
+ (public_names -)
+ (libraries
+  logs
+  longleaf
+  containers
+  containers-data
+  zarith
+  ezcurl-lwt
+  ptime
+  yojson)
+ (preprocess
+  (pps ppx_deriving.std ppx_yojson_conv)))
+
+(env
+ (dev
+  (flags
+   (:standard -w +a-4-40-58-42-44-48-70-66@8 -open Containers))))
