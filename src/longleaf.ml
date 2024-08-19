@@ -4,8 +4,15 @@ module A = struct
   let x = 0
 end
 
+let pyprint x =
+  let open Pyops in
+  let builtins = Py.import "builtins" in
+  let p = builtins.&("print") in
+  let _ = p [|x|] in
+  ()
+
 module Tickers = struct
-  let get () =
+  let get_tickers () =
     let open Pyops in
     let sp600_url =
       {|https://en.wikipedia.org/wiki/List_of_S%26P_600_companies|}
@@ -30,6 +37,6 @@ let run () =
   let _ = Python_examples.ocaml_value_in_python () in
   let _ = Python_examples.ocaml_function_in_python () in
   let _ = Python_examples.call_python_function_from_ocaml () in
-  let tickers = Tickers.get () in
-  Log.app (fun k -> k "@[%a@]@." Format.(array string) tickers) ;
+  let data = Data.of_string "AAPL" in
+  Log.app (fun k -> k "%a" Data.pp data) ;
   ()
