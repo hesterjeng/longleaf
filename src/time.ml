@@ -12,3 +12,8 @@ let of_timestamp ts =
       let date, time = Ptime.to_date_time date_time in
       { date; time }
   | None -> invalid_arg "invalid date/time"
+
+let print_time_array x =
+  Owl_dense_ndarray.D.iter
+    (fun x -> of_timestamp x |> fun x -> Format.printf "@[%a@]@." pp x)
+    x

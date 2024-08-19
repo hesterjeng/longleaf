@@ -4,13 +4,6 @@ module A = struct
   let x = 0
 end
 
-let pyprint x =
-  let open Pyops in
-  let builtins = Py.import "builtins" in
-  let p = builtins.&("print") in
-  let _ = p [| x |] in
-  ()
-
 module Tickers = struct
   let get_tickers () =
     let open Pyops in
@@ -39,4 +32,6 @@ let run () =
   let _ = Python_examples.call_python_function_from_ocaml () in
   let data = Data.of_string "AAPL" in
   Log.app (fun k -> k "%a" Data.pp data);
+  Yojson.Safe.to_file "data.json" @@ Data.yojson_of_t data;
+  Time.print_time_array data.date;
   ()
