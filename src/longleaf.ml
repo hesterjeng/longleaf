@@ -34,4 +34,5 @@ let run () =
   Log.app (fun k -> k "%a" Data.pp data);
   Yojson.Safe.to_file "data.json" @@ Data.yojson_of_t data;
   Time.print_time_array data.date;
+  Strategy.basic data;
   ()
