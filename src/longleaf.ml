@@ -8,7 +8,7 @@ let pyprint x =
   let open Pyops in
   let builtins = Py.import "builtins" in
   let p = builtins.&("print") in
-  let _ = p [|x|] in
+  let _ = p [| x |] in
   ()
 
 module Tickers = struct
@@ -20,7 +20,7 @@ module Tickers = struct
     in
     let pandas = Py.import "pandas" in
     let read_html = pandas.&("read_html") in
-    let tables = read_html [|sp600_url|] in
+    let tables = read_html [| sp600_url |] in
     let col = tables.![Py.Int.of_int 0] in
     let ticker_symbols = col.!$["Symbol"] in
     Py.List.to_array_map Py.Object.to_string ticker_symbols
@@ -30,7 +30,7 @@ module Dataframe = struct
   let index x =
     Option.(
       let+ index = Py.Object.get_attr_string x "index" in
-      index )
+      index)
 end
 
 let run () =
@@ -38,5 +38,5 @@ let run () =
   let _ = Python_examples.ocaml_function_in_python () in
   let _ = Python_examples.call_python_function_from_ocaml () in
   let data = Data.of_string "AAPL" in
-  Log.app (fun k -> k "%a" Data.pp data) ;
+  Log.app (fun k -> k "%a" Data.pp data);
   ()

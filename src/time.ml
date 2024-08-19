@@ -1,11 +1,14 @@
-include Ptime
+type t = { date : Ptime.date; time : Ptime.time }
 
-let convert_timestamp_to_date ts =
-  match Ptime.of_float_s (Int64.to_float ts) with
+let pp fmt x =
+  let ptime = Ptime.of_date_time (x.date, x.time) in
+  match ptime with
+  | Some time -> Format.fprintf fmt "%a" Ptime.pp time
+  | None -> invalid_arg "Illegal datetime!"
+
+let of_timestamp ts =
+  match Ptime.of_float_s ts with
   | Some date_time ->
-      let (date, time) = Ptime.to_date_time date_time in
-      let (year, month, day) = date in
-      let ((hours, minutes, seconds), _) = time in
-      Printf.sprintf "%04d-%02d-%02d %02d:%02d:%02d"
-        year month day hours minutes seconds
-  | None -> "Invalid timestamp"
+      let date, time = Ptime.to_date_time date_time in
+      { date; time }
+  | None -> invalid_arg "invalid date/time"
