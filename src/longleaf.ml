@@ -1,9 +1,5 @@
 module Log = (val Logs.src_log Logs.(Src.create "longleaf"))
 
-module A = struct
-  let x = 0
-end
-
 module Tickers = struct
   let get_tickers () =
     let open Pyops in
@@ -19,12 +15,12 @@ module Tickers = struct
     Py.List.to_array_map Py.Object.to_string ticker_symbols
 end
 
-module Dataframe = struct
-  let index x =
-    Option.(
-      let+ index = Py.Object.get_attr_string x "index" in
-      index)
-end
+(* module Dataframe = struct *)
+(*   let index x = *)
+(*     Option.( *)
+(*       let+ index = Py.Object.get_attr_string x "index" in *)
+(*       index) *)
+(* end *)
 
 let run () =
   let _ = Python_examples.ocaml_value_in_python () in
@@ -36,3 +32,6 @@ let run () =
   Time.print_time_array data.date;
   Strategy.basic data;
   ()
+
+let process_json (x : Yojson.Safe.t) =
+  Dataframe.of_json x
