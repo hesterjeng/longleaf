@@ -28,10 +28,9 @@ let run () =
   let _ = Python_examples.call_python_function_from_ocaml () in
   let data = Data.of_string "AAPL" in
   Log.app (fun k -> k "%a" Data.pp data);
-  Yojson.Safe.to_file "data.json" @@ Data.yojson_of_t data;
+  Yojson.Safe.to_file "mo.json" @@ Data.yojson_of_t data;
   Time.print_time_array data.date;
   Strategy.basic data;
   ()
 
-let process_json (x : Yojson.Safe.t) =
-  Dataframe.of_json x
+let process_json (x : Yojson.Safe.t) = Dataframe.of_json x
