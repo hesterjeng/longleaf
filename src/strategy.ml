@@ -52,13 +52,9 @@ let basic (x : Data.t) =
   ()
 
 module type Data_input = sig
-
   val data : float array
-
 end
 
 module Make (Training : Data_input) (Testing : Data_input) = struct
-
   let smoke () = Training.data
-
 end
