@@ -19,6 +19,7 @@ module Farray = struct
   let t_of_yojson x =
     let arr = array_of_yojson float_of_yojson x in
     Owl_dense_ndarray.D.of_array arr [| Array.length arr |]
+
 end
 
 type t = {

@@ -4,6 +4,8 @@ let () =
   Logs.set_reporter reporter;
   Logs.set_level ~all:true (Some Logs.Info);
   Py.initialize ();
-  Longleaf.run ();
-  Format.printf "@[Hello! %d@]@." Longleaf.A.x;
+  (* Longleaf.run (); *)
+  let file = "data/data_sp600_6mo_82024.json" in
+  let json = Yojson.Safe.from_file file in
+  let _ = Longleaf.process_json json in
   exit (if Logs.err_count () > 0 then 1 else 0)
