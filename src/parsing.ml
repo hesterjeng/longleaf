@@ -3,7 +3,7 @@ open Angstrom
 let parens p = char '(' *> p <* char ')'
 
 let quoted_string =
-  char '\'' *> take_while1 (fun c -> not @@ Char.equal c '\'') <* char '\''
+  char '\'' *> take_while (fun c -> not @@ Char.equal c '\'') <* char '\''
 
 let parser =
   parens
@@ -15,4 +15,4 @@ let parser =
 let top (input : string) =
   match parse_string ~consume:Consume.All parser input with
   | Ok s -> s
-  | Error e -> invalid_arg e
+  | Error e -> invalid_arg @@ Format.asprintf "%s: %s" e input
