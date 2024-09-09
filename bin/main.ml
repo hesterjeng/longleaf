@@ -7,5 +7,5 @@ let () =
   (* Longleaf.run (); *)
   let file = "data/da.json" in
   let json = Yojson.Safe.from_file file in
-  let _ = Longleaf.process_json json in
+  let _res = Longleaf.process_json json in
   exit (if Logs.err_count () > 0 then 1 else 0)
