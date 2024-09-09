@@ -1,7 +1,5 @@
 module Log = (val Logs.src_log Logs.(Src.create "dataframe"))
 
-type t = Owl.Dataframe.t array
-
 module Element = struct
   module Info_type = struct
     type t = AdjClose | Close | High | Low | Open
@@ -21,6 +19,7 @@ module Element = struct
     [@@deriving show, eq]
 
     let of_json (info_raw, price_raw) =
+      Log.app (fun k -> k "Attempting to create Ticker.t from json");
       let open Result in
       let info_type_raw, index = Parsing.top info_raw in
       let info_type = Info_type.of_string info_type_raw in
@@ -46,7 +45,13 @@ module Element = struct
       | None -> invalid_arg "Unable to find ticker info with price"
   end
 
-  type t = { datetime : int; information : Ticker.t list } [@@deriving show]
+  type t = {
+    datetime : int; [@printer Time.pp_int]
+    information : Ticker.t array;
+  }
+  [@@deriving show]
+
+  let compare x y = Ord.int x.datetime y.datetime
 
   let date (x, content) =
     let date, _ = Parsing.top x in
@@ -84,53 +89,20 @@ module Element = struct
             l
         in
         let+ information = Result.map_l Ticker.of_json rest in
+        let information = Array.of_list information in
         { datetime; information }
     | _ -> Result.fail @@ Format.asprintf "Not OK: %a" Yojson.Safe.pp x
 end
 
-module Convert = struct
-  let top (l : Element.t list) =
-    let ticker = "AAPL" in
-    let dates =
-      List.map (fun (x : Element.t) -> x.datetime) l
-      |> Array.of_list |> Owl.Dataframe.pack_int_series
-    in
-    let create_dataframe ticker =
-      let info_types : Element.Info_type.t array =
-        [|
-          Open;
-          Low;
-          High;
-          Close;
-          AdjClose;
-        |]
-      in
-      let step2 = Array.map (fun ty ->
-          Element.Ticker.find ticker ty
-        )
-      (* let adj_close = *)
-      (*   List.map *)
-      (*     (fun (x : Element.t) -> *)
-      (*       Element.Ticker.find ticker AdjClose x.information) *)
-      (*     l *)
-      (* in *)
-      (* let close = *)
-      (*   List.map *)
-      (*     (fun (x : Element.t) -> *)
-      (*       Element.Ticker.find ticker Close x.information) *)
-      (*     l *)
-      (* in *)
-      ()
-    in
-    let res = create_dataframe ticker in
-    res
-end
+type parsed = Element.t array [@@deriving show]
 
-let of_json (x : Yojson.Safe.t) =
+let of_json (x : Yojson.Safe.t) : (parsed, string) result =
   let open Result in
   match x with
   | `List l ->
       let* parsed = Result.map_l Element.of_json l in
-      Log.app (fun k -> k "%a" Format.(list ~sep:newline Element.pp) parsed);
-      Ok parsed
+      let array = Array.of_list parsed in
+      Array.sort Element.compare array;
+      Log.app (fun k -> k "%a" pp_parsed array);
+      Ok array
   | _ -> Error "Dataframe.of_json:  This is not a list"
