@@ -17,3 +17,12 @@ let get_account (env : Environment.t) =
   let status = Response.status resp |> Code.string_of_status in
   Log.app (fun k -> k "@[%s@]@.@[%a@]@." status Yojson.Safe.pp body_json);
   Lwt.return_unit
+
+let create_market_order (env : Environment.t) =
+  let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
+  let headers =
+    Header.init () |> fun h ->
+    Header.add h "APCA-API-KEY-ID" env.apca_api_key_id |> fun h ->
+    Header.add h "APCA-API-SECRET-KEY" env.apca_api_secret_key
+  in
+  Client.post
