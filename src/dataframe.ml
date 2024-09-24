@@ -110,7 +110,8 @@ type parsed = Element.t array [@@deriving show]
 type t = { index : string; data : Owl_dataframe.t }
 
 let pp fmt x =
-  Format.fprintf fmt "@[   +-------------+ %s +-------------+@]@.@[%a@]@." x.index Owl_pretty.pp_dataframe x.data
+  Format.fprintf fmt "@[   +-------------+ %s +-------------+@]@.@[%a@]@."
+    x.index Owl_pretty.pp_dataframe x.data
 
 module Conversion = struct
   let collect_indices (x : Element.t) =
