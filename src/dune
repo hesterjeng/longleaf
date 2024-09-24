@@ -1,7 +1,17 @@
 (library
  (name longleaf)
  (public_name longleaf)
- (libraries pyml logs fmt containers containers-data ptime owl angstrom)
+ (libraries
+  pyml
+  logs
+  fmt
+  containers
+  containers-data
+  ptime
+  owl
+  angstrom
+  cohttp-lwt-unix
+  lwt)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
 
