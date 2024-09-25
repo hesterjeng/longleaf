@@ -16,9 +16,14 @@ module Tickers = struct
 end
 
 let process_json (x : Yojson.Safe.t) =
-  let vars = Environment.make () in
-  Log.app (fun k -> k "%a" Environment.pp vars);
-  let account = Api.get_account vars in
-  Lwt_main.run account;
-  (* Log.app (fun k -> k "Attempting to create dataframe from json"); *)
+  let env = Environment.make () in
+  Log.app (fun k -> k "%a" Environment.pp env);
+  let _ = Api.get_account env in
+  let status, resp_body =
+    Lwt_main.run
+    @@ Api.create_market_order env "AAPL" Api.Side.Buy Api.TIF.Opening
+         Api.OT.Market 1
+  in
+  Log.app (fun k -> k "status: %s" status);
+  Log.app (fun k -> k "resp_body: %s" resp_body);
   Dataframe.of_json x
