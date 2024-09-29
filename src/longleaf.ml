@@ -18,11 +18,12 @@ end
 let process_json (x : Yojson.Safe.t) =
   let env = Environment.make () in
   Log.app (fun k -> k "%a" Environment.pp env);
-  let _ = Api.get_account env in
+  let _ = Trading_api.get_account env in
   let status, resp_body =
-    Lwt_main.run
-    @@ Api.create_market_order env "AAPL" Api.Side.Buy Api.TIF.Opening
-         Api.OT.Market 1
+    Trading_types.(
+      Lwt_main.run
+      @@ Trading_api.create_market_order env "AAPL" Side.Buy TimeInForce.Opening
+           OrderType.Market 10)
   in
   Log.app (fun k -> k "status: %s" status);
   Log.app (fun k -> k "resp_body: %s" resp_body);
