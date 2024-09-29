@@ -21,7 +21,8 @@ module Stock = struct
     let status = Response.status response |> Code.string_of_status in
     Lwt.return (status, resp_body)
 
-  let historical_bars (env : Environment.t) (symbols : string list) =
+  let historical_bars (env : Environment.t) (timeframe : Timeframe.t)
+      ~(start : Time.t) ~(end_ : Time.t) (symbols : string list) =
     let headers = h env in
     let symbols = String.concat "," symbols in
     let uri = Uri.with_path env.apca_api_base_url "/v2/stocks/bars" in
