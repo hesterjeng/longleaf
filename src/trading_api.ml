@@ -55,4 +55,14 @@ module Orders = struct
     let status = Response.status resp |> Code.string_of_status in
     Log.app (fun k -> k "@[%s@]@.@[%a@]@." status Yojson.Safe.pp body_json);
     Lwt.return (status, body_json)
+
+  let delete_all_orders (env : Environment.t) =
+    let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
+    let headers = h env in
+    let* resp, body = Client.delete ~headers uri in
+    let* body = Cohttp_lwt.Body.to_string body in
+    let body_json = Yojson.Safe.from_string body in
+    let status = Response.status resp |> Code.string_of_status in
+    Log.app (fun k -> k "@[%s@]@.@[%a@]@." status Yojson.Safe.pp body_json);
+    Lwt.return (status, body_json)
 end
