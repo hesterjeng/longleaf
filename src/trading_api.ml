@@ -2,7 +2,7 @@ open Lwt
 open Lwt.Syntax
 open Cohttp
 open Cohttp_lwt_unix
-module Log = (val Logs.src_log Logs.(Src.create "api"))
+module Log = (val Logs.src_log Logs.(Src.create "trading-api"))
 open Trading_types
 
 (* Create the headers based on the current environment *)
