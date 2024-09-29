@@ -44,3 +44,54 @@ end = struct
   let of_string x = x
   let to_string x = x
 end
+
+module Timeframe = : sig
+
+  type t
+
+  val to_string : t -> string
+
+  val min : int -> t
+
+  val hour : int -> t
+
+  val day : t
+
+  val week : t
+
+  val month : int -> t
+
+end =
+struct
+
+  type t =
+    | Min of int
+    | Hour of int
+    | Day
+    | Week
+    | Month of int
+
+  let to_string x = function
+    | Min i -> Format.asprintf "%dMin" i
+    | Hour i -> Format.asprintf "%dHour" i
+    | Day -> "1Day"
+    | Week -> "1Week"
+    | Month i -> Format.asprintf "%dMonth" i
+
+  let min i =
+    assert ( 1 <= i <= 59 );
+    Min i
+
+  let hour i =
+    assert ( 1 <= i <= 23 );
+    Hour i
+
+  let day = Day
+
+  let week = Week
+
+  let month i =
+    assert (i = 1 || i = 2 || i = 3 || i = 4 || i = 6 || i = 12);
+    Month i
+
+end
