@@ -45,33 +45,19 @@ end = struct
   let to_string x = x
 end
 
-module Timeframe = : sig
-
+module Timeframe : sig
   type t
 
   val to_string : t -> string
-
   val min : int -> t
-
   val hour : int -> t
-
   val day : t
-
   val week : t
-
   val month : int -> t
+end = struct
+  type t = Min of int | Hour of int | Day | Week | Month of int
 
-end =
-struct
-
-  type t =
-    | Min of int
-    | Hour of int
-    | Day
-    | Week
-    | Month of int
-
-  let to_string x = function
+  let to_string = function
     | Min i -> Format.asprintf "%dMin" i
     | Hour i -> Format.asprintf "%dHour" i
     | Day -> "1Day"
@@ -79,19 +65,17 @@ struct
     | Month i -> Format.asprintf "%dMonth" i
 
   let min i =
-    assert ( 1 <= i <= 59 );
+    assert (1 <= i <= 59);
     Min i
 
   let hour i =
-    assert ( 1 <= i <= 23 );
+    assert (1 <= i <= 23);
     Hour i
 
   let day = Day
-
   let week = Week
 
   let month i =
     assert (i = 1 || i = 2 || i = 3 || i = 4 || i = 6 || i = 12);
     Month i
-
 end
