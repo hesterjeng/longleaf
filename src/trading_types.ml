@@ -65,11 +65,11 @@ end = struct
     | Month i -> Format.asprintf "%dMonth" i
 
   let min i =
-    assert (1 <= i <= 59);
+    assert (1 <= i && i <= 59);
     Min i
 
   let hour i =
-    assert (1 <= i <= 23);
+    assert (1 <= i && i <= 23);
     Hour i
 
   let day = Day
