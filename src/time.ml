@@ -20,7 +20,7 @@ let pp_int fmt x =
 
 let of_string x =
   (* This is meant to be parsing things like YYYY-MM-DD *)
-  let rfc = x ^ "T00:00:00+00:00" in
+  let rfc = x ^ "T00:00:00Z" in
   match Ptime.of_rfc3339 rfc with
   | Ok (t, _, _) -> t
   | Error _ -> invalid_arg "Invalid time in my time module?"

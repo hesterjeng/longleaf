@@ -22,12 +22,20 @@ module Stock = struct
     Lwt.return (status, resp_body)
 
   let historical_bars (env : Environment.t) (timeframe : Timeframe.t)
-      ~(start : Time.t) ~(end_ : Time.t) (symbols : string list) =
+      ~(start : Time.t) (* ~(end_ : Time.t) *)
+                          (symbols : string list) =
     let headers = h env in
     let symbols = String.concat "," symbols in
     let uri = Uri.with_path env.apca_api_base_url "/v2/stocks/bars" in
     let body =
-      Yojson.Safe.(`Assoc [ ("symbols", `String symbols) ])
+      Yojson.Safe.(
+        `Assoc
+          [
+            ("symbols", `String symbols);
+            ("timeframe", `String (Timeframe.to_string timeframe));
+            ("start", `String (Ptime.to_rfc3339 start));
+            (* ("end", `String (Ptime.to_rfc3339 end_)); *)
+          ])
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
     in
     let* response, body_stream = Client.post ~headers ~body uri in

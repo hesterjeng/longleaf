@@ -19,11 +19,18 @@ let process_json (x : Yojson.Safe.t) =
   let env = Environment.make () in
   Log.app (fun k -> k "%a" Environment.pp env);
   let _ = Trading_api.Accounts.get_account env in
+  (* let status, resp_body = *)
+  (*   Trading_types.( *)
+  (*     Lwt_main.run *)
+  (*     @@ Trading_api.Orders.create_market_order env "AAPL" Side.Buy *)
+  (*          TimeInForce.Opening OrderType.Market 10) *)
+  (* in *)
   let status, resp_body =
     Trading_types.(
       Lwt_main.run
-      @@ Trading_api.Orders.create_market_order env "AAPL" Side.Buy
-           TimeInForce.Opening OrderType.Market 10)
+      @@ Market_data_api.Stock.historical_bars env (Timeframe.hour 1)
+           ~start:(Time.of_string "2024-08-28")
+           [ "AAPL" ])
   in
   Log.app (fun k -> k "status: %s" status);
   Log.app (fun k -> k "resp_body: %s" resp_body);
