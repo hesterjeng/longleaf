@@ -11,7 +11,7 @@ module Stock = struct
   let historical_auctions (env : Environment.t) (symbols : string list) =
     let headers = h env in
     let symbols = String.concat "," symbols in
-    let uri = Uri.with_path env.apca_api_base_url "/v2/stocks/auctions" in
+    let uri = Uri.with_path env.apca_api_data_url "/v2/stocks/auctions" in
     let body =
       Yojson.Safe.(`Assoc [ ("symbols", `String symbols) ])
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
@@ -26,19 +26,13 @@ module Stock = struct
                           (symbols : string list) =
     let headers = h env in
     let symbols = String.concat "," symbols in
-    let uri = Uri.with_path env.apca_api_base_url "/v2/stocks/bars" in
-    let body =
-      Yojson.Safe.(
-        `Assoc
-          [
-            ("symbols", `String symbols);
-            ("timeframe", `String (Timeframe.to_string timeframe));
-            ("start", `String (Ptime.to_rfc3339 start));
-            (* ("end", `String (Ptime.to_rfc3339 end_)); *)
-          ])
-      |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
+    let uri =
+      Uri.with_path env.apca_api_data_url "/v2/stocks/bars" |> fun u ->
+      Uri.add_query_param' u ("symbols", symbols) |> fun u ->
+      Uri.add_query_param' u ("timeframe", Timeframe.to_string timeframe)
+      |> fun u -> Uri.add_query_param' u ("start", Ptime.to_rfc3339 start)
     in
-    let* response, body_stream = Client.post ~headers ~body uri in
+    let* response, body_stream = Client.get ~headers uri in
     let* resp_body = Cohttp_lwt.Body.to_string body_stream in
     let status = Response.status response |> Code.string_of_status in
     Lwt.return (status, resp_body)
