@@ -79,3 +79,28 @@ end = struct
     assert (i = 1 || i = 2 || i = 3 || i = 4 || i = 6 || i = 12);
     Month i
 end
+
+module Bars = struct
+  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
+
+  module Bar = struct
+    type t = {
+      timestamp : string; [@key "t"]
+      opening_price : float; [@key "o"]
+      high_price : float; [@key "h"]
+      low_price : float; [@key "l"]
+      closing_price : float; [@key "c"]
+      volume : int; [@key "v"]
+      trade_count : int; [@key "n"]
+      volume_weighted : float; [@key "vw"]
+    }
+    [@@deriving show, yojson]
+  end
+
+  type t = {
+    bars : Bar.t list;
+    next_page_token : string option;
+    currency : string option;
+  }
+  [@@deriving show, yojson]
+end
