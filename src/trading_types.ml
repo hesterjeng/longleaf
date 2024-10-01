@@ -83,7 +83,7 @@ end
 module Bars = struct
   open Ppx_yojson_conv_lib.Yojson_conv.Primitives
 
-  module Bar = struct
+  module Bar_item = struct
     type t = {
       timestamp : string; [@key "t"]
       opening_price : float; [@key "o"]
@@ -97,10 +97,24 @@ module Bars = struct
     [@@deriving show, yojson]
   end
 
+  module Bar = struct
+    type t = { ticker : string; data : Bar_item.t list } [@@deriving show]
+
+    let t_of_yojson x = invalid_arg "NYI t_of_yojson"
+    let yojson_of_t _ = invalid_arg "NYI Bar.yojson_of_t"
+  end
+
   type t = {
     bars : Bar.t list;
-    next_page_token : string option;
-    currency : string option;
+    next_page_token : string option; [@default None]
+    currency : string;
   }
   [@@deriving show, yojson]
+
+  (* let t_of_yojson x = *)
+  (*   Format.printf "%a" Yojson.Safe.pp x; *)
+  (*   try t_of_yojson x *)
+  (*   with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) -> *)
+  (*     let err = Printexc.to_string e in *)
+  (*     invalid_arg @@ Format.asprintf "%s" err *)
 end
