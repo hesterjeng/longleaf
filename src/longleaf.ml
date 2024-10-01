@@ -33,5 +33,5 @@ let process_json (x : Yojson.Safe.t) =
            [ "AAPL" ])
   in
   Log.app (fun k -> k "status: %s" status);
-  Log.app (fun k -> k "resp_body: %s" resp_body);
+  Log.app (fun k -> k "resp_body: %a" Trading_types.Bars.pp resp_body);
   Dataframe.of_json x

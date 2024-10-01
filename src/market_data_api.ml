@@ -34,6 +34,9 @@ module Stock = struct
     in
     let* response, body_stream = Client.get ~headers uri in
     let* resp_body = Cohttp_lwt.Body.to_string body_stream in
+    let resp_body =
+      Yojson.Safe.from_string resp_body |> Trading_types.Bars.t_of_yojson
+    in
     let status = Response.status response |> Code.string_of_status in
     Lwt.return (status, resp_body)
 end
