@@ -94,27 +94,45 @@ module Bars = struct
       trade_count : int; [@key "n"]
       volume_weighted : float; [@key "vw"]
     }
-    [@@deriving show, yojson]
+    [@@deriving show { with_path = false }, yojson]
   end
 
-  module Bar = struct
-    type t = { ticker : string; data : Bar_item.t list } [@@deriving show]
+  module Bars2 = struct
+    type t = (string * Bar_item.t list) list [@@deriving show]
 
-    let t_of_yojson x = invalid_arg "NYI t_of_yojson"
-    let yojson_of_t _ = invalid_arg "NYI Bar.yojson_of_t"
+    let t_of_yojson (x : Yojson.Safe.t) =
+      match x with
+      | `Assoc s ->
+          List.map
+            (fun ((ticker, data) : string * Yojson.Safe.t) ->
+              ( ticker,
+                match data with
+                | `List l -> List.map Bar_item.t_of_yojson l
+                | _ -> invalid_arg "The data must be stored as a list" ))
+            s
+      | _ -> invalid_arg "Bars must be a toplevel Assoc"
+
+    let yojson_of_t _ = invalid_arg "NYI Bars.yojson_of_t"
   end
 
   type t = {
-    bars : Bar.t list;
+    bars : Bars2.t;
     next_page_token : string option; [@default None]
-    currency : string;
+    currency : string option; [@default None]
   }
-  [@@deriving show, yojson]
+  [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 
-  (* let t_of_yojson x = *)
-  (*   Format.printf "%a" Yojson.Safe.pp x; *)
-  (*   try t_of_yojson x *)
-  (*   with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) -> *)
-  (*     let err = Printexc.to_string e in *)
-  (*     invalid_arg @@ Format.asprintf "%s" err *)
+  let get_next_page_token (x : Yojson.Safe.t) =
+    Option.(
+      let+ npt = Yojson.Safe.Util.(to_option (member "next_page_token") x) in
+      match npt with
+      | `String s -> s
+      | _ -> invalid_arg "next_page_token must be a string")
+
+  let t_of_yojson x =
+    Format.printf "%a" Yojson.Safe.pp x;
+    try t_of_yojson x
+    with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
+      let err = Printexc.to_string e in
+      invalid_arg @@ Format.asprintf "%s" err
 end
