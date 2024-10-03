@@ -122,13 +122,6 @@ module Bars = struct
   }
   [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 
-  let get_next_page_token (x : Yojson.Safe.t) =
-    Option.(
-      let+ npt = Yojson.Safe.Util.(to_option (member "next_page_token") x) in
-      match npt with
-      | `String s -> s
-      | _ -> invalid_arg "next_page_token must be a string")
-
   let t_of_yojson x =
     Format.printf "%a" Yojson.Safe.pp x;
     try t_of_yojson x

@@ -8,7 +8,7 @@ let pyprint x =
 include Ppx_yojson_conv_lib.Yojson_conv
 module Get_log = (val Logs.src_log Logs.(Src.create "get-log"))
 
-let get ~headers uri =
+let get ~headers ~uri =
   let open Lwt in
   let open Lwt.Syntax in
   let open Cohttp in
@@ -34,6 +34,13 @@ let get ~headers uri =
       Get_log.err (fun k ->
           k "server_error_status: %s" (Code.string_of_status status));
       Lwt.fail_invalid_arg @@ Code.string_of_status status
-  | `Code i as status ->
+  | `Code _ as status ->
       Get_log.err (fun k -> k "unknown code: %s" (Code.string_of_status status));
       Lwt.fail_invalid_arg @@ Code.string_of_status status
+
+let get_next_page_token (x : Yojson.Safe.t) =
+  Option.(
+    let+ npt = Yojson.Safe.Util.(to_option (member "next_page_token") x) in
+    match npt with
+    | `String s -> s
+    | _ -> invalid_arg "next_page_token must be a string")
