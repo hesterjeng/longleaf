@@ -32,28 +32,17 @@ module Stock = struct
       Uri.add_query_param' u ("timeframe", Timeframe.to_string timeframe)
       |> fun u -> Uri.add_query_param' u ("start", Ptime.to_rfc3339 start)
     in
-    let* response, body_stream = Client.get ~headers uri in
-    let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-    let resp_body_json = Yojson.Safe.from_string resp_body_raw in
-    let resp_body = Trading_types.Bars.t_of_yojson resp_body_json in
-    (* WIP *)
-    let rec collect_npts resp_body_json acc =
-      let+ npt =
-        match Trading_types.Bars.get_next_page_token resp_body_json with
-        | Some npt ->
-            let new_uri = Uri.add_query_param' uri ("page_token", npt) in
-            let* _response, body_stream = Client.get ~headers new_uri in
-            let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-            let resp_body_json = Yojson.Safe.from_string resp_body_raw in
-            let resp_body = Trading_types.Bars.t_of_yojson resp_body_json in
-            Log.app (fun k -> k "npt: %a" Bars.pp resp_body);
-            Lwt.return @@ Some resp_body
-            (* Lwt.return_unit *)
-        | None -> Lwt.return acc
-      in
-      npt
+    let rec collect_data uri acc =
+      let* resp_body_json = Util.get ~headers ~uri in
+      let acc = Bars.t_of_yojson resp_body_json :: acc in
+      match Util.get_next_page_token resp_body_json with
+      | Some npt ->
+          let uri =
+            Uri.remove_query_param uri "page_token" |> fun u ->
+            Uri.add_query_param' uri ("page_token", npt)
+          in
+          collect_data uri acc
+      | None -> Lwt.return acc
     in
-    (* END WIP *)
-    let status = Response.status response |> Code.string_of_status in
-    Lwt.return (status, resp_body)
+    Lwt.return @@ collect_data uri []
 end
