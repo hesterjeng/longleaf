@@ -95,6 +95,9 @@ module Bars = struct
       volume_weighted : float; [@key "vw"]
     }
     [@@deriving show { with_path = false }, yojson]
+
+    let compare x y =
+      Ptime.compare (Time.of_string x.timestamp) (Time.of_string y.timestamp)
   end
 
   module Bars2 = struct
@@ -120,10 +123,25 @@ module Bars = struct
     next_page_token : string option; [@default None]
     currency : string option; [@default None]
   }
-  [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+  [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
+
+  let combine (l : t list) : t =
+    let keys = List.flat_map (fun x -> List.Assoc.keys x.bars) l in
+    let get_data key =
+      let data =
+        List.flat_map
+          (fun (x : t) ->
+            match List.Assoc.get ~eq:String.equal key x.bars with
+            | Some found -> found
+            | None -> [])
+          l
+      in
+      List.sort Bar_item.compare data
+    in
+    let bars = List.map (fun key -> (key, get_data key)) keys in
+    { bars; next_page_token = None; currency = None }
 
   let t_of_yojson x =
-    Format.printf "%a" Yojson.Safe.pp x;
     try t_of_yojson x
     with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
       let err = Printexc.to_string e in
