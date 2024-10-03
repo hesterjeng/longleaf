@@ -29,9 +29,7 @@ let process_json (x : Yojson.Safe.t) =
     Trading_types.(
       Lwt_main.run
       @@ Market_data_api.Stock.historical_bars env (Timeframe.hour 1)
-           ~start:(Time.of_string "2024-08-28")
-           [ "AAPL" ])
+           ~start:(Time.of_ymd "2024-08-28") [ "AAPL" ])
   in
-  Log.app (fun k ->
-      k "resp_body: %a" Format.(list Trading_types.Bars.pp) resp_body);
+  Log.app (fun k -> k "resp_body: %a" Trading_types.Bars.pp resp_body);
   Dataframe.of_json x

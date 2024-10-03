@@ -43,5 +43,6 @@ module Stock = struct
           collect_data uri acc
       | None -> Lwt.return acc
     in
-    collect_data uri []
+    let* paginated = collect_data uri [] in
+    Lwt.return @@ Bars.combine paginated
 end
