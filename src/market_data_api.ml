@@ -22,8 +22,7 @@ module Stock = struct
     Lwt.return (status, resp_body)
 
   let historical_bars (env : Environment.t) (timeframe : Timeframe.t)
-      ~(start : Time.t) (* ~(end_ : Time.t) *)
-                          (symbols : string list) =
+      ~(start : Time.t) (symbols : string list) =
     let headers = h env in
     let symbols = String.concat "," symbols in
     let uri =
@@ -44,5 +43,5 @@ module Stock = struct
           collect_data uri acc
       | None -> Lwt.return acc
     in
-    Lwt.return @@ collect_data uri []
+    collect_data uri []
 end
