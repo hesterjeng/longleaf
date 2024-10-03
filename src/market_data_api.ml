@@ -37,17 +37,21 @@ module Stock = struct
     let resp_body_json = Yojson.Safe.from_string resp_body_raw in
     let resp_body = Trading_types.Bars.t_of_yojson resp_body_json in
     (* WIP *)
-    let* npt : unit =
-      match Trading_types.Bars.get_next_page_token resp_body_json with
-      | Some npt ->
-        let new_uri = Uri.add_query_param' uri ("page_token",npt) in
-        let* _response, body_stream = Client.get ~headers new_uri in
-        let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-        let resp_body_json = Yojson.Safe.from_string resp_body_raw in
-        let resp_body = Trading_types.Bars.t_of_yojson resp_body_json in
-        Log.app (fun k -> k "npt: %a" Bars.pp resp_body);
-        Lwt.return_unit
-      | None -> Lwt.return_unit
+    let rec collect_npts resp_body_json acc =
+      let+ npt =
+        match Trading_types.Bars.get_next_page_token resp_body_json with
+        | Some npt ->
+            let new_uri = Uri.add_query_param' uri ("page_token", npt) in
+            let* _response, body_stream = Client.get ~headers new_uri in
+            let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
+            let resp_body_json = Yojson.Safe.from_string resp_body_raw in
+            let resp_body = Trading_types.Bars.t_of_yojson resp_body_json in
+            Log.app (fun k -> k "npt: %a" Bars.pp resp_body);
+            Lwt.return @@ Some resp_body
+            (* Lwt.return_unit *)
+        | None -> Lwt.return acc
+      in
+      npt
     in
     (* END WIP *)
     let status = Response.status response |> Code.string_of_status in
