@@ -9,7 +9,6 @@ include Ppx_yojson_conv_lib.Yojson_conv
 module Get_log = (val Logs.src_log Logs.(Src.create "get-log"))
 
 let get ~headers ~uri =
-  let open Lwt in
   let open Lwt.Syntax in
   let open Cohttp in
   let open Cohttp_lwt_unix in
@@ -40,7 +39,8 @@ let get ~headers ~uri =
 
 let get_next_page_token (x : Yojson.Safe.t) =
   Option.(
-    let+ npt = Yojson.Safe.Util.(to_option (member "next_page_token") x) in
+    let* npt = Yojson.Safe.Util.(to_option (member "next_page_token") x) in
     match npt with
-    | `String s -> s
-    | _ -> invalid_arg "next_page_token must be a string")
+    | `String s -> Some s
+    | `Null -> None
+    | _ -> invalid_arg "next_page_token must be a string or null")
