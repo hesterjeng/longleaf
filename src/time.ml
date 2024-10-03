@@ -17,3 +17,18 @@ let of_int ms =
 let pp_int fmt x =
   let x = of_int x in
   pp fmt x
+
+let of_ymd x =
+  (* This is meant to be parsing things like YYYY-MM-DD *)
+  let rfc = x ^ "T00:00:00Z" in
+  match Ptime.of_rfc3339 rfc with
+  | Ok (t, _, _) -> t
+  | Error _ ->
+      invalid_arg
+      @@ Format.asprintf "Invalid time in my time module (ymd)? %s" x
+
+let of_string x =
+  match Ptime.of_rfc3339 x with
+  | Ok (t, _, _) -> t
+  | Error _ ->
+      invalid_arg @@ Format.asprintf "Invalid time in my time module? %s" x

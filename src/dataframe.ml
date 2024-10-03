@@ -110,7 +110,8 @@ type parsed = Element.t array [@@deriving show]
 type t = { index : string; data : Owl_dataframe.t }
 
 let pp fmt x =
-  Format.fprintf fmt "@[   +-------------+ %s +-------------+@]@.@[%a@]@." x.index Owl_pretty.pp_dataframe x.data
+  Format.fprintf fmt "@[   +-------------+ %s +-------------+@]@.@[%a@]@."
+    x.index Owl_pretty.pp_dataframe x.data
 
 module Conversion = struct
   let collect_indices (x : Element.t) =
@@ -166,10 +167,10 @@ let of_json (x : Yojson.Safe.t) : (parsed, string) result =
       Array.sort Element.compare array;
       (* Log.app (fun k -> k "%a" pp_parsed array); *)
       let indices_found = Conversion.collect_all_indices array in
-      Log.app (fun k -> k "%a" Format.(list string) indices_found);
+      (* Log.app (fun k -> k "%a" Format.(list string) indices_found); *)
       let dataframes =
         List.map (fun x -> Conversion.top array x) indices_found
       in
-      Log.app (fun k -> k "%a" Format.(list pp) dataframes);
+      (* Log.app (fun k -> k "%a" Format.(list pp) dataframes); *)
       Ok array
   | _ -> Error "Dataframe.of_json:  This is not a list"

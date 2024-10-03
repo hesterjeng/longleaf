@@ -15,24 +15,21 @@ module Tickers = struct
     Py.List.to_array_map Py.Object.to_string ticker_symbols
 end
 
-(* module Dataframe = struct *)
-(*   let index x = *)
-(*     Option.( *)
-(*       let+ index = Py.Object.get_attr_string x "index" in *)
-(*       index) *)
-(* end *)
-
-let run () =
-  let _ = Python_examples.ocaml_value_in_python () in
-  let _ = Python_examples.ocaml_function_in_python () in
-  let _ = Python_examples.call_python_function_from_ocaml () in
-  let data = Data.of_string "AAPL" in
-  Log.app (fun k -> k "%a" Data.pp data);
-  Yojson.Safe.to_file "mo.json" @@ Data.yojson_of_t data;
-  (* My_time.print_time_array data.date; *)
-  Strategy.basic data;
-  ()
-
 let process_json (x : Yojson.Safe.t) =
-  Log.app (fun k -> k "Attempting to create dataframe from json");
+  let env = Environment.make () in
+  Log.app (fun k -> k "%a" Environment.pp env);
+  let _ = Trading_api.Accounts.get_account env in
+  (* let status, resp_body = *)
+  (*   Trading_types.( *)
+  (*     Lwt_main.run *)
+  (*     @@ Trading_api.Orders.create_market_order env "AAPL" Side.Buy *)
+  (*          TimeInForce.Opening OrderType.Market 10) *)
+  (* in *)
+  let resp_body =
+    Trading_types.(
+      Lwt_main.run
+      @@ Market_data_api.Stock.historical_bars env (Timeframe.hour 1)
+           ~start:(Time.of_ymd "2024-08-28") [ "AAPL" ])
+  in
+  Log.app (fun k -> k "resp_body: %a" Trading_types.Bars.pp resp_body);
   Dataframe.of_json x
