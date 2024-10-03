@@ -15,12 +15,7 @@ module Accounts = struct
   let get_account (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/account" in
     let headers = h env in
-    let* resp, body = Client.get ~headers uri in
-    let* body = Cohttp_lwt.Body.to_string body in
-    let body_json = Yojson.Safe.from_string body in
-    let status = Response.status resp |> Code.string_of_status in
-    Log.app (fun k -> k "@[%s@]@.@[%a@]@." status Yojson.Safe.pp body_json);
-    Lwt.return (status, body_json)
+    Util.get ~headers ~uri
 end
 
 module Orders = struct
@@ -41,30 +36,17 @@ module Orders = struct
           ])
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
     in
-    let* response, body_stream = Client.post ~headers ~body uri in
-    let* resp_body = Cohttp_lwt.Body.to_string body_stream in
-    let status = Response.status response |> Code.string_of_status in
-    Lwt.return (status, resp_body)
+    Util.post ~headers ~body ~uri
 
   let get_all_orders (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
     let headers = h env in
-    let* resp, body = Client.get ~headers uri in
-    let* body = Cohttp_lwt.Body.to_string body in
-    let body_json = Yojson.Safe.from_string body in
-    let status = Response.status resp |> Code.string_of_status in
-    Log.app (fun k -> k "@[%s@]@.@[%a@]@." status Yojson.Safe.pp body_json);
-    Lwt.return (status, body_json)
+    Util.get ~headers ~uri
 
   let delete_all_orders (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
     let headers = h env in
-    let* resp, body = Client.delete ~headers uri in
-    let* body = Cohttp_lwt.Body.to_string body in
-    let body_json = Yojson.Safe.from_string body in
-    let status = Response.status resp |> Code.string_of_status in
-    Log.app (fun k -> k "@[%s@]@.@[%a@]@." status Yojson.Safe.pp body_json);
-    Lwt.return (status, body_json)
+    Util.delete ~headers ~uri
 
   let get_order_by_id (env : Environment.t) (id : OrderId.t) =
     let uri =
@@ -72,12 +54,7 @@ module Orders = struct
       Uri.with_path u @@ OrderId.to_string id
     in
     let headers = h env in
-    let* resp, body = Client.get ~headers uri in
-    let* body = Cohttp_lwt.Body.to_string body in
-    let body_json = Yojson.Safe.from_string body in
-    let status = Response.status resp |> Code.string_of_status in
-    Log.app (fun k -> k "@[%s@]@.@[%a@]@." status Yojson.Safe.pp body_json);
-    Lwt.return (status, body_json)
+    Util.get ~headers ~uri
 
   let delete_order_by_id (env : Environment.t) (id : OrderId.t) =
     let uri =
@@ -85,10 +62,5 @@ module Orders = struct
       Uri.with_path u @@ OrderId.to_string id
     in
     let headers = h env in
-    let* resp, body = Client.delete ~headers uri in
-    let* body = Cohttp_lwt.Body.to_string body in
-    let body_json = Yojson.Safe.from_string body in
-    let status = Response.status resp |> Code.string_of_status in
-    Log.app (fun k -> k "@[%s@]@.@[%a@]@." status Yojson.Safe.pp body_json);
-    Lwt.return (status, body_json)
+    Util.delete ~headers ~uri
 end
