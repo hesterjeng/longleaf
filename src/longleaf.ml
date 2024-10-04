@@ -31,5 +31,13 @@ let process_json (x : Yojson.Safe.t) =
 let top () =
   let open Lwt.Syntax in
   let env = Environment.make () in
-  let* latest_bars = Market_data_api.Stock.latest_bars env [ "AAPL" ] in
+  let* _account = Trading_api.Accounts.get_account env in
+  (* Log.app (fun k -> k "account: %a" Trading_api.Accounts.pp account); *)
+  (* let* _latest_bars = Market_data_api.Stock.latest_bars env [ "AAPL" ] in *)
+  let module Input : Strategy.INPUT = struct
+    let account () = Trading_api.Accounts.get_account env
+    let environment = env
+  end in
+  let module Coinflip_strat = Strategy.Get_account_strategy (Input) in
+  let* _ = Coinflip_strat.top () in
   Lwt.return (Cohttp.Code.status_of_code 200)
