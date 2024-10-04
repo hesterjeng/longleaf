@@ -1,4 +1,5 @@
 open Cohttp
+open Lwt.Syntax
 module Log = (val Logs.src_log Logs.(Src.create "trading-api"))
 open Trading_types
 
@@ -8,11 +9,58 @@ let h (env : Environment.t) =
   Header.add h "APCA-API-KEY-ID" env.apca_api_key_id |> fun h ->
   Header.add h "APCA-API-SECRET-KEY" env.apca_api_secret_key
 
+module Clock = struct
+  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
+
+  type t = {
+    is_open : bool;
+    timestamp : string;
+    next_open : string;
+    next_close : string;
+  }
+  [@@deriving show, yojson]
+
+  let get (env : Environment.t) =
+    let uri = Uri.with_path env.apca_api_base_url "/v2/clock" in
+    let headers = h env in
+    let* body_json = Util.get ~headers ~uri in
+    Lwt.return @@ t_of_yojson body_json
+end
+
 module Accounts = struct
+  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
+
+  let float_of_yojson yojson =
+    match yojson with
+    | `Float v -> v
+    | `Int i -> float_of_int i
+    | `Intlit str | `String str -> float_of_string str
+    | _ -> invalid_arg "float_of_yojson: float needed"
+
+  type t = {
+    cash : float;
+    long_market_value : float;
+    short_market_value : float;
+    position_market_value : float;
+    initial_margin : float;
+    maintenance_margin : float;
+    daytrade_count : int;
+    pattern_day_trader : bool;
+    status : string;
+  }
+  [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+
+  let t_of_yojson x =
+    try t_of_yojson x
+    with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
+      let err = Printexc.to_string e in
+      invalid_arg @@ Format.asprintf "%s" err
+
   let get_account (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/account" in
     let headers = h env in
-    Util.get ~headers ~uri
+    let* body_json = Util.get ~headers ~uri in
+    Lwt.return @@ t_of_yojson body_json
 end
 
 module Orders = struct
