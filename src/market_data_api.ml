@@ -1,8 +1,6 @@
-open Lwt
 open Lwt.Syntax
 open Cohttp
 open Cohttp_lwt_unix
-module Log = (val Logs.src_log Logs.(Src.create "data-api"))
 open Trading_types
 
 let h = Trading_api.h
@@ -13,7 +11,7 @@ module Stock = struct
     let symbols = String.concat "," symbols in
     let uri = Uri.with_path env.apca_api_data_url "/v2/stocks/auctions" in
     let body =
-      Yojson.Safe.(`Assoc [ ("symbols", `String symbols) ])
+      `Assoc [ ("symbols", `String symbols) ]
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
     in
     let* response, body_stream = Client.post ~headers ~body uri in
@@ -37,8 +35,8 @@ module Stock = struct
       match Util.get_next_page_token resp_body_json with
       | Some npt ->
           let uri =
-            Uri.remove_query_param uri "page_token" |> fun u ->
-            Uri.add_query_param' uri ("page_token", npt)
+            let removed = Uri.remove_query_param uri "page_token" in
+            Uri.add_query_param' removed ("page_token", npt)
           in
           collect_data uri acc
       | None -> Lwt.return acc
