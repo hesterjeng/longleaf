@@ -19,12 +19,6 @@ let process_json (x : Yojson.Safe.t) =
   let env = Environment.make () in
   Log.app (fun k -> k "%a" Environment.pp env);
   let _ = Trading_api.Accounts.get_account env in
-  (* let status, resp_body = *)
-  (*   Trading_types.( *)
-  (*     Lwt_main.run *)
-  (*     @@ Trading_api.Orders.create_market_order env "AAPL" Side.Buy *)
-  (*          TimeInForce.Opening OrderType.Market 10) *)
-  (* in *)
   let resp_body =
     Trading_types.(
       Lwt_main.run
@@ -33,3 +27,9 @@ let process_json (x : Yojson.Safe.t) =
   in
   Log.app (fun k -> k "resp_body longleaf: %a" Trading_types.Bars.pp resp_body);
   Dataframe.of_json x
+
+let top () =
+  let open Lwt.Syntax in
+  let env = Environment.make () in
+  let* latest_bars = Market_data_api.Stock.latest_bars env [ "AAPL" ] in
+  Lwt.return (Cohttp.Code.status_of_code 200)
