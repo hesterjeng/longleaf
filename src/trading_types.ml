@@ -111,7 +111,10 @@ module Bars = struct
               ( ticker,
                 match data with
                 | `List l -> List.map Bar_item.t_of_yojson l
-                | _ -> invalid_arg "The data must be stored as a list" ))
+                | `Assoc _ -> [ Bar_item.t_of_yojson data ]
+                | a ->
+                    Util.Util_log.err (fun k -> k "%a" Yojson.Safe.pp a);
+                    invalid_arg "The data must be stored as a list" ))
             s
       | _ -> invalid_arg "Bars must be a toplevel Assoc"
 
@@ -125,9 +128,11 @@ module Bars = struct
   }
   [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
-  (* FIXME:  I don't think this isn't working correctl! *)
   let combine (l : t list) : t =
-    let keys = List.flat_map (fun x -> List.Assoc.keys x.bars) l in
+    let keys =
+      List.flat_map (fun x -> List.Assoc.keys x.bars) l
+      |> List.uniq ~eq:String.equal
+    in
     let get_data key =
       let data =
         List.flat_map
@@ -140,8 +145,7 @@ module Bars = struct
       List.sort Bar_item.compare data
     in
     let bars = List.map (fun key -> (key, get_data key)) keys in
-    invalid_arg "fixme! (trading_types.ml)"
-    (* { bars; next_page_token = None; currency = None } *)
+    { bars; next_page_token = None; currency = None }
 
   let t_of_yojson x =
     try t_of_yojson x
