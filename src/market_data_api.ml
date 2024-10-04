@@ -43,4 +43,16 @@ module Stock = struct
     in
     let* paginated = collect_data uri [] in
     Lwt.return @@ Bars.combine paginated
+
+  let latest_bars (env : Environment.t) (symbols : string list) =
+    let headers = h env in
+    let symbols = String.concat "," symbols in
+    let uri =
+      Uri.with_path env.apca_api_data_url "/v2/stocks/bars/latest" |> fun u ->
+      Uri.add_query_param' u ("symbols", symbols)
+    in
+    let* resp_body_json = Util.get ~headers ~uri in
+    Util.Util_log.app (fun k -> k "%a" Yojson.Safe.pp resp_body_json);
+    let bar = Bars.t_of_yojson resp_body_json in
+    Lwt.return bar
 end
