@@ -93,19 +93,17 @@ module Positions = struct
 end
 
 module Orders = struct
-  let create_market_order (env : Environment.t) (symbol : string)
-      (side : Side.t) (tif : TimeInForce.t) (order_type : OrderType.t)
-      (qty : int) =
+  let create_market_order (env : Environment.t) (order : Order.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
     let headers = h env in
     let body =
       `Assoc
         [
-          ("symbol", `String symbol);
-          ("type", `String (OrderType.to_string order_type));
-          ("time_in_force", `String (TimeInForce.to_string tif));
-          ("side", `String (Side.to_string side));
-          ("qty", `String (Int.to_string qty));
+          ("symbol", `String order.symbol);
+          ("type", `String (OrderType.to_string order.order_type));
+          ("time_in_force", `String (TimeInForce.to_string order.tif));
+          ("side", `String (Side.to_string order.side));
+          ("qty", `String (Int.to_string order.qty));
         ]
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
     in
