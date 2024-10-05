@@ -28,7 +28,8 @@ let process_json (x : Yojson.Safe.t) =
   Log.app (fun k -> k "resp_body longleaf: %a" Trading_types.Bars.pp resp_body);
   Dataframe.of_json x
 
-let top () =
+let top_old () =
+  (* First test *)
   let open Lwt.Syntax in
   let env = Environment.make () in
   let* _account = Trading_api.Accounts.get_account env in
@@ -40,4 +41,13 @@ let top () =
   end in
   let module Coinflip_strat = Strategy.Get_account_strategy (Input) in
   let* _ = Coinflip_strat.top () in
+  Lwt.return (Cohttp.Code.status_of_code 200)
+
+let top () =
+  (* Using state machine *)
+  let open Lwt.Syntax in
+  let env = Environment.make () in
+  let module Strategies = State_machine.Make (State_machine.Alpaca_backend) in
+  let module Strategy = Strategies.SimpleStateMachine in
+  let* _ = Strategy.run env in
   Lwt.return (Cohttp.Code.status_of_code 200)
