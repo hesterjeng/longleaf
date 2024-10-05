@@ -168,7 +168,7 @@ let of_json (x : Yojson.Safe.t) : (parsed, string) result =
       (* Log.app (fun k -> k "%a" pp_parsed array); *)
       let indices_found = Conversion.collect_all_indices array in
       (* Log.app (fun k -> k "%a" Format.(list string) indices_found); *)
-      let dataframes =
+      let _dataframes =
         List.map (fun x -> Conversion.top array x) indices_found
       in
       (* Log.app (fun k -> k "%a" Format.(list pp) dataframes); *)
