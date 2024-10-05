@@ -63,6 +63,21 @@ module Accounts = struct
     Lwt.return @@ t_of_yojson body_json
 end
 
+module Assets = struct
+  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
+
+  type asset = { id : string }
+  [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+
+  type t = asset list [@@deriving show, yojson]
+
+  let get_assets (env : Environment.t) =
+    let uri = Uri.with_path env.apca_api_base_url "/v2/assets" in
+    let headers = h env in
+    let* body_json = Util.get ~headers ~uri in
+    Lwt.return @@ t_of_yojson body_json
+end
+
 module Orders = struct
   let create_market_order (env : Environment.t) (symbol : string)
       (side : Side.t) (tif : TimeInForce.t) (order_type : OrderType.t)
