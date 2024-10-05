@@ -62,8 +62,12 @@ module Alpaca_backend : BACKEND = struct
     | None -> invalid_arg "Unable to get price info for ticker"
 end
 
+module type STRAT = sig
+  val run : Environment.t -> Cohttp.Code.status_code Lwt.t
+end
+
 module Make (Backend : BACKEND) = struct
-  module SimpleStateMachine = struct
+  module SimpleStateMachine : STRAT = struct
     let () = Random.self_init ()
 
     open Trading_types
