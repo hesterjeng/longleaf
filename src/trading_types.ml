@@ -154,6 +154,13 @@ module Bars = struct
     let bars = List.map (fun key -> (key, get_data key)) keys in
     { bars; next_page_token = None; currency = None }
 
+  let price x ticker =
+    let bars = x.bars in
+    match List.Assoc.get ~eq:String.equal ticker bars with
+    | Some [ info ] -> info.closing_price
+    | Some _ -> invalid_arg "Multiple bar items on latest bar?"
+    | None -> invalid_arg "Unable to get price info for ticker"
+
   let t_of_yojson x =
     try t_of_yojson x
     with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
