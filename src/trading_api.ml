@@ -78,6 +78,20 @@ module Assets = struct
     Lwt.return @@ t_of_yojson body_json
 end
 
+module Positions = struct
+  let close_all_positions (env : Environment.t) (cancel_orders : bool) =
+    let cancel_orders = if cancel_orders then "true" else "false" in
+    let uri =
+      Uri.with_path env.apca_api_base_url "/v2/positions" |> fun u ->
+      Uri.add_query_param' u ("cancel_orders", cancel_orders)
+    in
+    let headers = h env in
+    let* body_json = Util.delete ~headers ~uri in
+    Log.app (fun k -> k "Closed all positions");
+    Log.app (fun k -> k "%a" Yojson.Safe.pp body_json);
+    Lwt.return_unit
+end
+
 module Orders = struct
   let create_market_order (env : Environment.t) (symbol : string)
       (side : Side.t) (tif : TimeInForce.t) (order_type : OrderType.t)
