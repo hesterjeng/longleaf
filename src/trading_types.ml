@@ -110,6 +110,8 @@ module Bars = struct
   module Bars2 = struct
     type t = (string * Bar_item.t list) list [@@deriving show]
 
+    let empty : t = []
+
     let t_of_yojson (x : Yojson.Safe.t) =
       match x with
       | `Assoc s ->
@@ -134,6 +136,9 @@ module Bars = struct
     currency : string option; [@default None]
   }
   [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
+
+  let empty : t =
+    { bars = Bars2.empty; next_page_token = None; currency = None }
 
   let combine (l : t list) : t =
     let keys =
@@ -177,6 +182,7 @@ module Order = struct
     tif : TimeInForce.t;
     order_type : OrderType.t;
     qty : int;
+    price : float;
   }
   [@@deriving show, yojson]
 end
