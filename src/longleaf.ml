@@ -47,17 +47,28 @@ let top () =
   (* Using state machine *)
   let open Lwt.Syntax in
   let env = Environment.make () in
-  let* () =
-    Log.debug (fun k -> k "Data display");
-    let* latest_bars = Market_data_api.Stock.latest_bars env [ "AAPL"; "NVDA" ] in
+  let* bars =
+    (* Log.app (fun k -> k "Data display"); *)
+    (* let* latest_bars = *)
+    (*   Market_data_api.Stock.latest_bars env [ "AAPL"; "NVDA" ] *)
+    (* in *)
     let* historical_bars =
       Market_data_api.Stock.historical_bars env Trading_types.Timeframe.day
-        ~start:(Time.of_ymd "2012-06-06") [ "MSFT"; "GOOG" ]
+        ~start:(Time.of_ymd "2012-06-06")
+        [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ]
     in
-    Log.debug (fun k -> k "Data display finished");
-    Lwt.return_unit
+    (* Log.app (fun k -> k "latest_bars:"); *)
+    (* Log.app (fun k -> k "%a" Trading_types.Bars.pp latest_bars); *)
+    (* Log.app (fun k -> k "historical_bars:"); *)
+    (* Log.app (fun k -> k "%a" Trading_types.Bars.pp historical_bars); *)
+    (* Log.app (fun k -> k "Data display finished"); *)
+    Lwt.return historical_bars
   in
+  let module Backend = State_machine.Backtesting_backend (struct
+    let bars = bars
+  end) in
+  let module Strategy = State_machine.SimpleStateMachine (Backend) in
   (* let module Strategy = *)
   (*   State_machine.SimpleStateMachine (State_machine.Alpaca_backend) in *)
-  (* let* _ = Strategy.run env in *)
+  let* _ = Strategy.run env in
   Lwt.return (Cohttp.Code.status_of_code 200)
