@@ -41,6 +41,30 @@ module type BACKEND = sig
   val get_clock : Environment.t -> Trading_api.Clock.t Lwt.t
 end
 
+module Backtesting_backend : BACKEND = struct
+  open Lwt.Syntax
+  open Trading_types
+  module Ticker = InstantTicker
+
+  let __account = ref Trading_api.Accounts.default_account
+
+  module Brokerage = struct
+
+    let margin () = !__account.buying_power -. !__account.cash
+
+    let cash () = !__account.cash
+
+    let buy (x : Order.t) =
+      match x.side with
+      | Buy -> ()
+      | Sell -> ()
+
+  end
+
+  let get_account _ =
+    Lwt.return !__account
+end
+
 module Alpaca_backend : BACKEND = struct
   open Lwt.Syntax
   open Trading_types
@@ -48,7 +72,10 @@ module Alpaca_backend : BACKEND = struct
   (* module Ticker = FiveMinuteTicker *)
   module Ticker = ThirtyMinuteTicker
 
-  let create_order = Trading_api.Orders.create_market_order
+  let create_order env order =
+    let res = Trading_api.Orders.create_market_order env order in
+    res
+
   let get_account = Trading_api.Accounts.get_account
   let latest_bars = Market_data_api.Stock.latest_bars
   let get_clock = Trading_api.Clock.get
@@ -80,7 +107,8 @@ module Make (Backend : BACKEND) = struct
       match state.current with
       | Initialize ->
           Log.app (fun k -> k "Initialize");
-          let* _account = Backend.get_account env in
+          let* account = Backend.get_account env in
+          Log.app (fun k -> k "%a" Trading_api.Accounts.pp account);
           Lwt.return @@ continue { state with current = Listening }
       | Listening ->
           Log.app (fun k -> k "Listening");
