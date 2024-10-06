@@ -42,13 +42,30 @@ module Accounts = struct
     long_market_value : float;
     short_market_value : float;
     position_market_value : float;
+    buying_power : float;
     initial_margin : float;
     maintenance_margin : float;
     daytrade_count : int;
     pattern_day_trader : bool;
+    margin_enabled : bool;
     status : string;
   }
   [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+
+  let default_account =
+    {
+      cash = 100000.0;
+      buying_power = 0.0;
+      long_market_value = 0.0;
+      short_market_value = 0.0;
+      position_market_value = 0.0;
+      maintenance_margin = 0.0;
+      initial_margin = 0.0;
+      daytrade_count = 0;
+      pattern_day_trader = false;
+      margin_enabled = true;
+      status = "Not sure what should go here";
+    }
 
   let t_of_yojson x =
     try t_of_yojson x
@@ -93,19 +110,17 @@ module Positions = struct
 end
 
 module Orders = struct
-  let create_market_order (env : Environment.t) (symbol : string)
-      (side : Side.t) (tif : TimeInForce.t) (order_type : OrderType.t)
-      (qty : int) =
+  let create_market_order (env : Environment.t) (order : Order.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
     let headers = h env in
     let body =
       `Assoc
         [
-          ("symbol", `String symbol);
-          ("type", `String (OrderType.to_string order_type));
-          ("time_in_force", `String (TimeInForce.to_string tif));
-          ("side", `String (Side.to_string side));
-          ("qty", `String (Int.to_string qty));
+          ("symbol", `String order.symbol);
+          ("type", `String (OrderType.to_string order.order_type));
+          ("time_in_force", `String (TimeInForce.to_string order.tif));
+          ("side", `String (Side.to_string order.side));
+          ("qty", `String (Int.to_string order.qty));
         ]
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
     in

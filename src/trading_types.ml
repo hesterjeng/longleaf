@@ -6,6 +6,7 @@ module TimeInForce = struct
     | Close
     | ImmediateOrCancel
     | FillOrKill
+  [@@deriving show, yojson]
 
   let to_string = function
     | Day -> "day"
@@ -17,13 +18,14 @@ module TimeInForce = struct
 end
 
 module Side = struct
-  type t = Buy | Sell
+  type t = Buy | Sell [@@deriving show, yojson]
 
   let to_string = function Buy -> "buy" | Sell -> "sell"
 end
 
 module OrderType = struct
   type t = Market | Limit | Stop | StopLimit | TrailingStop
+  [@@deriving show, yojson]
 
   let to_string = function
     | Market -> "market"
@@ -48,6 +50,8 @@ end
 module Timeframe : sig
   type t
 
+  val t_of_yojson : Yojson.Safe.t -> t
+  val yojson_of_t : t -> Yojson.Safe.t
   val to_string : t -> string
   val min : int -> t
   val hour : int -> t
@@ -55,7 +59,10 @@ module Timeframe : sig
   val week : t
   val month : int -> t
 end = struct
+  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
+
   type t = Min of int | Hour of int | Day | Week | Month of int
+  [@@deriving show, yojson]
 
   let to_string = function
     | Min i -> Format.asprintf "%dMin" i
@@ -147,9 +154,29 @@ module Bars = struct
     let bars = List.map (fun key -> (key, get_data key)) keys in
     { bars; next_page_token = None; currency = None }
 
+  let price x ticker =
+    let bars = x.bars in
+    match List.Assoc.get ~eq:String.equal ticker bars with
+    | Some [ info ] -> info.closing_price
+    | Some _ -> invalid_arg "Multiple bar items on latest bar?"
+    | None -> invalid_arg "Unable to get price info for ticker"
+
   let t_of_yojson x =
     try t_of_yojson x
     with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
       let err = Printexc.to_string e in
       invalid_arg @@ Format.asprintf "%s" err
+end
+
+module Order = struct
+  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
+
+  type t = {
+    symbol : string;
+    side : Side.t;
+    tif : TimeInForce.t;
+    order_type : OrderType.t;
+    qty : int;
+  }
+  [@@deriving show, yojson]
 end
