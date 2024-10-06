@@ -4,7 +4,7 @@ module State = struct
     | Listening
     | Ordering
     | Liquidate
-    | Error of string
+    | ErrorState of string
     | Finished of Cohttp.Code.status_code
 
   type 'a t = { env : Environment.t; current : state; content : 'a }
@@ -41,13 +41,11 @@ module type BACKEND = sig
   val create_order :
     Environment.t -> Trading_types.Order.t -> Yojson.Safe.t Lwt.t
 
-  (* val get_account : Environment.t -> Trading_api.Accounts.t Lwt.t *)
   val latest_bars :
     Environment.t -> string list -> Trading_types.Bars.t option Lwt.t
-  (* val latest_price : Environment.t -> string -> float Lwt.t *)
-  (* val get_clock : Environment.t -> Trading_api.Clock.t Lwt.t *)
 
   val last_data_bar : Trading_types.Bars.t option
+  val liquidate : Environment.t -> unit Lwt.t
 end
 
 module type BACKEND_INPUT = sig
@@ -83,8 +81,6 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
 
   let data_remaining = ref Data.bars.bars
 
-  (* TODO: Massage historical bars to give them in a format we can use *)
-  (* for price data *)
   let latest_bars _ _ : Bars.t option Lwt.t =
     let bars = !data_remaining in
     let latest =
@@ -107,8 +103,8 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
     data_remaining := rest;
     match latest with
     | Some x ->
-        Lwt.return
-        @@ Some Bars.{ bars = x; next_page_token = None; currency = None }
+        Lwt.return_some
+        @@ Bars.{ bars = x; next_page_token = None; currency = None }
     | None -> Lwt.return_none
 
   let last_data_bar =
@@ -124,6 +120,35 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
         currency = None;
         next_page_token = None;
       }
+
+  let liquidate env =
+    let position = get_position () in
+    let final_bar =
+      match last_data_bar with
+      | Some b -> b
+      | None ->
+          invalid_arg "Expected to have last data bar in backtesting backend"
+    in
+    let _ =
+      Hashtbl.map_list
+        (fun symbol qty ->
+          if qty = 0 then Lwt.return_unit
+          else
+            let order : Order.t =
+              {
+                symbol;
+                side = (if qty >= 0 then Side.Sell else Side.Buy);
+                tif = TimeInForce.GoodTillCanceled;
+                order_type = OrderType.Market;
+                qty;
+                price = Bars.price final_bar symbol;
+              }
+            in
+            let* _json_resp = create_order env order in
+            Lwt.return_unit)
+        position
+    in
+    Lwt.return_unit
 end
 
 (* Live trading *)
@@ -148,18 +173,39 @@ module Alpaca_backend : BACKEND = struct
   let get_cash = Backtesting_backend.get_cash
   let get_position = Backtesting_backend.get_position
 
-  (* let latest_price env ticker = *)
-  (*   let* response = latest_bars env [ ticker ] in *)
-  (*   let bars = response.bars in *)
-  (*   match List.Assoc.get ~eq:String.equal ticker bars with *)
-  (*   | Some [ info ] -> Lwt.return info.closing_price *)
-  (*   | Some _ -> invalid_arg "Multiple bar items on latest bar?" *)
-  (*   | None -> invalid_arg "Unable to get price info for ticker" *)
-
   let create_order env order =
     let* res = Trading_api.Orders.create_market_order env order in
     let* _ = Backtesting_backend.create_order env order in
     Lwt.return res
+
+  let liquidate env =
+    let position = get_position () in
+    let symbols = Hashtbl.keys_list position in
+    let* last_data_bar_opt = latest_bars env symbols in
+    let final_bar =
+      Option.get_exn_or "Impossible... must be able to reach brokerage"
+        last_data_bar_opt
+    in
+    let _ =
+      Hashtbl.map_list
+        (fun symbol qty ->
+          if qty = 0 then Lwt.return_unit
+          else
+            let order : Order.t =
+              {
+                symbol;
+                side = (if qty >= 0 then Side.Sell else Side.Buy);
+                tif = TimeInForce.GoodTillCanceled;
+                order_type = OrderType.Market;
+                qty;
+                price = Bars.price final_bar symbol;
+              }
+            in
+            let* _json_resp = create_order env order in
+            Lwt.return_unit)
+        position
+    in
+    Lwt.return_unit
 end
 
 module type STRAT = sig
@@ -179,7 +225,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
   let step (state : 'a State.t) : ('a, 'b) State.status Lwt.t =
     let env = state.env in
     match state.current with
-    | Error s ->
+    | ErrorState s ->
         Log.app (fun k -> k "Encountered an error: %s" s);
         Lwt.return @@ continue { state with current = Liquidate }
     | Initialize ->
@@ -189,6 +235,13 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         Log.app (fun k -> k "Listening");
         let* () = Backend.Ticker.tick () in
         Lwt.return @@ continue { state with current = Ordering }
+    | Liquidate ->
+        Log.app (fun k -> k "Liquidate");
+        let* () = Backend.liquidate env in
+        Lwt.return @@ continue { state with current = Finished ok_code }
+    | Finished code ->
+        Log.app (fun k -> k "cash: %f" (Backend.get_cash ()));
+        Lwt.return @@ shutdown code
     | Ordering -> (
         Log.app (fun k -> k "Ordering");
         let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
@@ -225,35 +278,6 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
                 Lwt.return_unit
             in
             Lwt.return @@ continue { state with current = Listening })
-    | Liquidate ->
-        Log.app (fun k -> k "Liquidate");
-        let position = Backend.get_position () in
-        let final_bar =
-          match Backend.last_data_bar with
-          | Some b -> b
-          | None -> invalid_arg "Expected to have last data bar"
-        in
-        let _ =
-          Hashtbl.map_list
-            (fun symbol qty ->
-              let order : Order.t =
-                {
-                  symbol;
-                  side = (if qty >= 0 then Side.Sell else Side.Buy);
-                  tif = TimeInForce.GoodTillCanceled;
-                  order_type = OrderType.Market;
-                  qty;
-                  price = Bars.price final_bar symbol;
-                }
-              in
-              let* _json_resp = Backend.create_order env order in
-              Lwt.return_unit)
-            position
-        in
-        Lwt.return @@ continue { state with current = Finished ok_code }
-    | Finished code ->
-        Log.app (fun k -> k "cash: %f" (Backend.get_cash ()));
-        Lwt.return @@ shutdown code
 
   let run env =
     let init = init env in
