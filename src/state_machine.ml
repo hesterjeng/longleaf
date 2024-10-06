@@ -33,12 +33,12 @@ module type BACKEND = sig
   module Ticker : TICKER
 
   val create_order :
-    Environment.t -> Trading_types.Order.t -> Yojson.Safe.t Lwt.t
+    Environment.t -> Trading_types.Order.t -> float -> Yojson.Safe.t Lwt.t
 
-  val get_account : Environment.t -> Trading_api.Accounts.t Lwt.t
+  (* val get_account : Environment.t -> Trading_api.Accounts.t Lwt.t *)
   val latest_bars : Environment.t -> string list -> Trading_types.Bars.t Lwt.t
-  val latest_price : Environment.t -> string -> float Lwt.t
-  val get_clock : Environment.t -> Trading_api.Clock.t Lwt.t
+  (* val latest_price : Environment.t -> string -> float Lwt.t *)
+  (* val get_clock : Environment.t -> Trading_api.Clock.t Lwt.t *)
 end
 
 module Backtesting_backend : BACKEND = struct
@@ -46,35 +46,31 @@ module Backtesting_backend : BACKEND = struct
   open Trading_types
   module Ticker = InstantTicker
 
-  let __account = ref Trading_api.Accounts.default_account
+  let position : (string, int) Hashtbl.t = Hashtbl.create 0
+  let cash = ref 100000.0
 
-  module Brokerage = struct
+  let create_order _ (x : Order.t) (price : float) : Yojson.Safe.t Lwt.t =
+    let symbol = x.symbol in
+    let current_amt = Hashtbl.get position symbol |> Option.get_or ~default:0 in
+    let qty = x.qty in
+    match x.side with
+    | Buy ->
+        Hashtbl.replace position symbol (current_amt + qty);
+        cash := !cash -. (price *. Float.of_int qty);
+        Lwt.return `Null
+    | Sell ->
+        Hashtbl.replace position symbol (current_amt - qty);
+        cash := !cash +. (price *. Float.of_int qty);
+        Lwt.return `Null
 
-    let margin () = !__account.buying_power -. !__account.cash
-
-    let cash () = !__account.cash
-
-    let buy (x : Order.t) =
-      match x.side with
-      | Buy -> ()
-      | Sell -> ()
-
-  end
-
-  let get_account _ =
-    Lwt.return !__account
+  (* TODO *)
+  let latest_bars _ _ = invalid_arg "NYI"
 end
 
 module Alpaca_backend : BACKEND = struct
   open Lwt.Syntax
   open Trading_types
-
-  (* module Ticker = FiveMinuteTicker *)
   module Ticker = ThirtyMinuteTicker
-
-  let create_order env order =
-    let res = Trading_api.Orders.create_market_order env order in
-    res
 
   let get_account = Trading_api.Accounts.get_account
   let latest_bars = Market_data_api.Stock.latest_bars
@@ -87,6 +83,11 @@ module Alpaca_backend : BACKEND = struct
     | Some [ info ] -> Lwt.return info.closing_price
     | Some _ -> invalid_arg "Multiple bar items on latest bar?"
     | None -> invalid_arg "Unable to get price info for ticker"
+
+  let create_order env order price =
+    let* res = Trading_api.Orders.create_market_order env order in
+    let* _ = Backtesting_backend.create_order env order price in
+    Lwt.return res
 end
 
 module type STRAT = sig
@@ -107,15 +108,10 @@ module Make (Backend : BACKEND) = struct
       match state.current with
       | Initialize ->
           Log.app (fun k -> k "Initialize");
-          let* account = Backend.get_account env in
-          Log.app (fun k -> k "%a" Trading_api.Accounts.pp account);
           Lwt.return @@ continue { state with current = Listening }
       | Listening ->
-          Log.app (fun k -> k "Listening");
-          let* clock = Backend.get_clock env in
           let* () = Backend.Ticker.tick () in
-          if not @@ clock.is_open then Lwt.return @@ continue state
-          else Lwt.return @@ continue { state with current = Ordering }
+          Lwt.return @@ continue { state with current = Ordering }
       | Ordering ->
           Log.app (fun k -> k "Ordering");
           let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
@@ -125,6 +121,7 @@ module Make (Backend : BACKEND) = struct
             if msft <. nvda then Lwt.return_unit
             else (
               Log.app (fun k -> k "Shorting NVDA");
+              let price = nvda in
               let order : Order.t =
                 {
                   symbol = "NVDA";
@@ -134,7 +131,7 @@ module Make (Backend : BACKEND) = struct
                   qty = 1;
                 }
               in
-              let* _json_resp = Backend.create_order env order in
+              let* _json_resp = Backend.create_order env order price in
               Lwt.return_unit)
           in
           Lwt.return @@ continue { state with current = Listening }
