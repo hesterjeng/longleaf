@@ -47,7 +47,9 @@ let top () =
   (* Using state machine *)
   let open Lwt.Syntax in
   let env = Environment.make () in
-  let module Strategies = State_machine.Make (State_machine.Alpaca_backend) in
-  let module Strategy = Strategies.SimpleStateMachine in
+  (* let module Strategies = State_machine.Make (State_machine.Alpaca_backend) in *)
+  (* let module Strategy = Strategies.SimpleStateMachine in *)
+  let module Strategy =
+    State_machine.SimpleStateMachine (State_machine.Alpaca_backend) in
   let* _ = Strategy.run env in
   Lwt.return (Cohttp.Code.status_of_code 200)
