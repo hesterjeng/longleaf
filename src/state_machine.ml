@@ -33,6 +33,8 @@ module type BACKEND = sig
   module Ticker : TICKER
 
   val backtesting : bool
+  val get_cash : unit -> float
+  val get_position : unit -> (string, int) Hashtbl.t
 
   val create_order :
     Environment.t -> Trading_types.Order.t -> Yojson.Safe.t Lwt.t
@@ -55,6 +57,8 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
   let backtesting = true
   let position : (string, int) Hashtbl.t = Hashtbl.create 0
   let cash = ref 100000.0
+  let get_cash () = !cash
+  let get_position () = position
 
   let create_order _ (x : Order.t) : Yojson.Safe.t Lwt.t =
     let symbol = x.symbol in
@@ -73,7 +77,10 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
 
   (* TODO: Massage historical bars to give them in a format we can use *)
   (* for price data *)
-  let latest_bars _ _ = invalid_arg "NYI"
+  let latest_bars _ _ =
+    let bars = Data.bars in
+    Format.printf "%a" Bars.pp bars;
+    invalid_arg "NYI"
 end
 
 (* Live trading *)
@@ -90,6 +97,8 @@ module Alpaca_backend : BACKEND = struct
   let get_account = Trading_api.Accounts.get_account
   let latest_bars = Market_data_api.Stock.latest_bars
   let get_clock = Trading_api.Clock.get
+  let get_cash = Backtesting_backend.get_cash
+  let get_position = Backtesting_backend.get_position
 
   (* let latest_price env ticker = *)
   (*   let* response = latest_bars env [ ticker ] in *)
@@ -131,25 +140,36 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
         let msft = Bars.price latest_bars "MSFT" in
         let nvda = Bars.price latest_bars "NVDA" in
+        let cash_available = Backend.get_cash () in
+        (* Buy as many shares as possible with 10% of cash *)
+        let qty =
+          match cash_available >=. 0.0 with
+          | true ->
+              let tenp = cash_available *. 0.1 in
+              let max_amt = tenp /. nvda in
+              if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+          | false -> 0
+        in
         let* () =
           if msft <. nvda then Lwt.return_unit
-          else (
-            Log.app (fun k -> k "Shorting NVDA");
+          else
             let order : Order.t =
               {
                 symbol = "NVDA";
-                side = Side.Sell;
+                side = Side.Buy;
                 tif = TimeInForce.Day;
                 order_type = OrderType.Market;
-                qty = 1;
+                qty;
                 price = nvda;
               }
             in
             let* _json_resp = Backend.create_order env order in
-            Lwt.return_unit)
+            Lwt.return_unit
         in
         Lwt.return @@ continue { state with current = Listening }
-    | Finished code -> Lwt.return @@ shutdown code
+    | Finished code ->
+        Log.app (fun k -> k "cash: %f" (Backend.get_cash ()));
+        Lwt.return @@ shutdown code
 
   let run env =
     let init = init env in

@@ -47,9 +47,17 @@ let top () =
   (* Using state machine *)
   let open Lwt.Syntax in
   let env = Environment.make () in
-  (* let module Strategies = State_machine.Make (State_machine.Alpaca_backend) in *)
-  (* let module Strategy = Strategies.SimpleStateMachine in *)
-  let module Strategy =
-    State_machine.SimpleStateMachine (State_machine.Alpaca_backend) in
-  let* _ = Strategy.run env in
+  let* () =
+    Log.debug (fun k -> k "Data display");
+    let* latest_bars = Market_data_api.Stock.latest_bars env [ "AAPL"; "NVDA" ] in
+    let* historical_bars =
+      Market_data_api.Stock.historical_bars env Trading_types.Timeframe.day
+        ~start:(Time.of_ymd "2012-06-06") [ "MSFT"; "GOOG" ]
+    in
+    Log.debug (fun k -> k "Data display finished");
+    Lwt.return_unit
+  in
+  (* let module Strategy = *)
+  (*   State_machine.SimpleStateMachine (State_machine.Alpaca_backend) in *)
+  (* let* _ = Strategy.run env in *)
   Lwt.return (Cohttp.Code.status_of_code 200)
