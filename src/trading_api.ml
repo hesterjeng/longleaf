@@ -42,13 +42,30 @@ module Accounts = struct
     long_market_value : float;
     short_market_value : float;
     position_market_value : float;
+    buying_power : float;
     initial_margin : float;
     maintenance_margin : float;
     daytrade_count : int;
     pattern_day_trader : bool;
+    margin_enabled : bool;
     status : string;
   }
   [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+
+  let default_account =
+    {
+      cash = 100000.0;
+      buying_power = 0.0;
+      long_market_value = 0.0;
+      short_market_value = 0.0;
+      position_market_value = 0.0;
+      maintenance_margin = 0.0;
+      initial_margin = 0.0;
+      daytrade_count = 0;
+      pattern_day_trader = false;
+      margin_enabled = true;
+      status = "Not sure what should go here";
+    }
 
   let t_of_yojson x =
     try t_of_yojson x
