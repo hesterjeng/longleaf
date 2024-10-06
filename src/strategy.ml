@@ -31,6 +31,7 @@ module Get_account_strategy (Input : INPUT) : STRATEGY = struct
               tif = TimeInForce.Day;
               order_type = OrderType.Market;
               qty = 1;
+              price = 0.0;
             }
           in
           let* response_json = create_market_order environment order in
@@ -44,6 +45,7 @@ module Get_account_strategy (Input : INPUT) : STRATEGY = struct
               tif = TimeInForce.Day;
               order_type = OrderType.Market;
               qty = 1;
+              price = 0.0;
             }
           in
           let* response_json = create_market_order environment order in
