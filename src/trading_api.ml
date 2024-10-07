@@ -1,5 +1,5 @@
 open Cohttp
-open Lwt.Syntax
+open Lwt_result.Syntax
 module Log = (val Logs.src_log Logs.(Src.create "trading-api"))
 open Trading_types
 
@@ -24,7 +24,7 @@ module Clock = struct
     let uri = Uri.with_path env.apca_api_base_url "/v2/clock" in
     let headers = h env in
     let* body_json = Util.get ~headers ~uri in
-    Lwt.return @@ t_of_yojson body_json
+    Lwt_result.return @@ t_of_yojson body_json
 end
 
 module Accounts = struct
@@ -77,7 +77,7 @@ module Accounts = struct
     let uri = Uri.with_path env.apca_api_base_url "/v2/account" in
     let headers = h env in
     let* body_json = Util.get ~headers ~uri in
-    Lwt.return @@ t_of_yojson body_json
+    Lwt_result.return @@ t_of_yojson body_json
 end
 
 module Assets = struct
@@ -92,7 +92,7 @@ module Assets = struct
     let uri = Uri.with_path env.apca_api_base_url "/v2/assets" in
     let headers = h env in
     let* body_json = Util.get ~headers ~uri in
-    Lwt.return @@ t_of_yojson body_json
+    Lwt_result.return @@ t_of_yojson body_json
 end
 
 module Positions = struct
@@ -104,9 +104,7 @@ module Positions = struct
     in
     let headers = h env in
     let* body_json = Util.delete ~headers ~uri in
-    Log.app (fun k -> k "Closed all positions");
-    Log.app (fun k -> k "%a" Yojson.Safe.pp body_json);
-    Lwt.return_unit
+    Lwt_result.return body_json
 end
 
 module Orders = struct
@@ -124,7 +122,8 @@ module Orders = struct
         ]
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
     in
-    Util.post ~headers ~body ~uri
+    let* res = Util.post ~headers ~body ~uri in
+    Lwt_result.return res
 
   let get_all_orders (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
