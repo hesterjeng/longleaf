@@ -11,6 +11,7 @@
   owl
   angstrom
   cohttp-lwt-unix
+  calendar
   lwt)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))

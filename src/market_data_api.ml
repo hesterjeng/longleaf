@@ -6,12 +6,10 @@ let h = Trading_api.h
 module Stock = struct
   open Ppx_yojson_conv_lib.Yojson_conv.Primitives
 
-  type bars_request = {
-    symbols : string list;
-    timeframe : Timeframe.t;
-    start : Time.t;
-  }
-  [@@deriving show, yojson]
+  module Historical_bars_request = struct
+    type t = { symbols : string list; timeframe : Timeframe.t; start : Time.t }
+    [@@deriving show, yojson]
+  end
 
   let historical_auctions (env : Environment.t) (symbols : string list) =
     let headers = h env in
@@ -24,15 +22,16 @@ module Stock = struct
     let* resp_body = Util.post ~headers ~body ~uri in
     Lwt_result.return resp_body
 
-  let historical_bars (env : Environment.t) (timeframe : Timeframe.t)
-      ~(start : Time.t) (symbols : string list) =
+  let historical_bars (env : Environment.t)
+      (request : Historical_bars_request.t) =
     let headers = h env in
-    let symbols = String.concat "," symbols in
+    let symbols = String.concat "," request.symbols in
     let uri =
       Uri.with_path env.apca_api_data_url "/v2/stocks/bars" |> fun u ->
       Uri.add_query_param' u ("symbols", symbols) |> fun u ->
-      Uri.add_query_param' u ("timeframe", Timeframe.to_string timeframe)
-      |> fun u -> Uri.add_query_param' u ("start", Ptime.to_rfc3339 start)
+      Uri.add_query_param' u ("timeframe", Timeframe.to_string request.timeframe)
+      |> fun u ->
+      Uri.add_query_param' u ("start", Ptime.to_rfc3339 request.start)
     in
     let rec collect_data uri acc =
       let* resp_body_json = Util.get ~headers ~uri in

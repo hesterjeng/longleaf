@@ -37,13 +37,24 @@ let top () =
     (* let* latest_bars = *)
     (*   Market_data_api.Stock.latest_bars env [ "AAPL"; "NVDA" ] *)
     (* in *)
+    let history_request : Market_data_api.Stock.Historical_bars_request.t =
+      {
+        timeframe = Trading_types.Timeframe.day;
+        start = Time.of_ymd "2012-06-06";
+        symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
+      }
+    in
     let* historical_bars =
-      Market_data_api.Stock.historical_bars env Trading_types.Timeframe.day
-        ~start:(Time.of_ymd "2012-06-06")
-        [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ]
+      Market_data_api.Stock.historical_bars env history_request
     in
     match historical_bars with
-    | Ok x -> Lwt.return x
+    | Ok x ->
+        let json = Trading_types.Bars.yojson_of_t x |> Yojson.Safe.to_string in
+        let filename = Format.sprintf "data/backtest_%s" (Util.rfc339 ()) in
+        let oc = open_out filename in
+        output_string oc json;
+        close_out oc;
+        Lwt.return x
     | Error e -> Lwt.fail_with e
     (* Log.app (fun k -> k "latest_bars:"); *)
     (* Log.app (fun k -> k "%a" Trading_types.Bars.pp latest_bars); *)
