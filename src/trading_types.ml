@@ -109,7 +109,7 @@ module Bars = struct
   end
 
   module Bars2 = struct
-    type t = (string * Bar_item.t list) list [@@deriving show]
+    type t = (string * Bar_item.t list) list [@@deriving show, yojson]
 
     let empty : t = []
 
@@ -127,8 +127,6 @@ module Bars = struct
                     invalid_arg "The data must be stored as a list" ))
             s
       | _ -> invalid_arg "Bars must be a toplevel Assoc"
-
-    let yojson_of_t _ = invalid_arg "NYI Bars.yojson_of_t"
   end
 
   type t = {

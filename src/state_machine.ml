@@ -228,10 +228,28 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
     let env = state.env in
     match state.current with
     | Initialize ->
-        Log.app (fun k -> k "Initialize");
+        Log.app (fun k -> k "Running");
         Lwt_result.return @@ continue { state with current = Listening }
     | Listening ->
-        Log.app (fun k -> k "Listening");
+        let open CalendarLib in
+        let calendar = Calendar.now () in
+        let time =
+          Calendar.Time.lmake ~hour:(Calendar.hour calendar)
+            ~minute:(Calendar.minute calendar) ()
+        in
+        let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
+        let close_time = Calendar.Time.lmake ~hour:16 () in
+        let* () =
+          let ( < ) x y = Calendar.Time.compare x y in
+          if
+            Calendar.Time.compare open_time time = 1
+            && Calendar.Time.compare time close_time = -1
+          then Lwt_result.return ()
+          else
+            Lwt_result.ok
+              (Log.app (fun k -> k "Waiting because market is closed");
+               Lwt_unix.sleep 300.0)
+        in
         let* () = Backend.Ticker.tick () in
         Lwt_result.return @@ continue { state with current = Ordering }
     | Liquidate ->
@@ -250,7 +268,6 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         Log.app (fun k -> k "cash: %f" (Backend.get_cash ()));
         Lwt_result.return @@ shutdown code
     | Ordering ->
-        Log.app (fun k -> k "Ordering");
         let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
         let msft = Bars.price latest_bars "MSFT" in
         let nvda = Bars.price latest_bars "NVDA" in
@@ -281,6 +298,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
             Lwt_result.return ()
         in
         let new_bars = Bars.combine [ latest_bars; state.content ] in
+        let* () = Lwt_result.ok @@ Lwt_unix.sleep 0.01 in
         Lwt_result.return
         @@ continue { state with current = Listening; content = new_bars }
 
