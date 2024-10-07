@@ -11,7 +11,9 @@ module State = struct
 
   let continue x = Running x
   let shutdown x = Shutdown x
-  let init env = { env; current = Initialize; content = 42 }
+
+  let init env =
+    { env; current = Initialize; content = Trading_types.Bars.empty }
 end
 
 module type TICKER = sig
@@ -246,11 +248,10 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         let msft = Bars.price latest_bars "MSFT" in
         let nvda = Bars.price latest_bars "NVDA" in
         let cash_available = Backend.get_cash () in
-        (* Buy as many shares as possible with 10% of cash *)
         let qty =
           match cash_available >=. 0.0 with
           | true ->
-              let tenp = cash_available *. 0.1 in
+              let tenp = cash_available *. 0.5 in
               let max_amt = tenp /. nvda in
               if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
           | false -> 0
@@ -272,7 +273,9 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
             let* _json_resp = Backend.create_order env order in
             Lwt_result.return ()
         in
-        Lwt_result.return @@ continue { state with current = Listening }
+        let new_bars = Bars.combine [ latest_bars; state.content ] in
+        Lwt_result.return
+        @@ continue { state with current = Listening; content = new_bars }
 
   let run env =
     let init = init env in

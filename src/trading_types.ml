@@ -52,6 +52,7 @@ module Timeframe : sig
 
   val t_of_yojson : Yojson.Safe.t -> t
   val yojson_of_t : t -> Yojson.Safe.t
+  val pp : t Format.printer
   val to_string : t -> string
   val min : int -> t
   val hour : int -> t
