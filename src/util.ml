@@ -74,23 +74,24 @@ let post ~headers ~body ~uri : (Yojson.Safe.t, string) Lwt_result.t =
   let* response, body_stream = Client.post ~headers ~body uri in
   let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
   let resp_body_json = Yojson.Safe.from_string resp_body_raw in
+  let uri = Uri.to_string uri in
   match Response.status response with
   | #Code.success_status -> Lwt.return_ok resp_body_json
   | #Code.informational_status as status ->
       Get_log.err (fun k ->
-          k "informational_status: %s" (Code.string_of_status status));
+          k "informational_status: %s %s" (Code.string_of_status status) uri);
       Lwt.return_error @@ Code.string_of_status status
   | #Code.redirection_status as status ->
       Get_log.err (fun k ->
-          k "redirection_status: %s" (Code.string_of_status status));
+          k "redirection_status: %s %s" (Code.string_of_status status) uri);
       Lwt.return_error @@ Code.string_of_status status
   | #Code.client_error_status as status ->
       Get_log.err (fun k ->
-          k "client_error_status: %s" (Code.string_of_status status));
+          k "client_error_status: %s %s" (Code.string_of_status status) uri);
       Lwt.return_error @@ Code.string_of_status status
   | #Code.server_error_status as status ->
       Get_log.err (fun k ->
-          k "server_error_status: %s" (Code.string_of_status status));
+          k "server_error_status: %s %s" (Code.string_of_status status) uri);
       Lwt.return_error @@ Code.string_of_status status
   | `Code _ as status ->
       Get_log.err (fun k -> k "unknown code: %s" (Code.string_of_status status));
