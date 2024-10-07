@@ -240,6 +240,13 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         Lwt_result.return
         @@ continue { state with current = Finished "Successfully liquidated" }
     | Finished code ->
+        let json =
+          Trading_types.Bars.yojson_of_t state.content |> Yojson.Safe.to_string
+        in
+        let filename = Format.sprintf "data/live_%s" (Util.rfc339 ()) in
+        let oc = open_out filename in
+        output_string oc json;
+        close_out oc;
         Log.app (fun k -> k "cash: %f" (Backend.get_cash ()));
         Lwt_result.return @@ shutdown code
     | Ordering ->
