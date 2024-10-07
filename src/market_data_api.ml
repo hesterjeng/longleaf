@@ -1,4 +1,4 @@
-open Lwt.Syntax
+open Lwt_result.Syntax
 open Cohttp
 open Cohttp_lwt_unix
 open Trading_types
@@ -14,10 +14,8 @@ module Stock = struct
       `Assoc [ ("symbols", `String symbols) ]
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
     in
-    let* response, body_stream = Client.post ~headers ~body uri in
-    let* resp_body = Cohttp_lwt.Body.to_string body_stream in
-    let status = Response.status response |> Code.string_of_status in
-    Lwt.return (status, resp_body)
+    let* resp_body = Util.post ~headers ~body ~uri in
+    Lwt_result.return resp_body
 
   let historical_bars (env : Environment.t) (timeframe : Timeframe.t)
       ~(start : Time.t) (symbols : string list) =
@@ -39,10 +37,10 @@ module Stock = struct
             Uri.add_query_param' removed ("page_token", npt)
           in
           collect_data uri acc
-      | None -> Lwt.return acc
+      | None -> Lwt_result.return acc
     in
     let* paginated = collect_data uri [] in
-    Lwt.return @@ Bars.combine paginated
+    Lwt_result.return @@ Bars.combine paginated
 
   let latest_bars (env : Environment.t) (symbols : string list) =
     let headers = h env in
@@ -54,7 +52,7 @@ module Stock = struct
     let* resp_body_json = Util.get ~headers ~uri in
     (* Util.Util_log.app (fun k -> k "%a" Yojson.Safe.pp resp_body_json); *)
     let bar = Bars.t_of_yojson resp_body_json in
-    Lwt.return bar
+    Lwt_result.return bar
 
   let latest_quotes (env : Environment.t) (symbols : string list) =
     let headers = h env in
@@ -64,5 +62,5 @@ module Stock = struct
       Uri.add_query_param' u ("symbols", symbols)
     in
     let* resp_body_json = Util.get ~headers ~uri in
-    Lwt.return resp_body_json
+    Lwt_result.return resp_body_json
 end
