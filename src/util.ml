@@ -120,6 +120,6 @@ let listen_for_input () =
   let open Lwt.Syntax in
   let rec loop () =
     let* input = Lwt_io.read_line Lwt_io.stdin in
-    if String.equal input "q" then Lwt.return_unit else loop ()
+    if String.equal input "q" then Lwt.return "q" else loop ()
   in
   loop ()
