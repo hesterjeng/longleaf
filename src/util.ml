@@ -115,3 +115,11 @@ let rfc339 () =
   let second = Calendar.second datetime in
   Printf.sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ" year month day hour minute
     second
+
+let listen_for_input () =
+  let open Lwt.Syntax in
+  let rec loop () =
+    let* input = Lwt_io.read_line Lwt_io.stdin in
+    if String.equal input "q" then Lwt.return_unit else loop ()
+  in
+  loop ()

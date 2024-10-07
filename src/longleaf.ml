@@ -48,13 +48,7 @@ let top () =
       Market_data_api.Stock.historical_bars env history_request
     in
     match historical_bars with
-    | Ok x ->
-        let json = Trading_types.Bars.yojson_of_t x |> Yojson.Safe.to_string in
-        let filename = Format.sprintf "data/backtest_%s" (Util.rfc339 ()) in
-        let oc = open_out filename in
-        output_string oc json;
-        close_out oc;
-        Lwt.return x
+    | Ok x -> Lwt.return x
     | Error e -> Lwt.fail_with e
     (* Log.app (fun k -> k "latest_bars:"); *)
     (* Log.app (fun k -> k "%a" Trading_types.Bars.pp latest_bars); *)
@@ -71,4 +65,4 @@ let top () =
   let* res = Strategy.run env in
   Log.app (fun k -> k "State machine shutdown:");
   Log.app (fun k -> k "%s" res);
-  Lwt.return (Cohttp.Code.status_of_code 200)
+  Lwt.return_unit
