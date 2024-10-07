@@ -28,41 +28,42 @@ end
 (*   Log.app (fun k -> k "resp_body longleaf: %a" Trading_types.Bars.pp resp_body); *)
 (*   Dataframe.of_json x *)
 
+let download_test env =
+  let open Lwt.Syntax in
+  (* Log.app (fun k -> k "Data display"); *)
+  (* let* latest_bars = *)
+  (*   Market_data_api.Stock.latest_bars env [ "AAPL"; "NVDA" ] *)
+  (* in *)
+  let history_request : Market_data_api.Stock.Historical_bars_request.t =
+    {
+      timeframe = Trading_types.Timeframe.day;
+      start = Time.of_ymd "2012-06-06";
+      symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
+    }
+  in
+  let* historical_bars =
+    Market_data_api.Stock.historical_bars env history_request
+  in
+  match historical_bars with Ok x -> Lwt.return x | Error e -> Lwt.fail_with e
+(* Log.app (fun k -> k "latest_bars:"); *)
+(* Log.app (fun k -> k "%a" Trading_types.Bars.pp latest_bars); *)
+(* Log.app (fun k -> k "historical_bars:"); *)
+(* Log.app (fun k -> k "%a" Trading_types.Bars.pp historical_bars); *)
+(* Log.app (fun k -> k "Data display finished"); *)
+
 let top () =
   (* Using state machine *)
   let open Lwt.Syntax in
   let env = Environment.make () in
-  let* bars =
-    (* Log.app (fun k -> k "Data display"); *)
-    (* let* latest_bars = *)
-    (*   Market_data_api.Stock.latest_bars env [ "AAPL"; "NVDA" ] *)
-    (* in *)
-    let history_request : Market_data_api.Stock.Historical_bars_request.t =
-      {
-        timeframe = Trading_types.Timeframe.day;
-        start = Time.of_ymd "2012-06-06";
-        symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
-      }
-    in
-    let* historical_bars =
-      Market_data_api.Stock.historical_bars env history_request
-    in
-    match historical_bars with
-    | Ok x -> Lwt.return x
-    | Error e -> Lwt.fail_with e
-    (* Log.app (fun k -> k "latest_bars:"); *)
-    (* Log.app (fun k -> k "%a" Trading_types.Bars.pp latest_bars); *)
-    (* Log.app (fun k -> k "historical_bars:"); *)
-    (* Log.app (fun k -> k "%a" Trading_types.Bars.pp historical_bars); *)
-    (* Log.app (fun k -> k "Data display finished"); *)
-  in
-  let module Backend = State_machine.Backtesting_backend (struct
-    let bars = bars
-  end) in
-  let module Strategy = State_machine.SimpleStateMachine (Backend) in
+  (* let module Backend = State_machine.Backtesting_backend (struct *)
+  (*   let bars = bars *)
+  (* end) in *)
+  let module Alpaca_backend = State_machine.Alpaca_backend in
+  (* let module Strategy = State_machine.SimpleStateMachine (Backend) in *)
+  let module Live_strategy = State_machine.SimpleStateMachine (Alpaca_backend) in
   (* let module Strategy = *)
   (*   State_machine.SimpleStateMachine (State_machine.Alpaca_backend) in *)
-  let* res = Strategy.run env in
+  let* res = Live_strategy.run env in
   Log.app (fun k -> k "State machine shutdown:");
   Log.app (fun k -> k "%s" res);
   Lwt.return_unit
