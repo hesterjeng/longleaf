@@ -253,7 +253,9 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         let* () =
           Lwt.pick
             [
-              Backend.Ticker.tick (); Lwt_result.ok @@ Util.listen_for_input ();
+              (let* _ = Backend.Ticker.tick () in
+               Lwt_result.return ());
+              Lwt_result.error @@ Util.listen_for_input ();
             ]
         in
         Lwt_result.return @@ continue { state with current = Ordering }
@@ -300,6 +302,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
               }
             in
             let* _json_resp = Backend.create_order env order in
+            Log.app (fun k -> k "Placed order");
             Lwt_result.return ()
         in
         let new_bars = Bars.combine [ latest_bars; state.content ] in
@@ -317,11 +320,15 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
           match x with
           | Running now -> go now
           | Shutdown code -> Lwt.return code)
-      | Error s ->
-          let liquidate = { prev with current = Liquidate } in
-          let* liquidated = go liquidate in
-          Log.app (fun k -> k "%s" liquidated);
-          Lwt.return s
+      | Error s -> (
+          let try_liquidating () =
+            let liquidate = { prev with current = Liquidate } in
+            let* liquidated = go liquidate in
+            Lwt.return liquidated
+          in
+          match prev.current with
+          | Liquidate -> Lwt.return s
+          | _ -> try_liquidating ())
     in
     go init
 end
