@@ -4,8 +4,5 @@ let () =
   Logs.set_reporter reporter;
   Logs.set_level ~all:true (Some Logs.Info);
   Py.initialize ();
-  let () =
-    Lwt_main.run
-    @@ Lwt.pick [ Longleaf__Util.listen_for_input (); Longleaf.top () ]
-  in
+  let () = Lwt_main.run @@ Longleaf.top () in
   exit 0
