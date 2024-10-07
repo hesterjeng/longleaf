@@ -4,8 +4,7 @@ module State = struct
     | Listening
     | Ordering
     | Liquidate
-    | ErrorState of string
-    | Finished of Cohttp.Code.status_code
+    | Finished of string
 
   type 'a t = { env : Environment.t; current : state; content : 'a }
   type ('a, 'b) status = Running of 'a t | Shutdown of 'b
@@ -16,19 +15,19 @@ module State = struct
 end
 
 module type TICKER = sig
-  val tick : unit -> unit Lwt.t
+  val tick : unit -> (unit, _) Lwt_result.t
 end
 
 module FiveMinuteTicker : TICKER = struct
-  let tick () = Lwt_unix.sleep 300.0
+  let tick () = Lwt_unix.sleep 300.0 |> Lwt_result.ok
 end
 
 module ThirtyMinuteTicker : TICKER = struct
-  let tick () = Lwt_unix.sleep 1800.0
+  let tick () = Lwt_unix.sleep 1800.0 |> Lwt_result.ok
 end
 
 module InstantTicker : TICKER = struct
-  let tick () = Lwt.return_unit
+  let tick () = Lwt.return_unit |> Lwt_result.ok
 end
 
 module type BACKEND = sig
@@ -39,13 +38,15 @@ module type BACKEND = sig
   val get_position : unit -> (string, int) Hashtbl.t
 
   val create_order :
-    Environment.t -> Trading_types.Order.t -> Yojson.Safe.t Lwt.t
+    Environment.t ->
+    Trading_types.Order.t ->
+    (Yojson.Safe.t, string) Lwt_result.t
 
   val latest_bars :
-    Environment.t -> string list -> Trading_types.Bars.t option Lwt.t
+    Environment.t -> string list -> (Trading_types.Bars.t, string) Lwt_result.t
 
   val last_data_bar : Trading_types.Bars.t option
-  val liquidate : Environment.t -> unit Lwt.t
+  val liquidate : Environment.t -> (unit, string) Lwt_result.t
 end
 
 module type BACKEND_INPUT = sig
@@ -55,7 +56,7 @@ end
 (* Backtesting *)
 module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
   open Trading_types
-  open Lwt.Syntax
+  open Lwt_result.Syntax
   module Ticker = InstantTicker
 
   let backtesting = true
@@ -64,7 +65,7 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
   let get_cash () = !cash
   let get_position () = position
 
-  let create_order _ (x : Order.t) : Yojson.Safe.t Lwt.t =
+  let create_order _ (x : Order.t) : (Yojson.Safe.t, string) Lwt_result.t =
     let symbol = x.symbol in
     let current_amt = Hashtbl.get position symbol |> Option.get_or ~default:0 in
     let qty = x.qty in
@@ -72,16 +73,16 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
     | Buy, Market ->
         Hashtbl.replace position symbol (current_amt + qty);
         cash := !cash -. (x.price *. Float.of_int qty);
-        Lwt.return `Null
+        Lwt_result.return `Null
     | Sell, Market ->
         Hashtbl.replace position symbol (current_amt - qty);
         cash := !cash +. (x.price *. Float.of_int qty);
-        Lwt.return `Null
+        Lwt_result.return `Null
     | _, _ -> invalid_arg "Backtesting can't handle this yet."
 
   let data_remaining = ref Data.bars.bars
 
-  let latest_bars _ _ : Bars.t option Lwt.t =
+  let latest_bars _ _ : (Bars.t, string) Lwt_result.t =
     let bars = !data_remaining in
     let latest =
       if List.exists (fun (_, l) -> List.is_empty l) bars then None
@@ -103,9 +104,11 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
     data_remaining := rest;
     match latest with
     | Some x ->
-        Lwt.return_some
+        Lwt_result.return
         @@ Bars.{ bars = x; next_page_token = None; currency = None }
-    | None -> Lwt.return_none
+    | None ->
+        Lwt_result.fail
+          "No latest bars in backend, empty data or backtest finished"
 
   let last_data_bar =
     Some
@@ -121,7 +124,7 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
         next_page_token = None;
       }
 
-  let liquidate env =
+  let liquidate env : (unit, string) Lwt_result.t =
     let position = get_position () in
     let final_bar =
       match last_data_bar with
@@ -132,7 +135,7 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
     let _ =
       Hashtbl.map_list
         (fun symbol qty ->
-          if qty = 0 then Lwt.return_unit
+          if qty = 0 then Lwt_result.return ()
           else
             let order : Order.t =
               {
@@ -145,15 +148,15 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
               }
             in
             let* _json_resp = create_order env order in
-            Lwt.return_unit)
+            Lwt_result.return ())
         position
     in
-    Lwt.return_unit
+    Lwt_result.return ()
 end
 
 (* Live trading *)
 module Alpaca_backend : BACKEND = struct
-  open Lwt.Syntax
+  open Lwt_result.Syntax
   open Trading_types
   module Ticker = ThirtyMinuteTicker
 
@@ -167,7 +170,7 @@ module Alpaca_backend : BACKEND = struct
 
   let latest_bars x y =
     let* res = Market_data_api.Stock.latest_bars x y in
-    Lwt.return @@ Some res
+    Lwt_result.return res
 
   let get_clock = Trading_api.Clock.get
   let get_cash = Backtesting_backend.get_cash
@@ -176,20 +179,16 @@ module Alpaca_backend : BACKEND = struct
   let create_order env order =
     let* res = Trading_api.Orders.create_market_order env order in
     let* _ = Backtesting_backend.create_order env order in
-    Lwt.return res
+    Lwt_result.return res
 
   let liquidate env =
     let position = get_position () in
     let symbols = Hashtbl.keys_list position in
-    let* last_data_bar_opt = latest_bars env symbols in
-    let final_bar =
-      Option.get_exn_or "Impossible... must be able to reach brokerage"
-        last_data_bar_opt
-    in
+    let* last_data_bar = latest_bars env symbols in
     let _ =
       Hashtbl.map_list
         (fun symbol qty ->
-          if qty = 0 then Lwt.return_unit
+          if qty = 0 then Lwt_result.return ()
           else
             let order : Order.t =
               {
@@ -198,18 +197,18 @@ module Alpaca_backend : BACKEND = struct
                 tif = TimeInForce.GoodTillCanceled;
                 order_type = OrderType.Market;
                 qty;
-                price = Bars.price final_bar symbol;
+                price = Bars.price last_data_bar symbol;
               }
             in
             let* _json_resp = create_order env order in
-            Lwt.return_unit)
+            Lwt_result.return ())
         position
     in
-    Lwt.return_unit
+    Lwt_result.return ()
 end
 
 module type STRAT = sig
-  val run : Environment.t -> Cohttp.Code.status_code Lwt.t
+  val run : Environment.t -> string Lwt.t
 end
 
 module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
@@ -217,75 +216,79 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
 
   open Trading_types
   open State
-  open Lwt.Syntax
+  open Lwt_result.Syntax
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
 
   let ok_code = Cohttp.Code.status_of_code 200
 
-  let step (state : 'a State.t) : ('a, 'b) State.status Lwt.t =
+  (* TODO: Handle market closed with live backend rather than requesting all through the night *)
+  let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
     match state.current with
-    | ErrorState s ->
-        Log.app (fun k -> k "Encountered an error: %s" s);
-        Lwt.return @@ continue { state with current = Liquidate }
     | Initialize ->
         Log.app (fun k -> k "Initialize");
-        Lwt.return @@ continue { state with current = Listening }
+        Lwt_result.return @@ continue { state with current = Listening }
     | Listening ->
         Log.app (fun k -> k "Listening");
         let* () = Backend.Ticker.tick () in
-        Lwt.return @@ continue { state with current = Ordering }
+        Lwt_result.return @@ continue { state with current = Ordering }
     | Liquidate ->
         Log.app (fun k -> k "Liquidate");
-        let* () = Backend.liquidate env in
-        Lwt.return @@ continue { state with current = Finished ok_code }
+        let* _ = Backend.liquidate env in
+        Lwt_result.return
+        @@ continue { state with current = Finished "Successfully liquidated" }
     | Finished code ->
         Log.app (fun k -> k "cash: %f" (Backend.get_cash ()));
-        Lwt.return @@ shutdown code
-    | Ordering -> (
+        Lwt_result.return @@ shutdown code
+    | Ordering ->
         Log.app (fun k -> k "Ordering");
         let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
-        match latest_bars with
-        | None -> Lwt.return @@ continue { state with current = Liquidate }
-        | Some latest_bars ->
-            let msft = Bars.price latest_bars "MSFT" in
-            let nvda = Bars.price latest_bars "NVDA" in
-            let cash_available = Backend.get_cash () in
-            (* Buy as many shares as possible with 10% of cash *)
-            let qty =
-              match cash_available >=. 0.0 with
-              | true ->
-                  let tenp = cash_available *. 0.1 in
-                  let max_amt = tenp /. nvda in
-                  if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int
-                  else 0
-              | false -> 0
+        let msft = Bars.price latest_bars "MSFT" in
+        let nvda = Bars.price latest_bars "NVDA" in
+        let cash_available = Backend.get_cash () in
+        (* Buy as many shares as possible with 10% of cash *)
+        let qty =
+          match cash_available >=. 0.0 with
+          | true ->
+              let tenp = cash_available *. 0.1 in
+              let max_amt = tenp /. nvda in
+              if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+          | false -> 0
+        in
+        (* Actually do the trade *)
+        let* () =
+          if msft <. nvda then Lwt_result.return ()
+          else
+            let order : Order.t =
+              {
+                symbol = "NVDA";
+                side = Side.Buy;
+                tif = TimeInForce.Day;
+                order_type = OrderType.Market;
+                qty;
+                price = nvda;
+              }
             in
-            let* () =
-              if msft <. nvda then Lwt.return_unit
-              else
-                let order : Order.t =
-                  {
-                    symbol = "NVDA";
-                    side = Side.Buy;
-                    tif = TimeInForce.Day;
-                    order_type = OrderType.Market;
-                    qty;
-                    price = nvda;
-                  }
-                in
-                let* _json_resp = Backend.create_order env order in
-                Lwt.return_unit
-            in
-            Lwt.return @@ continue { state with current = Listening })
+            let* _json_resp = Backend.create_order env order in
+            Lwt_result.return ()
+        in
+        Lwt_result.return @@ continue { state with current = Listening }
 
   let run env =
     let init = init env in
+    let open Lwt.Syntax in
     let rec go prev =
       let* stepped = step prev in
       match stepped with
-      | Running now -> go now
-      | Shutdown code -> Lwt.return code
+      | Ok x -> (
+          match x with
+          | Running now -> go now
+          | Shutdown code -> Lwt.return code)
+      | Error s ->
+          let liquidate = { prev with current = Liquidate } in
+          let* liquidated = go liquidate in
+          Log.app (fun k -> k "%s" liquidated);
+          Lwt.return s
     in
     go init
 end
