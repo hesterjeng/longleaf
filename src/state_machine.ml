@@ -248,9 +248,14 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
           else
             Lwt_result.ok
               (Log.app (fun k -> k "Waiting because market is closed");
-               Lwt_unix.sleep 300.0)
+               Lwt_unix.sleep 5.0)
         in
-        let* () = Backend.Ticker.tick () in
+        let* () =
+          Lwt.pick
+            [
+              Backend.Ticker.tick (); Lwt_result.ok @@ Util.listen_for_input ();
+            ]
+        in
         Lwt_result.return @@ continue { state with current = Ordering }
     | Liquidate ->
         Log.app (fun k -> k "Liquidate");
