@@ -1,11 +1,18 @@
 open Lwt_result.Syntax
-open Cohttp
-open Cohttp_lwt_unix
 open Trading_types
 
 let h = Trading_api.h
 
 module Stock = struct
+  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
+
+  type bars_request = {
+    symbols : string list;
+    timeframe : Timeframe.t;
+    start : Time.t;
+  }
+  [@@deriving show, yojson]
+
   let historical_auctions (env : Environment.t) (symbols : string list) =
     let headers = h env in
     let symbols = String.concat "," symbols in
