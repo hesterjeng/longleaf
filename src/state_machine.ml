@@ -239,8 +239,11 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         in
         let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
         let close_time = Calendar.Time.lmake ~hour:16 () in
+        Log.app (fun k -> k "%s" (Util.rfc339 ()));
+        (* (Util.show_calendar_time open_time) *)
+        (* (Util.show_calendar_time close_time) *)
+        (*  ); *)
         let* () =
-          let ( < ) x y = Calendar.Time.compare x y in
           if
             Calendar.Time.compare open_time time = 1
             && Calendar.Time.compare time close_time = -1
