@@ -232,17 +232,14 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         Lwt_result.return @@ continue { state with current = Listening }
     | Listening ->
         let open CalendarLib in
-        let calendar = Calendar.now () in
-        let time =
-          Calendar.Time.lmake ~hour:(Calendar.hour calendar)
-            ~minute:(Calendar.minute calendar) ()
-        in
+        Time_Zone.change Local;
+        let time = Time.now ()  in
         let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
         let close_time = Calendar.Time.lmake ~hour:16 () in
-        Log.app (fun k -> k "%s" (Util.rfc339 ()));
-        (* (Util.show_calendar_time open_time) *)
-        (* (Util.show_calendar_time close_time) *)
-        (*  ); *)
+        Log.app (fun k ->
+            k "@[%s@]@.@[%s@]@.@[%s@]@." (Util.rfc339 ())
+              (Util.show_calendar_time_t open_time)
+              (Util.show_calendar_time_t close_time));
         let* () =
           if
             Calendar.Time.compare open_time time = 1
