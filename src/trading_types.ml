@@ -94,10 +94,10 @@ module Bars = struct
   module Bar_item = struct
     type t = {
       timestamp : string; [@key "t"]
-      opening_price : float; [@key "o"]
-      high_price : float; [@key "h"]
-      low_price : float; [@key "l"]
-      closing_price : float; [@key "c"]
+      open_ : float; [@key "o"]
+      high : float; [@key "h"]
+      low : float; [@key "l"]
+      close : float; [@key "c"]
       volume : int; [@key "v"]
       trade_count : int; [@key "n"]
       volume_weighted : float; [@key "vw"]
@@ -161,7 +161,7 @@ module Bars = struct
   let price x ticker =
     let bars = x.bars in
     match List.Assoc.get ~eq:String.equal ticker bars with
-    | Some [ info ] -> info.closing_price
+    | Some [ info ] -> info.close
     | Some _ -> invalid_arg "Multiple bar items on latest bar?"
     | None ->
         invalid_arg
