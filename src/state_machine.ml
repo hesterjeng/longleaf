@@ -223,6 +223,34 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
 
   let ok_code = Cohttp.Code.status_of_code 200
 
+  let listen_tick state =
+    let open CalendarLib in
+    let time = Time.now () in
+    let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
+    let close_time = Calendar.Time.lmake ~hour:16 () in
+    Log.app (fun k -> k "@[%s@]@." (Util.show_calendar_time_t time));
+    let* () =
+      if
+        Calendar.Time.compare time open_time = 1
+        && Calendar.Time.compare time close_time = -1
+      then (
+        Log.app (fun k -> k "Market is open");
+        Lwt_result.return ())
+      else
+        Lwt_result.ok
+          (Log.app (fun k -> k "Waiting because market is closed");
+           Lwt_unix.sleep 5.0)
+    in
+    let* () =
+      Lwt.pick
+        [
+          (let* _ = Backend.Ticker.tick () in
+           Lwt_result.return ());
+          Lwt_result.error @@ Util.listen_for_input ();
+        ]
+    in
+    Lwt_result.return @@ continue { state with current = Ordering }
+
   (* TODO: Handle market closed with live backend rather than requesting all through the night *)
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
@@ -230,35 +258,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
     | Initialize ->
         Log.app (fun k -> k "Running");
         Lwt_result.return @@ continue { state with current = Listening }
-    | Listening ->
-        let open CalendarLib in
-        let time = Time.now () in
-        let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
-        let close_time = Calendar.Time.lmake ~hour:16 () in
-        Log.app (fun k ->
-            k "@[%s@]@.@[%s@]@.@[%s@]@."
-              (Util.show_calendar_time_t time)
-              (Util.show_calendar_time_t open_time)
-              (Util.show_calendar_time_t close_time));
-        let* () =
-          if
-            Calendar.Time.compare open_time time = 1
-            && Calendar.Time.compare time close_time = -1
-          then Lwt_result.return ()
-          else
-            Lwt_result.ok
-              (Log.app (fun k -> k "Waiting because market is closed");
-               Lwt_unix.sleep 5.0)
-        in
-        let* () =
-          Lwt.pick
-            [
-              (let* _ = Backend.Ticker.tick () in
-               Lwt_result.return ());
-              Lwt_result.error @@ Util.listen_for_input ();
-            ]
-        in
-        Lwt_result.return @@ continue { state with current = Ordering }
+    | Listening -> listen_tick state
     | Liquidate ->
         Log.app (fun k -> k "Liquidate");
         let* _ = Backend.liquidate env in
