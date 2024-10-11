@@ -52,17 +52,11 @@ let download_test env =
 (* Log.app (fun k -> k "Data display finished"); *)
 
 let top () =
-  (* Using state machine *)
   let open Lwt.Syntax in
+  CalendarLib.Time_Zone.change (UTC_Plus (-5));
   let env = Environment.make () in
-  (* let module Backend = State_machine.Backtesting_backend (struct *)
-  (*   let bars = bars *)
-  (* end) in *)
   let module Alpaca_backend = State_machine.Alpaca_backend in
-  (* let module Strategy = State_machine.SimpleStateMachine (Backend) in *)
   let module Live_strategy = State_machine.SimpleStateMachine (Alpaca_backend) in
-  (* let module Strategy = *)
-  (*   State_machine.SimpleStateMachine (State_machine.Alpaca_backend) in *)
   let* res = Live_strategy.run env in
   Log.app (fun k -> k "State machine shutdown:");
   Log.app (fun k -> k "%s" res);
