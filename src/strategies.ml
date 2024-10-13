@@ -1,6 +1,10 @@
 open State_machine
 
-module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
+module type S = sig
+  val run : Environment.t -> string Lwt.t
+end
+
+module SimpleStateMachine (Backend : Backend.S) : S = struct
   let () = Random.self_init ()
 
   open Trading_types
@@ -20,9 +24,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
       if
         Calendar.Time.compare time open_time = 1
         && Calendar.Time.compare time close_time = -1
-      then (
-        Log.app (fun k -> k "Market is open");
-        Lwt_result.return ())
+      then Lwt_result.return ()
       else if Backend.backtesting then Lwt_result.return ()
       else
         Lwt_result.ok

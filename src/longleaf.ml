@@ -48,7 +48,7 @@ let top () =
   let env = Environment.make () in
   (* let module Backend = State_machine.Alpaca_backend in *)
   let* bars = download_test env in
-  let module Backend = State_machine.Backtesting_backend (struct
+  let module Backend = Backend.Backtesting (struct
     let bars = bars
   end) in
   let module Live_strategy = Strategies.SimpleStateMachine (Backend) in
