@@ -56,7 +56,7 @@ let top () =
   CalendarLib.Time_Zone.change (UTC_Plus (-5));
   let env = Environment.make () in
   let module Alpaca_backend = State_machine.Alpaca_backend in
-  let module Live_strategy = State_machine.SimpleStateMachine (Alpaca_backend) in
+  let module Live_strategy = Strategies.SimpleStateMachine (Alpaca_backend) in
   let* res = Live_strategy.run env in
   Log.app (fun k -> k "State machine shutdown:");
   Log.app (fun k -> k "%s" res);
