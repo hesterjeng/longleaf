@@ -26,7 +26,8 @@ let simple_moving_average (l : Bar_item.t list) =
         (fun i ->
           match List.get_at_idx i close with
           | Some p -> p
-          | None -> invalid_arg "Unable to get price at index %d" i)
+          | None ->
+              invalid_arg @@ Format.sprintf "Unable to get price at index %d" i)
         range
     in
     List.fold_left (fun x y -> x +. y) 0.0 vals /. Float.of_int i
