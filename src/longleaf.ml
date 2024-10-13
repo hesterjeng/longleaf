@@ -30,10 +30,6 @@ end
 
 let download_test env =
   let open Lwt.Syntax in
-  (* Log.app (fun k -> k "Data display"); *)
-  (* let* latest_bars = *)
-  (*   Market_data_api.Stock.latest_bars env [ "AAPL"; "NVDA" ] *)
-  (* in *)
   let history_request : Market_data_api.Stock.Historical_bars_request.t =
     {
       timeframe = Trading_types.Timeframe.day;
@@ -45,18 +41,17 @@ let download_test env =
     Market_data_api.Stock.historical_bars env history_request
   in
   match historical_bars with Ok x -> Lwt.return x | Error e -> Lwt.fail_with e
-(* Log.app (fun k -> k "latest_bars:"); *)
-(* Log.app (fun k -> k "%a" Trading_types.Bars.pp latest_bars); *)
-(* Log.app (fun k -> k "historical_bars:"); *)
-(* Log.app (fun k -> k "%a" Trading_types.Bars.pp historical_bars); *)
-(* Log.app (fun k -> k "Data display finished"); *)
 
 let top () =
   let open Lwt.Syntax in
   CalendarLib.Time_Zone.change (UTC_Plus (-5));
   let env = Environment.make () in
-  let module Alpaca_backend = State_machine.Alpaca_backend in
-  let module Live_strategy = Strategies.SimpleStateMachine (Alpaca_backend) in
+  (* let module Backend = State_machine.Alpaca_backend in *)
+  let* bars = download_test env in
+  let module Backend = State_machine.Backtesting_backend (struct
+    let bars = bars
+  end) in
+  let module Live_strategy = Strategies.SimpleStateMachine (Backend) in
   let* res = Live_strategy.run env in
   Log.app (fun k -> k "State machine shutdown:");
   Log.app (fun k -> k "%s" res);
