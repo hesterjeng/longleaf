@@ -1,10 +1,6 @@
 module State = struct
   type state =
-    | Initialize
-    | Listening
-    | Ordering
-    | Liquidate
-    | Finished of string
+    [ `Initialize | `Listening | `Ordering | `Liquidate | `Finished of string ]
 
   type 'a t = { env : Environment.t; current : state; content : 'a }
   type ('a, 'b) status = Running of 'a t | Shutdown of 'b
@@ -13,7 +9,7 @@ module State = struct
   let shutdown x = Shutdown x
 
   let init env =
-    { env; current = Initialize; content = Trading_types.Bars.empty }
+    { env; current = `Initialize; content = Trading_types.Bars.empty }
 end
 
 module type TICKER = sig
@@ -128,32 +124,34 @@ module Backtesting_backend (Data : BACKEND_INPUT) : BACKEND = struct
 
   let liquidate env : (unit, string) Lwt_result.t =
     let position = get_position () in
-    let final_bar =
-      match last_data_bar with
-      | Some b -> b
-      | None ->
-          invalid_arg "Expected to have last data bar in backtesting backend"
-    in
-    let _ =
-      Hashtbl.map_list
-        (fun symbol qty ->
-          if qty = 0 then Lwt_result.return ()
-          else
-            let order : Order.t =
-              {
-                symbol;
-                side = (if qty >= 0 then Side.Sell else Side.Buy);
-                tif = TimeInForce.GoodTillCanceled;
-                order_type = OrderType.Market;
-                qty;
-                price = Bars.price final_bar symbol;
-              }
-            in
-            let* _json_resp = create_order env order in
-            Lwt_result.return ())
-        position
-    in
-    Lwt_result.return ()
+    if List.is_empty @@ Hashtbl.keys_list position then Lwt_result.return ()
+    else
+      let final_bar =
+        match last_data_bar with
+        | Some b -> b
+        | None ->
+            invalid_arg "Expected to have last data bar in backtesting backend"
+      in
+      let _ =
+        Hashtbl.map_list
+          (fun symbol qty ->
+            if qty = 0 then Lwt_result.return ()
+            else
+              let order : Order.t =
+                {
+                  symbol;
+                  side = (if qty >= 0 then Side.Sell else Side.Buy);
+                  tif = TimeInForce.GoodTillCanceled;
+                  order_type = OrderType.Market;
+                  qty;
+                  price = Bars.price final_bar symbol;
+                }
+              in
+              let* _json_resp = create_order env order in
+              Lwt_result.return ())
+          position
+      in
+      Lwt_result.return ()
 end
 
 (* Live trading *)
@@ -185,28 +183,30 @@ module Alpaca_backend : BACKEND = struct
 
   let liquidate env =
     let position = get_position () in
-    let symbols = Hashtbl.keys_list position in
-    let* last_data_bar = latest_bars env symbols in
-    let _ =
-      Hashtbl.map_list
-        (fun symbol qty ->
-          if qty = 0 then Lwt_result.return ()
-          else
-            let order : Order.t =
-              {
-                symbol;
-                side = (if qty >= 0 then Side.Sell else Side.Buy);
-                tif = TimeInForce.GoodTillCanceled;
-                order_type = OrderType.Market;
-                qty;
-                price = Bars.price last_data_bar symbol;
-              }
-            in
-            let* _json_resp = create_order env order in
-            Lwt_result.return ())
-        position
-    in
-    Lwt_result.return ()
+    if List.is_empty @@ Hashtbl.keys_list position then Lwt_result.return ()
+    else
+      let symbols = Hashtbl.keys_list position in
+      let* last_data_bar = latest_bars env symbols in
+      let _ =
+        Hashtbl.map_list
+          (fun symbol qty ->
+            if qty = 0 then Lwt_result.return ()
+            else
+              let order : Order.t =
+                {
+                  symbol;
+                  side = (if qty >= 0 then Side.Sell else Side.Buy);
+                  tif = TimeInForce.GoodTillCanceled;
+                  order_type = OrderType.Market;
+                  qty;
+                  price = Bars.price last_data_bar symbol;
+                }
+              in
+              let* _json_resp = create_order env order in
+              Lwt_result.return ())
+          position
+      in
+      Lwt_result.return ()
 end
 
 module type STRAT = sig
