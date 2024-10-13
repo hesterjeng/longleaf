@@ -15,7 +15,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
     let time = Time.now () in
     let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
     let close_time = Calendar.Time.lmake ~hour:16 () in
-    Log.app (fun k -> k "@[%s@]@." (Util.show_calendar_time_t time));
+    (* Log.app (fun k -> k "@[%s@]@." (Util.show_calendar_time_t time)); *)
     let* () =
       if
         Calendar.Time.compare time open_time = 1
@@ -23,6 +23,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
       then (
         Log.app (fun k -> k "Market is open");
         Lwt_result.return ())
+      else if Backend.backtesting then Lwt_result.return ()
       else
         Lwt_result.ok
           (Log.app (fun k -> k "Waiting because market is closed");
