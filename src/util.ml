@@ -35,7 +35,6 @@ let handle_response json response =
 
 let get ~headers ~uri : (Yojson.Safe.t, string) Lwt_result.t =
   let open Lwt.Syntax in
-  let open Cohttp in
   let open Cohttp_lwt_unix in
   Util_log.app (fun k -> k "GET: %a" Uri.pp uri);
   let* response, body_stream = Client.get ~headers uri in
@@ -45,7 +44,6 @@ let get ~headers ~uri : (Yojson.Safe.t, string) Lwt_result.t =
 
 let delete ~headers ~uri : (Yojson.Safe.t, string) Lwt_result.t =
   let open Lwt.Syntax in
-  let open Cohttp in
   let open Cohttp_lwt_unix in
   Util_log.app (fun k -> k "DELETE: %a" Uri.pp uri);
   let* response, body_stream = Client.delete ~headers uri in
@@ -55,7 +53,6 @@ let delete ~headers ~uri : (Yojson.Safe.t, string) Lwt_result.t =
 
 let post ~headers ~body ~uri : (Yojson.Safe.t, string) Lwt_result.t =
   let open Lwt.Syntax in
-  let open Cohttp in
   let open Cohttp_lwt_unix in
   Util_log.app (fun k -> k "POST: %a" Uri.pp uri);
   let* response, body_stream = Client.post ~headers ~body uri in
