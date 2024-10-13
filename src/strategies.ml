@@ -26,7 +26,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
       else
         Lwt_result.ok
           (Log.app (fun k -> k "Waiting because market is closed");
-           Lwt_unix.sleep 5.0)
+           Lwt.return_unit)
     in
     let* () =
       Lwt.pick
@@ -36,22 +36,22 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
           Lwt_result.error @@ Util.listen_for_input ();
         ]
     in
-    Lwt_result.return @@ continue { state with current = Ordering }
+    Lwt_result.return @@ continue { state with current = `Ordering }
 
   (* TODO: Handle market closed with live backend rather than requesting all through the night *)
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
     match state.current with
-    | Initialize ->
+    | `Initialize ->
         Log.app (fun k -> k "Running");
-        Lwt_result.return @@ continue { state with current = Listening }
-    | Listening -> listen_tick state
-    | Liquidate ->
+        Lwt_result.return @@ continue { state with current = `Listening }
+    | `Listening -> listen_tick state
+    | `Liquidate ->
         Log.app (fun k -> k "Liquidate");
         let* _ = Backend.liquidate env in
         Lwt_result.return
-        @@ continue { state with current = Finished "Successfully liquidated" }
-    | Finished code ->
+        @@ continue { state with current = `Finished "Successfully liquidated" }
+    | `Finished code ->
         let json =
           Trading_types.Bars.yojson_of_t state.content |> Yojson.Safe.to_string
         in
@@ -61,7 +61,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         close_out oc;
         Log.app (fun k -> k "cash: %f" (Backend.get_cash ()));
         Lwt_result.return @@ shutdown code
-    | Ordering ->
+    | `Ordering ->
         let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
         let msft = Bars.price latest_bars "MSFT" in
         let nvda = Bars.price latest_bars "NVDA" in
@@ -95,7 +95,7 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
         let new_bars = Bars.combine [ latest_bars; state.content ] in
         let* () = Lwt_result.ok @@ Lwt_unix.sleep 0.01 in
         Lwt_result.return
-        @@ continue { state with current = Listening; content = new_bars }
+        @@ continue { state with current = `Listening; content = new_bars }
 
   let run env =
     let init = init env in
@@ -109,12 +109,12 @@ module SimpleStateMachine (Backend : BACKEND) : STRAT = struct
           | Shutdown code -> Lwt.return code)
       | Error s -> (
           let try_liquidating () =
-            let liquidate = { prev with current = Liquidate } in
+            let liquidate = { prev with current = `Liquidate } in
             let* liquidated = go liquidate in
             Lwt.return liquidated
           in
           match prev.current with
-          | Liquidate -> Lwt.return s
+          | `Liquidate -> Lwt.return s
           | _ -> try_liquidating ())
     in
     go init
