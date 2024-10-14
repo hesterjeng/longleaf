@@ -36,7 +36,9 @@ let position_test env =
   | Ok p ->
       Lwt.return
       @@ Log.app (fun k -> k "%a" Position.pp_alpaca_position_response p)
-  | Error e -> invalid_arg e
+  | Error e ->
+      Log.err (fun k -> k "Error %s in position test" e);
+      invalid_arg e
 
 let top () =
   try
@@ -55,5 +57,6 @@ let top () =
     Log.app (fun k -> k "%s" res);
     Lwt.return_unit
   with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->
+    Log.err (fun k -> k "Caught yojson error");
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
