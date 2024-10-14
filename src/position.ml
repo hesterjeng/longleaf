@@ -16,23 +16,29 @@ type raw = {
   symbol : string;
   exchange : string;
   asset_class : string;
-  avg_entry_price : float;
-  qty : int;
+  avg_entry_price : string;
+  qty : string;
   side : Side.t;
-  market_value : float;
-  cost_basis : float;
-  unrealized_pl : float;
-  unrealized_plpc : float;
-  unrealized_intraday_pl : float;
-  unrealized_intraday_plpc : float;
-  current_price : float;
-  lastday_price : float;
-  change_today : float;
+  market_value : string;
+  cost_basis : string;
+  unrealized_pl : string;
+  unrealized_plpc : string;
+  unrealized_intraday_pl : string;
+  unrealized_intraday_plpc : string;
+  current_price : string;
+  lastday_price : string;
+  change_today : string;
   asset_marginable : bool;
 }
-[@@deriving show, yojson]
+[@@deriving show, yojson] [@@yojson.allow_extra_fields]
 
 type alpaca_position_response = raw list [@@deriving show, yojson]
+
+let alpaca_position_response_of_yojson x =
+  try alpaca_position_response_of_yojson x
+  with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->
+    let err = Printexc.to_string e in
+    invalid_arg @@ Format.asprintf "%s" err
 
 type t = {
   symbol : string;
@@ -45,8 +51,20 @@ type t = {
 
 let t_of_raw (x : raw) : t =
   let symbol = x.symbol in
-  let qty = x.qty in
+  let qty =
+    x.qty |> Int.of_string |> function
+    | Some x -> x
+    | None -> invalid_arg "expected int in position.ml"
+  in
   let side = x.side in
-  let current_price = x.current_price in
-  let avg_entry_price = x.avg_entry_price in
+  let current_price =
+    x.current_price |> Float.of_string_opt |> function
+    | Some x -> x
+    | None -> invalid_arg "expected float in position.ml"
+  in
+  let avg_entry_price =
+    x.avg_entry_price |> Float.of_string_opt |> function
+    | Some x -> x
+    | None -> invalid_arg "expected float in position.ml"
+  in
   { symbol; qty; side; current_price; avg_entry_price }
