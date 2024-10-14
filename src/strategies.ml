@@ -16,6 +16,36 @@ module type S = sig
   val run : Environment.t -> string Lwt.t
 end
 
+module Log = (val Logs.src_log Logs.(Src.create "strategies"))
+
+let check_time backtest =
+  let open CalendarLib in
+  let time = Time.now () in
+  let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
+  let close_time = Calendar.Time.lmake ~hour:16 () in
+  if
+    Calendar.Time.compare time open_time = 1
+    && Calendar.Time.compare time close_time = -1
+  then Lwt_result.return ()
+  else if backtest then Lwt_result.return ()
+  else
+    Lwt_result.ok
+      (Log.app (fun k -> k "Waiting because market is closed");
+       Lwt.return_unit)
+
+let listen_tick backtest (tick : unit -> (unit, 'a) Lwt_result.t) =
+  let open Lwt_result.Syntax in
+  let* () = check_time backtest in
+  let* () =
+    Lwt.pick
+      [
+        (let* _ = tick () in
+         Lwt_result.return ());
+        Lwt_result.error @@ Util.listen_for_input ();
+      ]
+  in
+  Lwt_result.return ()
+
 module SimpleStateMachine (Backend : Backend.S) : S = struct
   let () = Random.self_init ()
 
@@ -26,33 +56,6 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
 
   let ok_code = Cohttp.Code.status_of_code 200
 
-  let listen_tick state =
-    let open CalendarLib in
-    let time = Time.now () in
-    let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
-    let close_time = Calendar.Time.lmake ~hour:16 () in
-    (* Log.app (fun k -> k "@[%s@]@." (Util.show_calendar_time_t time)); *)
-    let* () =
-      if
-        Calendar.Time.compare time open_time = 1
-        && Calendar.Time.compare time close_time = -1
-      then Lwt_result.return ()
-      else if Backend.backtesting then Lwt_result.return ()
-      else
-        Lwt_result.ok
-          (Log.app (fun k -> k "Waiting because market is closed");
-           Lwt.return_unit)
-    in
-    let* () =
-      Lwt.pick
-        [
-          (let* _ = Backend.Ticker.tick () in
-           Lwt_result.return ());
-          Lwt_result.error @@ Util.listen_for_input ();
-        ]
-    in
-    Lwt_result.return @@ continue { state with current = `Ordering }
-
   (* TODO: Handle market closed with live backend rather than requesting all through the night *)
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
@@ -60,7 +63,9 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
     | `Initialize ->
         Log.app (fun k -> k "Running");
         Lwt_result.return @@ continue { state with current = `Listening }
-    | `Listening -> listen_tick state
+    | `Listening ->
+        let* () = listen_tick Backend.backtesting Backend.Ticker.tick in
+        Lwt_result.return @@ continue { state with current = `Ordering }
     | `Liquidate ->
         Log.app (fun k -> k "Liquidate");
         let* _ = Backend.liquidate env in
