@@ -108,7 +108,7 @@ module Bars = struct
       Ptime.compare (Time.of_string x.timestamp) (Time.of_string y.timestamp)
   end
 
-  module Bars2 = struct
+  module Data = struct
     type t = (string * Bar_item.t list) list [@@deriving show, yojson]
 
     let empty : t = []
@@ -130,14 +130,13 @@ module Bars = struct
   end
 
   type t = {
-    bars : Bars2.t;
+    bars : Data.t;
     next_page_token : string option; [@default None]
     currency : string option; [@default None]
   }
   [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
-  let empty : t =
-    { bars = Bars2.empty; next_page_token = None; currency = None }
+  let empty : t = { bars = Data.empty; next_page_token = None; currency = None }
 
   let combine (l : t list) : t =
     let keys =
