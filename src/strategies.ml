@@ -46,11 +46,30 @@ let listen_tick backtest (tick : unit -> (unit, 'a) Lwt_result.t) =
   in
   Lwt_result.return ()
 
-module SimpleStateMachine (Backend : Backend.S) : S = struct
-  let () = Random.self_init ()
+let run step env =
+  let init = State.init env in
+  let open Lwt.Syntax in
+  let rec go prev =
+    let* stepped = step prev in
+    match stepped with
+    | Ok x -> (
+        match x with
+        | State.Running now -> go now
+        | Shutdown code -> Lwt.return code)
+    | Error s -> (
+        let try_liquidating () =
+          let liquidate = { prev with current = `Liquidate } in
+          let* liquidated = go liquidate in
+          Lwt.return liquidated
+        in
+        match prev.current with
+        | `Liquidate -> Lwt.return s
+        | _ -> try_liquidating ())
+  in
+  go init
 
+module SimpleStateMachine (Backend : Backend.S) : S = struct
   open Trading_types
-  open State
   open Lwt_result.Syntax
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
 
@@ -62,15 +81,16 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
     match state.current with
     | `Initialize ->
         Log.app (fun k -> k "Running");
-        Lwt_result.return @@ continue { state with current = `Listening }
+        Lwt_result.return @@ State.continue { state with current = `Listening }
     | `Listening ->
         let* () = listen_tick Backend.backtesting Backend.Ticker.tick in
-        Lwt_result.return @@ continue { state with current = `Ordering }
+        Lwt_result.return @@ State.continue { state with current = `Ordering }
     | `Liquidate ->
         Log.app (fun k -> k "Liquidate");
         let* _ = Backend.liquidate env in
         Lwt_result.return
-        @@ continue { state with current = `Finished "Successfully liquidated" }
+        @@ State.continue
+             { state with current = `Finished "Successfully liquidated" }
     | `Finished code ->
         let json =
           Trading_types.Bars.yojson_of_t state.content |> Yojson.Safe.to_string
@@ -80,7 +100,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
         output_string oc json;
         close_out oc;
         Log.app (fun k -> k "cash: %f" (Backend.get_cash ()));
-        Lwt_result.return @@ shutdown code
+        Lwt_result.return @@ State.shutdown code
     | `Ordering ->
         let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
         let msft = Bars.price latest_bars "MSFT" in
@@ -115,27 +135,8 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
         let new_bars = Bars.combine [ latest_bars; state.content ] in
         let* () = Lwt_result.ok @@ Lwt_unix.sleep 0.01 in
         Lwt_result.return
-        @@ continue { state with current = `Listening; content = new_bars }
+        @@ State.continue
+             { state with current = `Listening; content = new_bars }
 
-  let run env =
-    let init = init env in
-    let open Lwt.Syntax in
-    let rec go prev =
-      let* stepped = step prev in
-      match stepped with
-      | Ok x -> (
-          match x with
-          | Running now -> go now
-          | Shutdown code -> Lwt.return code)
-      | Error s -> (
-          let try_liquidating () =
-            let liquidate = { prev with current = `Liquidate } in
-            let* liquidated = go liquidate in
-            Lwt.return liquidated
-          in
-          match prev.current with
-          | `Liquidate -> Lwt.return s
-          | _ -> try_liquidating ())
-    in
-    go init
+  let run = run step
 end
