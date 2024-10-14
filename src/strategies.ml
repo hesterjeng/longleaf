@@ -78,12 +78,13 @@ let output_data get_cash (state : _ State.t) =
   close_out oc;
   Log.app (fun k -> k "cash: %f" (get_cash ()))
 
+let ok_code = Cohttp.Code.status_of_code 200
+
 module SimpleStateMachine (Backend : Backend.S) : S = struct
   open Trading_types
   open Lwt_result.Syntax
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
 
-  let ok_code = Cohttp.Code.status_of_code 200
 
   (* TODO: Handle market closed with live backend rather than requesting all through the night *)
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
