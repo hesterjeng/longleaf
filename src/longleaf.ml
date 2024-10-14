@@ -29,17 +29,31 @@ let download_test env =
   in
   match historical_bars with Ok x -> Lwt.return x | Error e -> Lwt.fail_with e
 
-let top () =
+let position_test env =
   let open Lwt.Syntax in
-  CalendarLib.Time_Zone.change (UTC_Plus (-5));
-  let env = Environment.make () in
-  (* let module Backend = State_machine.Alpaca_backend in *)
-  let* bars = download_test env in
-  let module Backend = Backend.Backtesting (struct
-    let bars = bars
-  end) in
-  let module Live_strategy = Strategies.SimpleStateMachine (Backend) in
-  let* res = Live_strategy.run env in
-  Log.app (fun k -> k "State machine shutdown:");
-  Log.app (fun k -> k "%s" res);
-  Lwt.return_unit
+  let* position = Trading_api.Positions.get_all_open_positions env in
+  match position with
+  | Ok p ->
+      Lwt.return
+      @@ Log.app (fun k -> k "%a" Position.pp_alpaca_position_response p)
+  | Error e -> invalid_arg e
+
+let top () =
+  try
+    let open Lwt.Syntax in
+    CalendarLib.Time_Zone.change (UTC_Plus (-5));
+    let env = Environment.make () in
+    (* let module Backend = State_machine.Alpaca_backend in *)
+    let* bars = download_test env in
+    let* () = position_test env in
+    let module Backend = Backend.Backtesting (struct
+      let bars = bars
+    end) in
+    let module Strategy = Strategies.SimpleStateMachine (Backend) in
+    let* res = Strategy.run env in
+    Log.app (fun k -> k "State machine shutdown:");
+    Log.app (fun k -> k "%s" res);
+    Lwt.return_unit
+  with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->
+    let err = Printexc.to_string e in
+    invalid_arg @@ Format.asprintf "%s" err
