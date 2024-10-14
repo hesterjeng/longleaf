@@ -34,8 +34,5 @@ let of_string x =
       invalid_arg @@ Format.asprintf "Invalid time in my time module? %s" x
 
 let to_string x = Ptime.to_rfc3339 x
-
-open Ppx_yojson_conv_lib.Yojson_conv.Primitives
-
 let t_of_yojson (x : Yojson.Safe.t) = string_of_yojson x |> of_string
 let yojson_of_t x = yojson_of_string @@ to_string x

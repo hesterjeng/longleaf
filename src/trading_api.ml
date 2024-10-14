@@ -10,8 +10,6 @@ let h (env : Environment.t) =
   Header.add h "APCA-API-SECRET-KEY" env.apca_api_secret_key
 
 module Clock = struct
-  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
-
   type t = {
     is_open : bool;
     timestamp : string;
@@ -28,8 +26,6 @@ module Clock = struct
 end
 
 module Accounts = struct
-  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
-
   let float_of_yojson yojson =
     match yojson with
     | `Float v -> v
@@ -81,8 +77,6 @@ module Accounts = struct
 end
 
 module Assets = struct
-  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
-
   type asset = { id : string }
   [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 
