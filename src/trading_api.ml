@@ -90,6 +90,12 @@ module Assets = struct
 end
 
 module Positions = struct
+  let get_all_open_positions (env : Environment.t) =
+    let uri = Uri.with_path env.apca_api_base_url "/v2/positions" in
+    let headers = h env in
+    let* body_json = Util.get ~headers ~uri in
+    Lwt_result.return @@ Position.alpaca_position_response_of_yojson body_json
+
   let close_all_positions (env : Environment.t) (cancel_orders : bool) =
     let cancel_orders = if cancel_orders then "true" else "false" in
     let uri =
