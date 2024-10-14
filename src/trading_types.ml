@@ -60,8 +60,6 @@ module Timeframe : sig
   val week : t
   val month : int -> t
 end = struct
-  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
-
   type t = Min of int | Hour of int | Day | Week | Month of int
   [@@deriving show, yojson]
 
@@ -89,8 +87,6 @@ end = struct
 end
 
 module Bars = struct
-  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
-
   module Bar_item = struct
     type t = {
       timestamp : string; [@key "t"]
@@ -174,8 +170,6 @@ module Bars = struct
 end
 
 module Order = struct
-  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
-
   type t = {
     symbol : string;
     side : Side.t;

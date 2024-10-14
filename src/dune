@@ -27,6 +27,8 @@
    -a+8
    -open
    Containers
+   -open
+   Ppx_yojson_conv_lib.Yojson_conv.Primitives
    ; -open
    ; Primitives
    -strict-sequence
