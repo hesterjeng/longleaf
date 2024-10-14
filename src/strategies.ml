@@ -68,6 +68,16 @@ let run step env =
   in
   go init
 
+let output_data get_cash (state : _ State.t) =
+  let json =
+    Trading_types.Bars.yojson_of_t state.content |> Yojson.Safe.to_string
+  in
+  let filename = Format.sprintf "data/live_%s" (Util.rfc339 ()) in
+  let oc = open_out filename in
+  output_string oc json;
+  close_out oc;
+  Log.app (fun k -> k "cash: %f" (get_cash ()))
+
 module SimpleStateMachine (Backend : Backend.S) : S = struct
   open Trading_types
   open Lwt_result.Syntax
@@ -92,14 +102,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
         @@ State.continue
              { state with current = `Finished "Successfully liquidated" }
     | `Finished code ->
-        let json =
-          Trading_types.Bars.yojson_of_t state.content |> Yojson.Safe.to_string
-        in
-        let filename = Format.sprintf "data/live_%s" (Util.rfc339 ()) in
-        let oc = open_out filename in
-        output_string oc json;
-        close_out oc;
-        Log.app (fun k -> k "cash: %f" (Backend.get_cash ()));
+        output_data Backend.get_cash state;
         Lwt_result.return @@ State.shutdown code
     | `Ordering ->
         let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
