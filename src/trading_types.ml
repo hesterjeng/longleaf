@@ -161,12 +161,6 @@ module Bars = struct
     | None ->
         invalid_arg
         @@ Format.asprintf "Unable to get price info for ticker %s" ticker
-
-  let t_of_yojson x =
-    try t_of_yojson x
-    with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
-      let err = Printexc.to_string e in
-      invalid_arg @@ Format.asprintf "%s" err
 end
 
 module Order = struct
