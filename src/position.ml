@@ -3,17 +3,18 @@ type raw = {
   symbol : string;
   exchange : string;
   asset_class : string;
-  avg_entry_price : string;
+  avg_entry_price : float;
   qty : int;
   side : string;
-  market_value : string;
-  cost_basis : string;
-  unrealized_pl : string;
-  unrealized_plpc : string;
-  unrealized_intraday_pl : string;
-  unrealized_intraday_plpc : string;
-  current_price : string;
-  lastday_price : string;
-  change_today : string;
+  market_value : float;
+  cost_basis : float;
+  unrealized_pl : float;
+  unrealized_plpc : float;
+  unrealized_intraday_pl : float;
+  unrealized_intraday_plpc : float;
+  current_price : float;
+  lastday_price : float;
+  change_today : float;
   asset_marginable : bool;
 }
+[@@deriving show, yojson]

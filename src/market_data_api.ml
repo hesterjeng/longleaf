@@ -4,8 +4,6 @@ open Trading_types
 let h = Trading_api.h
 
 module Stock = struct
-  open Ppx_yojson_conv_lib.Yojson_conv.Primitives
-
   module Historical_bars_request = struct
     type t = { symbols : string list; timeframe : Timeframe.t; start : Time.t }
     [@@deriving show, yojson]
