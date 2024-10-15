@@ -108,21 +108,26 @@ module Bars = struct
     type t = (string * Bar_item.t list) list [@@deriving show, yojson]
 
     let empty : t = []
+    let original_t_of_yojson = t_of_yojson
 
     let t_of_yojson (x : Yojson.Safe.t) =
-      match x with
-      | `Assoc s ->
-          List.map
-            (fun ((ticker, data) : string * Yojson.Safe.t) ->
-              ( ticker,
-                match data with
-                | `List l -> List.map Bar_item.t_of_yojson l
-                | `Assoc _ -> [ Bar_item.t_of_yojson data ]
-                | a ->
-                    Util.Util_log.err (fun k -> k "%a" Yojson.Safe.pp a);
-                    invalid_arg "The data must be stored as a list" ))
-            s
-      | _ -> invalid_arg "Bars must be a toplevel Assoc"
+      try
+        match x with
+        | `Assoc s ->
+            List.map
+              (fun ((ticker, data) : string * Yojson.Safe.t) ->
+                ( ticker,
+                  match data with
+                  | `List l -> List.map Bar_item.t_of_yojson l
+                  | `Assoc _ -> [ Bar_item.t_of_yojson data ]
+                  | a ->
+                      Util.Util_log.err (fun k -> k "%a" Yojson.Safe.pp a);
+                      invalid_arg "The data must be stored as a list" ))
+              s
+        | _ -> invalid_arg "Bars must be a toplevel Assoc"
+      with _ ->
+        Format.printf "Trying Data.original_t_of_yojson";
+        original_t_of_yojson x
   end
 
   type t = {
