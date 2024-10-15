@@ -33,9 +33,7 @@ let position_test env =
   let open Lwt.Syntax in
   let* position = Trading_api.Positions.get_all_open_positions env in
   match position with
-  | Ok p ->
-      Lwt.return
-      @@ Log.app (fun k -> k "%a" Position.pp_alpaca_position_response p)
+  | Ok p -> Lwt.return @@ Log.app (fun k -> k "%a" Position.pp p)
   | Error e ->
       Log.err (fun k -> k "Error %s in position test" e);
       invalid_arg e
