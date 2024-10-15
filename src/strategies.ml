@@ -68,12 +68,13 @@ let run step env =
   in
   go init
 
-let output_data get_cash (state : _ State.t) =
+let output_data backtest get_cash (state : _ State.t) =
+  let backtest = if backtest then "test" else "live" in
   let json =
     Trading_types.Bars.yojson_of_t state.content |> Yojson.Safe.to_string
   in
   let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
-  let filename = Format.sprintf "data/%s" tail in
+  let filename = Format.sprintf "data/%s_%s" backtest tail in
   let oc = open_out filename in
   output_string oc json;
   close_out oc;
@@ -103,7 +104,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
         @@ State.continue
              { state with current = `Finished "Successfully liquidated" }
     | `Finished code ->
-        output_data Backend.get_cash state;
+        output_data Backend.backtesting Backend.get_cash state;
         Lwt_result.return @@ State.shutdown code
     | `Ordering ->
         let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
