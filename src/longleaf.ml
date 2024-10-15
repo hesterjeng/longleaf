@@ -44,10 +44,12 @@ let top () =
     CalendarLib.Time_Zone.change (UTC_Plus (-5));
     let env = Environment.make () in
     (* let module Backend = State_machine.Alpaca_backend in *)
-    let* bars = download_test env in
+    (* let* bars = download_test env in *)
     let* () = position_test env in
     let module Backend = Backend.Backtesting (struct
-      let bars = bars
+      let bars =
+        Yojson.Safe.from_file "data/test_hexahydroxy_propagation"
+        |> Trading_types.Bars.t_of_yojson
     end) in
     let module Strategy = Strategies.SimpleStateMachine (Backend) in
     let* res = Strategy.run env in
