@@ -72,7 +72,8 @@ let output_data get_cash (state : _ State.t) =
   let json =
     Trading_types.Bars.yojson_of_t state.content |> Yojson.Safe.to_string
   in
-  let filename = Format.sprintf "data/live_%s" (Util.rfc339 ()) in
+  let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
+  let filename = Format.sprintf "data/%s" tail in
   let oc = open_out filename in
   output_string oc json;
   close_out oc;
