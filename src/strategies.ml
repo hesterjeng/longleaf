@@ -95,6 +95,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
         Log.app (fun k -> k "Running");
         Lwt_result.return @@ State.continue { state with current = `Listening }
     | `Listening ->
+        Log.app (fun k -> k "Listening");
         let* () = listen_tick Backend.backtesting Backend.Ticker.tick in
         Lwt_result.return @@ State.continue { state with current = `Ordering }
     | `Liquidate ->
