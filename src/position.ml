@@ -40,7 +40,7 @@ let alpaca_position_response_of_yojson x =
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
 
-type t = {
+type single_position = {
   symbol : string;
   qty : int;
   side : Side.t;
@@ -49,7 +49,9 @@ type t = {
 }
 [@@deriving show, yojson]
 
-let t_of_raw (x : raw) : t =
+type t = single_position list [@@deriving show, yojson]
+
+let single_position_of_raw (x : raw) : single_position =
   let symbol = x.symbol in
   let qty =
     x.qty |> Int.of_string |> function
@@ -68,3 +70,6 @@ let t_of_raw (x : raw) : t =
     | None -> invalid_arg "expected float in position.ml"
   in
   { symbol; qty; side; current_price; avg_entry_price }
+
+let t_of_yojson x : t =
+  alpaca_position_response_of_yojson x |> List.map single_position_of_raw
