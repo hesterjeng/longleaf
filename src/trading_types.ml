@@ -126,7 +126,7 @@ module Bars = struct
               s
         | _ -> invalid_arg "Bars must be a toplevel Assoc"
       with _ ->
-        Format.printf "Trying Data.original_t_of_yojson";
+        Format.printf "@[Trying Data.original_t_of_yojson@]@.";
         original_t_of_yojson x
   end
 
