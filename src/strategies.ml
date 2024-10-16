@@ -1,6 +1,7 @@
 module State = struct
   type state =
     [ `Initialize | `Listening | `Ordering | `Liquidate | `Finished of string ]
+  [@@deriving show { with_path = false }]
 
   type 'a t = { env : Environment.t; current : state; content : 'a }
   type ('a, 'b) status = Running of 'a t | Shutdown of 'b
@@ -54,13 +55,12 @@ let run step env =
     match stepped with
     | Ok x -> (
         match x with
-        | State.Running now -> go now
+        | State.Running now -> (go [@tailcall]) now
         | Shutdown code -> Lwt.return code)
     | Error s -> (
         let try_liquidating () =
           let liquidate = { prev with current = `Liquidate } in
-          let* liquidated = go liquidate in
-          Lwt.return liquidated
+          go liquidate
         in
         match prev.current with
         | `Liquidate -> Lwt.return s
@@ -90,16 +90,15 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
   (* TODO: Handle market closed with live backend rather than requesting all through the night *)
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
+    Format.printf "\r\x1b[2K%s%!" (State.show_state state.current);
+    Unix.sleepf 0.01;
     match state.current with
     | `Initialize ->
-        Log.app (fun k -> k "Running");
         Lwt_result.return @@ State.continue { state with current = `Listening }
     | `Listening ->
-        Log.app (fun k -> k "Listening");
         let* () = listen_tick Backend.backtesting Backend.Ticker.tick in
         Lwt_result.return @@ State.continue { state with current = `Ordering }
     | `Liquidate ->
-        Log.app (fun k -> k "Liquidate");
         let* _ = Backend.liquidate env in
         Lwt_result.return
         @@ State.continue
@@ -135,7 +134,6 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
               }
             in
             let* _json_resp = Backend.create_order env order in
-            Log.app (fun k -> k "Placed order");
             Lwt_result.return ()
         in
         let new_bars = Bars.combine [ latest_bars; state.content ] in
