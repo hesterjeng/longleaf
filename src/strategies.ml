@@ -87,11 +87,10 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
   open Lwt_result.Syntax
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
 
-  (* TODO: Handle market closed with live backend rather than requesting all through the night *)
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
-    Format.printf "\r\x1b[2K%s%!" (State.show_state state.current);
-    Unix.sleepf 0.01;
+    (* Format.printf "\r\x1b[2K%s%!" (State.show_state state.current); *)
+    (* Unix.sleepf 0.01; *)
     match state.current with
     | `Initialize ->
         Lwt_result.return @@ State.continue { state with current = `Listening }
