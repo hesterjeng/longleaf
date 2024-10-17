@@ -46,14 +46,14 @@ module Math = struct
     max_close @@ List.rev @@ List.take window_size l
 end
 
-module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
+module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   open Trading_types
   open Lwt_result.Syntax
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
   module State = Strategies.State
   module Bar_item = Bars.Bar_item
 
-  let consider_shorting history now ticker : Order.t option =
+  let consider_shorting ~history ~now ticker : Order.t option =
     (* 1) There must be a point less than 80% of the critical point before the first max *)
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
     (* 3) The current price must be within 5% of that previous maximum *)
@@ -94,8 +94,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
       List.filter_map check1 maxima
       |> List.filter_map check2 |> List.filter_map check3
     in
-    (* TODO: fix this *)
-    None
+    match candidates with [ x ] -> Some x | _ -> None
 
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
