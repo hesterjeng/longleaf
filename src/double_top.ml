@@ -51,7 +51,6 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
   open Lwt_result.Syntax
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
   module State = Strategies.State
-
   module Bar_item = Bars.Bar_item
 
   let consider_shorting history now ticker : Order.t option =
@@ -60,22 +59,43 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
     (* 3) The current price must be within 5% of that previous maximum *)
     let open Option.Infix in
     let price_history = Bars.get history ticker in
-    let check_1 (current_max : Bar_item.t) =
-      let* antecedent_low =
-        List.find_opt (fun (x : Bar_item.t) -> x.close <. (0.8 *. current_max.close)
-                                               && Ptime.compare current_max.timestamp x.timestamp = 1
-          ) price_history
-      in
-      Some antecedent_low
-    in
-    (* WIP *)
-    let maxima = Math.find_local_maxima 10 price_history in
-    let minima = Math.find_local_minima 10 price_history in
     let most_recent_price = Bars.price now ticker in
-    let most_recent_maximum =
-      Math.most_recent_maxima 10 price_history |> fun x -> x.Bars.Bar_item.close
+    let minima = Math.find_local_minima 10 price_history in
+    let maxima = Math.find_local_maxima 10 price_history in
+    let check1 (current_max : Bar_item.t) =
+      let* _ =
+        List.find_opt
+          (fun (x : Bar_item.t) ->
+            x.close <. 0.8 *. current_max.close
+            && Ptime.compare current_max.timestamp x.timestamp = 1)
+          price_history
+      in
+      Some current_max
     in
-    if most_recent_price >. most_recent_maximum then None else None
+    let check2 (current_max : Bar_item.t) =
+      let* _ =
+        List.find_opt
+          (fun (x : Bar_item.t) ->
+            x.close <. 0.8 *. current_max.close
+            && Ptime.compare x.timestamp current_max.timestamp = 1
+            && Ptime.compare most_recent_price.timestamp x.timestamp = 1)
+          minima
+      in
+      Some current_max
+    in
+    let check3 (current_max : Bar_item.t) =
+      let current_price = most_recent_price.close in
+      let lower = 0.95 *. current_max.close in
+      let upper = 1.05 *. current_max.close in
+      if lower <. current_price && current_price <. upper then Some current_max
+      else None
+    in
+    let candidates =
+      List.filter_map check1 maxima
+      |> List.filter_map check2 |> List.filter_map check3
+    in
+    (* TODO: fix this *)
+    None
 
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
@@ -106,13 +126,13 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
           match cash_available >=. 0.0 with
           | true ->
               let tenp = cash_available *. 0.5 in
-              let max_amt = tenp /. nvda in
+              let max_amt = tenp /. nvda.close in
               if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
           | false -> 0
         in
         (* Actually do the trade *)
         let* () =
-          if msft <. nvda then Lwt_result.return ()
+          if msft.close <. nvda.close then Lwt_result.return ()
           else
             let order : Order.t =
               {
@@ -121,7 +141,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
                 tif = TimeInForce.Day;
                 order_type = OrderType.Market;
                 qty;
-                price = nvda;
+                price = nvda.close;
               }
             in
             let* _json_resp = Backend.create_order env order in
