@@ -52,6 +52,31 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
   module State = Strategies.State
 
+  module Bar_item = Bars.Bar_item
+
+  let consider_shorting history now ticker : Order.t option =
+    (* 1) There must be a point less than 80% of the critical point before the first max *)
+    (* 2) There must be a local minimum 80% of the first local max between it and now *)
+    (* 3) The current price must be within 5% of that previous maximum *)
+    let open Option.Infix in
+    let price_history = Bars.get history ticker in
+    let check_1 (current_max : Bar_item.t) =
+      let* antecedent_low =
+        List.find_opt (fun (x : Bar_item.t) -> x.close <. (0.8 *. current_max.close)
+                                               && Ptime.compare current_max.timestamp x.timestamp = 1
+          ) price_history
+      in
+      Some antecedent_low
+    in
+    (* WIP *)
+    let maxima = Math.find_local_maxima 10 price_history in
+    let minima = Math.find_local_minima 10 price_history in
+    let most_recent_price = Bars.price now ticker in
+    let most_recent_maximum =
+      Math.most_recent_maxima 10 price_history |> fun x -> x.Bars.Bar_item.close
+    in
+    if most_recent_price >. most_recent_maximum then None else None
+
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
     (* Format.printf "\r\x1b[2K%s%!" (State.show_state state.current); *)
@@ -73,7 +98,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
         Strategies.output_data Backend.backtesting Backend.get_cash state;
         Lwt_result.return @@ State.shutdown code
     | `Ordering ->
-        let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
+        let* latest_bars = Backend.latest_bars env Backend.tickers in
         let msft = Bars.price latest_bars "MSFT" in
         let nvda = Bars.price latest_bars "NVDA" in
         let cash_available = Backend.get_cash () in
