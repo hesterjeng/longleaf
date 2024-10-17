@@ -100,8 +100,7 @@ module Bars = struct
     }
     [@@deriving show { with_path = false }, yojson]
 
-    let compare x y =
-      Ptime.compare x.timestamp y.timestamp
+    let compare x y = Ptime.compare x.timestamp y.timestamp
   end
 
   module Data = struct
@@ -171,7 +170,7 @@ module Bars = struct
   let price x ticker =
     let bars = x.bars in
     match List.Assoc.get ~eq:String.equal ticker bars with
-    | Some [ info ] -> info.close
+    | Some [ info ] -> info
     | Some _ -> invalid_arg "Multiple bar items on latest bar?"
     | None ->
         invalid_arg
