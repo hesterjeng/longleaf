@@ -118,33 +118,14 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         Lwt_result.return @@ State.shutdown code
     | `Ordering ->
         let* latest_bars = Backend.latest_bars env Backend.tickers in
-        let msft = Bars.price latest_bars "MSFT" in
-        let nvda = Bars.price latest_bars "NVDA" in
         let cash_available = Backend.get_cash () in
-        let qty =
+        let qty (bar : Bar_item.t) =
           match cash_available >=. 0.0 with
           | true ->
               let tenp = cash_available *. 0.5 in
-              let max_amt = tenp /. nvda.close in
+              let max_amt = tenp /. bar.close in
               if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
           | false -> 0
-        in
-        (* Actually do the trade *)
-        let* () =
-          if msft.close <. nvda.close then Lwt_result.return ()
-          else
-            let order : Order.t =
-              {
-                symbol = "NVDA";
-                side = Side.Buy;
-                tif = TimeInForce.Day;
-                order_type = OrderType.Market;
-                qty;
-                price = nvda.close;
-              }
-            in
-            let* _json_resp = Backend.create_order env order in
-            Lwt_result.return ()
         in
         let new_bars = Bars.combine [ latest_bars; state.content ] in
         Lwt_result.return
