@@ -117,7 +117,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
                   tif = TimeInForce.GoodTillCanceled;
                   order_type = OrderType.Market;
                   qty;
-                  price = Bars.price final_bar symbol;
+                  price = (Bars.price final_bar symbol).close;
                 }
               in
               let* _json_resp = create_order env order in
@@ -170,7 +170,7 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
                   tif = TimeInForce.GoodTillCanceled;
                   order_type = OrderType.Market;
                   qty;
-                  price = Bars.price last_data_bar symbol;
+                  price = (Bars.price last_data_bar symbol).close;
                 }
               in
               let* _json_resp = create_order env order in

@@ -114,13 +114,13 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
           match cash_available >=. 0.0 with
           | true ->
               let tenp = cash_available *. 0.5 in
-              let max_amt = tenp /. nvda in
+              let max_amt = tenp /. nvda.close in
               if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
           | false -> 0
         in
         (* Actually do the trade *)
         let* () =
-          if msft <. nvda then Lwt_result.return ()
+          if msft.close <. nvda.close then Lwt_result.return ()
           else
             let order : Order.t =
               {
@@ -129,7 +129,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
                 tif = TimeInForce.Day;
                 order_type = OrderType.Market;
                 qty;
-                price = nvda;
+                price = nvda.close;
               }
             in
             let* _json_resp = Backend.create_order env order in
