@@ -50,6 +50,8 @@ let top () =
       let bars =
         Yojson.Safe.from_file "data/test_hexahydroxy_propagation"
         |> Trading_types.Bars.t_of_yojson
+
+      let tickers = Trading_types.Bars.tickers bars
     end) in
     let module Strategy = Strategies.SimpleStateMachine (Backend) in
     let* res = Strategy.run env in
