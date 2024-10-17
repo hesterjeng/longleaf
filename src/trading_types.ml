@@ -139,6 +139,7 @@ module Bars = struct
 
   let empty : t = { bars = Data.empty; next_page_token = None; currency = None }
 
+  (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
   let combine (l : t list) : t =
     let keys =
       List.flat_map (fun x -> List.Assoc.keys x.bars) l
