@@ -138,6 +138,7 @@ module Bars = struct
   [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
   let empty : t = { bars = Data.empty; next_page_token = None; currency = None }
+  let tickers (x : t) = List.map fst x.bars
 
   (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
   let combine (l : t list) : t =
