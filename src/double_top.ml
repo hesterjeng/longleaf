@@ -45,3 +45,67 @@ module Math = struct
   let most_recent_maxima window_size l =
     max_close @@ List.rev @@ List.take window_size l
 end
+
+module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
+  open Trading_types
+  open Lwt_result.Syntax
+  module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
+  module State = Strategies.State
+
+  let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
+    let env = state.env in
+    (* Format.printf "\r\x1b[2K%s%!" (State.show_state state.current); *)
+    (* Unix.sleepf 0.01; *)
+    match state.current with
+    | `Initialize ->
+        Lwt_result.return @@ State.continue { state with current = `Listening }
+    | `Listening ->
+        let* () =
+          Strategies.listen_tick Backend.backtesting Backend.Ticker.tick
+        in
+        Lwt_result.return @@ State.continue { state with current = `Ordering }
+    | `Liquidate ->
+        let* _ = Backend.liquidate env in
+        Lwt_result.return
+        @@ State.continue
+             { state with current = `Finished "Successfully liquidated" }
+    | `Finished code ->
+        Strategies.output_data Backend.backtesting Backend.get_cash state;
+        Lwt_result.return @@ State.shutdown code
+    | `Ordering ->
+        let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
+        let msft = Bars.price latest_bars "MSFT" in
+        let nvda = Bars.price latest_bars "NVDA" in
+        let cash_available = Backend.get_cash () in
+        let qty =
+          match cash_available >=. 0.0 with
+          | true ->
+              let tenp = cash_available *. 0.5 in
+              let max_amt = tenp /. nvda in
+              if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+          | false -> 0
+        in
+        (* Actually do the trade *)
+        let* () =
+          if msft <. nvda then Lwt_result.return ()
+          else
+            let order : Order.t =
+              {
+                symbol = "NVDA";
+                side = Side.Buy;
+                tif = TimeInForce.Day;
+                order_type = OrderType.Market;
+                qty;
+                price = nvda;
+              }
+            in
+            let* _json_resp = Backend.create_order env order in
+            Lwt_result.return ()
+        in
+        let new_bars = Bars.combine [ latest_bars; state.content ] in
+        Lwt_result.return
+        @@ State.continue
+             { state with current = `Listening; content = new_bars }
+
+  let run = Strategies.run step
+end
