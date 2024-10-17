@@ -89,7 +89,7 @@ end
 module Bars = struct
   module Bar_item = struct
     type t = {
-      timestamp : string; [@key "t"]
+      timestamp : Time.t; [@key "t"]
       open_ : float; [@key "o"]
       high : float; [@key "h"]
       low : float; [@key "l"]
@@ -101,7 +101,7 @@ module Bars = struct
     [@@deriving show { with_path = false }, yojson]
 
     let compare x y =
-      Ptime.compare (Time.of_string x.timestamp) (Time.of_string y.timestamp)
+      Ptime.compare x.timestamp y.timestamp
   end
 
   module Data = struct
@@ -159,6 +159,14 @@ module Bars = struct
     in
     let bars = List.map (fun key -> (key, get_data key)) keys in
     { bars; next_page_token = None; currency = None }
+
+  let get bars ticker =
+    let bars = bars.bars in
+    match List.Assoc.get ~eq:String.equal ticker bars with
+    | Some info -> info
+    | None ->
+        invalid_arg
+        @@ Format.asprintf "Unable to get price info for ticker %s (2)" ticker
 
   let price x ticker =
     let bars = x.bars in
