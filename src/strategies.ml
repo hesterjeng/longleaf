@@ -137,7 +137,6 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
             Lwt_result.return ()
         in
         let new_bars = Bars.combine [ latest_bars; state.content ] in
-        let* () = Lwt_result.ok @@ Lwt_unix.sleep 0.01 in
         Lwt_result.return
         @@ State.continue
              { state with current = `Listening; content = new_bars }
