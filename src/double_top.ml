@@ -53,8 +53,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   module State = Strategies.State
   module Bar_item = Bars.Bar_item
 
-  let consider_shorting ~history ~now ~qty symbol :
-      (Order.t * Bar_item.t) option =
+  let consider_shorting ~history ~now ~(qty : string -> int) symbol :
+      Order.t option =
     (* 1) There must be a point less than 80% of the critical point before the first max *)
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
     (* 3) The current price must be within 5% of that previous maximum *)
@@ -96,18 +96,18 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       |> List.filter_map check2 |> List.filter_map check3
     in
     match candidates with
-    | [ target_maximum ] ->
+    | [ _ ] ->
         let order : Order.t =
           {
             symbol;
             side = Side.Sell;
             tif = TimeInForce.GoodTillCanceled;
             order_type = OrderType.Market;
-            qty;
+            qty = qty symbol;
             price = most_recent_price.close;
           }
         in
-        Some (order, target_maximum)
+        Some order
     | _ -> None
 
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
@@ -140,6 +140,18 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
               let max_amt = tenp /. (Bars.price latest symbol).close in
               if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
           | false -> 0
+        in
+        let short_opt =
+          consider_shorting ~history:state.content ~now:latest ~qty
+        in
+        let possibilities = List.map short_opt Backend.tickers in
+        let choice = Option.choice possibilities in
+        let* () =
+          match choice with
+          | None -> Lwt_result.return ()
+          | Some order ->
+              let* _ = Backend.create_order env order in
+              Lwt_result.return ()
         in
         let new_bars = Bars.combine [ latest; state.content ] in
         Lwt_result.return
