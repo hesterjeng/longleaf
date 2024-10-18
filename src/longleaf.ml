@@ -53,7 +53,8 @@ let top () =
 
       let tickers = Trading_types.Bars.tickers bars
     end) in
-    let module Strategy = Strategies.SimpleStateMachine (Backend) in
+    (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
+    let module Strategy = Double_top.DoubleTop (Backend) in
     let* res = Strategy.run env in
     Log.app (fun k -> k "State machine shutdown:");
     Log.app (fun k -> k "%s" res);
