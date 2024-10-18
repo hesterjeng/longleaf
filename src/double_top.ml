@@ -59,7 +59,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let current_status : short_status = ref Waiting
 
   let consider_shorting ~history ~now ~(qty : string -> int) symbol :
-      (Order.t* Bar_item.t) option =
+      (Order.t * Bar_item.t) option =
     (* 1) There must be a point less than 80% of the critical point before the first max *)
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
     (* 3) The current price must be within 5% of that previous maximum *)
@@ -112,7 +112,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
             price = most_recent_price.close;
           }
         in
-        Some (order,previous_maximum)
+        Some (order, previous_maximum)
     | _ -> None
 
   let place_short env (state : Bars.t State.t) =
@@ -136,7 +136,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       match choice with
       | None -> Lwt_result.return ()
       | Some (order, trigger) ->
-          Log.app (fun k -> k "@[Short triggered by previous local max at %a@]@." Time.pp trigger.timestamp);
+          Log.app (fun k ->
+              k "@[Short triggered by previous local max at %a@]@." Time.pp
+                trigger.timestamp);
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           current_status := Placed order;
           let* _ = Backend.create_order env order in
