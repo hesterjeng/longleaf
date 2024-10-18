@@ -53,6 +53,11 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   module State = Strategies.State
   module Bar_item = Bars.Bar_item
 
+  type short_placed = Placed of Order.t | Waiting
+  type short_status = short_placed ref
+
+  let current_status : short_status = ref Waiting
+
   let consider_shorting ~history ~now ~(qty : string -> int) symbol :
       Order.t option =
     (* 1) There must be a point less than 80% of the critical point before the first max *)
@@ -110,6 +115,56 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         Some order
     | _ -> None
 
+  let place_short env (state : Bars.t State.t) =
+    let* latest = Backend.latest_bars env Backend.tickers in
+    let cash_available = Backend.get_cash () in
+    let qty symbol =
+      match cash_available >=. 0.0 with
+      | true ->
+          let tenp = cash_available *. 0.5 in
+          let max_amt = tenp /. (Bars.price latest symbol).close in
+          if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+      | false -> 0
+    in
+    let short_opt = consider_shorting ~history:state.content ~now:latest ~qty in
+    let possibilities = List.map short_opt Backend.tickers in
+    let choice = Option.choice possibilities in
+    let* () =
+      match choice with
+      | None -> Lwt_result.return ()
+      | Some order ->
+          current_status := Placed order;
+          let* _ = Backend.create_order env order in
+          Lwt_result.return ()
+    in
+    let new_bars = Bars.combine [ latest; state.content ] in
+    Lwt_result.return
+    @@ State.continue { state with current = `Listening; content = new_bars }
+
+  let cover_position env (state : Bars.t State.t) (order : Order.t) =
+    let* latest = Backend.latest_bars env Backend.tickers in
+    let cover_order =
+      let current_price = (Bars.price latest order.symbol).close in
+      let target_price = 0.8 *. order.price in
+      if current_price <. target_price then
+        let cover_order =
+          { order with side = Side.Buy; price = current_price }
+        in
+        Some cover_order
+      else None
+    in
+    let* () =
+      match cover_order with
+      | None -> Lwt_result.return ()
+      | Some order ->
+          current_status := Waiting;
+          let* _ = Backend.create_order env order in
+          Lwt_result.return ()
+    in
+    let new_bars = Bars.combine [ latest; state.content ] in
+    Lwt_result.return
+    @@ State.continue { state with current = `Listening; content = new_bars }
+
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
     (* Format.printf "\r\x1b[2K%s%!" (State.show_state state.current); *)
@@ -130,33 +185,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     | `Finished code ->
         Strategies.output_data Backend.backtesting Backend.get_cash state;
         Lwt_result.return @@ State.shutdown code
-    | `Ordering ->
-        let* latest = Backend.latest_bars env Backend.tickers in
-        let cash_available = Backend.get_cash () in
-        let qty symbol =
-          match cash_available >=. 0.0 with
-          | true ->
-              let tenp = cash_available *. 0.5 in
-              let max_amt = tenp /. (Bars.price latest symbol).close in
-              if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
-          | false -> 0
-        in
-        let short_opt =
-          consider_shorting ~history:state.content ~now:latest ~qty
-        in
-        let possibilities = List.map short_opt Backend.tickers in
-        let choice = Option.choice possibilities in
-        let* () =
-          match choice with
-          | None -> Lwt_result.return ()
-          | Some order ->
-              let* _ = Backend.create_order env order in
-              Lwt_result.return ()
-        in
-        let new_bars = Bars.combine [ latest; state.content ] in
-        Lwt_result.return
-        @@ State.continue
-             { state with current = `Listening; content = new_bars }
+    | `Ordering -> (
+        match !current_status with
+        | Waiting -> place_short env state
+        | Placed order -> cover_position env state order)
 
   let run = Strategies.run step
 end
