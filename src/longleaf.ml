@@ -46,15 +46,19 @@ let top () =
     (* let module Backend = State_machine.Alpaca_backend in *)
     (* let* bars = download_test env in *)
     (* let* () = position_test env in *)
-    let module Backend = Backend.Backtesting (struct
+    let module Backtesting = Backend.Backtesting (struct
       let bars =
         Yojson.Safe.from_file "data/test_hexahydroxy_propagation"
         |> Trading_types.Bars.t_of_yojson
 
       let tickers = Trading_types.Bars.tickers bars
     end) in
+    let module Alpaca = Backend.Alpaca (struct
+      let bars = Trading_types.Bars.empty
+      let tickers = []
+    end) in
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
-    let module Strategy = Double_top.DoubleTop (Backend) in
+    let module Strategy = Double_top.DoubleTop (Alpaca) in
     let* res = Strategy.run env in
     Log.app (fun k -> k "State machine shutdown:");
     Log.app (fun k -> k "%s" res);

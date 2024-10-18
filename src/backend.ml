@@ -131,7 +131,7 @@ end
 module Alpaca (Input : BACKEND_INPUT) : S = struct
   open Lwt_result.Syntax
   open Trading_types
-  module Ticker = Ticker.ThirtyMinute
+  module Ticker = Ticker.FiveMinute
   module Backtesting = Backtesting (Input)
 
   let tickers = Input.tickers
