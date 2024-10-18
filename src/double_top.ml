@@ -59,7 +59,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let current_status : short_status = ref Waiting
 
   let consider_shorting ~history ~now ~(qty : string -> int) symbol :
-      Order.t option =
+      (Order.t* Bar_item.t) option =
     (* 1) There must be a point less than 80% of the critical point before the first max *)
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
     (* 3) The current price must be within 5% of that previous maximum *)
@@ -101,7 +101,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       |> List.filter_map check2 |> List.filter_map check3
     in
     match candidates with
-    | [ _ ] ->
+    | [ previous_maximum ] ->
         let order : Order.t =
           {
             symbol;
@@ -112,7 +112,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
             price = most_recent_price.close;
           }
         in
-        Some order
+        Some (order,previous_maximum)
     | _ -> None
 
   let place_short env (state : Bars.t State.t) =
@@ -135,7 +135,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let* () =
       match choice with
       | None -> Lwt_result.return ()
-      | Some order ->
+      | Some (order, trigger) ->
+          Log.app (fun k -> k "@[Short triggered by previous local max at %a@]@." Time.pp trigger.timestamp);
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           current_status := Placed order;
           let* _ = Backend.create_order env order in
@@ -173,8 +174,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
-    (* Format.printf "\r\x1b[2K%s%!" (State.show_state state.current); *)
-    (* Unix.sleepf 0.01; *)
+    Format.printf ".";
     match state.current with
     | `Initialize ->
         Lwt_result.return @@ State.continue { state with current = `Listening }
