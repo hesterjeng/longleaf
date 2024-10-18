@@ -55,7 +55,28 @@ let top () =
     end) in
     let module Alpaca = Backend.Alpaca (struct
       let bars = Trading_types.Bars.empty
-      let tickers = []
+
+      let tickers =
+        [
+          "NVDA";
+          "TSLA";
+          "AAPL";
+          "MSFT";
+          "NFLX";
+          "META";
+          "AMZN";
+          "AMD";
+          "AVGO";
+          "ELV";
+          "UNH";
+          "MU";
+          "V";
+          "GOOG";
+          "SMCI";
+          "MSTR";
+          "UBER";
+          "LLY";
+        ]
     end) in
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
     let module Strategy = Double_top.DoubleTop (Alpaca) in
