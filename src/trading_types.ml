@@ -159,13 +159,7 @@ module Bars = struct
     let bars = List.map (fun key -> (key, get_data key)) keys in
     { bars; next_page_token = None; currency = None }
 
-  let get bars ticker =
-    let bars = bars.bars in
-    match List.Assoc.get ~eq:String.equal ticker bars with
-    | Some info -> info
-    | None ->
-        invalid_arg
-        @@ Format.asprintf "Unable to get price info for ticker %s (2)" ticker
+  let get bars ticker = List.Assoc.get ~eq:String.equal ticker bars
 
   let price x ticker =
     let bars = x.bars in

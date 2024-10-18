@@ -64,7 +64,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
     (* 3) The current price must be within 5% of that previous maximum *)
     let open Option.Infix in
-    let price_history = Bars.get history symbol in
+    let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.price now symbol in
     let minima = Math.find_local_minima 10 price_history in
     let maxima = Math.find_local_maxima 10 price_history in
@@ -126,7 +126,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
       | false -> 0
     in
-    let short_opt = consider_shorting ~history:state.content ~now:latest ~qty in
+    let short_opt =
+      consider_shorting ~history:state.content.bars ~now:latest ~qty
+    in
     let possibilities = List.map short_opt Backend.tickers in
     let choice = Option.choice possibilities in
     let* () =
