@@ -72,7 +72,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let* _ =
         List.find_opt
           (fun (x : Bar_item.t) ->
-            x.close <. 0.8 *. current_max.close
+            x.close <. 0.98 *. current_max.close
             && Ptime.compare current_max.timestamp x.timestamp = 1)
           price_history
       in
@@ -82,7 +82,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let* _ =
         List.find_opt
           (fun (x : Bar_item.t) ->
-            x.close <. 0.8 *. current_max.close
+            x.close <. 0.98 *. current_max.close
             && Ptime.compare x.timestamp current_max.timestamp = 1
             && Ptime.compare most_recent_price.timestamp x.timestamp = 1)
           minima
@@ -91,8 +91,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     in
     let check3 (current_max : Bar_item.t) =
       let current_price = most_recent_price.close in
-      let lower = 0.95 *. current_max.close in
-      let upper = 1.05 *. current_max.close in
+      let lower = 0.99 *. current_max.close in
+      let upper = 1.01 *. current_max.close in
       if lower <. current_price && current_price <. upper then Some current_max
       else None
     in
@@ -117,6 +117,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let place_short env (state : Bars.t State.t) =
     let* latest = Backend.latest_bars env Backend.tickers in
+    let now = (Bars.price latest (List.hd Backend.tickers)).timestamp in
     let cash_available = Backend.get_cash () in
     let qty symbol =
       match cash_available >=. 0.0 with
@@ -135,6 +136,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       match choice with
       | None -> Lwt_result.return ()
       | Some order ->
+          Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           current_status := Placed order;
           let* _ = Backend.create_order env order in
           Lwt_result.return ()
@@ -145,9 +147,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let cover_position env (state : Bars.t State.t) (order : Order.t) =
     let* latest = Backend.latest_bars env Backend.tickers in
+    let now = (Bars.price latest (List.hd Backend.tickers)).timestamp in
     let cover_order =
       let current_price = (Bars.price latest order.symbol).close in
-      let target_price = 0.8 *. order.price in
+      let target_price = 0.98 *. order.price in
       if current_price <. target_price then
         let cover_order =
           { order with side = Side.Buy; price = current_price }
@@ -159,6 +162,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       match cover_order with
       | None -> Lwt_result.return ()
       | Some order ->
+          Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           current_status := Waiting;
           let* _ = Backend.create_order env order in
           Lwt_result.return ()
