@@ -53,13 +53,14 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   module State = Strategies.State
   module Bar_item = Bars.Bar_item
 
-  let consider_shorting ~history ~now ticker : Order.t option =
+  let consider_shorting ~history ~now ~qty symbol :
+      (Order.t * Bar_item.t) option =
     (* 1) There must be a point less than 80% of the critical point before the first max *)
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
     (* 3) The current price must be within 5% of that previous maximum *)
     let open Option.Infix in
-    let price_history = Bars.get history ticker in
-    let most_recent_price = Bars.price now ticker in
+    let price_history = Bars.get history symbol in
+    let most_recent_price = Bars.price now symbol in
     let minima = Math.find_local_minima 10 price_history in
     let maxima = Math.find_local_maxima 10 price_history in
     let check1 (current_max : Bar_item.t) =
@@ -94,7 +95,20 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       List.filter_map check1 maxima
       |> List.filter_map check2 |> List.filter_map check3
     in
-    match candidates with [ x ] -> Some x | _ -> None
+    match candidates with
+    | [ target_maximum ] ->
+        let order : Order.t =
+          {
+            symbol;
+            side = Side.Sell;
+            tif = TimeInForce.GoodTillCanceled;
+            order_type = OrderType.Market;
+            qty;
+            price = most_recent_price.close;
+          }
+        in
+        Some (order, target_maximum)
+    | _ -> None
 
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
@@ -117,17 +131,17 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         Strategies.output_data Backend.backtesting Backend.get_cash state;
         Lwt_result.return @@ State.shutdown code
     | `Ordering ->
-        let* latest_bars = Backend.latest_bars env Backend.tickers in
+        let* latest = Backend.latest_bars env Backend.tickers in
         let cash_available = Backend.get_cash () in
-        let qty (bar : Bar_item.t) =
+        let qty symbol =
           match cash_available >=. 0.0 with
           | true ->
               let tenp = cash_available *. 0.5 in
-              let max_amt = tenp /. bar.close in
+              let max_amt = tenp /. (Bars.price latest symbol).close in
               if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
           | false -> 0
         in
-        let new_bars = Bars.combine [ latest_bars; state.content ] in
+        let new_bars = Bars.combine [ latest; state.content ] in
         Lwt_result.return
         @@ State.continue
              { state with current = `Listening; content = new_bars }
