@@ -12,7 +12,8 @@
   zarith
   ezcurl-lwt
   ptime
-  yojson)
+  yojson
+  dream)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv)))
 
