@@ -43,16 +43,17 @@ let top () =
     let open Lwt.Syntax in
     CalendarLib.Time_Zone.change (UTC_Plus (-5));
     let env = Environment.make () in
+
     (* let module Backend = State_machine.Alpaca_backend in *)
     (* let* bars = download_test env in *)
     (* let* () = position_test env in *)
-    let module Backtesting = Backend.Backtesting (struct
-      let bars =
-        Yojson.Safe.from_file "data/test_hexahydroxy_propagation"
-        |> Trading_types.Bars.t_of_yojson
+    (* let module Backtesting = Backend.Backtesting (struct *)
+    (*   let bars = *)
+    (*     Yojson.Safe.from_file "data/test_hexahydroxy_propagation" *)
+    (*     |> Trading_types.Bars.t_of_yojson *)
 
-      let tickers = Trading_types.Bars.tickers bars
-    end) in
+    (*   let tickers = Trading_types.Bars.tickers bars *)
+    (* end) in *)
     let module Alpaca = Backend.Alpaca (struct
       let bars = Trading_types.Bars.empty
 
@@ -88,3 +89,18 @@ let top () =
     Log.err (fun k -> k "Caught yojson error");
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
+
+module Handler = struct
+  open Dream
+
+  let top _ =
+    run
+    @@ router
+         [
+           Dream.get "/run_live" (fun _ ->
+               let _ = top () in
+               Dream.html "Running strategy with Alpaca backend");
+           Dream.get "/run_backtest" (fun _ ->
+               invalid_arg "No backtesting strategy set");
+         ]
+end
