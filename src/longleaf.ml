@@ -88,3 +88,18 @@ let top () =
     Log.err (fun k -> k "Caught yojson error");
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
+
+module Handler = struct
+
+  open Dream
+
+  let top _ : Dream.handler =
+    run @@ router
+    [
+      Dream.get "/"
+        (
+          fun _ -> top ()
+        )
+    ]
+
+end
