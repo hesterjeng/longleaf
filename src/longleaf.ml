@@ -43,6 +43,7 @@ let top () =
     let open Lwt.Syntax in
     CalendarLib.Time_Zone.change (UTC_Plus (-5));
     let env = Environment.make () in
+
     (* let module Backend = State_machine.Alpaca_backend in *)
     (* let* bars = download_test env in *)
     (* let* () = position_test env in *)
@@ -90,16 +91,16 @@ let top () =
     invalid_arg @@ Format.asprintf "%s" err
 
 module Handler = struct
-
   open Dream
 
-  let top _ : Dream.handler =
-    run @@ router
-    [
-      Dream.get "/"
-        (
-          fun _ -> top ()
-        )
-    ]
-
+  let top _ =
+    run
+    @@ router
+         [
+           Dream.get "/run_live" (fun _ ->
+               let _ = top () in
+               Dream.html "Running strategy with Alpaca backend");
+           Dream.get "/run_backtest" (fun _ ->
+               invalid_arg "No backtesting strategy set");
+         ]
 end
