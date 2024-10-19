@@ -4,5 +4,5 @@ let () =
   Logs.set_reporter reporter;
   Logs.set_level ~all:true (Some Logs.Info);
   Py.initialize ();
-  let () = Lwt_main.run @@ Longleaf.top () in
+  let () = Longleaf.Handler.top () in
   exit 0
