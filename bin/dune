@@ -13,8 +13,7 @@
   ezcurl-lwt
   ptime
   yojson
-  dream
- )
+  dream)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv)))
 
