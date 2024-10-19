@@ -176,7 +176,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
-    Format.printf ".";
+    Format.printf ".%a" Format.flush ();
     match state.current with
     | `Initialize ->
         Lwt_result.return @@ State.continue { state with current = `Listening }
