@@ -94,6 +94,7 @@ module Handler = struct
   open Dream
 
   let top _ =
+    Gui.top ();
     run
     @@ router
          [
