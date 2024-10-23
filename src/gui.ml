@@ -36,8 +36,7 @@ let top () =
   Bogue.run layout
 
 let top () =
-  try
-    top ()
+  try top ()
   with Unix.Unix_error (Unix.ECONNREFUSED, "connect", "") ->
     Format.printf "Failed to connect with the server, is it running?";
     ()
