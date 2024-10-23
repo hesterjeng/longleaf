@@ -91,17 +91,28 @@ let top () =
     invalid_arg @@ Format.asprintf "%s" err
 
 module Handler = struct
-  open Dream
+  module T = Domainslib.Task
 
   let top _ =
-    Gui.top ();
-    run
-    @@ router
-         [
-           Dream.get "/run_live" (fun _ ->
-               let _ = top () in
-               Dream.html "Running strategy with Alpaca backend");
-           Dream.get "/run_backtest" (fun _ ->
-               invalid_arg "No backtesting strategy set");
-         ]
+    let open Lwt.Syntax in
+    let pool = T.setup_pool ~num_domains:2 () in
+    let server _ =
+      Dream.run
+      @@ Dream.router
+           [
+             Dream.get "/run_live" (fun _ ->
+                 let _ = top () in
+                 Dream.html "Running strategy with Alpaca backend");
+             Dream.get "/run_backtest" (fun _ ->
+                 invalid_arg "No backtesting strategy set");
+           ]
+    in
+    let _ =
+      T.run pool @@ fun _ ->
+      T.await pool @@ T.async pool server;
+      T.run pool @@ fun _ ->
+      T.await pool @@ T.async pool @@ Gui.top;
+      ()
+    in
+    T.teardown_pool pool
 end
