@@ -95,15 +95,14 @@ module Handler = struct
   (* module T = Domainslib.Task *)
 
   let top _ =
-    Dream.run
-    @@ Dream.router
-         [
-           Dream.get "/run_live" (fun _ ->
-               let _ = top () in
-               Format.printf "@[Got a live GET request@]@.";
-               Dream.json @@ Yojson.Safe.to_string @@ `String "Running A");
-           Dream.get "/run_dead" (fun _ ->
-               Format.printf "@[Got a dead GET request@]@.";
-               Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
-         ]
+    Dream.router
+      [
+        Dream.get "/run_live" (fun _ ->
+            let _ = top () in
+            Format.printf "@[Got a live GET request@]@.";
+            Dream.json @@ Yojson.Safe.to_string @@ `String "Running A");
+        Dream.get "/run_dead" (fun _ ->
+            Format.printf "@[Got a dead GET request@]@.";
+            Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
+      ]
 end
