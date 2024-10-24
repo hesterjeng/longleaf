@@ -15,7 +15,8 @@
   yojson
   domainslib
   bogue
-  dream)
+  dream
+  eio)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv)))
 
