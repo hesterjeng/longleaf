@@ -1,20 +1,20 @@
 module Log = (val Logs.src_log Logs.(Src.create "longleaf"))
 module Util = Util
 
-module Tickers = struct
-  let get_tickers () =
-    let open Pyops in
-    let sp600_url =
-      {|https://en.wikipedia.org/wiki/List_of_S%26P_600_companies|}
-      |> Py.String.of_string
-    in
-    let pandas = Py.import "pandas" in
-    let read_html = pandas.&("read_html") in
-    let tables = read_html [| sp600_url |] in
-    let col = tables.![Py.Int.of_int 0] in
-    let ticker_symbols = col.!$["Symbol"] in
-    Py.List.to_array_map Py.Object.to_string ticker_symbols
-end
+(* module Tickers = struct *)
+(*   let get_tickers () = *)
+(*     let open Pyops in *)
+(*     let sp600_url = *)
+(*       {|https://en.wikipedia.org/wiki/List_of_S%26P_600_companies|} *)
+(*       |> Py.String.of_string *)
+(*     in *)
+(*     let pandas = Py.import "pandas" in *)
+(*     let read_html = pandas.&("read_html") in *)
+(*     let tables = read_html [| sp600_url |] in *)
+(*     let col = tables.![Py.Int.of_int 0] in *)
+(*     let ticker_symbols = col.!$["Symbol"] in *)
+(*     Py.List.to_array_map Py.Object.to_string ticker_symbols *)
+(* end *)
 
 let download_test env =
   let open Lwt.Syntax in
@@ -95,8 +95,6 @@ module Handler = struct
   (* module T = Domainslib.Task *)
 
   let top _ =
-    let open Lwt.Syntax in
-    (* let server _ = *)
     Dream.run
     @@ Dream.router
          [
@@ -108,12 +106,4 @@ module Handler = struct
                Format.printf "@[Got a dead GET request@]@.";
                Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
          ]
-  (* in *)
-  (* let _ = *)
-  (*   T.run pool @@ fun _ -> *)
-  (*   let r1 = T.async pool server in *)
-  (*   let r2 = T.async pool @@ fun _ -> Lwt_main.run @@ Gui.top () in *)
-  (*   Unit.compare (T.await pool r1) (T.await pool r2) *)
-  (* in *)
-  (* T.teardown_pool pool *)
 end
