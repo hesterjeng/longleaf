@@ -1,4 +1,7 @@
+open Longleaf
 open Bogue
+
+[@@@warning "-32"]
 
 let requests_sent = ref 0
 let incr () = incr requests_sent
@@ -17,9 +20,7 @@ let top () =
   let count = Widget.label "0" in
   let* action =
     incr ();
-    Lwt_result.return @@
-    fun _ ->
-    set_number count !requests_sent
+    Lwt_result.return @@ fun _ -> set_number count !requests_sent
   in
   let start_button = Widget.button ~action "Start" in
   let stop_button = Widget.button "Stop" in
