@@ -102,9 +102,11 @@ module Handler = struct
            [
              Dream.get "/run_live" (fun _ ->
                  let _ = top () in
-                 Dream.html "Running strategy with Alpaca backend");
-             Dream.get "/run_backtest" (fun _ ->
-                 invalid_arg "No backtesting strategy set");
+                 Format.printf "@[Got a live GET request@]@.";
+                 Dream.json @@ Yojson.Safe.to_string @@ `String "Running A");
+             Dream.get "/run_dead" (fun _ ->
+                 Format.printf "@[Got a dead GET request@]@.";
+                 Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
            ]
     in
     let _ =
