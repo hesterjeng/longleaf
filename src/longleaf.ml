@@ -1,4 +1,5 @@
 module Log = (val Logs.src_log Logs.(Src.create "longleaf"))
+module Util = Util
 
 module Tickers = struct
   let get_tickers () =
@@ -91,29 +92,28 @@ let top () =
     invalid_arg @@ Format.asprintf "%s" err
 
 module Handler = struct
-  module T = Domainslib.Task
+  (* module T = Domainslib.Task *)
 
   let top _ =
     let open Lwt.Syntax in
-    let pool = T.setup_pool ~num_domains:3 () in
-    let server _ =
-      Dream.run
-      @@ Dream.router
-           [
-             Dream.get "/run_live" (fun _ ->
-                 let _ = top () in
-                 Format.printf "@[Got a live GET request@]@.";
-                 Dream.json @@ Yojson.Safe.to_string @@ `String "Running A");
-             Dream.get "/run_dead" (fun _ ->
-                 Format.printf "@[Got a dead GET request@]@.";
-                 Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
-           ]
-    in
-    let _ =
-      T.run pool @@ fun _ ->
-      let r1 = T.async pool server in
-      let r2 = T.async pool @@ fun _ -> Lwt_main.run @@ Gui.top () in
-      Unit.compare (T.await pool r1) (T.await pool r2)
-    in
-    T.teardown_pool pool
+    (* let server _ = *)
+    Dream.run
+    @@ Dream.router
+         [
+           Dream.get "/run_live" (fun _ ->
+               let _ = top () in
+               Format.printf "@[Got a live GET request@]@.";
+               Dream.json @@ Yojson.Safe.to_string @@ `String "Running A");
+           Dream.get "/run_dead" (fun _ ->
+               Format.printf "@[Got a dead GET request@]@.";
+               Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
+         ]
+  (* in *)
+  (* let _ = *)
+  (*   T.run pool @@ fun _ -> *)
+  (*   let r1 = T.async pool server in *)
+  (*   let r2 = T.async pool @@ fun _ -> Lwt_main.run @@ Gui.top () in *)
+  (*   Unit.compare (T.await pool r1) (T.await pool r2) *)
+  (* in *)
+  (* T.teardown_pool pool *)
 end
