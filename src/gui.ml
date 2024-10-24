@@ -13,13 +13,18 @@ let top () =
     let uri = Uri.of_string "http://localhost:8080/run_dead" in
     let headers = Cohttp.Header.init () in
     let promise = Util.get ~headers ~uri in
+    Format.printf "@[Got promise...@]@.";
     Lwt.bind promise @@ fun json ->
+    Format.printf "@[Bind function...@]@.";
     match json with
     | Ok _ ->
+        Format.printf "@[Got json back@]@.";
         incr ();
         set_number count !requests_sent;
         Lwt.return_unit
-    | Error _ -> invalid_arg "Invalid json from get request in UI?"
+    | Error _ ->
+        Format.printf "@[Bad json from UI@]@.";
+        invalid_arg "Invalid json from get request in UI?"
   in
   let start_button = Widget.button ~action "Start" in
   let stop_button = Widget.button "Stop" in
