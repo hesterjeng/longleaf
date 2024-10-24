@@ -8,14 +8,18 @@ let top () =
   let open Lwt_result.Syntax in
   let set_number w i = Widget.set_text w @@ Int.to_string i in
   let count = Widget.label "0" in
-  let action =
-    let uri = Uri.of_string "http://localhost:8080/run_backtest" in
+  let action _ =
+    Lwt.async @@ fun () ->
+    let uri = Uri.of_string "http://localhost:8080/run_dead" in
     let headers = Cohttp.Header.init () in
     let promise = Util.get ~headers ~uri in
-    incr ();
-    set_number count !requests_sent;
-    let _, resolver = Lwt.wait () in
-    Lwt_result.return @@ fun _ -> ()
+    Lwt.bind promise @@ fun json ->
+    match json with
+    | Ok _ ->
+        incr ();
+        set_number count !requests_sent;
+        Lwt.return_unit
+    | Error _ -> invalid_arg "Invalid json from get request in UI?"
   in
   let start_button = Widget.button ~action "Start" in
   let stop_button = Widget.button "Stop" in
@@ -25,10 +29,10 @@ let top () =
       [ label; count; start_button; stop_button ]
   in
   let layout = Bogue.of_layout w in
-  Lwt_result.return @@ Bogue.run layout
+  Bogue.run layout
 
 let top () =
   try top ()
   with Unix.Unix_error (Unix.ECONNREFUSED, "connect", "") ->
     Format.printf "@[Failed to connect with the server, is it running?@]@.";
-    Lwt_result.return ()
+    ()
