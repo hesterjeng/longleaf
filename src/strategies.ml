@@ -89,8 +89,6 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
 
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
-    (* Format.printf "\r\x1b[2K%s%!" (State.show_state state.current); *)
-    (* Unix.sleepf 0.01; *)
     match state.current with
     | `Initialize ->
         Lwt_result.return @@ State.continue { state with current = `Listening }
