@@ -95,7 +95,7 @@ module Handler = struct
 
   let top _ =
     let open Lwt.Syntax in
-    let pool = T.setup_pool ~num_domains:2 () in
+    let pool = T.setup_pool ~num_domains:3 () in
     let server _ =
       Dream.run
       @@ Dream.router
@@ -109,10 +109,9 @@ module Handler = struct
     in
     let _ =
       T.run pool @@ fun _ ->
-      T.await pool @@ T.async pool server;
-      T.run pool @@ fun _ ->
-      T.await pool @@ T.async pool @@ Gui.top;
-      ()
+      let r1 = T.async pool server in
+      let r2 = T.async pool Gui.top in
+      Unit.compare (T.await pool r1) (T.await pool r2)
     in
     T.teardown_pool pool
 end
