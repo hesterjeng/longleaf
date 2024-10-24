@@ -13,6 +13,8 @@
   ezcurl-lwt
   ptime
   yojson
+  domainslib
+  bogue
   dream)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv)))

@@ -18,7 +18,7 @@
  (depends
   dune
   (ocaml
-   (>= "5.1.1"))
+   (>= "5.2"))
   (containers
    (>= "3.4"))
   (containers-data
