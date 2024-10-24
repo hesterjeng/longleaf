@@ -112,7 +112,7 @@ module Handler = struct
     let _ =
       T.run pool @@ fun _ ->
       let r1 = T.async pool server in
-      let r2 = T.async pool Gui.top in
+      let r2 = T.async pool @@ fun _ -> Lwt_main.run @@ Gui.top () in
       Unit.compare (T.await pool r1) (T.await pool r2)
     in
     T.teardown_pool pool
