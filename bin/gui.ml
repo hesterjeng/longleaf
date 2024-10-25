@@ -19,8 +19,10 @@ let top () =
   let open Lwt_result.Syntax in
   let count = Widget.label "0" in
   let* action =
+    Lwt_result.return @@ fun _ ->
+    Format.printf "@[xxx@]@.";
     incr ();
-    Lwt_result.return @@ fun _ -> set_number count !requests_sent
+    set_number count !requests_sent
   in
   let start_button = Widget.button ~action "Start" in
   let stop_button = Widget.button "Stop" in

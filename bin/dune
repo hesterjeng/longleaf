@@ -1,6 +1,9 @@
 (executables
  (names main gui server)
  (public_names main gui server)
+ (promote
+  (until-clean)
+  (into ..))
  (libraries
   fmt
   logs
