@@ -1,6 +1,6 @@
 (executables
- (names main gui)
- (public_names main gui)
+ (names main gui server)
+ (public_names main gui server)
  (libraries
   fmt
   logs
@@ -13,10 +13,10 @@
   ezcurl-lwt
   ptime
   yojson
-  domainslib
   bogue
   dream
-  eio)
+  eio_main
+  lwt_eio)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv)))
 
