@@ -16,6 +16,7 @@
   dream
   lwt
   eio_main
+  tyxml
   lwt_eio)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
@@ -32,7 +33,11 @@
    Containers
    -open
    Ppx_yojson_conv_lib.Yojson_conv.Primitives
-   ; -open
-   ; Primitives
    -strict-sequence
    -safe-string)))
+
+(rule
+ (targets template.ml)
+ (deps template.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
