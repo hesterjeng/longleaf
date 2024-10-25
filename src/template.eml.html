@@ -1,0 +1,14 @@
+let render data =
+<html>
+  <head>
+    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+  </head>
+  <body>
+    <h1>Plotly Graph Example</h1>
+    <div id='plot'></div>
+    <script>
+      var plotData = <%s! data%>;
+      Plotly.newPlot('plot', plotData.data, plotData.layout);
+    </script>
+  </body>
+</html>
