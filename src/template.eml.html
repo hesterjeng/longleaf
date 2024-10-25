@@ -2,10 +2,13 @@ let render data =
 <html>
   <head>
     <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   </head>
   <body>
-    <h1>Plotly Graph Example</h1>
-    <div id='plot'></div>
+    <div class="container mx-auto">
+      <h1 class="text-3xl font-bold text-center mt-5">Plotly Graph Example</h1>
+      <div id='plot' class="mt-5"></div>
+    </div>
     <script>
       var plotData = <%s! data%>;
       Plotly.newPlot('plot', plotData.data, plotData.layout);
