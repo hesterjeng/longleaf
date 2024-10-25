@@ -24,6 +24,5 @@ let plotly_graph_html () =
   in
 
   let json_data = Yojson.Basic.to_string plot_data in
-  Format.printf "@[%s@]@." json_data;
   let plotly_html = Template.render json_data in
   plotly_html
