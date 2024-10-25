@@ -33,6 +33,8 @@ let top () =
   (* send_get_request (); *)
   Lwt_result.return @@ Bogue.run layout
 
+let _ = Lwt_main.run @@ top ()
+
 (* let top = *)
 (*   try Lwt_main.run @@ top () *)
 (*   with Unix.Unix_error (Unix.ECONNREFUSED, "connect", "") -> *)
