@@ -2,9 +2,8 @@
     dune build @fmt --display=quiet --auto-promote
 
 @run:
-	@dune exec bin/server.exe & dune exec bin/gui.exe
-	# @tmux new-session -d -s server_session 'dune exec bin/server.exe'
-	# @tmux new-session -d -s gui_session 'dune exec bin/gui.exe'
+	@tmux new-session -d -s server_session './server.exe'
+	@tmux new-session -d -s gui_session './gui.exe'
 
 @run2:
 
