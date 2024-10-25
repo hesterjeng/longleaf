@@ -19,10 +19,12 @@ let top () =
   let open Lwt_result.Syntax in
   let count = Widget.label "0" in
   let* action =
-    Lwt_result.return @@ fun _ ->
-    Format.printf "@[xxx@]@.";
+    Lwt_result.return @@
+    fun _ ->
+    let response = send_get_request () in
     incr ();
-    set_number count !requests_sent
+    set_number count !requests_sent;
+    ()
   in
   let start_button = Widget.button ~action "Start" in
   let stop_button = Widget.button "Stop" in
@@ -32,10 +34,17 @@ let top () =
       [ label; count; start_button; stop_button ]
   in
   let layout = Bogue.of_layout w in
-  (* send_get_request (); *)
   Lwt_result.return @@ Bogue.run layout
 
 let () = match Lwt_main.run @@ top () with Ok _ -> () | Error _ -> ()
+
+let run_client ~net ~addr =
+  let open Eio.Std in
+  Switch.run ~name:"client" @@ fun sw ->
+  traceln "Client: connecting to server";
+  let flow = Eio.Net.connect ~sw net addr in
+  (* Read all data until end-of-stream (shutdown): *)
+  traceln "Client: received %S" (Eio.Flow.read_all flow)
 
 (* let top = *)
 (*   try Lwt_main.run @@ top () *)
