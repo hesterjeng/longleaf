@@ -1,6 +1,6 @@
 (executables
- (names gui server)
- (public_names gui server)
+ (names server)
+ (public_names server)
  (promote
   (until-clean)
   (into ..))

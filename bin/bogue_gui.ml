@@ -19,9 +19,9 @@ let top () =
   let open Lwt_result.Syntax in
   let count = Widget.label "0" in
   let* action =
-    Lwt_result.return @@
-    fun _ ->
-    let response = send_get_request () in
+    Lwt_result.return @@ fun _ ->
+    (* How can we make this NOT an Lwt.t? *)
+    let _response = send_get_request () in
     incr ();
     set_number count !requests_sent;
     ()
