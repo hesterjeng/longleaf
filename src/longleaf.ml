@@ -105,7 +105,7 @@ module Handler = struct
             Format.printf "@[Got a dead GET request@]@.";
             Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
         Dream.get "/" (fun _ ->
-            let html = Plotly.plotly_graph_html () in
+            let html = Gui.plotly_graph_html () in
             Dream.html html);
       ]
 end
