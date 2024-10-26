@@ -97,6 +97,9 @@ module Handler = struct
   let top _ =
     Dream.router
       [
+        Dream.get "/" (fun _ ->
+            let html = Gui.plotly_graph_html () in
+            Dream.html html);
         Dream.get "/run_live" (fun _ ->
             let _ = top () in
             Format.printf "@[Got a live GET request@]@.";
@@ -104,8 +107,5 @@ module Handler = struct
         Dream.get "/run_dead" (fun _ ->
             Format.printf "@[Got a dead GET request@]@.";
             Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
-        Dream.get "/" (fun _ ->
-            let html = Gui.plotly_graph_html () in
-            Dream.html html);
       ]
 end
