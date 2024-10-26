@@ -5,4 +5,4 @@
 	@dune exec bin/server.exe
 
 @watch:
-	dun exec bin/server.exe --watch
+	dune exec bin/server.exe --watch

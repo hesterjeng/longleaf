@@ -92,12 +92,10 @@ let top () =
     invalid_arg @@ Format.asprintf "%s" err
 
 module Handler = struct
-  (* module T = Domainslib.Task *)
-
   let top _ =
-    Dream.router
+    Dream.router @@
       [
-        Dream.get "/" (fun _ ->
+        Dream.get "/" @@ (fun _ ->
             let html = Gui.plotly_graph_html () in
             Dream.html html);
         Dream.get "/run_live" (fun _ ->
@@ -107,5 +105,8 @@ module Handler = struct
         Dream.get "/run_dead" (fun _ ->
             Format.printf "@[Got a dead GET request@]@.";
             Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
+        Dream.get "/stop" (fun _ ->
+            Format.printf "@[Got a stop GET request@]@.";
+            Dream.json @@ Yojson.Safe.to_string @@ `String "Got stop signal");
       ]
 end
