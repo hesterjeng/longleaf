@@ -4,6 +4,5 @@
 @server:
 	@dune exec bin/server.exe
 
-@gui:
-	@cd gui;
-	@http-server -p 8000
+@watch:
+	dun exec bin/server.exe --watch
