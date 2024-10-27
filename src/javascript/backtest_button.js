@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .then(data => {
         console.log(data); // Handle the data received from the server
+        document.querySelector('#backtest_button').textContent = 'Backtest Started';
       })
       .catch(error => {
         console.error('There was a problem with the fetch operation:', error);
