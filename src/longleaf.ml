@@ -53,7 +53,7 @@ let position_test env =
       Log.err (fun k -> k "Error %s in position test" e);
       invalid_arg e
 
-let top () =
+let top =
   try
     let open Lwt.Syntax in
     CalendarLib.Time_Zone.change (UTC_Plus (-5));
@@ -105,22 +105,22 @@ let top () =
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
 
-module Handler = struct
-  let top _ =
-    Dream.router
-    @@ [
-         ( Dream.get "/" @@ fun _ ->
-           let html = Gui.plotly_graph_html () in
-           Dream.html html );
-         Dream.get "/run_live" (fun _ ->
-             let _ = top () in
-             Format.printf "@[Got a live GET request@]@.";
-             Dream.json @@ Yojson.Safe.to_string @@ `String "Running A");
-         Dream.get "/run_dead" (fun _ ->
-             Format.printf "@[Got a dead GET request@]@.";
-             Dream.json @@ Yojson.Safe.to_string @@ `String "Running B");
-         Dream.get "/stop" (fun _ ->
-             Format.printf "@[Got a stop GET request@]@.";
-             Dream.json @@ Yojson.Safe.to_string @@ `String "Got stop signal");
-       ]
-end
+(* module Handler = struct *)
+(*   let top _ = *)
+(*     Dream.router *)
+(*     @@ [ *)
+(*          ( Dream.get "/" @@ fun _ -> *)
+(*            let html = Gui.plotly_graph_html () in *)
+(*            Dream.html html ); *)
+(*          Dream.get "/run_live" (fun _ -> *)
+(*              let _ = top () in *)
+(*              Format.printf "@[Got a live GET request@]@."; *)
+(*              Dream.json @@ Yojson.Safe.to_string @@ `String "Running A"); *)
+(*          Dream.get "/run_dead" (fun _ -> *)
+(*              Format.printf "@[Got a dead GET request@]@."; *)
+(*              Dream.json @@ Yojson.Safe.to_string @@ `String "Running B"); *)
+(*          Dream.get "/stop" (fun _ -> *)
+(*              Format.printf "@[Got a stop GET request@]@."; *)
+(*              Dream.json @@ Yojson.Safe.to_string @@ `String "Got stop signal"); *)
+(*        ] *)
+(* end *)
