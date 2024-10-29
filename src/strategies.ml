@@ -1,6 +1,11 @@
 module State = struct
-  type state =
-    [ `Initialize | `Listening | `Ordering | `Liquidate | `Finished of string ]
+  type nonlogical_state =
+    [ `Initialize | `Listening | `Liquidate | `Finished of string ]
+  [@@deriving show { with_path = false }]
+
+  type logical_state = [ `Ordering ] [@@deriving show { with_path = false }]
+
+  type state = [ nonlogical_state | logical_state ]
   [@@deriving show { with_path = false }]
 
   type 'a t = { env : Environment.t; current : state; content : 'a }
