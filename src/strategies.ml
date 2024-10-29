@@ -87,6 +87,8 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
   open Lwt_result.Syntax
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
 
+  let shutdown = Backend.shutdown
+
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
     match state.current with

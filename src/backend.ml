@@ -5,6 +5,7 @@ module type S = sig
   val get_cash : unit -> float
   val get_position : unit -> (string, int) Hashtbl.t
   val symbols : string list
+  val shutdown : unit Lwt.t
 
   val create_order :
     Environment.t ->
@@ -35,6 +36,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   let cash = ref 100000.0
   let get_cash () = !cash
   let get_position () = position
+  let shutdown = Lwt.return_unit
 
   let create_order _ (x : Order.t) : (Yojson.Safe.t, string) Lwt_result.t =
     let symbol = x.symbol in
@@ -134,6 +136,8 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
   module Ticker = Ticker.FiveMinute
   module Backtesting = Backtesting (Input)
 
+  (* let shutdown = *)
+  let shutdown = Lwt.return_unit
   let symbols = Input.symbols
   let backtesting = false
   let get_account = Trading_api.Accounts.get_account
