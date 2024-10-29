@@ -56,6 +56,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   type short_placed = Placed of Order.t | Waiting
   type short_status = short_placed ref
 
+  module SU = Strategies.Strategy_utils (Backend)
+
   let current_status : short_status = ref Waiting
 
   let consider_shorting ~history ~now ~(qty : string -> int) symbol :
@@ -181,9 +183,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     | `Initialize ->
         Lwt_result.return @@ State.continue { state with current = `Listening }
     | `Listening ->
-        let* () =
-          Strategies.listen_tick Backend.backtesting Backend.Ticker.tick
-        in
+        let* () = SU.listen_tick () in
         Lwt_result.return @@ State.continue { state with current = `Ordering }
     | `Liquidate ->
         let* _ = Backend.liquidate env in
@@ -191,12 +191,12 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         @@ State.continue
              { state with current = `Finished "Successfully liquidated" }
     | `Finished code ->
-        Strategies.output_data Backend.backtesting Backend.get_cash state;
+        SU.output_data state;
         Lwt_result.return @@ State.shutdown code
     | `Ordering -> (
         match !current_status with
         | Waiting -> place_short env state
         | Placed order -> cover_position env state order)
 
-  let run = Strategies.run step
+  let run = SU.run step
 end
