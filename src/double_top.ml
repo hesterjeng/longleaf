@@ -180,19 +180,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let env = state.env in
     Format.printf ".%a" Format.flush ();
     match state.current with
-    | `Initialize ->
-        Lwt_result.return @@ State.continue { state with current = `Listening }
-    | `Listening ->
-        let* () = SU.listen_tick () in
-        Lwt_result.return @@ State.continue { state with current = `Ordering }
-    | `Liquidate ->
-        let* _ = Backend.liquidate env in
-        Lwt_result.return
-        @@ State.continue
-             { state with current = `Finished "Successfully liquidated" }
-    | `Finished code ->
-        SU.output_data state;
-        Lwt_result.return @@ State.shutdown code
+    | #State.nonlogical_state as current ->
+        SU.handle_nonlogical_state current state
     | `Ordering -> (
         match !current_status with
         | Waiting -> place_short env state

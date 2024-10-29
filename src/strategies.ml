@@ -87,6 +87,25 @@ module Strategy_utils (Backend : Backend.S) = struct
     Log.app (fun k -> k "cash: %f" (Backend.get_cash ()))
 
   let ok_code = Cohttp.Code.status_of_code 200
+
+  let handle_nonlogical_state (current : State.nonlogical_state)
+      (state : _ State.t) =
+    let open Lwt_result.Syntax in
+    match current with
+    | `Initialize ->
+        Lwt_result.return @@ State.continue { state with current = `Listening }
+    | `Listening ->
+        let* () = listen_tick () in
+        Lwt_result.return @@ State.continue { state with current = `Ordering }
+    | `Liquidate ->
+        let env = state.env in
+        let* _ = Backend.liquidate env in
+        Lwt_result.return
+        @@ State.continue
+             { state with current = `Finished "Successfully liquidated" }
+    | `Finished code ->
+        output_data state;
+        Lwt_result.return @@ State.shutdown code
 end
 
 module SimpleStateMachine (Backend : Backend.S) : S = struct
@@ -101,19 +120,8 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
   let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
     let env = state.env in
     match state.current with
-    | `Initialize ->
-        Lwt_result.return @@ State.continue { state with current = `Listening }
-    | `Listening ->
-        let* () = SU.listen_tick () in
-        Lwt_result.return @@ State.continue { state with current = `Ordering }
-    | `Liquidate ->
-        let* _ = Backend.liquidate env in
-        Lwt_result.return
-        @@ State.continue
-             { state with current = `Finished "Successfully liquidated" }
-    | `Finished code ->
-        SU.output_data state;
-        Lwt_result.return @@ State.shutdown code
+    | #State.nonlogical_state as current ->
+        SU.handle_nonlogical_state current state
     | `Ordering ->
         let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
         let msft = Bars.price latest_bars "MSFT" in
