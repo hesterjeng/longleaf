@@ -1,4 +1,5 @@
 let backtest_button_js = Util.read_file_as_string "src/javascript/backtest_button.js"
+let live_button_js = Util.read_file_as_string "src/javascript/live_button.js"
 let graceful_exit_js = Util.read_file_as_string "src/javascript/graceful_exit.js"
 
 let render data =
@@ -17,20 +18,27 @@ let render data =
       Plotly.newPlot('plot', plotData.data, plotData.layout);
     </script>
     <div id='backtest_button' style="display: grid; place-items: center">
-      <h1 class = "text-3xl font-bold text-center mt-5">Wow, my own custom div!</h1>
-      <p class = "text-center">Can I put a p in it?</p>
+      <h1 class = "text-3xl font-bold text-center mt-5">Run a backtest</h1>
+      <p class = "text-center">Need to configure the selected backtest</p>
       <button class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 border-b-4 border-blue-700 hover:border-blue-500 rounded">
         Run Backtest
       </button>
-      <script><%s! backtest_button_js%></script>
+    </div>
+    <div id='live_button' style="display: grid; place-items: center">
+      <h1 class = "text-3xl font-bold text-center mt-5">Run live algorithm</h1>
+      <p class = "text-center">Need to configure the selected strategy</p>
+      <button class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 border-b-4 border-blue-700 hover:border-blue-500 rounded">
+        Run Live
+      </button>
     </div>
     <div id='graceful_exit' style="display: grid; place-items: center">
-      <h1 class = "text-3xl font-bold text-center mt-5">Wow, my own custom div!</h1>
-      <p class = "text-center">Can I put a p in it?</p>
+      <h1 class = "text-3xl font-bold text-center mt-5">Gracefully quit the run</h1>
       <button class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 border-b-4 border-blue-700 hover:border-blue-500 rounded">
         Graceful Quit
       </button>
-      <script><%s! graceful_exit_js%></script>
     </div>
+      <script><%s! backtest_button_js%></script>
+      <script><%s! live_button_js%></script>
+      <script><%s! graceful_exit_js%></script>
   </body>
 </html>
