@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const button = document.getElementById("backtest_button");
+  const button = document.getElementById("graceful_exit");
 
   button.addEventListener("click", () => {
     fetch('http://localhost:8080/exit', { method: 'GET' })
@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .then(data => {
         console.log(data); // Handle the data received from the server
-        document.querySelector('#graceful_exit').textContent = 'Exit Commmand Set';
+        document.querySelector('#graceful_exit').textContent = 'Exit Commmand Sent';
       })
       .catch(error => {
         console.error('There was a problem with the fetch operation:', error);
