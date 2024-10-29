@@ -30,6 +30,20 @@ let download_test env =
   in
   match historical_bars with Ok x -> Lwt.return x | Error e -> Lwt.fail_with e
 
+let double_top_test env symbols =
+  let open Lwt.Syntax in
+  let history_request : Market_data_api.Stock.Historical_bars_request.t =
+    {
+      timeframe = Trading_types.Timeframe.day;
+      start = Time.of_ymd "2024-08-06";
+      symbols;
+    }
+  in
+  let* historical_bars =
+    Market_data_api.Stock.historical_bars env history_request
+  in
+  match historical_bars with Ok x -> Lwt.return x | Error e -> Lwt.fail_with e
+
 let position_test env =
   let open Lwt.Syntax in
   let* position = Trading_api.Positions.get_all_open_positions env in
@@ -58,7 +72,7 @@ let top () =
     let module Alpaca = Backend.Alpaca (struct
       let bars = Trading_types.Bars.empty
 
-      let tickers =
+      let symbols =
         [
           "NVDA";
           "TSLA";
