@@ -116,8 +116,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     | _ -> None
 
   let place_short env (state : Bars.t State.t) =
-    let* latest = Backend.latest_bars env Backend.tickers in
-    let now = (Bars.price latest (List.hd Backend.tickers)).timestamp in
+    let* latest = Backend.latest_bars env Backend.symbols in
+    let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cash_available = Backend.get_cash () in
     let qty symbol =
       match cash_available >=. 0.0 with
@@ -130,7 +130,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let short_opt =
       consider_shorting ~history:state.content.bars ~now:latest ~qty
     in
-    let possibilities = List.map short_opt Backend.tickers in
+    let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
     let* () =
       match choice with
@@ -149,8 +149,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     @@ State.continue { state with current = `Listening; content = new_bars }
 
   let cover_position env (state : Bars.t State.t) (order : Order.t) =
-    let* latest = Backend.latest_bars env Backend.tickers in
-    let now = (Bars.price latest (List.hd Backend.tickers)).timestamp in
+    let* latest = Backend.latest_bars env Backend.symbols in
+    let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cover_order =
       let current_price = (Bars.price latest order.symbol).close in
       let target_price = 0.98 *. order.price in

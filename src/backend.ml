@@ -4,7 +4,7 @@ module type S = sig
   val backtesting : bool
   val get_cash : unit -> float
   val get_position : unit -> (string, int) Hashtbl.t
-  val tickers : string list
+  val symbols : string list
 
   val create_order :
     Environment.t ->
@@ -20,7 +20,7 @@ end
 
 module type BACKEND_INPUT = sig
   val bars : Trading_types.Bars.t
-  val tickers : string list
+  val symbols : string list
 end
 
 (* Backtesting *)
@@ -29,7 +29,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Lwt_result.Syntax
   module Ticker = Ticker.Instant
 
-  let tickers = Input.tickers
+  let symbols = Input.symbols
   let backtesting = true
   let position : (string, int) Hashtbl.t = Hashtbl.create 0
   let cash = ref 100000.0
@@ -134,7 +134,7 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
   module Ticker = Ticker.FiveMinute
   module Backtesting = Backtesting (Input)
 
-  let tickers = Input.tickers
+  let symbols = Input.symbols
   let backtesting = false
   let get_account = Trading_api.Accounts.get_account
   let last_data_bar = None
