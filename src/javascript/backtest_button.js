@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const button = document.getElementById("backtest_button");
+  const button = document.querySelector("#backtest_button button");
 
   button.addEventListener("click", () => {
     fetch('http://localhost:8080/run_dead', { method: 'GET' })
@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .then(data => {
         console.log(data); // Handle the data received from the server
-        document.querySelector('#backtest_button').textContent = 'Backtest Started';
+        button.innerText = 'Backtest Started'
       })
       .catch(error => {
         console.error('There was a problem with the fetch operation:', error);
