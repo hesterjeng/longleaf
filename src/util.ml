@@ -33,32 +33,44 @@ let handle_response json response =
       Get_log.err (fun k -> k "unknown code: %s" (Code.string_of_status status));
       Lwt.return_error @@ Code.string_of_status status
 
-let get ~headers ~uri : (Yojson.Safe.t, string) Lwt_result.t =
-  let open Lwt.Syntax in
-  let open Cohttp_lwt_unix in
-  Util_log.app (fun k -> k "GET: %a" Uri.pp uri);
-  let* response, body_stream = Client.get ~headers uri in
-  let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-  let json = Yojson.Safe.from_string resp_body_raw in
-  handle_response json response
+let get ~headers ~uri =
+  let top () =
+    Lwt_eio.run_lwt @@ fun () ->
+    let open Lwt.Syntax in
+    let open Cohttp_lwt_unix in
+    Util_log.app (fun k -> k "GET: %a" Uri.pp uri);
+    let* response, body_stream = Client.get ~headers uri in
+    let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
+    let json = Yojson.Safe.from_string resp_body_raw in
+    handle_response json response
+  in
+  match top () with Ok x -> x | Error e -> invalid_arg e
 
-let delete ~headers ~uri : (Yojson.Safe.t, string) Lwt_result.t =
-  let open Lwt.Syntax in
-  let open Cohttp_lwt_unix in
-  Util_log.app (fun k -> k "DELETE: %a" Uri.pp uri);
-  let* response, body_stream = Client.delete ~headers uri in
-  let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-  let json = Yojson.Safe.from_string resp_body_raw in
-  handle_response json response
+let delete ~headers ~uri =
+  let top () =
+    Lwt_eio.run_lwt @@ fun () ->
+    let open Lwt.Syntax in
+    let open Cohttp_lwt_unix in
+    Util_log.app (fun k -> k "DELETE: %a" Uri.pp uri);
+    let* response, body_stream = Client.delete ~headers uri in
+    let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
+    let json = Yojson.Safe.from_string resp_body_raw in
+    handle_response json response
+  in
+  match top () with Ok x -> x | Error e -> invalid_arg e
 
-let post ~headers ~body ~uri : (Yojson.Safe.t, string) Lwt_result.t =
-  let open Lwt.Syntax in
-  let open Cohttp_lwt_unix in
-  Util_log.app (fun k -> k "POST: %a" Uri.pp uri);
-  let* response, body_stream = Client.post ~headers ~body uri in
-  let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-  let json = Yojson.Safe.from_string resp_body_raw in
-  handle_response json response
+let post ~headers ~body ~uri =
+  let top () =
+    Lwt_eio.run_lwt @@ fun () ->
+    let open Lwt.Syntax in
+    let open Cohttp_lwt_unix in
+    Util_log.app (fun k -> k "POST: %a" Uri.pp uri);
+    let* response, body_stream = Client.post ~headers ~body uri in
+    let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
+    let json = Yojson.Safe.from_string resp_body_raw in
+    handle_response json response
+  in
+  match top () with Ok x -> x | Error e -> invalid_arg e
 
 let get_next_page_token (x : Yojson.Safe.t) =
   Option.(
