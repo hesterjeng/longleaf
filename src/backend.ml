@@ -7,7 +7,10 @@ module type S = sig
   val symbols : string list
   val shutdown : unit -> unit
   val create_order : Environment.t -> Trading_types.Order.t -> Yojson.Safe.t
-  val latest_bars : Environment.t -> string list -> Trading_types.Bars.t
+
+  val latest_bars :
+    Environment.t -> string list -> (Trading_types.Bars.t, string) result
+
   val last_data_bar : Trading_types.Bars.t option
   val liquidate : Environment.t -> unit
 end
@@ -47,7 +50,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
 
   let data_remaining = ref Input.bars.bars
 
-  let latest_bars _ _ : Bars.t =
+  let latest_bars _ _ =
     let bars = !data_remaining in
     let latest =
       if List.exists (fun (_, l) -> List.is_empty l) bars then None
@@ -68,9 +71,9 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     in
     data_remaining := rest;
     match latest with
-    | Some x -> Bars.{ bars = x; next_page_token = None; currency = None }
-    | None ->
-        invalid_arg "No latest bars in backend, empty data or backtest finished"
+    | Some x ->
+        Result.return Bars.{ bars = x; next_page_token = None; currency = None }
+    | None -> Error "Unable to find latest bars in backtest"
 
   let last_data_bar =
     Some
@@ -133,7 +136,7 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
 
   let latest_bars x y =
     let res = Market_data_api.Stock.latest_bars x y in
-    res
+    Ok res
 
   let get_clock = Trading_api.Clock.get
   let get_cash = Backtesting.get_cash
@@ -149,7 +152,13 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
     if List.is_empty @@ Hashtbl.keys_list position then ()
     else
       let symbols = Hashtbl.keys_list position in
-      let last_data_bar = latest_bars env symbols in
+      let last_data_bar =
+        match latest_bars env symbols with
+        | Ok x -> x
+        | Error _ ->
+            invalid_arg
+              "Unable to get price information for symbol while liquidating"
+      in
       let _ =
         Hashtbl.map_list
           (fun symbol qty ->
