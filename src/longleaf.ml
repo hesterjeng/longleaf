@@ -46,12 +46,19 @@ let position_test env =
   let position = Trading_api.Positions.get_all_open_positions env in
   position
 
-let top _switch _eio_env =
+let top switch eio_env =
   try
     CalendarLib.Time_Zone.change (UTC_Plus (-5));
     let longleaf_env = Environment.make () in
 
+    let module Common_eio_stuff = struct
+      let switch = switch
+      let longleaf_env = longleaf_env
+      let eio_env = eio_env
+    end in
     let module Backtesting = Backend.Backtesting (struct
+      include Common_eio_stuff
+
       let bars =
         Yojson.Safe.from_file "data/test_hexahydroxy_propagation"
         |> Trading_types.Bars.t_of_yojson
@@ -83,35 +90,41 @@ let top _switch _eio_env =
     (*       "LLY"; *)
     (*     ] *)
     (* end) in *)
-    let module Alpaca = Backend.AlpacaFast (struct
-      let bars = Trading_types.Bars.empty
+    let module Alpaca =
+      Backend.Alpaca
+        (struct
+          include Common_eio_stuff
 
-      let symbols =
-        [
-          "NVDA";
-          "TSLA";
-          "AAPL";
-          "MSFT";
-          "NFLX";
-          "META";
-          "AMZN";
-          "AMD";
-          "AVGO";
-          "ELV";
-          "UNH";
-          "MU";
-          "V";
-          "GOOG";
-          "SMCI";
-          "MSTR";
-          "UBER";
-          "LLY";
-        ]
-    end) in
+          let bars = Trading_types.Bars.empty
+
+          let symbols =
+            [
+              "NVDA";
+              "TSLA";
+              "AAPL";
+              "MSFT";
+              "NFLX";
+              "META";
+              "AMZN";
+              "AMD";
+              "AVGO";
+              "ELV";
+              "UNH";
+              "MU";
+              "V";
+              "GOOG";
+              "SMCI";
+              "MSTR";
+              "UBER";
+              "LLY";
+            ]
+        end)
+        (Ticker.FiveSecondLwt)
+    in
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
     let module Strategy = Double_top.DoubleTop (Alpaca) in
     (* let module Strategy = Double_top.DoubleTop (Backtesting) in *)
-    let res = Strategy.run env in
+    let res = Strategy.run longleaf_env in
     Log.app (fun k -> k "State machine shutdown:");
     Log.app (fun k -> k "%s" res);
     res

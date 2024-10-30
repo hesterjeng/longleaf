@@ -20,11 +20,7 @@ end
 module type BACKEND_INPUT = sig
   val switch : Eio.Switch.t
   val longleaf_env : Environment.t
-
-  (* val trading_uri : string *)
-  (* val data_uri : string *)
   val eio_env : Eio_unix.Stdenv.base
-  val host : string
   val bars : Trading_types.Bars.t
   val symbols : string list
 end
