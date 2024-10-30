@@ -1,5 +1,4 @@
 open Cohttp
-open Lwt_result.Syntax
 module Log = (val Logs.src_log Logs.(Src.create "trading-api"))
 open Trading_types
 
@@ -21,8 +20,7 @@ module Clock = struct
   let get (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/clock" in
     let headers = h env in
-    let* body_json = Util.get ~headers ~uri in
-    Lwt_result.return @@ t_of_yojson body_json
+    Util.get ~headers ~uri
 end
 
 module Accounts = struct
@@ -72,8 +70,7 @@ module Accounts = struct
   let get_account (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/account" in
     let headers = h env in
-    let* body_json = Util.get ~headers ~uri in
-    Lwt_result.return @@ t_of_yojson body_json
+    Util.get ~headers ~uri
 end
 
 module Assets = struct
@@ -85,16 +82,14 @@ module Assets = struct
   let get_assets (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/assets" in
     let headers = h env in
-    let* body_json = Util.get ~headers ~uri in
-    Lwt_result.return @@ t_of_yojson body_json
+    Util.get ~headers ~uri
 end
 
 module Positions = struct
   let get_all_open_positions (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/positions" in
     let headers = h env in
-    let* body_json = Util.get ~headers ~uri in
-    Lwt_result.return @@ Position.t_of_yojson body_json
+    Util.get ~headers ~uri
 
   let close_all_positions (env : Environment.t) (cancel_orders : bool) =
     let cancel_orders = if cancel_orders then "true" else "false" in
@@ -103,8 +98,7 @@ module Positions = struct
       Uri.add_query_param' u ("cancel_orders", cancel_orders)
     in
     let headers = h env in
-    let* body_json = Util.delete ~headers ~uri in
-    Lwt_result.return body_json
+    Util.delete ~headers ~uri
 end
 
 module Orders = struct
@@ -122,8 +116,7 @@ module Orders = struct
         ]
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
     in
-    let* res = Util.post ~headers ~body ~uri in
-    Lwt_result.return res
+    Util.post ~headers ~body ~uri
 
   let get_all_orders (env : Environment.t) =
     let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
