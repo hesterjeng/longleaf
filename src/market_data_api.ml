@@ -1,4 +1,3 @@
-open Lwt_result.Syntax
 open Trading_types
 
 let h = Trading_api.h
@@ -17,8 +16,7 @@ module Stock = struct
       `Assoc [ ("symbols", `String symbols) ]
       |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
     in
-    let* resp_body = Util.post ~headers ~body ~uri in
-    Lwt_result.return resp_body
+    Util.post ~headers ~body ~uri
 
   let historical_bars (env : Environment.t)
       (request : Historical_bars_request.t) =
@@ -32,7 +30,7 @@ module Stock = struct
       Uri.add_query_param' u ("start", Ptime.to_rfc3339 request.start)
     in
     let rec collect_data uri acc =
-      let* resp_body_json = Util.get ~headers ~uri in
+      let resp_body_json = Util.get ~headers ~uri in
       let acc = Bars.t_of_yojson resp_body_json :: acc in
       match Util.get_next_page_token resp_body_json with
       | Some npt ->
@@ -41,10 +39,10 @@ module Stock = struct
             Uri.add_query_param' removed ("page_token", npt)
           in
           collect_data uri acc
-      | None -> Lwt_result.return acc
+      | None -> acc
     in
-    let* paginated = collect_data uri [] in
-    Lwt_result.return @@ Bars.combine paginated
+    let paginated = collect_data uri [] in
+    Bars.combine paginated
 
   let latest_bars (env : Environment.t) (symbols : string list) =
     let headers = h env in
@@ -53,10 +51,8 @@ module Stock = struct
       Uri.with_path env.apca_api_data_url "/v2/stocks/bars/latest" |> fun u ->
       Uri.add_query_param' u ("symbols", symbols)
     in
-    let* resp_body_json = Util.get ~headers ~uri in
-    (* Util.Util_log.app (fun k -> k "%a" Yojson.Safe.pp resp_body_json); *)
-    let bar = Bars.t_of_yojson resp_body_json in
-    Lwt_result.return bar
+    let resp_body_json = Util.get ~headers ~uri in
+    Bars.t_of_yojson resp_body_json
 
   let latest_quotes (env : Environment.t) (symbols : string list) =
     let headers = h env in
@@ -65,6 +61,6 @@ module Stock = struct
       Uri.with_path env.apca_api_data_url "/v2/stocks/quotes/latest" |> fun u ->
       Uri.add_query_param' u ("symbols", symbols)
     in
-    let* resp_body_json = Util.get ~headers ~uri in
-    Lwt_result.return resp_body_json
+    let resp_body_json = Util.get ~headers ~uri in
+    resp_body_json
 end
