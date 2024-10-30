@@ -9,14 +9,57 @@ include Ppx_yojson_conv_lib.Yojson_conv
 module Get_log = (val Logs.src_log Logs.(Src.create "get-log"))
 module Util_log = (val Logs.src_log Logs.(Src.create "util-log"))
 
-let get = Cohttp_lwt_unix.Client.get
-let delete = Cohttp_lwt_unix.Client.delete
-let post = Cohttp_lwt_unix.Client.post
+let get_piaf ~client ~headers ~endpoint =
+  let open Piaf in
+  let headers = Cohttp.Header.to_list headers in
+  let resp =
+    match Client.get client ~headers endpoint with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  let _status = Response.status resp in
+  let body = Response.body resp in
+  let json =
+    match Body.to_string body with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  Yojson.Safe.from_string json
 
-(* let get_piaf ~headers ~uri = *)
-(*   let headers = Cohttp.Header.to_list headers in *)
-(*   let uri = Uri.to_string uri in *)
-(*   Piaf.Client.get ~headers uri *)
+let delete_piaf ~client ~headers ~endpoint =
+  let open Piaf in
+  let headers = Cohttp.Header.to_list headers in
+  let resp =
+    match Client.delete client ~headers endpoint with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  let _status = Response.status resp in
+  let body = Response.body resp in
+  let json =
+    match Body.to_string body with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  Yojson.Safe.from_string json
+
+let post_piaf ~client ~body ~headers ~endpoint =
+  let open Piaf in
+  let body = Yojson.Safe.to_string body |> Body.of_string in
+  let headers = Cohttp.Header.to_list headers in
+  let resp =
+    match Client.post client ~headers ~body endpoint with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  let _status = Response.status resp in
+  let body = Response.body resp in
+  let json =
+    match Body.to_string body with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  Yojson.Safe.from_string json
 
 let handle_response json response =
   let open Cohttp in
