@@ -1,6 +1,8 @@
 module type S = sig
   module Ticker : Ticker.S
 
+  val trading_client : Piaf.Client.t
+  val data_client : Piaf.Client.t
   val is_backtest : bool
   val get_cash : unit -> float
   val get_position : unit -> (string, int) Hashtbl.t
@@ -16,6 +18,13 @@ module type S = sig
 end
 
 module type BACKEND_INPUT = sig
+  val switch : Eio.Switch.t
+  val longleaf_env : Environment.t
+
+  (* val trading_uri : string *)
+  (* val data_uri : string *)
+  val eio_env : Eio_unix.Stdenv.base
+  val host : string
   val bars : Trading_types.Bars.t
   val symbols : string list
 end
@@ -24,6 +33,24 @@ end
 module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
   module Ticker = Ticker.InstantLwt
+
+  let trading_client =
+    let res =
+      Piaf.Client.create ~sw:Input.switch Input.eio_env
+        Input.longleaf_env.apca_api_base_url
+    in
+    match res with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Unable to create trading client"
+
+  let data_client =
+    let res =
+      Piaf.Client.create ~sw:Input.switch Input.eio_env
+        Input.longleaf_env.apca_api_data_url
+    in
+    match res with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Unable to create data client"
 
   let symbols = Input.symbols
   let is_backtest = true
@@ -122,9 +149,9 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
 end
 
 (* Live trading *)
-module Alpaca (Input : BACKEND_INPUT) : S = struct
+module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
   open Trading_types
-  module Ticker = Ticker.FiveMinuteLwt
+  module Ticker = Ticker
   module Backtesting = Backtesting (Input)
 
   (* let shutdown = *)
@@ -134,64 +161,23 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
   let get_account = Trading_api.Accounts.get_account
   let last_data_bar = None
 
-  let latest_bars x y =
-    let res = Market_data_api.Stock.latest_bars x y in
-    Ok res
+  let trading_client =
+    let res =
+      Piaf.Client.create ~sw:Input.switch Input.eio_env
+        Input.longleaf_env.apca_api_base_url
+    in
+    match res with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Unable to create trading client"
 
-  let get_clock = Trading_api.Clock.get
-  let get_cash = Backtesting.get_cash
-  let get_position = Backtesting.get_position
-
-  let create_order env order =
-    let res = Trading_api.Orders.create_market_order env order in
-    let _ = Backtesting.create_order env order in
-    res
-
-  let liquidate env =
-    let position = get_position () in
-    if List.is_empty @@ Hashtbl.keys_list position then ()
-    else
-      let symbols = Hashtbl.keys_list position in
-      let last_data_bar =
-        match latest_bars env symbols with
-        | Ok x -> x
-        | Error _ ->
-            invalid_arg
-              "Unable to get price information for symbol while liquidating"
-      in
-      let _ =
-        Hashtbl.map_list
-          (fun symbol qty ->
-            if qty = 0 then Lwt_result.return ()
-            else
-              let order : Order.t =
-                {
-                  symbol;
-                  side = (if qty >= 0 then Side.Sell else Side.Buy);
-                  tif = TimeInForce.GoodTillCanceled;
-                  order_type = OrderType.Market;
-                  qty;
-                  price = (Bars.price last_data_bar symbol).close;
-                }
-              in
-              let _json_resp = create_order env order in
-              Lwt_result.return ())
-          position
-      in
-      ()
-end
-
-module AlpacaFast (Input : BACKEND_INPUT) : S = struct
-  open Trading_types
-  module Ticker = Ticker.FiveSecondLwt
-  module Backtesting = Backtesting (Input)
-
-  (* let shutdown = *)
-  let shutdown () = ()
-  let symbols = Input.symbols
-  let is_backtest = false
-  let get_account = Trading_api.Accounts.get_account
-  let last_data_bar = None
+  let data_client =
+    let res =
+      Piaf.Client.create ~sw:Input.switch Input.eio_env
+        Input.longleaf_env.apca_api_data_url
+    in
+    match res with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Unable to create data client"
 
   let latest_bars x y =
     let res = Market_data_api.Stock.latest_bars x y in

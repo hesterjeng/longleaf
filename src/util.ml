@@ -13,11 +13,10 @@ let get = Cohttp_lwt_unix.Client.get
 let delete = Cohttp_lwt_unix.Client.delete
 let post = Cohttp_lwt_unix.Client.post
 
-let get_piaf ~headers ~uri =
-  let client = Piaf.Client.c
-  let headers = Cohttp.Header.to_list headers in
-  let uri = Uri.to_string uri in
-  Piaf.Client.get ~headers uri
+(* let get_piaf ~headers ~uri = *)
+(*   let headers = Cohttp.Header.to_list headers in *)
+(*   let uri = Uri.to_string uri in *)
+(*   Piaf.Client.get ~headers uri *)
 
 let handle_response json response =
   let open Cohttp in
