@@ -120,14 +120,13 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
   module SU = Strategy_utils (Backend)
 
   let step (state : 'a State.t) =
+    let open Result.Infix in
     let env = state.env in
     match state.current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering ->
-        Result.return
-        @@
-        let latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
+        let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
         let msft = Bars.price latest_bars "MSFT" in
         let nvda = Bars.price latest_bars "NVDA" in
         let cash_available = Backend.get_cash () in
@@ -157,7 +156,9 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
             ()
         in
         let new_bars = Bars.combine [ latest_bars; state.content ] in
-        State.continue { state with current = `Listening; content = new_bars }
+        Result.return
+        @@ State.continue
+             { state with current = `Listening; content = new_bars }
 
   let run = SU.run step
 end
