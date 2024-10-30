@@ -48,7 +48,6 @@ end
 
 module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   open Trading_types
-  open Lwt_result.Syntax
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
   module State = Strategies.State
   module Bar_item = Bars.Bar_item
@@ -118,7 +117,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     | _ -> None
 
   let place_short env (state : Bars.t State.t) =
-    let* latest = Backend.latest_bars env Backend.symbols in
+    let latest = Backend.latest_bars env Backend.symbols in
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cash_available = Backend.get_cash () in
     let qty symbol =
@@ -134,24 +133,23 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
-    let* () =
+    let () =
       match choice with
-      | None -> Lwt_result.return ()
+      | None -> ()
       | Some (order, trigger) ->
           Log.app (fun k ->
               k "@[Short triggered by previous local max at %a@]@." Time.pp
                 trigger.timestamp);
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           current_status := Placed order;
-          let* _ = Backend.create_order env order in
-          Lwt_result.return ()
+          let _ = Backend.create_order env order in
+          ()
     in
     let new_bars = Bars.combine [ latest; state.content ] in
-    Lwt_result.return
-    @@ State.continue { state with current = `Listening; content = new_bars }
+    State.continue { state with current = `Listening; content = new_bars }
 
   let cover_position env (state : Bars.t State.t) (order : Order.t) =
-    let* latest = Backend.latest_bars env Backend.symbols in
+    let latest = Backend.latest_bars env Backend.symbols in
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cover_order =
       let current_price = (Bars.price latest order.symbol).close in
@@ -163,26 +161,27 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         Some cover_order
       else None
     in
-    let* () =
+    let () =
       match cover_order with
-      | None -> Lwt_result.return ()
+      | None -> ()
       | Some order ->
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           current_status := Waiting;
-          let* _ = Backend.create_order env order in
-          Lwt_result.return ()
+          let _ = Backend.create_order env order in
+          ()
     in
     let new_bars = Bars.combine [ latest; state.content ] in
-    Lwt_result.return
-    @@ State.continue { state with current = `Listening; content = new_bars }
+    State.continue { state with current = `Listening; content = new_bars }
 
-  let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
+  let step (state : 'a State.t) =
     let env = state.env in
     Format.printf ".%a" Format.flush ();
     match state.current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering -> (
+        Result.return
+        @@
         match !current_status with
         | Waiting -> place_short env state
         | Placed order -> cover_position env state order)
