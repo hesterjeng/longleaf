@@ -23,7 +23,7 @@ end
 (* Backtesting *)
 module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
-  module Ticker = Ticker.Instant
+  module Ticker = Ticker.InstantLwt
 
   let symbols = Input.symbols
   let is_backtest = true
@@ -124,7 +124,7 @@ end
 (* Live trading *)
 module Alpaca (Input : BACKEND_INPUT) : S = struct
   open Trading_types
-  module Ticker = Ticker.FiveMinute
+  module Ticker = Ticker.FiveMinuteLwt
   module Backtesting = Backtesting (Input)
 
   (* let shutdown = *)
