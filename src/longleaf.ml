@@ -17,7 +17,6 @@ module Util = Util
 (* end *)
 
 let download_test env =
-  let open Lwt.Syntax in
   let history_request : Market_data_api.Stock.Historical_bars_request.t =
     {
       timeframe = Trading_types.Timeframe.day;
@@ -25,13 +24,12 @@ let download_test env =
       symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
     }
   in
-  let* historical_bars =
+  let historical_bars =
     Market_data_api.Stock.historical_bars env history_request
   in
-  match historical_bars with Ok x -> Lwt.return x | Error e -> Lwt.fail_with e
+  historical_bars
 
 let double_top_test env symbols =
-  let open Lwt.Syntax in
   let history_request : Market_data_api.Stock.Historical_bars_request.t =
     {
       timeframe = Trading_types.Timeframe.day;
@@ -39,23 +37,17 @@ let double_top_test env symbols =
       symbols;
     }
   in
-  let* historical_bars =
+  let historical_bars =
     Market_data_api.Stock.historical_bars env history_request
   in
-  match historical_bars with Ok x -> Lwt.return x | Error e -> Lwt.fail_with e
+  historical_bars
 
 let position_test env =
-  let open Lwt.Syntax in
-  let* position = Trading_api.Positions.get_all_open_positions env in
-  match position with
-  | Ok p -> Lwt.return @@ Log.app (fun k -> k "%a" Position.pp p)
-  | Error e ->
-      Log.err (fun k -> k "Error %s in position test" e);
-      invalid_arg e
+  let position = Trading_api.Positions.get_all_open_positions env in
+  position
 
-let top =
+let top _eio_env =
   try
-    let open Lwt.Syntax in
     CalendarLib.Time_Zone.change (UTC_Plus (-5));
     let env = Environment.make () in
 
@@ -96,10 +88,10 @@ let top =
     end) in
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
     let module Strategy = Double_top.DoubleTop (Alpaca) in
-    let* res = Strategy.run env in
+    let res = Strategy.run env in
     Log.app (fun k -> k "State machine shutdown:");
     Log.app (fun k -> k "%s" res);
-    Lwt.return_unit
+    res
   with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->
     Log.err (fun k -> k "Caught yojson error");
     let err = Printexc.to_string e in
