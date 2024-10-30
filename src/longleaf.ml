@@ -46,7 +46,7 @@ let position_test env =
   let position = Trading_api.Positions.get_all_open_positions env in
   position
 
-let top _eio_env =
+let top _switch _eio_env =
   try
     CalendarLib.Time_Zone.change (UTC_Plus (-5));
     let env = Environment.make () in
@@ -61,7 +61,32 @@ let top _eio_env =
 
       let symbols = Trading_types.Bars.tickers bars
     end) in
-    let module Alpaca = Backend.Alpaca (struct
+    (* let module Alpaca = Backend.Alpaca (struct *)
+    (*   let bars = Trading_types.Bars.empty *)
+
+    (*   let symbols = *)
+    (*     [ *)
+    (*       "NVDA"; *)
+    (*       "TSLA"; *)
+    (*       "AAPL"; *)
+    (*       "MSFT"; *)
+    (*       "NFLX"; *)
+    (*       "META"; *)
+    (*       "AMZN"; *)
+    (*       "AMD"; *)
+    (*       "AVGO"; *)
+    (*       "ELV"; *)
+    (*       "UNH"; *)
+    (*       "MU"; *)
+    (*       "V"; *)
+    (*       "GOOG"; *)
+    (*       "SMCI"; *)
+    (*       "MSTR"; *)
+    (*       "UBER"; *)
+    (*       "LLY"; *)
+    (*     ] *)
+    (* end) in *)
+    let module Alpaca = Backend.AlpacaFast (struct
       let bars = Trading_types.Bars.empty
 
       let symbols =
@@ -87,8 +112,8 @@ let top _eio_env =
         ]
     end) in
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
-    (* let module Strategy = Double_top.DoubleTop (Alpaca) in *)
-    let module Strategy = Double_top.DoubleTop (Backtesting) in
+    let module Strategy = Double_top.DoubleTop (Alpaca) in
+    (* let module Strategy = Double_top.DoubleTop (Backtesting) in *)
     let res = Strategy.run env in
     Log.app (fun k -> k "State machine shutdown:");
     Log.app (fun k -> k "%s" res);
