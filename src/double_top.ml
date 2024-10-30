@@ -168,7 +168,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       match cover_order with
       | None -> ()
       | Some order ->
-          Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
+          (* Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order); *)
           current_status := Waiting;
           let _ = Backend.create_order env order in
           ()
@@ -178,8 +178,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     @@ State.continue { state with current = `Listening; content = new_bars }
 
   let step (state : 'a State.t) =
+    Log.app (fun k -> k "@[%a@]@." State.pp_state state.current);
     let env = state.env in
-    Format.printf ".%a" Format.flush ();
+    (* Format.printf ".%a" Format.flush (); *)
     match state.current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state

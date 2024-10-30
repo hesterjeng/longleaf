@@ -14,6 +14,10 @@ module ThirtySecondLwt : S = struct
   let tick () = Lwt_unix.sleep 30.0 |> Lwt_result.ok
 end
 
+module FiveSecondLwt : S = struct
+  let tick () = Lwt_unix.sleep 5.0 |> Lwt_result.ok
+end
+
 module InstantLwt : S = struct
   let tick () = Lwt.return_unit |> Lwt_result.ok
 end
