@@ -19,58 +19,62 @@ module State = struct
 end
 
 module type S = sig
-  val run : Environment.t -> string Lwt.t
+  val run : Environment.t -> string
 end
 
 module Log = (val Logs.src_log Logs.(Src.create "strategies"))
 
 module Strategy_utils (Backend : Backend.S) = struct
   let check_time backtest =
-    let open CalendarLib in
-    let time = Time.now () in
-    let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
-    let close_time = Calendar.Time.lmake ~hour:16 () in
-    if
-      Calendar.Time.compare time open_time = 1
-      && Calendar.Time.compare time close_time = -1
-    then Lwt_result.return ()
-    else if backtest then Lwt_result.return ()
-    else
-      Lwt_result.ok
-        (Log.app (fun k -> k "Waiting because market is closed");
-         Lwt.return_unit)
+    let res =
+      let open CalendarLib in
+      let time = Time.now () in
+      let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
+      let close_time = Calendar.Time.lmake ~hour:16 () in
+      if
+        Calendar.Time.compare time open_time = 1
+        && Calendar.Time.compare time close_time = -1
+      then Lwt_result.return ()
+      else if backtest then Lwt_result.return ()
+      else
+        Lwt_result.ok
+          (Log.app (fun k -> k "Waiting because market is closed");
+           Lwt.return_unit)
+    in
+    res
 
   let listen_tick () =
-    let open Lwt_result.Syntax in
-    let* () = check_time Backend.is_backtest in
-    let* () =
-      Lwt.pick
-        [
-          (let* _ = Backend.Ticker.tick () in
-           Lwt_result.return ());
-          (* Lwt_result.error @@ Util.listen_for_input (); *)
-        ]
+    let res =
+      Lwt_eio.run_lwt @@ fun () ->
+      let open Lwt_result.Syntax in
+      let* () = check_time Backend.is_backtest in
+      let* () =
+        Lwt.pick
+          [
+            (let* _ = Backend.Ticker.tick () in
+             Lwt_result.return ());
+            (* Lwt_result.error @@ Util.listen_for_input (); *)
+          ]
+      in
+      Lwt_result.return ()
     in
-    Lwt_result.return ()
+    match res with Ok x -> x | Error e -> invalid_arg e
 
   let run step env =
     let init = State.init env in
-    let open Lwt.Syntax in
     let rec go prev =
-      let* stepped = step prev in
+      let stepped = step prev in
       match stepped with
       | Ok x -> (
           match x with
           | State.Running now -> (go [@tailcall]) now
-          | Shutdown code -> Lwt.return code)
+          | Shutdown code -> code)
       | Error s -> (
           let try_liquidating () =
             let liquidate = { prev with current = `Liquidate } in
             go liquidate
           in
-          match prev.current with
-          | `Liquidate -> Lwt.return s
-          | _ -> try_liquidating ())
+          match prev.current with `Liquidate -> s | _ -> try_liquidating ())
     in
     go init
 
@@ -90,40 +94,40 @@ module Strategy_utils (Backend : Backend.S) = struct
 
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
-    let open Lwt_result.Syntax in
+    Result.return
+    @@
     match current with
-    | `Initialize ->
-        Lwt_result.return @@ State.continue { state with current = `Listening }
+    | `Initialize -> State.continue { state with current = `Listening }
     | `Listening ->
-        let* () = listen_tick () in
-        Lwt_result.return @@ State.continue { state with current = `Ordering }
+        listen_tick ();
+        State.continue { state with current = `Ordering }
     | `Liquidate ->
         let env = state.env in
-        let* _ = Backend.liquidate env in
-        Lwt_result.return
-        @@ State.continue
-             { state with current = `Finished "Successfully liquidated" }
+        Backend.liquidate env;
+        State.continue
+          { state with current = `Finished "Successfully liquidated" }
     | `Finished code ->
         output_data state;
-        Lwt_result.return @@ State.shutdown code
+        State.shutdown code
 end
 
 module SimpleStateMachine (Backend : Backend.S) : S = struct
   open Trading_types
-  open Lwt_result.Syntax
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
 
   let shutdown = Backend.shutdown
 
   module SU = Strategy_utils (Backend)
 
-  let step (state : 'a State.t) : (('a, 'b) State.status, string) Lwt_result.t =
+  let step (state : 'a State.t) =
     let env = state.env in
     match state.current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering ->
-        let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
+        Result.return
+        @@
+        let latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
         let msft = Bars.price latest_bars "MSFT" in
         let nvda = Bars.price latest_bars "NVDA" in
         let cash_available = Backend.get_cash () in
@@ -136,8 +140,8 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
           | false -> 0
         in
         (* Actually do the trade *)
-        let* () =
-          if msft.close <. nvda.close then Lwt_result.return ()
+        let () =
+          if msft.close <. nvda.close then ()
           else
             let order : Order.t =
               {
@@ -149,13 +153,11 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
                 price = nvda.close;
               }
             in
-            let* _json_resp = Backend.create_order env order in
-            Lwt_result.return ()
+            let _json_resp = Backend.create_order env order in
+            ()
         in
         let new_bars = Bars.combine [ latest_bars; state.content ] in
-        Lwt_result.return
-        @@ State.continue
-             { state with current = `Listening; content = new_bars }
+        State.continue { state with current = `Listening; content = new_bars }
 
   let run = SU.run step
 end
