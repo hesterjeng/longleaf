@@ -5,18 +5,11 @@ module type S = sig
   val get_cash : unit -> float
   val get_position : unit -> (string, int) Hashtbl.t
   val symbols : string list
-  val shutdown : unit Lwt.t
-
-  val create_order :
-    Environment.t ->
-    Trading_types.Order.t ->
-    (Yojson.Safe.t, string) Lwt_result.t
-
-  val latest_bars :
-    Environment.t -> string list -> (Trading_types.Bars.t, string) Lwt_result.t
-
+  val shutdown : unit -> unit
+  val create_order : Environment.t -> Trading_types.Order.t -> Yojson.Safe.t
+  val latest_bars : Environment.t -> string list -> Trading_types.Bars.t
   val last_data_bar : Trading_types.Bars.t option
-  val liquidate : Environment.t -> (unit, string) Lwt_result.t
+  val liquidate : Environment.t -> unit
 end
 
 module type BACKEND_INPUT = sig
@@ -27,7 +20,6 @@ end
 (* Backtesting *)
 module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
-  open Lwt_result.Syntax
   module Ticker = Ticker.Instant
 
   let symbols = Input.symbols
@@ -36,9 +28,9 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   let cash = ref 100000.0
   let get_cash () = !cash
   let get_position () = position
-  let shutdown = Lwt.return_unit
+  let shutdown () = ()
 
-  let create_order _ (x : Order.t) : (Yojson.Safe.t, string) Lwt_result.t =
+  let create_order _ (x : Order.t) : Yojson.Safe.t =
     let symbol = x.symbol in
     let current_amt = Hashtbl.get position symbol |> Option.get_or ~default:0 in
     let qty = x.qty in
@@ -46,16 +38,16 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     | Buy, Market ->
         Hashtbl.replace position symbol (current_amt + qty);
         cash := !cash -. (x.price *. Float.of_int qty);
-        Lwt_result.return `Null
+        `Null
     | Sell, Market ->
         Hashtbl.replace position symbol (current_amt - qty);
         cash := !cash +. (x.price *. Float.of_int qty);
-        Lwt_result.return `Null
+        `Null
     | _, _ -> invalid_arg "Backtesting can't handle this yet."
 
   let data_remaining = ref Input.bars.bars
 
-  let latest_bars _ _ : (Bars.t, string) Lwt_result.t =
+  let latest_bars _ _ : Bars.t =
     let bars = !data_remaining in
     let latest =
       if List.exists (fun (_, l) -> List.is_empty l) bars then None
@@ -76,12 +68,9 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     in
     data_remaining := rest;
     match latest with
-    | Some x ->
-        Lwt_result.return
-        @@ Bars.{ bars = x; next_page_token = None; currency = None }
+    | Some x -> Bars.{ bars = x; next_page_token = None; currency = None }
     | None ->
-        Lwt_result.fail
-          "No latest bars in backend, empty data or backtest finished"
+        invalid_arg "No latest bars in backend, empty data or backtest finished"
 
   let last_data_bar =
     Some
@@ -97,9 +86,9 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
         next_page_token = None;
       }
 
-  let liquidate env : (unit, string) Lwt_result.t =
+  let liquidate env =
     let position = get_position () in
-    if List.is_empty @@ Hashtbl.keys_list position then Lwt_result.return ()
+    if List.is_empty @@ Hashtbl.keys_list position then ()
     else
       let final_bar =
         match last_data_bar with
@@ -110,7 +99,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
       let _ =
         Hashtbl.map_list
           (fun symbol qty ->
-            if qty = 0 then Lwt_result.return ()
+            if qty = 0 then ()
             else
               let order : Order.t =
                 {
@@ -122,46 +111,45 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
                   price = (Bars.price final_bar symbol).close;
                 }
               in
-              let* _json_resp = create_order env order in
-              Lwt_result.return ())
+              let _json_resp = create_order env order in
+              ())
           position
       in
-      Lwt_result.return ()
+      ()
 end
 
 (* Live trading *)
 module Alpaca (Input : BACKEND_INPUT) : S = struct
-  open Lwt_result.Syntax
   open Trading_types
   module Ticker = Ticker.FiveMinute
   module Backtesting = Backtesting (Input)
 
   (* let shutdown = *)
-  let shutdown = Lwt.return_unit
+  let shutdown () = ()
   let symbols = Input.symbols
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
   let last_data_bar = None
 
   let latest_bars x y =
-    let* res = Market_data_api.Stock.latest_bars x y in
-    Lwt_result.return res
+    let res = Market_data_api.Stock.latest_bars x y in
+    res
 
   let get_clock = Trading_api.Clock.get
   let get_cash = Backtesting.get_cash
   let get_position = Backtesting.get_position
 
   let create_order env order =
-    let* res = Trading_api.Orders.create_market_order env order in
-    let* _ = Backtesting.create_order env order in
-    Lwt_result.return res
+    let res = Trading_api.Orders.create_market_order env order in
+    let _ = Backtesting.create_order env order in
+    res
 
   let liquidate env =
     let position = get_position () in
-    if List.is_empty @@ Hashtbl.keys_list position then Lwt_result.return ()
+    if List.is_empty @@ Hashtbl.keys_list position then ()
     else
       let symbols = Hashtbl.keys_list position in
-      let* last_data_bar = latest_bars env symbols in
+      let last_data_bar = latest_bars env symbols in
       let _ =
         Hashtbl.map_list
           (fun symbol qty ->
@@ -177,9 +165,9 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
                   price = (Bars.price last_data_bar symbol).close;
                 }
               in
-              let* _json_resp = create_order env order in
+              let _json_resp = create_order env order in
               Lwt_result.return ())
           position
       in
-      Lwt_result.return ()
+      ()
 end
