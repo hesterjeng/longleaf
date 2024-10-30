@@ -117,7 +117,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     | _ -> None
 
   let place_short env (state : Bars.t State.t) =
-    let latest = Backend.latest_bars env Backend.symbols in
+    let open Result.Infix in
+    let* latest = Backend.latest_bars env Backend.symbols in
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cash_available = Backend.get_cash () in
     let qty symbol =
@@ -146,10 +147,12 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           ()
     in
     let new_bars = Bars.combine [ latest; state.content ] in
-    State.continue { state with current = `Listening; content = new_bars }
+    Result.return
+    @@ State.continue { state with current = `Listening; content = new_bars }
 
   let cover_position env (state : Bars.t State.t) (order : Order.t) =
-    let latest = Backend.latest_bars env Backend.symbols in
+    let open Result.Infix in
+    let* latest = Backend.latest_bars env Backend.symbols in
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cover_order =
       let current_price = (Bars.price latest order.symbol).close in
@@ -171,7 +174,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           ()
     in
     let new_bars = Bars.combine [ latest; state.content ] in
-    State.continue { state with current = `Listening; content = new_bars }
+    Result.return
+    @@ State.continue { state with current = `Listening; content = new_bars }
 
   let step (state : 'a State.t) =
     let env = state.env in
@@ -180,8 +184,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering -> (
-        Result.return
-        @@
         match !current_status with
         | Waiting -> place_short env state
         | Placed order -> cover_position env state order)
