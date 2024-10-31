@@ -11,7 +11,7 @@ module Util_log = (val Logs.src_log Logs.(Src.create "util-log"))
 
 let get_piaf ~client ~headers ~endpoint =
   let open Piaf in
-  let headers = Cohttp.Header.to_list headers in
+  let headers = Headers.to_list headers in
   let resp =
     match Client.get client ~headers endpoint with
     | Ok x -> x
@@ -28,7 +28,7 @@ let get_piaf ~client ~headers ~endpoint =
 
 let delete_piaf ~client ~headers ~endpoint =
   let open Piaf in
-  let headers = Cohttp.Header.to_list headers in
+  let headers = Headers.to_list headers in
   let resp =
     match Client.delete client ~headers endpoint with
     | Ok x -> x
@@ -45,8 +45,8 @@ let delete_piaf ~client ~headers ~endpoint =
 
 let post_piaf ~client ~body ~headers ~endpoint =
   let open Piaf in
+  let headers = Headers.to_list headers in
   let body = Yojson.Safe.to_string body |> Body.of_string in
-  let headers = Cohttp.Header.to_list headers in
   let resp =
     match Client.post client ~headers ~body endpoint with
     | Ok x -> x
@@ -179,5 +179,6 @@ let read_file_as_string filename =
   content (* Return the content *)
 
 module type ALPACA_SERVER = sig
+  val longleaf_env : Environment.t
   val client : Piaf.Client.t
 end
