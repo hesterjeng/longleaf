@@ -3,6 +3,7 @@ module type S = sig
 
   val trading_client : Piaf.Client.t
   val data_client : Piaf.Client.t
+  val env : Eio_unix.Stdenv.base
   val is_backtest : bool
   val get_cash : unit -> float
   val get_position : unit -> (string, int) Hashtbl.t
@@ -25,7 +26,9 @@ end
 (* Backtesting *)
 module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
-  module Ticker = Ticker.InstantLwt
+  module Ticker = Ticker.Instant
+
+  let env = Input.eio_env
 
   let trading_client =
     let res =
@@ -147,6 +150,8 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
   module Ticker = Ticker
   module Backtesting = Backtesting (Input)
 
+  let env = Input.eio_env
+
   let trading_client =
     let res =
       Piaf.Client.create ~sw:Input.switch Input.eio_env
@@ -213,7 +218,7 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
       let _ =
         Hashtbl.map_list
           (fun symbol qty ->
-            if qty = 0 then Lwt_result.return ()
+            if qty = 0 then ()
             else
               let order : Order.t =
                 {
@@ -226,7 +231,7 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
                 }
               in
               let _json_resp = create_order order in
-              Lwt_result.return ())
+              ())
           position
       in
       ()
