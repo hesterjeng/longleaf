@@ -25,40 +25,26 @@ end
 module Log = (val Logs.src_log Logs.(Src.create "strategies"))
 
 module Strategy_utils (Backend : Backend.S) = struct
-  let check_time backtest =
+  let market_closed backtest =
     let res =
       let open CalendarLib in
       let time = Time.now () in
       let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
       let close_time = Calendar.Time.lmake ~hour:16 () in
       if
-        Calendar.Time.compare time open_time = 1
-        && Calendar.Time.compare time close_time = -1
-      then Lwt_result.return ()
-      else if backtest then Lwt_result.return ()
-      else
-        Lwt_result.ok
-          (Log.app (fun k -> k "Waiting because market is closed");
-           Lwt.return_unit)
+        backtest
+        || Calendar.Time.compare time open_time = 1
+           && Calendar.Time.compare time close_time = -1
+      then false
+      else true
     in
     res
 
   let listen_tick () =
-    let res =
-      Lwt_eio.run_lwt @@ fun () ->
-      let open Lwt_result.Syntax in
-      let* () = check_time Backend.is_backtest in
-      let* () =
-        Lwt.pick
-          [
-            (let* _ = Backend.Ticker.tick () in
-             Lwt_result.return ());
-            (* Lwt_result.error @@ Util.listen_for_input (); *)
-          ]
-      in
-      Lwt_result.return ()
-    in
-    match res with Ok x -> x | Error e -> invalid_arg e
+    if market_closed Backend.is_backtest then (
+      Eio.traceln "Waiting five minutes because the market is closed";
+      Ticker.FiveMinute.tick Backend.env)
+    else Backend.Ticker.tick Backend.env
 
   let run step env =
     let init = State.init env in

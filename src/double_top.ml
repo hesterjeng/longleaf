@@ -179,7 +179,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let step (state : 'a State.t) =
     Log.app (fun k -> k "@[%a@]@." State.pp_state state.current);
-    let env = state.env in
     (* Format.printf ".%a" Format.flush (); *)
     match state.current with
     | #State.nonlogical_state as current ->

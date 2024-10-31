@@ -1,23 +1,23 @@
 module type S = sig
-  val tick : unit -> (unit, _) Lwt_result.t
+  val tick : Eio_unix.Stdenv.base -> unit
 end
 
-module FiveMinuteLwt : S = struct
-  let tick () = Lwt_unix.sleep 300.0 |> Lwt_result.ok
+module FiveMinute : S = struct
+  let tick env = Eio.Time.sleep env#clock 300.0
 end
 
-module ThirtyMinuteLwt : S = struct
-  let tick () = Lwt_unix.sleep 1800.0 |> Lwt_result.ok
+module ThirtyMinute : S = struct
+  let tick env = Eio.Time.sleep env#clock 1800.0
 end
 
-module ThirtySecondLwt : S = struct
-  let tick () = Lwt_unix.sleep 30.0 |> Lwt_result.ok
+module ThirtySecond : S = struct
+  let tick env = Eio.Time.sleep env#clock 30.0
 end
 
-module FiveSecondLwt : S = struct
-  let tick () = Lwt_unix.sleep 5.0 |> Lwt_result.ok
+module FiveSecond : S = struct
+  let tick env = Eio.Time.sleep env#clock 5.0
 end
 
-module InstantLwt : S = struct
-  let tick () = Lwt.return_unit |> Lwt_result.ok
+module Instant : S = struct
+  let tick _ = ()
 end
