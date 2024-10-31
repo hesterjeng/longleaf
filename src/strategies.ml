@@ -100,8 +100,7 @@ module Strategy_utils (Backend : Backend.S) = struct
         listen_tick ();
         State.continue { state with current = `Ordering }
     | `Liquidate ->
-        let env = state.env in
-        Backend.liquidate env;
+        Backend.liquidate ();
         State.continue
           { state with current = `Finished "Successfully liquidated" }
     | `Finished code ->
@@ -119,12 +118,11 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
 
   let step (state : 'a State.t) =
     let open Result.Infix in
-    let env = state.env in
     match state.current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering ->
-        let* latest_bars = Backend.latest_bars env [ "MSFT"; "NVDA" ] in
+        let* latest_bars = Backend.latest_bars [ "MSFT"; "NVDA" ] in
         let msft = Bars.price latest_bars "MSFT" in
         let nvda = Bars.price latest_bars "NVDA" in
         let cash_available = Backend.get_cash () in
@@ -150,7 +148,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
                 price = nvda.close;
               }
             in
-            let _json_resp = Backend.create_order env order in
+            let _json_resp = Backend.create_order order in
             ()
         in
         let new_bars = Bars.combine [ latest_bars; state.content ] in

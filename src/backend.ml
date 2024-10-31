@@ -8,13 +8,10 @@ module type S = sig
   val get_position : unit -> (string, int) Hashtbl.t
   val symbols : string list
   val shutdown : unit -> unit
-  val create_order : Environment.t -> Trading_types.Order.t -> Yojson.Safe.t
-
-  val latest_bars :
-    Environment.t -> string list -> (Trading_types.Bars.t, string) result
-
+  val create_order : Trading_types.Order.t -> Yojson.Safe.t
+  val latest_bars : string list -> (Trading_types.Bars.t, string) result
   val last_data_bar : Trading_types.Bars.t option
-  val liquidate : Environment.t -> unit
+  val liquidate : unit -> unit
 end
 
 module type BACKEND_INPUT = sig
@@ -56,7 +53,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   let get_position () = position
   let shutdown () = ()
 
-  let create_order _ (x : Order.t) : Yojson.Safe.t =
+  let create_order (x : Order.t) : Yojson.Safe.t =
     let symbol = x.symbol in
     let current_amt = Hashtbl.get position symbol |> Option.get_or ~default:0 in
     let qty = x.qty in
@@ -73,7 +70,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
 
   let data_remaining = ref Input.bars.bars
 
-  let latest_bars _ _ =
+  let latest_bars _ =
     let bars = !data_remaining in
     let latest =
       if List.exists (fun (_, l) -> List.is_empty l) bars then None
@@ -112,7 +109,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
         next_page_token = None;
       }
 
-  let liquidate env =
+  let liquidate () =
     let position = get_position () in
     if List.is_empty @@ Hashtbl.keys_list position then ()
     else
@@ -137,7 +134,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
                   price = (Bars.price final_bar symbol).close;
                 }
               in
-              let _json_resp = create_order env order in
+              let _json_resp = create_order order in
               ())
           position
       in
@@ -170,10 +167,12 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
+    let longleaf_env = Input.longleaf_env
   end)
 
   module Market_data_api = Market_data_api.Make (struct
     let client = data_client
+    let longleaf_env = Input.longleaf_env
   end)
 
   (* let shutdown = *)
@@ -186,26 +185,26 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
   let get_account = Trading_api.Accounts.get_account
   let last_data_bar = None
 
-  let latest_bars x y =
-    let res = Market_data_api.Stock.latest_bars x y in
+  let latest_bars symbols =
+    let res = Market_data_api.Stock.latest_bars symbols in
     Ok res
 
   let get_clock = Trading_api.Clock.get
   let get_cash = Backtesting.get_cash
   let get_position = Backtesting.get_position
 
-  let create_order env order =
-    let res = Trading_api.Orders.create_market_order env order in
-    let _ = Backtesting.create_order env order in
+  let create_order order =
+    let res = Trading_api.Orders.create_market_order order in
+    let _ = Backtesting.create_order order in
     res
 
-  let liquidate env =
+  let liquidate () =
     let position = get_position () in
     if List.is_empty @@ Hashtbl.keys_list position then ()
     else
       let symbols = Hashtbl.keys_list position in
       let last_data_bar =
-        match latest_bars env symbols with
+        match latest_bars symbols with
         | Ok x -> x
         | Error _ ->
             invalid_arg
@@ -226,7 +225,7 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
                   price = (Bars.price last_data_bar symbol).close;
                 }
               in
-              let _json_resp = create_order env order in
+              let _json_resp = create_order order in
               Lwt_result.return ())
           position
       in
