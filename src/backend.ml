@@ -150,13 +150,6 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
   module Ticker = Ticker
   module Backtesting = Backtesting (Input)
 
-  (* let shutdown = *)
-  let shutdown () = ()
-  let symbols = Input.symbols
-  let is_backtest = false
-  let get_account = Trading_api.Accounts.get_account
-  let last_data_bar = None
-
   let trading_client =
     let res =
       Piaf.Client.create ~sw:Input.switch Input.eio_env
@@ -174,6 +167,24 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
     match res with
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create data client"
+
+  module Trading_api = Trading_api.Make (struct
+    let client = trading_client
+  end)
+
+  module Market_data_api = Market_data_api.Make (struct
+    let client = trading_client
+  end)
+
+  (* let shutdown = *)
+  let shutdown () =
+    Eio.traceln "Alpaca backend shutdown NYI";
+    ()
+
+  let symbols = Input.symbols
+  let is_backtest = false
+  let get_account = Trading_api.Accounts.get_account
+  let last_data_bar = None
 
   let latest_bars x y =
     let res = Market_data_api.Stock.latest_bars x y in
