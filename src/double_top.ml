@@ -168,7 +168,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       match cover_order with
       | None -> ()
       | Some order ->
-          (* Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order); *)
+          Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
           current_status := Waiting;
           let _ = Backend.create_order env order in
           ()
