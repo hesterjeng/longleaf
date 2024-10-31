@@ -16,35 +16,35 @@ module Util = Util
 (*     Py.List.to_array_map Py.Object.to_string ticker_symbols *)
 (* end *)
 
-let download_test env =
-  let history_request : Market_data_api.Stock.Historical_bars_request.t =
-    {
-      timeframe = Trading_types.Timeframe.day;
-      start = Time.of_ymd "2012-06-06";
-      symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
-    }
-  in
-  let historical_bars =
-    Market_data_api.Stock.historical_bars env history_request
-  in
-  historical_bars
+module Tests (Conn : Util.ALPACA_SERVER) = struct
+  module Market_data_api = Market_data_api.Make (Conn)
 
-let double_top_test env symbols =
-  let history_request : Market_data_api.Stock.Historical_bars_request.t =
-    {
-      timeframe = Trading_types.Timeframe.day;
-      start = Time.of_ymd "2024-08-06";
-      symbols;
-    }
-  in
-  let historical_bars =
-    Market_data_api.Stock.historical_bars env history_request
-  in
-  historical_bars
+  let download_test env =
+    let history_request : Market_data_api.Stock.Historical_bars_request.t =
+      {
+        timeframe = Trading_types.Timeframe.day;
+        start = Time.of_ymd "2012-06-06";
+        symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
+      }
+    in
+    let historical_bars =
+      Market_data_api.Stock.historical_bars env history_request
+    in
+    historical_bars
 
-let position_test env =
-  let position = Trading_api.Positions.get_all_open_positions env in
-  position
+  let double_top_test env symbols =
+    let history_request : Market_data_api.Stock.Historical_bars_request.t =
+      {
+        timeframe = Trading_types.Timeframe.day;
+        start = Time.of_ymd "2024-08-06";
+        symbols;
+      }
+    in
+    let historical_bars =
+      Market_data_api.Stock.historical_bars env history_request
+    in
+    historical_bars
+end
 
 let top switch eio_env =
   try
