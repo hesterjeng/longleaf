@@ -152,23 +152,9 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
 
   let env = Input.eio_env
 
-  let trading_client =
-    let res =
-      Piaf.Client.create ~sw:Input.switch Input.eio_env
-        Input.longleaf_env.apca_api_base_url
-    in
-    match res with
-    | Ok x -> x
-    | Error _ -> invalid_arg "Unable to create trading client"
+  let trading_client = Backtesting.trading_client
 
-  let data_client =
-    let res =
-      Piaf.Client.create ~sw:Input.switch Input.eio_env
-        Input.longleaf_env.apca_api_data_url
-    in
-    match res with
-    | Ok x -> x
-    | Error _ -> invalid_arg "Unable to create data client"
+  let data_client = Backtesting.data_client
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
