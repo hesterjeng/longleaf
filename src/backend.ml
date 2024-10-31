@@ -1,8 +1,6 @@
 module type S = sig
   module Ticker : Ticker.S
 
-  val trading_client : Piaf.Client.t
-  val data_client : Piaf.Client.t
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
   val get_cash : unit -> float
@@ -29,25 +27,6 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   module Ticker = Ticker.Instant
 
   let env = Input.eio_env
-
-  let trading_client =
-    let res =
-      Piaf.Client.create ~sw:Input.switch Input.eio_env
-        Input.longleaf_env.apca_api_base_url
-    in
-    match res with
-    | Ok x -> x
-    | Error _ -> invalid_arg "Unable to create trading client"
-
-  let data_client =
-    let res =
-      Piaf.Client.create ~sw:Input.switch Input.eio_env
-        Input.longleaf_env.apca_api_data_url
-    in
-    match res with
-    | Ok x -> x
-    | Error _ -> invalid_arg "Unable to create data client"
-
   let symbols = Input.symbols
   let is_backtest = true
   let position : (string, int) Hashtbl.t = Hashtbl.create 0
@@ -152,9 +131,23 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
 
   let env = Input.eio_env
 
-  let trading_client = Backtesting.trading_client
+  let trading_client =
+    let res =
+      Piaf.Client.create ~sw:Input.switch Input.eio_env
+        Input.longleaf_env.apca_api_base_url
+    in
+    match res with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Unable to create trading client"
 
-  let data_client = Backtesting.data_client
+  let data_client =
+    let res =
+      Piaf.Client.create ~sw:Input.switch Input.eio_env
+        Input.longleaf_env.apca_api_data_url
+    in
+    match res with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Unable to create data client"
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
