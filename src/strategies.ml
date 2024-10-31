@@ -8,18 +8,16 @@ module State = struct
   type state = [ nonlogical_state | logical_state ]
   [@@deriving show { with_path = false }]
 
-  type 'a t = { env : Environment.t; current : state; content : 'a }
+  type 'a t = { current : state; content : 'a }
   type ('a, 'b) status = Running of 'a t | Shutdown of 'b
 
   let continue x = Running x
   let shutdown x = Shutdown x
-
-  let init env =
-    { env; current = `Initialize; content = Trading_types.Bars.empty }
+  let init () = { current = `Initialize; content = Trading_types.Bars.empty }
 end
 
 module type S = sig
-  val run : Environment.t -> string
+  val run : unit -> string
   val shutdown : unit -> unit
 end
 
@@ -140,8 +138,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
         in
         let new_bars = Bars.combine [ latest_bars; state.content ] in
         Result.return
-        @@ State.continue
-             { state with current = `Listening; content = new_bars }
+        @@ State.continue { current = `Listening; content = new_bars }
 
   let run = SU.run step
 end
