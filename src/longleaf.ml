@@ -124,31 +124,18 @@ let top switch eio_env =
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
     (* let module Strategy = Double_top.DoubleTop (Alpaca) in *)
     let module Strategy = Double_top.DoubleTop (Backtesting) in
-    let res = Strategy.run longleaf_env in
-    Log.app (fun k -> k "State machine shutdown:");
-    Log.app (fun k -> k "%s" res);
-    res
+    let domain_manager = Eio.Stdenv.domain_mgr eio_env in
+    let run_strategy () =
+      Eio.Domain_manager.run domain_manager @@ fun () ->
+      let res = Strategy.run () in
+      Eio.traceln "%s" res;
+      ()
+    in
+    let run_server () =
+      Eio.Domain_manager.run domain_manager @@ fun () -> Gui.top eio_env
+    in
+    Eio.Fiber.all [ run_strategy; run_server ]
   with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->
     Log.err (fun k -> k "Caught yojson error");
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
-
-(* module Handler = struct *)
-(*   let top _ = *)
-(*     Dream.router *)
-(*     @@ [ *)
-(*          ( Dream.get "/" @@ fun _ -> *)
-(*            let html = Gui.plotly_graph_html () in *)
-(*            Dream.html html ); *)
-(*          Dream.get "/run_live" (fun _ -> *)
-(*              let _ = top () in *)
-(*              Format.printf "@[Got a live GET request@]@."; *)
-(*              Dream.json @@ Yojson.Safe.to_string @@ `String "Running A"); *)
-(*          Dream.get "/run_dead" (fun _ -> *)
-(*              Format.printf "@[Got a dead GET request@]@."; *)
-(*              Dream.json @@ Yojson.Safe.to_string @@ `String "Running B"); *)
-(*          Dream.get "/stop" (fun _ -> *)
-(*              Format.printf "@[Got a stop GET request@]@."; *)
-(*              Dream.json @@ Yojson.Safe.to_string @@ `String "Got stop signal"); *)
-(*        ] *)
-(* end *)
