@@ -34,6 +34,11 @@ open Eio.Std
 
 let connection_handler (params : Request_info.t Server.ctx) =
   match params.request with
+  | { Request.meth = `GET; target = "/"; _ } ->
+      let html = Html.plotly_graph_html () in
+      Response.of_string ~body:html `OK
+  | { Request.meth = `GET; target = "/shutdown"; _ } ->
+      Response.of_string ~body:"Shutdown command sent" `OK
   | { Request.meth = `GET; _ } ->
       let html = Html.plotly_graph_html () in
       Response.of_string ~body:html `OK
