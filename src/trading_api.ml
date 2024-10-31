@@ -1,15 +1,22 @@
-open Cohttp
 module Log = (val Logs.src_log Logs.(Src.create "trading-api"))
 open Trading_types
+module Headers = Piaf.Headers
 
 (* Create the headers based on the current environment *)
-let h (env : Environment.t) =
-  Header.init () |> fun h ->
-  Header.add h "APCA-API-KEY-ID" env.apca_api_key_id |> fun h ->
-  Header.add h "APCA-API-SECRET-KEY" env.apca_api_secret_key
 
 module Make (Alpaca : Util.ALPACA_SERVER) = struct
   let client = Alpaca.client
+  let longleaf_env = Alpaca.longleaf_env
+  let get = Util.get_piaf ~client
+  let delete = Util.delete_piaf ~client
+  let post = Util.post_piaf ~client
+
+  let headers () =
+    Headers.of_list
+      [
+        ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
+        ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);
+      ]
 
   module Clock = struct
     type t = {
@@ -20,10 +27,10 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
     }
     [@@deriving show, yojson]
 
-    let get (env : Environment.t) =
-      let uri = Uri.with_path env.apca_api_base_url "/v2/clock" in
-      let headers = h env in
-      Util.get ~headers ~uri
+    let get () =
+      let endpoint = "/v2/clock" in
+      let headers = headers () in
+      get ~headers ~endpoint
   end
 
   module Accounts = struct
@@ -70,10 +77,10 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
         let err = Printexc.to_string e in
         invalid_arg @@ Format.asprintf "%s" err
 
-    let get_account (env : Environment.t) =
-      let uri = Uri.with_path env.apca_api_base_url "/v2/account" in
-      let headers = h env in
-      Util.get ~headers ~uri
+    let get_account () =
+      let endpoint = "/v2/account" in
+      let headers = headers () in
+      get ~headers ~endpoint
   end
 
   module Assets = struct
@@ -82,32 +89,31 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
 
     type t = asset list [@@deriving show, yojson]
 
-    let get_assets (env : Environment.t) =
-      let uri = Uri.with_path env.apca_api_base_url "/v2/assets" in
-      let headers = h env in
-      Util.get ~headers ~uri
+    let get_assets () =
+      let endpoint = "/v2/assets" in
+      let headers = headers () in
+      get ~headers ~endpoint
   end
 
   module Positions = struct
-    let get_all_open_positions (env : Environment.t) =
-      let uri = Uri.with_path env.apca_api_base_url "/v2/positions" in
-      let headers = h env in
-      Util.get ~headers ~uri
+    let get_all_open_positions () =
+      let endpoint = "/v2/positions" in
+      let headers = headers () in
+      get ~headers ~endpoint
 
-    let close_all_positions (env : Environment.t) (cancel_orders : bool) =
+    let close_all_positions () (cancel_orders : bool) =
       let cancel_orders = if cancel_orders then "true" else "false" in
-      let uri =
-        Uri.with_path env.apca_api_base_url "/v2/positions" |> fun u ->
-        Uri.add_query_param' u ("cancel_orders", cancel_orders)
+      let endpoint = "/v2/positions" in
+      let headers =
+        headers () |> fun h -> Headers.add h "cancel_orders" cancel_orders
       in
-      let headers = h env in
-      Util.delete ~headers ~uri
+      delete ~headers ~endpoint
   end
 
   module Orders = struct
-    let create_market_order (env : Environment.t) (order : Order.t) =
-      let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
-      let headers = h env in
+    let create_market_order () (order : Order.t) =
+      let endpoint = "/v2/orders" in
+      let headers = headers () in
       let body =
         `Assoc
           [
@@ -117,34 +123,27 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
             ("side", `String (Side.to_string order.side));
             ("qty", `String (Int.to_string order.qty));
           ]
-        |> Yojson.Safe.to_string |> Cohttp_lwt.Body.of_string
       in
-      Util.post ~headers ~body ~uri
+      post ~headers ~body ~endpoint
 
-    let get_all_orders (env : Environment.t) =
-      let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
-      let headers = h env in
-      Util.get ~headers ~uri
+    let get_all_orders () =
+      let endpoint = "/v2/orders" in
+      let headers = headers () in
+      get ~headers ~endpoint
 
-    let delete_all_orders (env : Environment.t) =
-      let uri = Uri.with_path env.apca_api_base_url "/v2/orders" in
-      let headers = h env in
-      Util.delete ~headers ~uri
+    let delete_all_orders () =
+      let endpoint = "/v2/orders" in
+      let headers = headers () in
+      delete ~headers ~endpoint
 
-    let get_order_by_id (env : Environment.t) (id : OrderId.t) =
-      let uri =
-        Uri.with_path env.apca_api_base_url @@ "/v2/orders" |> fun u ->
-        Uri.with_path u @@ OrderId.to_string id
-      in
-      let headers = h env in
-      Util.get ~headers ~uri
+    let get_order_by_id () (id : OrderId.t) =
+      let endpoint = Format.asprintf "/v2/orders/%s" (OrderId.to_string id) in
+      let headers = headers () in
+      get ~headers ~endpoint
 
-    let delete_order_by_id (env : Environment.t) (id : OrderId.t) =
-      let uri =
-        Uri.with_path env.apca_api_base_url @@ "/v2/orders" |> fun u ->
-        Uri.with_path u @@ OrderId.to_string id
-      in
-      let headers = h env in
-      Util.delete ~headers ~uri
+    let delete_order_by_id () (id : OrderId.t) =
+      let endpoint = Format.asprintf "/v2/orders/%s" (OrderId.to_string id) in
+      let headers = headers () in
+      delete ~headers ~endpoint
   end
 end
