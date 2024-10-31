@@ -90,8 +90,6 @@ module Strategy_utils (Backend : Backend.S) = struct
     close_out oc;
     Log.app (fun k -> k "cash: %f" (Backend.get_cash ()))
 
-  let ok_code = Cohttp.Code.status_of_code 200
-
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
     Result.return
