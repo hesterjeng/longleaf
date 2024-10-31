@@ -61,68 +61,68 @@ let post_piaf ~client ~body ~headers ~endpoint =
   in
   Yojson.Safe.from_string json
 
-let handle_response json response =
-  let open Cohttp in
-  match Response.status response with
-  | #Code.success_status -> Lwt.return_ok json
-  | #Code.informational_status as status ->
-      Get_log.err (fun k ->
-          k "informational_status: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
-  | #Code.redirection_status as status ->
-      Get_log.err (fun k ->
-          k "redirection_status: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
-  | #Code.client_error_status as status ->
-      Get_log.err (fun k ->
-          k "client_error_status: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
-  | #Code.server_error_status as status ->
-      Get_log.err (fun k ->
-          k "server_error_status: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
-  | `Code _ as status ->
-      Get_log.err (fun k -> k "unknown code: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
+(* let handle_response json response = *)
+(*   let open Cohttp in *)
+(*   match Response.status response with *)
+(*   | #Code.success_status -> Lwt.return_ok json *)
+(*   | #Code.informational_status as status -> *)
+(*       Get_log.err (fun k -> *)
+(*           k "informational_status: %s" (Code.string_of_status status)); *)
+(*       Lwt.return_error @@ Code.string_of_status status *)
+(*   | #Code.redirection_status as status -> *)
+(*       Get_log.err (fun k -> *)
+(*           k "redirection_status: %s" (Code.string_of_status status)); *)
+(*       Lwt.return_error @@ Code.string_of_status status *)
+(*   | #Code.client_error_status as status -> *)
+(*       Get_log.err (fun k -> *)
+(*           k "client_error_status: %s" (Code.string_of_status status)); *)
+(*       Lwt.return_error @@ Code.string_of_status status *)
+(*   | #Code.server_error_status as status -> *)
+(*       Get_log.err (fun k -> *)
+(*           k "server_error_status: %s" (Code.string_of_status status)); *)
+(*       Lwt.return_error @@ Code.string_of_status status *)
+(*   | `Code _ as status -> *)
+(*       Get_log.err (fun k -> k "unknown code: %s" (Code.string_of_status status)); *)
+(*       Lwt.return_error @@ Code.string_of_status status *)
 
-let get ~headers ~uri =
-  let top () =
-    Lwt_eio.run_lwt @@ fun () ->
-    let open Lwt.Syntax in
-    let open Cohttp_lwt_unix in
-    Util_log.app (fun k -> k "GET: %a" Uri.pp uri);
-    let* response, body_stream = Client.get ~headers uri in
-    let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-    let json = Yojson.Safe.from_string resp_body_raw in
-    handle_response json response
-  in
-  match top () with Ok x -> x | Error e -> invalid_arg e
+(* let get ~headers ~uri = *)
+(*   let top () = *)
+(*     Lwt_eio.run_lwt @@ fun () -> *)
+(*     let open Lwt.Syntax in *)
+(*     let open Cohttp_lwt_unix in *)
+(*     Util_log.app (fun k -> k "GET: %a" Uri.pp uri); *)
+(*     let* response, body_stream = Client.get ~headers uri in *)
+(*     let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in *)
+(*     let json = Yojson.Safe.from_string resp_body_raw in *)
+(*     handle_response json response *)
+(*   in *)
+(*   match top () with Ok x -> x | Error e -> invalid_arg e *)
 
-let delete ~headers ~uri =
-  let top () =
-    Lwt_eio.run_lwt @@ fun () ->
-    let open Lwt.Syntax in
-    let open Cohttp_lwt_unix in
-    Util_log.app (fun k -> k "DELETE: %a" Uri.pp uri);
-    let* response, body_stream = Client.delete ~headers uri in
-    let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-    let json = Yojson.Safe.from_string resp_body_raw in
-    handle_response json response
-  in
-  match top () with Ok x -> x | Error e -> invalid_arg e
+(* let delete ~headers ~uri = *)
+(*   let top () = *)
+(*     Lwt_eio.run_lwt @@ fun () -> *)
+(*     let open Lwt.Syntax in *)
+(*     let open Cohttp_lwt_unix in *)
+(*     Util_log.app (fun k -> k "DELETE: %a" Uri.pp uri); *)
+(*     let* response, body_stream = Client.delete ~headers uri in *)
+(*     let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in *)
+(*     let json = Yojson.Safe.from_string resp_body_raw in *)
+(*     handle_response json response *)
+(*   in *)
+(*   match top () with Ok x -> x | Error e -> invalid_arg e *)
 
-let post ~headers ~body ~uri =
-  let top () =
-    Lwt_eio.run_lwt @@ fun () ->
-    let open Lwt.Syntax in
-    let open Cohttp_lwt_unix in
-    Util_log.app (fun k -> k "POST: %a" Uri.pp uri);
-    let* response, body_stream = Client.post ~headers ~body uri in
-    let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-    let json = Yojson.Safe.from_string resp_body_raw in
-    handle_response json response
-  in
-  match top () with Ok x -> x | Error e -> invalid_arg e
+(* let post ~headers ~body ~uri = *)
+(*   let top () = *)
+(*     Lwt_eio.run_lwt @@ fun () -> *)
+(*     let open Lwt.Syntax in *)
+(*     let open Cohttp_lwt_unix in *)
+(*     Util_log.app (fun k -> k "POST: %a" Uri.pp uri); *)
+(*     let* response, body_stream = Client.post ~headers ~body uri in *)
+(*     let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in *)
+(*     let json = Yojson.Safe.from_string resp_body_raw in *)
+(*     handle_response json response *)
+(*   in *)
+(*   match top () with Ok x -> x | Error e -> invalid_arg e *)
 
 let get_next_page_token (x : Yojson.Safe.t) =
   Option.(
