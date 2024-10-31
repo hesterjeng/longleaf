@@ -90,40 +90,40 @@ let top switch eio_env =
     (*       "LLY"; *)
     (*     ] *)
     (* end) in *)
-    let module Alpaca =
-      Backend.Alpaca
-        (struct
-          include Common_eio_stuff
+    (* let module Alpaca = *)
+    (*   Backend.Alpaca *)
+    (*     (struct *)
+    (*       include Common_eio_stuff *)
 
-          let bars = Trading_types.Bars.empty
+    (*       let bars = Trading_types.Bars.empty *)
 
-          let symbols =
-            [
-              "NVDA";
-              "TSLA";
-              "AAPL";
-              "MSFT";
-              "NFLX";
-              "META";
-              "AMZN";
-              "AMD";
-              "AVGO";
-              "ELV";
-              "UNH";
-              "MU";
-              "V";
-              "GOOG";
-              "SMCI";
-              "MSTR";
-              "UBER";
-              "LLY";
-            ]
-        end)
-        (Ticker.FiveSecondLwt)
-    in
+    (*       let symbols = *)
+    (*         [ *)
+    (*           "NVDA"; *)
+    (*           "TSLA"; *)
+    (*           "AAPL"; *)
+    (*           "MSFT"; *)
+    (*           "NFLX"; *)
+    (*           "META"; *)
+    (*           "AMZN"; *)
+    (*           "AMD"; *)
+    (*           "AVGO"; *)
+    (*           "ELV"; *)
+    (*           "UNH"; *)
+    (*           "MU"; *)
+    (*           "V"; *)
+    (*           "GOOG"; *)
+    (*           "SMCI"; *)
+    (*           "MSTR"; *)
+    (*           "UBER"; *)
+    (*           "LLY"; *)
+    (*         ] *)
+    (*     end) *)
+    (*     (Ticker.FiveSecondLwt) *)
+    (* in *)
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
-    let module Strategy = Double_top.DoubleTop (Alpaca) in
-    (* let module Strategy = Double_top.DoubleTop (Backtesting) in *)
+    (* let module Strategy = Double_top.DoubleTop (Alpaca) in *)
+    let module Strategy = Double_top.DoubleTop (Backtesting) in
     let res = Strategy.run longleaf_env in
     Log.app (fun k -> k "State machine shutdown:");
     Log.app (fun k -> k "%s" res);

@@ -177,3 +177,7 @@ let read_file_as_string filename =
   close_in ic;
   (* Close the input channel *)
   content (* Return the content *)
+
+module type ALPACA_SERVER = sig
+  val client : Piaf.Client.t
+end
