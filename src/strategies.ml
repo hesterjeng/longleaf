@@ -20,6 +20,7 @@ end
 
 module type S = sig
   val run : Environment.t -> string
+  val shutdown : unit -> unit
 end
 
 module Log = (val Logs.src_log Logs.(Src.create "strategies"))

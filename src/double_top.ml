@@ -47,6 +47,10 @@ module Math = struct
 end
 
 module DoubleTop (Backend : Backend.S) : Strategies.S = struct
+  let shutdown () =
+    Eio.traceln "Shutdown command NYI";
+    ()
+
   open Trading_types
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
   module State = Strategies.State
