@@ -116,9 +116,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         Some (order, previous_maximum)
     | _ -> None
 
-  let place_short env (state : Bars.t State.t) =
+  let place_short (state : Bars.t State.t) =
     let open Result.Infix in
-    let* latest = Backend.latest_bars env Backend.symbols in
+    let* latest = Backend.latest_bars Backend.symbols in
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cash_available = Backend.get_cash () in
     let qty symbol =
@@ -143,16 +143,16 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
                 trigger.timestamp);
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           current_status := Placed order;
-          let _ = Backend.create_order env order in
+          let _ = Backend.create_order order in
           ()
     in
     let new_bars = Bars.combine [ latest; state.content ] in
     Result.return
     @@ State.continue { state with current = `Listening; content = new_bars }
 
-  let cover_position env (state : Bars.t State.t) (order : Order.t) =
+  let cover_position (state : Bars.t State.t) (order : Order.t) =
     let open Result.Infix in
-    let* latest = Backend.latest_bars env Backend.symbols in
+    let* latest = Backend.latest_bars Backend.symbols in
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cover_order =
       let current_price = (Bars.price latest order.symbol).close in
@@ -170,7 +170,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       | Some order ->
           Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
           current_status := Waiting;
-          let _ = Backend.create_order env order in
+          let _ = Backend.create_order order in
           ()
     in
     let new_bars = Bars.combine [ latest; state.content ] in
@@ -186,8 +186,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         SU.handle_nonlogical_state current state
     | `Ordering -> (
         match !current_status with
-        | Waiting -> place_short env state
-        | Placed order -> cover_position env state order)
+        | Waiting -> place_short state
+        | Placed order -> cover_position state order)
 
   let run = SU.run step
 end

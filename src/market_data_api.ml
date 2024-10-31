@@ -25,7 +25,7 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
       [@@deriving show, yojson]
     end
 
-    let historical_bars () (request : Historical_bars_request.t) =
+    let historical_bars (request : Historical_bars_request.t) =
       let symbols = String.concat "," request.symbols in
       let endpoint = "/v2/stocks/bars" in
       let headers =
@@ -49,14 +49,14 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
       let paginated = collect_data ~endpoint ~headers [] in
       Bars.combine paginated
 
-    let latest_bars () (symbols : string list) =
+    let latest_bars (symbols : string list) =
       let symbols = String.concat "," symbols in
       let endpoint = "/v2/stocks/bars/latest" in
       let headers = headers () |> fun h -> Headers.add h "symbols" symbols in
       let resp_body_json = get ~headers ~endpoint in
       Bars.t_of_yojson resp_body_json
 
-    let latest_quotes () (symbols : string list) =
+    let latest_quotes (symbols : string list) =
       let symbols = String.concat "," symbols in
       let endpoint = "/v2/stocks/quotes/latest" in
       let headers = headers () |> fun h -> Headers.add h "symbols" symbols in

@@ -101,7 +101,7 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
       let headers = headers () in
       get ~headers ~endpoint
 
-    let close_all_positions () (cancel_orders : bool) =
+    let close_all_positions (cancel_orders : bool) =
       let cancel_orders = if cancel_orders then "true" else "false" in
       let endpoint = "/v2/positions" in
       let headers =
@@ -111,7 +111,7 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
   end
 
   module Orders = struct
-    let create_market_order () (order : Order.t) =
+    let create_market_order (order : Order.t) =
       let endpoint = "/v2/orders" in
       let headers = headers () in
       let body =
@@ -136,12 +136,12 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
       let headers = headers () in
       delete ~headers ~endpoint
 
-    let get_order_by_id () (id : OrderId.t) =
+    let get_order_by_id (id : OrderId.t) =
       let endpoint = Format.asprintf "/v2/orders/%s" (OrderId.to_string id) in
       let headers = headers () in
       get ~headers ~endpoint
 
-    let delete_order_by_id () (id : OrderId.t) =
+    let delete_order_by_id (id : OrderId.t) =
       let endpoint = Format.asprintf "/v2/orders/%s" (OrderId.to_string id) in
       let headers = headers () in
       delete ~headers ~endpoint
