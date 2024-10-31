@@ -10,7 +10,6 @@
   ptime
   owl
   angstrom
-  cohttp-lwt-unix
   calendar
   bogue
   dream
