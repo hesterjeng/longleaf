@@ -15,8 +15,6 @@
   zarith
   ptime
   yojson
-  bogue
-  dream
   eio_main)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv)))

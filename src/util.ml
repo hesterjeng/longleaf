@@ -99,14 +99,6 @@ let show_calendar_time_t time =
   let second = Calendar.Time.second time in
   Printf.sprintf "%02d:%02d:%02d" hour minute second
 
-let listen_for_input () =
-  let open Lwt.Syntax in
-  let rec loop () =
-    let* input = Lwt_io.read_line Lwt_io.stdin in
-    if String.equal input "q" then Lwt.return "q" else loop ()
-  in
-  loop ()
-
 let read_file_as_string filename =
   let ic = open_in filename in
   let len = in_channel_length ic in
