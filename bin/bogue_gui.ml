@@ -7,14 +7,12 @@ let requests_sent = ref 0
 let incr () = incr requests_sent
 let decr () = decr requests_sent
 let set_number w i = Widget.set_text w @@ Int.to_string i
-
-let send_get_request () =
-  invalid_arg "Disabled Bogue"
-  (* let open Lwt_result.Syntax in *)
-  (* let uri = Uri.of_string "http://localhost:8080/run_dead" in *)
-  (* let headers = Cohttp.Header.init () in *)
-  (* let* promise = Util.get ~headers ~uri in *)
-  (* Lwt_result.return promise *)
+let send_get_request () = invalid_arg "Disabled Bogue"
+(* let open Lwt_result.Syntax in *)
+(* let uri = Uri.of_string "http://localhost:8080/run_dead" in *)
+(* let headers = Cohttp.Header.init () in *)
+(* let* promise = Util.get ~headers ~uri in *)
+(* Lwt_result.return promise *)
 
 let top () =
   let open Lwt_result.Syntax in

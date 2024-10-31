@@ -19,7 +19,7 @@ module Util = Util
 module Tests (Conn : Util.ALPACA_SERVER) = struct
   module Market_data_api = Market_data_api.Make (Conn)
 
-  let download_test env =
+  let download_test () =
     let history_request : Market_data_api.Stock.Historical_bars_request.t =
       {
         timeframe = Trading_types.Timeframe.day;
@@ -28,11 +28,11 @@ module Tests (Conn : Util.ALPACA_SERVER) = struct
       }
     in
     let historical_bars =
-      Market_data_api.Stock.historical_bars env history_request
+      Market_data_api.Stock.historical_bars history_request
     in
     historical_bars
 
-  let double_top_test env symbols =
+  let double_top_test symbols =
     let history_request : Market_data_api.Stock.Historical_bars_request.t =
       {
         timeframe = Trading_types.Timeframe.day;
@@ -41,7 +41,7 @@ module Tests (Conn : Util.ALPACA_SERVER) = struct
       }
     in
     let historical_bars =
-      Market_data_api.Stock.historical_bars env history_request
+      Market_data_api.Stock.historical_bars history_request
     in
     historical_bars
 end
