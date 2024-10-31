@@ -9,6 +9,8 @@ let h (env : Environment.t) =
   Header.add h "APCA-API-SECRET-KEY" env.apca_api_secret_key
 
 module Make (Alpaca : Util.ALPACA_SERVER) = struct
+  let client = Alpaca.client
+
   module Clock = struct
     type t = {
       is_open : bool;

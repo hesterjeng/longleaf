@@ -2,6 +2,7 @@ open Trading_types
 
 module Make (Alpaca : Util.ALPACA_SERVER) = struct
   let h = Trading_api.h
+  let client = Alpaca.client
 
   module Stock = struct
     module Historical_bars_request = struct

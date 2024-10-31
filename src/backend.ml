@@ -173,7 +173,7 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
   end)
 
   module Market_data_api = Market_data_api.Make (struct
-    let client = trading_client
+    let client = data_client
   end)
 
   (* let shutdown = *)
