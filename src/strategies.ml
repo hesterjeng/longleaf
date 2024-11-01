@@ -40,10 +40,20 @@ module Strategy_utils (Backend : Backend.S) = struct
     res
 
   let listen_tick () =
-    if market_closed Backend.is_backtest then (
-      Eio.traceln "Waiting five minutes because the market is closed";
-      Ticker.FiveMinute.tick Backend.env)
-    else Backend.Ticker.tick Backend.env
+    Eio.Fiber.any
+    @@ [
+         (fun () ->
+           if market_closed Backend.is_backtest then (
+             Eio.traceln "Waiting five minutes because the market is closed";
+             Ticker.FiveMinute.tick Backend.env)
+           else Backend.Ticker.tick Backend.env;
+           Ok ());
+         (fun () ->
+           while not @@ Backend.Mutex.get_mutex () do
+             Ticker.OneSecond.tick Backend.env
+           done;
+           Error `Shutdown_signal);
+       ]
 
   let run step env =
     let init = State.init env in
@@ -77,20 +87,21 @@ module Strategy_utils (Backend : Backend.S) = struct
 
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
-    Result.return
-    @@
+    let open Result.Infix in
     match current with
-    | `Initialize -> State.continue { state with current = `Listening }
+    | `Initialize ->
+        Result.return @@ State.continue { state with current = `Listening }
     | `Listening ->
-        listen_tick ();
+        let+ () = listen_tick () in
         State.continue { state with current = `Ordering }
     | `Liquidate ->
         Backend.liquidate ();
-        State.continue
-          { state with current = `Finished "Successfully liquidated" }
+        Result.return
+        @@ State.continue
+             { state with current = `Finished "Successfully liquidated" }
     | `Finished code ->
         output_data state;
-        State.shutdown code
+        Result.return @@ State.shutdown code
 end
 
 module SimpleStateMachine (Backend : Backend.S) : S = struct
