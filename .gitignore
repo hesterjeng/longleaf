@@ -1,3 +1,4 @@
 _build/
 .envrc
 server.exe
+main.exe
