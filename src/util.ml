@@ -9,56 +9,57 @@ include Ppx_yojson_conv_lib.Yojson_conv
 module Get_log = (val Logs.src_log Logs.(Src.create "get-log"))
 module Util_log = (val Logs.src_log Logs.(Src.create "util-log"))
 
-let handle_response json response =
-  let open Cohttp in
-  match Response.status response with
-  | #Code.success_status -> Lwt.return_ok json
-  | #Code.informational_status as status ->
-      Get_log.err (fun k ->
-          k "informational_status: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
-  | #Code.redirection_status as status ->
-      Get_log.err (fun k ->
-          k "redirection_status: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
-  | #Code.client_error_status as status ->
-      Get_log.err (fun k ->
-          k "client_error_status: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
-  | #Code.server_error_status as status ->
-      Get_log.err (fun k ->
-          k "server_error_status: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
-  | `Code _ as status ->
-      Get_log.err (fun k -> k "unknown code: %s" (Code.string_of_status status));
-      Lwt.return_error @@ Code.string_of_status status
+let get_piaf ~client ~headers ~endpoint =
+  let open Piaf in
+  let headers = Headers.to_list headers in
+  let resp =
+    match Client.get client ~headers endpoint with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  let _status = Response.status resp in
+  let body = Response.body resp in
+  let json =
+    match Body.to_string body with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  Yojson.Safe.from_string json
 
-let get ~headers ~uri : (Yojson.Safe.t, string) Lwt_result.t =
-  let open Lwt.Syntax in
-  let open Cohttp_lwt_unix in
-  Util_log.app (fun k -> k "GET: %a" Uri.pp uri);
-  let* response, body_stream = Client.get ~headers uri in
-  let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-  let json = Yojson.Safe.from_string resp_body_raw in
-  handle_response json response
+let delete_piaf ~client ~headers ~endpoint =
+  let open Piaf in
+  let headers = Headers.to_list headers in
+  let resp =
+    match Client.delete client ~headers endpoint with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  let _status = Response.status resp in
+  let body = Response.body resp in
+  let json =
+    match Body.to_string body with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  Yojson.Safe.from_string json
 
-let delete ~headers ~uri : (Yojson.Safe.t, string) Lwt_result.t =
-  let open Lwt.Syntax in
-  let open Cohttp_lwt_unix in
-  Util_log.app (fun k -> k "DELETE: %a" Uri.pp uri);
-  let* response, body_stream = Client.delete ~headers uri in
-  let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-  let json = Yojson.Safe.from_string resp_body_raw in
-  handle_response json response
-
-let post ~headers ~body ~uri : (Yojson.Safe.t, string) Lwt_result.t =
-  let open Lwt.Syntax in
-  let open Cohttp_lwt_unix in
-  Util_log.app (fun k -> k "POST: %a" Uri.pp uri);
-  let* response, body_stream = Client.post ~headers ~body uri in
-  let* resp_body_raw = Cohttp_lwt.Body.to_string body_stream in
-  let json = Yojson.Safe.from_string resp_body_raw in
-  handle_response json response
+let post_piaf ~client ~body ~headers ~endpoint =
+  let open Piaf in
+  let headers = Headers.to_list headers in
+  let body = Yojson.Safe.to_string body |> Body.of_string in
+  let resp =
+    match Client.post client ~headers ~body endpoint with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  let _status = Response.status resp in
+  let body = Response.body resp in
+  let json =
+    match Body.to_string body with
+    | Ok x -> x
+    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+  in
+  Yojson.Safe.from_string json
 
 let get_next_page_token (x : Yojson.Safe.t) =
   Option.(
@@ -98,14 +99,6 @@ let show_calendar_time_t time =
   let second = Calendar.Time.second time in
   Printf.sprintf "%02d:%02d:%02d" hour minute second
 
-let listen_for_input () =
-  let open Lwt.Syntax in
-  let rec loop () =
-    let* input = Lwt_io.read_line Lwt_io.stdin in
-    if String.equal input "q" then Lwt.return "q" else loop ()
-  in
-  loop ()
-
 let read_file_as_string filename =
   let ic = open_in filename in
   let len = in_channel_length ic in
@@ -113,3 +106,8 @@ let read_file_as_string filename =
   close_in ic;
   (* Close the input channel *)
   content (* Return the content *)
+
+module type ALPACA_SERVER = sig
+  val longleaf_env : Environment.t
+  val client : Piaf.Client.t
+end
