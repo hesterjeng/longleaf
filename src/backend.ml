@@ -1,6 +1,11 @@
 module type S = sig
   module Ticker : Ticker.S
 
+  module Mutex : sig
+    val set_mutex : unit -> unit
+    val get_mutex : unit -> bool
+  end
+
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
   val get_cash : unit -> float
@@ -8,7 +13,7 @@ module type S = sig
   val symbols : string list
   val shutdown : unit -> unit
   val create_order : Trading_types.Order.t -> Yojson.Safe.t
-  val latest_bars : string list -> (Trading_types.Bars.t, string) result
+  val latest_bars : string list -> (Trading_types.Bars.t, _) result
   val last_data_bar : Trading_types.Bars.t option
   val liquidate : unit -> unit
 end
@@ -25,6 +30,19 @@ end
 module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
   module Ticker = Ticker.Instant
+
+  module Mutex = struct
+    type t = { mutable shutdown_signal_received : bool; mutex : Eio.Mutex.t }
+
+    let t = { shutdown_signal_received = false; mutex = Eio.Mutex.create () }
+
+    let set_mutex () =
+      Eio.Mutex.use_rw ~protect:true t.mutex @@ fun () ->
+      t.shutdown_signal_received <- true
+
+    let get_mutex () =
+      Eio.Mutex.use_ro t.mutex @@ fun () -> t.shutdown_signal_received
+  end
 
   let env = Input.eio_env
   let symbols = Input.symbols
@@ -75,7 +93,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     match latest with
     | Some x ->
         Result.return Bars.{ bars = x; next_page_token = None; currency = None }
-    | None -> Error "Unable to find latest bars in backtest"
+    | None -> Error `Backtest_no_latest_bars
 
   let last_data_bar =
     Some
@@ -128,6 +146,7 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
   open Trading_types
   module Ticker = Ticker
   module Backtesting = Backtesting (Input)
+  module Mutex = Backtesting.Mutex
 
   let env = Input.eio_env
 

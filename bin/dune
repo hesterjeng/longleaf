@@ -1,6 +1,6 @@
 (executables
- (names server)
- (public_names server)
+ (names main)
+ (public_names main)
  (promote
   (until-clean)
   (into ..))
