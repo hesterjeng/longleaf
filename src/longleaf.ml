@@ -90,40 +90,41 @@ let top switch eio_env =
     (*       "LLY"; *)
     (*     ] *)
     (* end) in *)
-    (* let module Alpaca = *)
-    (*   Backend.Alpaca *)
-    (*     (struct *)
-    (*       include Common_eio_stuff *)
+    let module Alpaca =
+      Backend.Alpaca
+        (struct
+          include Common_eio_stuff
 
-    (*       let bars = Trading_types.Bars.empty *)
+          let bars = Trading_types.Bars.empty
 
-    (*       let symbols = *)
-    (*         [ *)
-    (*           "NVDA"; *)
-    (*           "TSLA"; *)
-    (*           "AAPL"; *)
-    (*           "MSFT"; *)
-    (*           "NFLX"; *)
-    (*           "META"; *)
-    (*           "AMZN"; *)
-    (*           "AMD"; *)
-    (*           "AVGO"; *)
-    (*           "ELV"; *)
-    (*           "UNH"; *)
-    (*           "MU"; *)
-    (*           "V"; *)
-    (*           "GOOG"; *)
-    (*           "SMCI"; *)
-    (*           "MSTR"; *)
-    (*           "UBER"; *)
-    (*           "LLY"; *)
-    (*         ] *)
-    (*     end) *)
-    (*     (Ticker.FiveSecondLwt) *)
-    (* in *)
+          let symbols =
+            [
+              "NVDA";
+              "TSLA";
+              "AAPL";
+              "MSFT";
+              "NFLX";
+              "META";
+              "AMZN";
+              "AMD";
+              "AVGO";
+              "ELV";
+              "UNH";
+              "MU";
+              "V";
+              "GOOG";
+              "SMCI";
+              "MSTR";
+              "UBER";
+              "LLY";
+            ]
+        end)
+        (Ticker.FiveSecond)
+    in
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
     (* let module Strategy = Double_top.DoubleTop (Alpaca) in *)
-    let module Backend = Backtesting in
+    (* let module Backend = Backtesting in *)
+    let module Backend = Alpaca in
     let module Strategy = Double_top.DoubleTop (Backend) in
     let domain_manager = Eio.Stdenv.domain_mgr eio_env in
     let run_strategy () =
