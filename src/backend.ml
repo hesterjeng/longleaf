@@ -13,7 +13,7 @@ module type S = sig
   val symbols : string list
   val shutdown : unit -> unit
   val create_order : Trading_types.Order.t -> Yojson.Safe.t
-  val latest_bars : string list -> (Trading_types.Bars.t, _) result
+  val latest_bars : string list -> (Trading_types.Bars.t, string) result
   val last_data_bar : Trading_types.Bars.t option
   val liquidate : unit -> unit
 end
@@ -93,7 +93,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     match latest with
     | Some x ->
         Result.return Bars.{ bars = x; next_page_token = None; currency = None }
-    | None -> Error `Backtest_no_latest_bars
+    | None -> Error "No latest bars in backtest?"
 
   let last_data_bar =
     Some
