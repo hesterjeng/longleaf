@@ -47,12 +47,12 @@ module Strategy_utils (Backend : Backend.S) = struct
              Eio.traceln "Waiting five minutes because the market is closed";
              Ticker.FiveMinute.tick Backend.env)
            else Backend.Ticker.tick Backend.env;
-           Ok ());
+           `Continue);
          (fun () ->
            while not @@ Backend.Mutex.get_mutex () do
              Ticker.OneSecond.tick Backend.env
            done;
-           Error `Shutdown_signal);
+           `Shutdown_signal);
        ]
 
   let run step env =
@@ -87,13 +87,15 @@ module Strategy_utils (Backend : Backend.S) = struct
 
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
-    let open Result.Infix in
     match current with
     | `Initialize ->
         Result.return @@ State.continue { state with current = `Listening }
-    | `Listening ->
-        let+ () = listen_tick () in
-        State.continue { state with current = `Ordering }
+    | `Listening -> (
+        Result.return
+        @@
+        match listen_tick () with
+        | `Continue -> State.continue { state with current = `Ordering }
+        | `Shutdown_signal -> State.shutdown "Received shutdown signal")
     | `Liquidate ->
         Backend.liquidate ();
         Result.return
