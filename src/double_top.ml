@@ -63,6 +63,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let current_status : short_status = ref Waiting
 
+  let min_dip = 0.99
+  let lower_now_band = 0.999
+  let upper_now_band = 1.001
+
   let consider_shorting ~history ~now ~(qty : string -> int) symbol :
       (Order.t * Bar_item.t) option =
     (* 1) There must be a point less than 80% of the critical point before the first max *)
@@ -77,7 +81,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let* _ =
         List.find_opt
           (fun (x : Bar_item.t) ->
-            x.close <. 0.98 *. current_max.close
+            x.close <. min_dip *. current_max.close
             && Ptime.compare current_max.timestamp x.timestamp = 1)
           price_history
       in
@@ -87,7 +91,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let* _ =
         List.find_opt
           (fun (x : Bar_item.t) ->
-            x.close <. 0.98 *. current_max.close
+            x.close <. min_dip *. current_max.close
             && Ptime.compare x.timestamp current_max.timestamp = 1
             && Ptime.compare most_recent_price.timestamp x.timestamp = 1)
           minima
@@ -96,8 +100,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     in
     let check3 (current_max : Bar_item.t) =
       let current_price = most_recent_price.close in
-      let lower = 0.99 *. current_max.close in
-      let upper = 1.01 *. current_max.close in
+      let lower = lower_now_band *. current_max.close in
+      let upper = upper_now_band *. current_max.close in
       if lower <. current_price && current_price <. upper then Some current_max
       else None
     in
@@ -159,7 +163,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cover_order =
       let current_price = (Bars.price latest order.symbol).close in
-      let target_price = 0.98 *. order.price in
+      let target_price = min_dip *. order.price in
       if current_price <. target_price then
         let cover_order =
           { order with side = Side.Buy; price = current_price }
