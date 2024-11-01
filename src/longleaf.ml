@@ -123,7 +123,8 @@ let top switch eio_env =
     (* in *)
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
     (* let module Strategy = Double_top.DoubleTop (Alpaca) in *)
-    let module Strategy = Double_top.DoubleTop (Backtesting) in
+    let module Backend = Backtesting in
+    let module Strategy = Double_top.DoubleTop (Backend) in
     let domain_manager = Eio.Stdenv.domain_mgr eio_env in
     let run_strategy () =
       Eio.Domain_manager.run domain_manager @@ fun () ->
@@ -132,7 +133,9 @@ let top switch eio_env =
       ()
     in
     let run_server () =
-      Eio.Domain_manager.run domain_manager @@ fun () -> Gui.top eio_env
+      let set_mutex = Backend.Mutex.set_mutex in
+      Eio.Domain_manager.run domain_manager @@ fun () ->
+      Gui.top ~set_mutex eio_env
     in
     Eio.Fiber.all [ run_strategy; run_server ]
   with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->

@@ -18,6 +18,10 @@ module FiveSecond : S = struct
   let tick env = Eio.Time.sleep env#clock 5.0
 end
 
+module OneSecond : S = struct
+  let tick env = Eio.Time.sleep env#clock 1.0
+end
+
 module Instant : S = struct
   let tick _ = ()
 end
