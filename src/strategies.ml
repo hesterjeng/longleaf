@@ -95,7 +95,9 @@ module Strategy_utils (Backend : Backend.S) = struct
         @@
         match listen_tick () with
         | `Continue -> State.continue { state with current = `Ordering }
-        | `Shutdown_signal -> State.shutdown "Received shutdown signal")
+        | `Shutdown_signal ->
+            Eio.traceln "Attempting to liquidate positions before shutting down";
+            State.continue { state with current = `Liquidate })
     | `Liquidate ->
         Backend.liquidate ();
         Result.return
