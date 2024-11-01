@@ -62,7 +62,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   module SU = Strategies.Strategy_utils (Backend)
 
   let current_status : short_status = ref Waiting
-
   let min_dip = 0.99
   let lower_now_band = 0.999
   let upper_now_band = 1.001

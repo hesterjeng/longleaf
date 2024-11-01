@@ -1,10 +1,24 @@
+module type MUTEX = sig
+  val set_mutex : unit -> unit
+  val get_mutex : unit -> bool
+end
+
+module Mutex = struct
+  type t = { mutable shutdown_signal_received : bool; mutex : Eio.Mutex.t }
+
+  let t = { shutdown_signal_received = false; mutex = Eio.Mutex.create () }
+
+  let set_mutex () =
+    Eio.Mutex.use_rw ~protect:true t.mutex @@ fun () ->
+    t.shutdown_signal_received <- true
+
+  let get_mutex () =
+    Eio.Mutex.use_ro t.mutex @@ fun () -> t.shutdown_signal_received
+end
+
 module type S = sig
   module Ticker : Ticker.S
-
-  module Mutex : sig
-    val set_mutex : unit -> unit
-    val get_mutex : unit -> bool
-  end
+  module Mutex : MUTEX
 
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
@@ -24,25 +38,15 @@ module type BACKEND_INPUT = sig
   val eio_env : Eio_unix.Stdenv.base
   val bars : Trading_types.Bars.t
   val symbols : string list
+
+  module Mutex : MUTEX
 end
 
 (* Backtesting *)
 module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
   module Ticker = Ticker.Instant
-
-  module Mutex = struct
-    type t = { mutable shutdown_signal_received : bool; mutex : Eio.Mutex.t }
-
-    let t = { shutdown_signal_received = false; mutex = Eio.Mutex.create () }
-
-    let set_mutex () =
-      Eio.Mutex.use_rw ~protect:true t.mutex @@ fun () ->
-      t.shutdown_signal_received <- true
-
-    let get_mutex () =
-      Eio.Mutex.use_ro t.mutex @@ fun () -> t.shutdown_signal_received
-  end
+  module Mutex = Input.Mutex
 
   let env = Input.eio_env
   let symbols = Input.symbols
