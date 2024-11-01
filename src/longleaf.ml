@@ -16,111 +16,130 @@ module Util = Util
 (*     Py.List.to_array_map Py.Object.to_string ticker_symbols *)
 (* end *)
 
-let download_test env =
-  let open Lwt.Syntax in
-  let history_request : Market_data_api.Stock.Historical_bars_request.t =
-    {
-      timeframe = Trading_types.Timeframe.day;
-      start = Time.of_ymd "2012-06-06";
-      symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
-    }
-  in
-  let* historical_bars =
-    Market_data_api.Stock.historical_bars env history_request
-  in
-  match historical_bars with Ok x -> Lwt.return x | Error e -> Lwt.fail_with e
+module Tests (Conn : Util.ALPACA_SERVER) = struct
+  module Market_data_api = Market_data_api.Make (Conn)
 
-let double_top_test env symbols =
-  let open Lwt.Syntax in
-  let history_request : Market_data_api.Stock.Historical_bars_request.t =
-    {
-      timeframe = Trading_types.Timeframe.day;
-      start = Time.of_ymd "2024-08-06";
-      symbols;
-    }
-  in
-  let* historical_bars =
-    Market_data_api.Stock.historical_bars env history_request
-  in
-  match historical_bars with Ok x -> Lwt.return x | Error e -> Lwt.fail_with e
+  let download_test () =
+    let history_request : Market_data_api.Stock.Historical_bars_request.t =
+      {
+        timeframe = Trading_types.Timeframe.day;
+        start = Time.of_ymd "2012-06-06";
+        symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
+      }
+    in
+    let historical_bars =
+      Market_data_api.Stock.historical_bars history_request
+    in
+    historical_bars
 
-let position_test env =
-  let open Lwt.Syntax in
-  let* position = Trading_api.Positions.get_all_open_positions env in
-  match position with
-  | Ok p -> Lwt.return @@ Log.app (fun k -> k "%a" Position.pp p)
-  | Error e ->
-      Log.err (fun k -> k "Error %s in position test" e);
-      invalid_arg e
+  let double_top_test symbols =
+    let history_request : Market_data_api.Stock.Historical_bars_request.t =
+      {
+        timeframe = Trading_types.Timeframe.day;
+        start = Time.of_ymd "2024-08-06";
+        symbols;
+      }
+    in
+    let historical_bars =
+      Market_data_api.Stock.historical_bars history_request
+    in
+    historical_bars
+end
 
-let top =
+let top switch eio_env =
   try
-    let open Lwt.Syntax in
     CalendarLib.Time_Zone.change (UTC_Plus (-5));
-    let env = Environment.make () in
+    let longleaf_env = Environment.make () in
 
-    (* let module Backend = State_machine.Alpaca_backend in *)
-    (* let* bars = download_test env in *)
-    (* let* () = position_test env in *)
-    (* let module Backtesting = Backend.Backtesting (struct *)
-    (*   let bars = *)
-    (*     Yojson.Safe.from_file "data/test_hexahydroxy_propagation" *)
-    (*     |> Trading_types.Bars.t_of_yojson *)
+    let module Common_eio_stuff = struct
+      let switch = switch
+      let longleaf_env = longleaf_env
+      let eio_env = eio_env
+    end in
+    let module Backtesting = Backend.Backtesting (struct
+      include Common_eio_stuff
 
-    (*   let tickers = Trading_types.Bars.tickers bars *)
-    (* end) in *)
-    let module Alpaca = Backend.Alpaca (struct
-      let bars = Trading_types.Bars.empty
+      let bars =
+        Yojson.Safe.from_file "data/test_hexahydroxy_propagation"
+        |> Trading_types.Bars.t_of_yojson
 
-      let symbols =
-        [
-          "NVDA";
-          "TSLA";
-          "AAPL";
-          "MSFT";
-          "NFLX";
-          "META";
-          "AMZN";
-          "AMD";
-          "AVGO";
-          "ELV";
-          "UNH";
-          "MU";
-          "V";
-          "GOOG";
-          "SMCI";
-          "MSTR";
-          "UBER";
-          "LLY";
-        ]
+      let symbols = Trading_types.Bars.tickers bars
     end) in
+    (* let module Alpaca = Backend.Alpaca (struct *)
+    (*   let bars = Trading_types.Bars.empty *)
+
+    (*   let symbols = *)
+    (*     [ *)
+    (*       "NVDA"; *)
+    (*       "TSLA"; *)
+    (*       "AAPL"; *)
+    (*       "MSFT"; *)
+    (*       "NFLX"; *)
+    (*       "META"; *)
+    (*       "AMZN"; *)
+    (*       "AMD"; *)
+    (*       "AVGO"; *)
+    (*       "ELV"; *)
+    (*       "UNH"; *)
+    (*       "MU"; *)
+    (*       "V"; *)
+    (*       "GOOG"; *)
+    (*       "SMCI"; *)
+    (*       "MSTR"; *)
+    (*       "UBER"; *)
+    (*       "LLY"; *)
+    (*     ] *)
+    (* end) in *)
+    let module Alpaca =
+      Backend.Alpaca
+        (struct
+          include Common_eio_stuff
+
+          let bars = Trading_types.Bars.empty
+
+          let symbols =
+            [
+              "NVDA";
+              "TSLA";
+              "AAPL";
+              "MSFT";
+              "NFLX";
+              "META";
+              "AMZN";
+              "AMD";
+              "AVGO";
+              "ELV";
+              "UNH";
+              "MU";
+              "V";
+              "GOOG";
+              "SMCI";
+              "MSTR";
+              "UBER";
+              "LLY";
+            ]
+        end)
+        (Ticker.FiveSecond)
+    in
     (* let module Strategy = Strategies.SimpleStateMachine (Backend) in *)
-    let module Strategy = Double_top.DoubleTop (Alpaca) in
-    let* res = Strategy.run env in
-    Log.app (fun k -> k "State machine shutdown:");
-    Log.app (fun k -> k "%s" res);
-    Lwt.return_unit
+    (* let module Strategy = Double_top.DoubleTop (Alpaca) in *)
+    (* let module Backend = Backtesting in *)
+    let module Backend = Alpaca in
+    let module Strategy = Double_top.DoubleTop (Backend) in
+    let domain_manager = Eio.Stdenv.domain_mgr eio_env in
+    let run_strategy () =
+      Eio.Domain_manager.run domain_manager @@ fun () ->
+      let res = Strategy.run () in
+      Eio.traceln "%s" res;
+      ()
+    in
+    let run_server () =
+      let set_mutex = Backend.Mutex.set_mutex in
+      Eio.Domain_manager.run domain_manager @@ fun () ->
+      Gui.top ~set_mutex eio_env
+    in
+    Eio.Fiber.all [ run_strategy; run_server ]
   with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->
     Log.err (fun k -> k "Caught yojson error");
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
-
-(* module Handler = struct *)
-(*   let top _ = *)
-(*     Dream.router *)
-(*     @@ [ *)
-(*          ( Dream.get "/" @@ fun _ -> *)
-(*            let html = Gui.plotly_graph_html () in *)
-(*            Dream.html html ); *)
-(*          Dream.get "/run_live" (fun _ -> *)
-(*              let _ = top () in *)
-(*              Format.printf "@[Got a live GET request@]@."; *)
-(*              Dream.json @@ Yojson.Safe.to_string @@ `String "Running A"); *)
-(*          Dream.get "/run_dead" (fun _ -> *)
-(*              Format.printf "@[Got a dead GET request@]@."; *)
-(*              Dream.json @@ Yojson.Safe.to_string @@ `String "Running B"); *)
-(*          Dream.get "/stop" (fun _ -> *)
-(*              Format.printf "@[Got a stop GET request@]@."; *)
-(*              Dream.json @@ Yojson.Safe.to_string @@ `String "Got stop signal"); *)
-(*        ] *)
-(* end *)

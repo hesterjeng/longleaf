@@ -1,25 +1,27 @@
 module type S = sig
   module Ticker : Ticker.S
 
+  module Mutex : sig
+    val set_mutex : unit -> unit
+    val get_mutex : unit -> bool
+  end
+
+  val env : Eio_unix.Stdenv.base
   val is_backtest : bool
   val get_cash : unit -> float
   val get_position : unit -> (string, int) Hashtbl.t
   val symbols : string list
-  val shutdown : unit Lwt.t
-
-  val create_order :
-    Environment.t ->
-    Trading_types.Order.t ->
-    (Yojson.Safe.t, string) Lwt_result.t
-
-  val latest_bars :
-    Environment.t -> string list -> (Trading_types.Bars.t, string) Lwt_result.t
-
+  val shutdown : unit -> unit
+  val create_order : Trading_types.Order.t -> Yojson.Safe.t
+  val latest_bars : string list -> (Trading_types.Bars.t, string) result
   val last_data_bar : Trading_types.Bars.t option
-  val liquidate : Environment.t -> (unit, string) Lwt_result.t
+  val liquidate : unit -> unit
 end
 
 module type BACKEND_INPUT = sig
+  val switch : Eio.Switch.t
+  val longleaf_env : Environment.t
+  val eio_env : Eio_unix.Stdenv.base
   val bars : Trading_types.Bars.t
   val symbols : string list
 end
@@ -27,18 +29,31 @@ end
 (* Backtesting *)
 module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
-  open Lwt_result.Syntax
   module Ticker = Ticker.Instant
 
+  module Mutex = struct
+    type t = { mutable shutdown_signal_received : bool; mutex : Eio.Mutex.t }
+
+    let t = { shutdown_signal_received = false; mutex = Eio.Mutex.create () }
+
+    let set_mutex () =
+      Eio.Mutex.use_rw ~protect:true t.mutex @@ fun () ->
+      t.shutdown_signal_received <- true
+
+    let get_mutex () =
+      Eio.Mutex.use_ro t.mutex @@ fun () -> t.shutdown_signal_received
+  end
+
+  let env = Input.eio_env
   let symbols = Input.symbols
   let is_backtest = true
   let position : (string, int) Hashtbl.t = Hashtbl.create 0
   let cash = ref 100000.0
   let get_cash () = !cash
   let get_position () = position
-  let shutdown = Lwt.return_unit
+  let shutdown () = ()
 
-  let create_order _ (x : Order.t) : (Yojson.Safe.t, string) Lwt_result.t =
+  let create_order (x : Order.t) : Yojson.Safe.t =
     let symbol = x.symbol in
     let current_amt = Hashtbl.get position symbol |> Option.get_or ~default:0 in
     let qty = x.qty in
@@ -46,16 +61,16 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     | Buy, Market ->
         Hashtbl.replace position symbol (current_amt + qty);
         cash := !cash -. (x.price *. Float.of_int qty);
-        Lwt_result.return `Null
+        `Null
     | Sell, Market ->
         Hashtbl.replace position symbol (current_amt - qty);
         cash := !cash +. (x.price *. Float.of_int qty);
-        Lwt_result.return `Null
+        `Null
     | _, _ -> invalid_arg "Backtesting can't handle this yet."
 
   let data_remaining = ref Input.bars.bars
 
-  let latest_bars _ _ : (Bars.t, string) Lwt_result.t =
+  let latest_bars _ =
     let bars = !data_remaining in
     let latest =
       if List.exists (fun (_, l) -> List.is_empty l) bars then None
@@ -77,11 +92,8 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     data_remaining := rest;
     match latest with
     | Some x ->
-        Lwt_result.return
-        @@ Bars.{ bars = x; next_page_token = None; currency = None }
-    | None ->
-        Lwt_result.fail
-          "No latest bars in backend, empty data or backtest finished"
+        Result.return Bars.{ bars = x; next_page_token = None; currency = None }
+    | None -> Error "No latest bars in backtest?"
 
   let last_data_bar =
     Some
@@ -97,9 +109,9 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
         next_page_token = None;
       }
 
-  let liquidate env : (unit, string) Lwt_result.t =
+  let liquidate () =
     let position = get_position () in
-    if List.is_empty @@ Hashtbl.keys_list position then Lwt_result.return ()
+    if List.is_empty @@ Hashtbl.keys_list position then ()
     else
       let final_bar =
         match last_data_bar with
@@ -110,7 +122,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
       let _ =
         Hashtbl.map_list
           (fun symbol qty ->
-            if qty = 0 then Lwt_result.return ()
+            if qty = 0 then ()
             else
               let order : Order.t =
                 {
@@ -122,50 +134,89 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
                   price = (Bars.price final_bar symbol).close;
                 }
               in
-              let* _json_resp = create_order env order in
-              Lwt_result.return ())
+              let _json_resp = create_order order in
+              ())
           position
       in
-      Lwt_result.return ()
+      ()
 end
 
 (* Live trading *)
-module Alpaca (Input : BACKEND_INPUT) : S = struct
-  open Lwt_result.Syntax
+module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
   open Trading_types
-  module Ticker = Ticker.FiveMinute
+  module Ticker = Ticker
   module Backtesting = Backtesting (Input)
+  module Mutex = Backtesting.Mutex
+
+  let env = Input.eio_env
+
+  let trading_client =
+    let res =
+      Piaf.Client.create ~sw:Input.switch Input.eio_env
+        Input.longleaf_env.apca_api_base_url
+    in
+    match res with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Unable to create trading client"
+
+  let data_client =
+    let res =
+      Piaf.Client.create ~sw:Input.switch Input.eio_env
+        Input.longleaf_env.apca_api_data_url
+    in
+    match res with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Unable to create data client"
+
+  module Trading_api = Trading_api.Make (struct
+    let client = trading_client
+    let longleaf_env = Input.longleaf_env
+  end)
+
+  module Market_data_api = Market_data_api.Make (struct
+    let client = data_client
+    let longleaf_env = Input.longleaf_env
+  end)
 
   (* let shutdown = *)
-  let shutdown = Lwt.return_unit
+  let shutdown () =
+    Eio.traceln "Alpaca backend shutdown NYI";
+    ()
+
   let symbols = Input.symbols
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
   let last_data_bar = None
 
-  let latest_bars x y =
-    let* res = Market_data_api.Stock.latest_bars x y in
-    Lwt_result.return res
+  let latest_bars symbols =
+    let res = Market_data_api.Stock.latest_bars symbols in
+    Ok res
 
   let get_clock = Trading_api.Clock.get
   let get_cash = Backtesting.get_cash
   let get_position = Backtesting.get_position
 
-  let create_order env order =
-    let* res = Trading_api.Orders.create_market_order env order in
-    let* _ = Backtesting.create_order env order in
-    Lwt_result.return res
+  let create_order order =
+    let res = Trading_api.Orders.create_market_order order in
+    let _ = Backtesting.create_order order in
+    res
 
-  let liquidate env =
+  let liquidate () =
     let position = get_position () in
-    if List.is_empty @@ Hashtbl.keys_list position then Lwt_result.return ()
+    if List.is_empty @@ Hashtbl.keys_list position then ()
     else
       let symbols = Hashtbl.keys_list position in
-      let* last_data_bar = latest_bars env symbols in
+      let last_data_bar =
+        match latest_bars symbols with
+        | Ok x -> x
+        | Error _ ->
+            invalid_arg
+              "Unable to get price information for symbol while liquidating"
+      in
       let _ =
         Hashtbl.map_list
           (fun symbol qty ->
-            if qty = 0 then Lwt_result.return ()
+            if qty = 0 then ()
             else
               let order : Order.t =
                 {
@@ -177,9 +228,9 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
                   price = (Bars.price last_data_bar symbol).close;
                 }
               in
-              let* _json_resp = create_order env order in
-              Lwt_result.return ())
+              let _json_resp = create_order order in
+              ())
           position
       in
-      Lwt_result.return ()
+      ()
 end

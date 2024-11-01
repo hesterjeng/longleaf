@@ -1,6 +1,6 @@
 (executables
- (names server)
- (public_names server)
+ (names main)
+ (public_names main)
  (promote
   (until-clean)
   (into ..))
@@ -13,13 +13,9 @@
   containers
   containers-data
   zarith
-  ezcurl-lwt
   ptime
   yojson
-  bogue
-  dream
-  eio_main
-  lwt_eio)
+  eio_main)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv)))
 
