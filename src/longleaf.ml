@@ -1,5 +1,12 @@
 module Log = (val Logs.src_log Logs.(Src.create "longleaf"))
 module Util = Util
+module Backend = Backend
+module Environment = Environment
+module Trading_types = Trading_types
+module Market_data_api = Market_data_api
+module Ticker = Ticker
+module Time = Time
+module Lots_of_words = Lots_of_words
 
 (* module Tickers = struct *)
 (*   let get_tickers () = *)
@@ -17,32 +24,28 @@ module Util = Util
 (* end *)
 
 module Tests (Conn : Util.ALPACA_SERVER) = struct
-  module Market_data_api = Market_data_api.Make (Conn)
+  module MDA = Market_data_api.Make (Conn)
 
   let download_test () =
-    let history_request : Market_data_api.Stock.Historical_bars_request.t =
+    let history_request : Market_data_api.Historical_bars_request.t =
       {
         timeframe = Trading_types.Timeframe.day;
         start = Time.of_ymd "2012-06-06";
         symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
       }
     in
-    let historical_bars =
-      Market_data_api.Stock.historical_bars history_request
-    in
+    let historical_bars = MDA.Stock.historical_bars history_request in
     historical_bars
 
   let double_top_test symbols =
-    let history_request : Market_data_api.Stock.Historical_bars_request.t =
+    let history_request : Market_data_api.Historical_bars_request.t =
       {
         timeframe = Trading_types.Timeframe.day;
         start = Time.of_ymd "2024-08-06";
         symbols;
       }
     in
-    let historical_bars =
-      Market_data_api.Stock.historical_bars history_request
-    in
+    let historical_bars = MDA.Stock.historical_bars history_request in
     historical_bars
 end
 
