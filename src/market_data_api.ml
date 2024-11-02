@@ -1,6 +1,11 @@
 open Trading_types
 module Headers = Piaf.Headers
 
+module Historical_bars_request = struct
+  type t = { symbols : string list; timeframe : Timeframe.t; start : Time.t }
+  [@@deriving show, yojson]
+end
+
 module Make (Alpaca : Util.ALPACA_SERVER) = struct
   let client = Alpaca.client
   let longleaf_env = Alpaca.longleaf_env
@@ -16,15 +21,6 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
       ]
 
   module Stock = struct
-    module Historical_bars_request = struct
-      type t = {
-        symbols : string list;
-        timeframe : Timeframe.t;
-        start : Time.t;
-      }
-      [@@deriving show, yojson]
-    end
-
     let historical_bars (request : Historical_bars_request.t) =
       let symbols = String.concat "," request.symbols in
       let endpoint = "/v2/stocks/bars" in
