@@ -1,6 +1,6 @@
 (executables
- (names main)
- (public_names main)
+ (names main data_downloader)
+ (public_names main data_downloader)
  (promote
   (until-clean)
   (into ..))
