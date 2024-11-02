@@ -20,6 +20,8 @@ module type S = sig
   module Ticker : Ticker.S
   module Mutex : MUTEX
 
+  val get_trading_client : unit -> Piaf.Client.t
+  val get_data_client : unit -> Piaf.Client.t
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
   val get_cash : unit -> float
@@ -47,6 +49,12 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
   module Ticker = Ticker.Instant
   module Mutex = Input.Mutex
+
+  let get_trading_client _ =
+    invalid_arg "Backtesting does not have a trading client"
+
+  let get_data_client _ =
+    invalid_arg "Backtesting does not have a trading client"
 
   let env = Input.eio_env
   let symbols = Input.symbols
@@ -171,6 +179,9 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
     match res with
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create data client"
+
+  let get_trading_client _ = trading_client
+  let get_data_client _ = data_client
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
