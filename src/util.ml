@@ -107,6 +107,14 @@ let read_file_as_string filename =
   (* Close the input channel *)
   content (* Return the content *)
 
+let yojson_safe (f : unit -> 'a) : 'a =
+  try f ()
+  with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, j) ->
+    Eio.traceln "Yojson error!";
+    Eio.traceln "@[%a@]@." Yojson.Safe.pp j;
+    let err = Printexc.to_string e in
+    invalid_arg @@ Format.asprintf "%s" err
+
 module type ALPACA_SERVER = sig
   val longleaf_env : Environment.t
   val client : Piaf.Client.t
