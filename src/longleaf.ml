@@ -107,23 +107,19 @@ module DoubleTopRun (Mutex : Backend.MUTEX) = struct
 end
 
 let top eio_env =
-  try
-    CalendarLib.Time_Zone.change (UTC_Plus (-5));
-    let longleaf_env = Environment.make () in
-    let module Mutex = Backend.Mutex in
-    let domain_manager = Eio.Stdenv.domain_mgr eio_env in
-    let run_strategy () =
-      let module Run = DoubleTopRun (Mutex) in
-      Eio.Domain_manager.run domain_manager @@ fun () ->
-      Run.top ~eio_env ~longleaf_env
-    in
-    let run_server () =
-      let set_mutex = Mutex.set_mutex in
-      Eio.Domain_manager.run domain_manager @@ fun () ->
-      Gui.top ~set_mutex eio_env
-    in
-    Eio.Fiber.all [ run_strategy; run_server ]
-  with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->
-    Log.err (fun k -> k "Caught yojson error");
-    let err = Printexc.to_string e in
-    invalid_arg @@ Format.asprintf "%s" err
+  Util.yojson_safe @@ fun () ->
+  CalendarLib.Time_Zone.change (UTC_Plus (-5));
+  let longleaf_env = Environment.make () in
+  let module Mutex = Backend.Mutex in
+  let domain_manager = Eio.Stdenv.domain_mgr eio_env in
+  let run_strategy () =
+    let module Run = DoubleTopRun (Mutex) in
+    Eio.Domain_manager.run domain_manager @@ fun () ->
+    Run.top ~eio_env ~longleaf_env
+  in
+  let run_server () =
+    let set_mutex = Mutex.set_mutex in
+    Eio.Domain_manager.run domain_manager @@ fun () ->
+    Gui.top ~set_mutex eio_env
+  in
+  Eio.Fiber.all [ run_strategy; run_server ]
