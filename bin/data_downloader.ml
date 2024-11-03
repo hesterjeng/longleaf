@@ -22,6 +22,14 @@ let some_symbols =
     "LLY";
   ]
 
+let yojson_safe (f : unit -> 'a) : 'a =
+  try f ()
+  with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, j) ->
+    Eio.traceln "Yojson error!";
+    Eio.traceln "@[%a@]@." Yojson.Safe.pp j;
+    let err = Printexc.to_string e in
+    invalid_arg @@ Format.asprintf "%s" err
+
 module Downloader = struct
   module Bars = Longleaf.Trading_types.Bars
 
@@ -35,6 +43,7 @@ module Downloader = struct
 
   let top eio_env request =
     Eio.Switch.run @@ fun switch ->
+    yojson_safe @@ fun () ->
     let longleaf_env = Environment.make () in
     let data_client = data_client switch eio_env longleaf_env in
     let module Conn : Longleaf.Util.ALPACA_SERVER = struct
@@ -44,14 +53,12 @@ module Downloader = struct
     let module MDA = Market_data_api.Make (Conn) in
     Eio.traceln "Making request %a..."
       Market_data_api.Historical_bars_request.pp request;
-    let json =
-      MDA.Stock.historical_bars request
-      |> Bars.yojson_of_t |> Yojson.Safe.to_string
-    in
+    let bars = MDA.Stock.historical_bars request |> Bars.yojson_of_t in
+    let str = Yojson.Safe.to_string bars in
     let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
     let filename = Format.sprintf "data/%s_%s" "download" tail in
     let oc = open_out filename in
-    output_string oc json;
+    output_string oc str;
     close_out oc
 end
 
