@@ -33,7 +33,7 @@ module Downloader = struct
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create data client"
 
-  let top eio_env =
+  let top eio_env request =
     Eio.Switch.run @@ fun switch ->
     let longleaf_env = Environment.make () in
     let data_client = data_client switch eio_env longleaf_env in
@@ -42,16 +42,17 @@ module Downloader = struct
       let longleaf_env = longleaf_env
     end in
     let module MDA = Market_data_api.Make (Conn) in
-    fun request ->
-      let json =
-        MDA.Stock.historical_bars request
-        |> Bars.yojson_of_t |> Yojson.Safe.to_string
-      in
-      let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
-      let filename = Format.sprintf "data/%s_%s" "download" tail in
-      let oc = open_out filename in
-      output_string oc json;
-      close_out oc
+    Eio.traceln "Making request %a..."
+      Market_data_api.Historical_bars_request.pp request;
+    let json =
+      MDA.Stock.historical_bars request
+      |> Bars.yojson_of_t |> Yojson.Safe.to_string
+    in
+    let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
+    let filename = Format.sprintf "data/%s_%s" "download" tail in
+    let oc = open_out filename in
+    output_string oc json;
+    close_out oc
 end
 
 let _ =
