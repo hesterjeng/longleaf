@@ -22,14 +22,6 @@ let some_symbols =
     "LLY";
   ]
 
-let yojson_safe (f : unit -> 'a) : 'a =
-  try f ()
-  with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, j) ->
-    Eio.traceln "Yojson error!";
-    Eio.traceln "@[%a@]@." Yojson.Safe.pp j;
-    let err = Printexc.to_string e in
-    invalid_arg @@ Format.asprintf "%s" err
-
 module Downloader = struct
   module Bars = Longleaf.Trading_types.Bars
 
@@ -43,7 +35,7 @@ module Downloader = struct
 
   let top eio_env request =
     Eio.Switch.run @@ fun switch ->
-    yojson_safe @@ fun () ->
+    Util.yojson_safe @@ fun () ->
     let longleaf_env = Environment.make () in
     let data_client = data_client switch eio_env longleaf_env in
     let module Conn : Longleaf.Util.ALPACA_SERVER = struct
