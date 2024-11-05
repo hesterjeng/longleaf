@@ -165,8 +165,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     in
     let new_bars = Bars.combine [ latest; state.bars ] in
     Result.return
-    @@ State.continue
-         { current = `Listening; bars = new_bars; content = new_status }
+    @@ { State.current = `Listening; bars = new_bars; content = new_status }
 
   let cover_position (state : state) (order : Order.t) =
     let open Result.Infix in
@@ -192,12 +191,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     in
     let new_bars = Bars.combine [ latest; state.bars ] in
     Result.return
-    @@ State.continue
-         { current = `Listening; bars = new_bars; content = new_status }
+    @@ { State.current = `Listening; bars = new_bars; content = new_status }
 
   let step (state : state) =
-    (* Log.app (fun k -> k "@[%a@]@." State.pp_state state.current); *)
-    (* Format.printf ".%a" Format.flush (); *)
     match state.current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
