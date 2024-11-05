@@ -23,16 +23,18 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
   module Stock = struct
     let historical_bars (request : Historical_bars_request.t) =
       let symbols = String.concat "," request.symbols in
-      let endpoint = "/v2/stocks/bars" in
-      let headers =
-        headers () |> fun h ->
-        Headers.add_list h
-          [
-            ("symbols", symbols);
-            ("timeframe", Timeframe.to_string request.timeframe);
-            ("start", Ptime.to_rfc3339 request.start);
-          ]
+      let headers = headers () in
+      let endpoint =
+        Uri.of_string "/v2/stocks/bars" |> fun e ->
+        Uri.add_query_params' e
+        @@ [
+             ("symbols", symbols);
+             ("timeframe", Timeframe.to_string request.timeframe);
+             ("start", Ptime.to_rfc3339 request.start);
+           ]
+        |> Uri.to_string
       in
+      (* Eio.traceln "%a" Headers.pp_hum headers; *)
       let rec collect_data ~endpoint ~headers acc =
         let resp_body_json = get ~headers ~endpoint in
         let acc = Bars.t_of_yojson resp_body_json :: acc in
@@ -47,15 +49,21 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
 
     let latest_bars (symbols : string list) =
       let symbols = String.concat "," symbols in
-      let endpoint = "/v2/stocks/bars/latest" in
-      let headers = headers () |> fun h -> Headers.add h "symbols" symbols in
+      let endpoint =
+        Uri.of_string "/v2/stocks/bars/latest" |> fun u ->
+        Uri.add_query_param' u ("symbols", symbols) |> Uri.to_string
+      in
+      let headers = headers () in
       let resp_body_json = get ~headers ~endpoint in
       Bars.t_of_yojson resp_body_json
 
     let latest_quotes (symbols : string list) =
       let symbols = String.concat "," symbols in
-      let endpoint = "/v2/stocks/quotes/latest" in
-      let headers = headers () |> fun h -> Headers.add h "symbols" symbols in
+      let endpoint =
+        Uri.of_string "/v2/stocks/quotes/latest" |> fun u ->
+        Uri.add_query_param' u ("symbols", symbols) |> Uri.to_string
+      in
+      let headers = headers () in
       let resp_body_json = get ~headers ~endpoint in
       resp_body_json
   end

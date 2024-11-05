@@ -98,7 +98,7 @@ module Bars = struct
       trade_count : int; [@key "n"]
       volume_weighted : float; [@key "vw"]
     }
-    [@@deriving show { with_path = false }, yojson, decoders ]
+    [@@deriving show { with_path = false }, yojson]
 
     let compare x y = Ptime.compare x.timestamp y.timestamp
   end
