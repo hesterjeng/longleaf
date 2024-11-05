@@ -8,47 +8,6 @@ module Ticker = Ticker
 module Time = Time
 module Lots_of_words = Lots_of_words
 
-(* module Tickers = struct *)
-(*   let get_tickers () = *)
-(*     let open Pyops in *)
-(*     let sp600_url = *)
-(*       {|https://en.wikipedia.org/wiki/List_of_S%26P_600_companies|} *)
-(*       |> Py.String.of_string *)
-(*     in *)
-(*     let pandas = Py.import "pandas" in *)
-(*     let read_html = pandas.&("read_html") in *)
-(*     let tables = read_html [| sp600_url |] in *)
-(*     let col = tables.![Py.Int.of_int 0] in *)
-(*     let ticker_symbols = col.!$["Symbol"] in *)
-(*     Py.List.to_array_map Py.Object.to_string ticker_symbols *)
-(* end *)
-
-(* module Tests (Conn : Util.ALPACA_SERVER) = struct *)
-(*   module MDA = Market_data_api.Make (Conn) *)
-
-(*   let download_test () = *)
-(*     let history_request : Market_data_api.Historical_bars_request.t = *)
-(*       { *)
-(*         timeframe = Trading_types.Timeframe.day; *)
-(*         start = Time.of_ymd "2012-06-06"; *)
-(*         symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ]; *)
-(*       } *)
-(*     in *)
-(*     let historical_bars = MDA.Stock.historical_bars history_request in *)
-(*     historical_bars *)
-
-(*   let double_top_test symbols = *)
-(*     let history_request : Market_data_api.Historical_bars_request.t = *)
-(*       { *)
-(*         timeframe = Trading_types.Timeframe.day; *)
-(*         start = Time.of_ymd "2024-08-06"; *)
-(*         symbols; *)
-(*       } *)
-(*     in *)
-(*     let historical_bars = MDA.Stock.historical_bars history_request in *)
-(*     historical_bars *)
-(* end *)
-
 module DoubleTopRun (Mutex : Backend.MUTEX) = struct
   let top ~eio_env ~longleaf_env =
     Eio.Switch.run @@ fun switch ->
@@ -98,10 +57,10 @@ module DoubleTopRun (Mutex : Backend.MUTEX) = struct
               "LLY";
             ]
         end)
-        (Ticker.FiveSecond)
+        (Ticker.Make(struct let time = 60.0 end))
     in
-    (* let module Backend = Alpaca in *)
-    let module Backend = Backtesting in
+    let module Backend = Alpaca in
+    (* let module Backend = Backtesting in *)
     let module Strategy = Double_top.DoubleTop (Backend) in
     let res = Strategy.run () in
     Backend.shutdown ();
