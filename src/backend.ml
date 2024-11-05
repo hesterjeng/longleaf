@@ -136,13 +136,14 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
           (fun symbol qty ->
             if qty = 0 then ()
             else
+              let side = if qty >= 0 then Side.Sell else Side.Buy in
               let order : Order.t =
                 {
                   symbol;
-                  side = (if qty >= 0 then Side.Sell else Side.Buy);
+                  side;
                   tif = TimeInForce.GoodTillCanceled;
                   order_type = OrderType.Market;
-                  qty;
+                  qty = Int.abs qty;
                   price = (Bars.price final_bar symbol).close;
                 }
               in
