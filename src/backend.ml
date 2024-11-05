@@ -245,7 +245,7 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
                   side = (if qty >= 0 then Side.Sell else Side.Buy);
                   tif = TimeInForce.GoodTillCanceled;
                   order_type = OrderType.Market;
-                  qty;
+                  qty = Int.abs qty;
                   price = (Bars.price last_data_bar symbol).close;
                 }
               in
