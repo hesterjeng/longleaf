@@ -48,10 +48,11 @@ module Downloader = struct
     let bars = MDA.Stock.historical_bars request |> Bars.yojson_of_t in
     let str = Yojson.Safe.to_string bars in
     let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
-    let filename = Format.sprintf "data/%s_%s" "download" tail in
+    let filename = Format.sprintf "data/download_%s" tail in
     let oc = open_out filename in
     output_string oc str;
-    close_out oc
+    close_out oc;
+    Piaf.Client.shutdown data_client
 end
 
 let _ =
