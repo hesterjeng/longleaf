@@ -57,8 +57,7 @@ module Strategy_utils (Backend : Backend.S) = struct
            `Shutdown_signal);
        ]
 
-  let run step env =
-    let init = State.init env in
+  let run ~init_state step =
     let rec go prev =
       let stepped = step prev in
       match stepped with
@@ -73,7 +72,7 @@ module Strategy_utils (Backend : Backend.S) = struct
           in
           match prev.current with `Liquidate -> s | _ -> try_liquidating ())
     in
-    go init
+    go init_state
 
   let output_data (state : _ State.t) =
     let backtest = if Backend.is_backtest then "test" else "live" in
@@ -116,6 +115,15 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
 
   let shutdown = Backend.shutdown
 
+  type state = unit State.t
+
+  let init_state : state =
+    {
+      State.current = `Initialize;
+      bars = Trading_types.Bars.empty;
+      content = ();
+    }
+
   module SU = Strategy_utils (Backend)
 
   let step (state : 'a State.t) =
@@ -157,5 +165,5 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
         Result.return
         @@ State.continue { state with current = `Listening; bars = new_bars }
 
-  let run = SU.run step
+  let run () = SU.run ~init_state step
 end
