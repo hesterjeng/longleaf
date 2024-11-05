@@ -25,3 +25,9 @@ end
 module Instant : S = struct
   let tick _ = ()
 end
+
+module Make (Inp : sig
+  val time : float
+end) : S = struct
+  let tick env = Eio.Time.sleep env#clock Inp.time
+end
