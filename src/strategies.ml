@@ -9,10 +9,6 @@ module State = struct
   [@@deriving show { with_path = false }]
 
   type 'a t = { current : state; bars : Trading_types.Bars.t; content : 'a }
-  type ('a, 'b) status = Running of 'a t | Shutdown of 'b
-
-  let continue x = Running x
-  let shutdown x = Shutdown x
 
   let init () =
     { current = `Initialize; bars = Trading_types.Bars.empty; content = () }
@@ -61,13 +57,10 @@ module Strategy_utils (Backend : Backend.S) = struct
     let rec go prev =
       let stepped = step prev in
       match stepped with
-      | Ok x -> (
-          match x with
-          | State.Running now -> (go [@tailcall]) now
-          | Shutdown code -> code)
+      | Ok x -> go x
       | Error s -> (
           let try_liquidating () =
-            let liquidate = { prev with current = `Liquidate } in
+            let liquidate = { prev with State.current = `Liquidate } in
             go liquidate
           in
           match prev.current with `Liquidate -> s | _ -> try_liquidating ())
@@ -89,24 +82,22 @@ module Strategy_utils (Backend : Backend.S) = struct
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
     match current with
-    | `Initialize ->
-        Result.return @@ State.continue { state with current = `Listening }
+    | `Initialize -> Result.return @@ { state with current = `Listening }
     | `Listening -> (
         Result.return
         @@
         match listen_tick () with
-        | `Continue -> State.continue { state with current = `Ordering }
+        | `Continue -> { state with current = `Ordering }
         | `Shutdown_signal ->
             Eio.traceln "Attempting to liquidate positions before shutting down";
-            State.continue { state with current = `Liquidate })
+            { state with current = `Liquidate })
     | `Liquidate ->
         Backend.liquidate ();
         Result.return
-        @@ State.continue
-             { state with current = `Finished "Successfully liquidated" }
+        @@ { state with current = `Finished "Successfully liquidated" }
     | `Finished code ->
         output_data state;
-        Result.return @@ State.shutdown code
+        Result.fail code
 end
 
 module SimpleStateMachine (Backend : Backend.S) : S = struct
@@ -162,8 +153,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
             ()
         in
         let new_bars = Bars.combine [ latest_bars; state.bars ] in
-        Result.return
-        @@ State.continue { state with current = `Listening; bars = new_bars }
+        Result.return @@ { state with current = `Listening; bars = new_bars }
 
   let run () = SU.run ~init_state step
 end
