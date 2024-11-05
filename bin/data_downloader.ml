@@ -66,4 +66,5 @@ let _ =
       symbols = some_symbols;
     }
   in
-  Eio_main.run @@ fun eio_env -> Downloader.top eio_env request
+  let _ = Eio_main.run @@ fun eio_env -> Downloader.top eio_env request in
+  ()

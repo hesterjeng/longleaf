@@ -63,7 +63,8 @@ module DoubleTopRun (Mutex : Backend.MUTEX) = struct
       include Common_eio_stuff
 
       let bars =
-        Yojson.Safe.from_file "data/test_hexahydroxy_propagation"
+        (* Yojson.Safe.from_file "data/test_hexahydroxy_propagation" *)
+        Yojson.Safe.from_file "data/download_forcing_Dardistan"
         |> Trading_types.Bars.t_of_yojson
 
       let symbols = Trading_types.Bars.tickers bars
@@ -99,10 +100,11 @@ module DoubleTopRun (Mutex : Backend.MUTEX) = struct
         end)
         (Ticker.FiveSecond)
     in
-    let module Backend = Alpaca in
+    (* let module Backend = Alpaca in *)
+    let module Backend = Backtesting in
     let module Strategy = Double_top.DoubleTop (Backend) in
     let res = Strategy.run () in
-    Eio.traceln "%s" res;
+    Eio.traceln "Result: %s" res;
     ()
 end
 
