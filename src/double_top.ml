@@ -71,7 +71,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   module SU = Strategies.Strategy_utils (Backend)
 
-  (* let current_status :  ref = ref Waiting *)
   let min_dip = 0.99
   let lower_now_band = 0.999
   let upper_now_band = 1.001
@@ -136,7 +135,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let place_short (state : state) =
     let open Result.Infix in
     let* latest = Backend.latest_bars Backend.symbols in
-    Eio.traceln "@[Latest bars:@]@.@[%a@]@." Bars.pp latest;
+    (* Eio.traceln "@[Latest bars:@]@.@[%a@]@." Bars.pp latest; *)
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cash_available = Backend.get_cash () in
     let qty symbol =

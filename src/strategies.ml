@@ -68,16 +68,17 @@ module Strategy_utils (Backend : Backend.S) = struct
     go init_state
 
   let output_data (state : _ State.t) =
-    let backtest = if Backend.is_backtest then "test" else "live" in
-    let json =
-      Trading_types.Bars.yojson_of_t state.bars |> Yojson.Safe.to_string
-    in
-    let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
-    let filename = Format.sprintf "data/%s_%s" backtest tail in
-    let oc = open_out filename in
-    output_string oc json;
-    close_out oc;
-    Log.app (fun k -> k "cash: %f" (Backend.get_cash ()))
+    Eio.traceln "cash: %f" (Backend.get_cash ());
+    if Backend.is_backtest then ()
+    else
+      let json =
+        Trading_types.Bars.yojson_of_t state.bars |> Yojson.Safe.to_string
+      in
+      let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
+      let filename = Format.sprintf "data/live_%s" tail in
+      let oc = open_out filename in
+      output_string oc json;
+      close_out oc
 
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
