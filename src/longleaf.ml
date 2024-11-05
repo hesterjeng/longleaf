@@ -23,31 +23,31 @@ module Lots_of_words = Lots_of_words
 (*     Py.List.to_array_map Py.Object.to_string ticker_symbols *)
 (* end *)
 
-module Tests (Conn : Util.ALPACA_SERVER) = struct
-  module MDA = Market_data_api.Make (Conn)
+(* module Tests (Conn : Util.ALPACA_SERVER) = struct *)
+(*   module MDA = Market_data_api.Make (Conn) *)
 
-  let download_test () =
-    let history_request : Market_data_api.Historical_bars_request.t =
-      {
-        timeframe = Trading_types.Timeframe.day;
-        start = Time.of_ymd "2012-06-06";
-        symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ];
-      }
-    in
-    let historical_bars = MDA.Stock.historical_bars history_request in
-    historical_bars
+(*   let download_test () = *)
+(*     let history_request : Market_data_api.Historical_bars_request.t = *)
+(*       { *)
+(*         timeframe = Trading_types.Timeframe.day; *)
+(*         start = Time.of_ymd "2012-06-06"; *)
+(*         symbols = [ "MSFT"; "GOOG"; "NVDA"; "AAPL" ]; *)
+(*       } *)
+(*     in *)
+(*     let historical_bars = MDA.Stock.historical_bars history_request in *)
+(*     historical_bars *)
 
-  let double_top_test symbols =
-    let history_request : Market_data_api.Historical_bars_request.t =
-      {
-        timeframe = Trading_types.Timeframe.day;
-        start = Time.of_ymd "2024-08-06";
-        symbols;
-      }
-    in
-    let historical_bars = MDA.Stock.historical_bars history_request in
-    historical_bars
-end
+(*   let double_top_test symbols = *)
+(*     let history_request : Market_data_api.Historical_bars_request.t = *)
+(*       { *)
+(*         timeframe = Trading_types.Timeframe.day; *)
+(*         start = Time.of_ymd "2024-08-06"; *)
+(*         symbols; *)
+(*       } *)
+(*     in *)
+(*     let historical_bars = MDA.Stock.historical_bars history_request in *)
+(*     historical_bars *)
+(* end *)
 
 module DoubleTopRun (Mutex : Backend.MUTEX) = struct
   let top ~eio_env ~longleaf_env =
@@ -104,6 +104,8 @@ module DoubleTopRun (Mutex : Backend.MUTEX) = struct
     let module Backend = Backtesting in
     let module Strategy = Double_top.DoubleTop (Backend) in
     let res = Strategy.run () in
+    Backend.shutdown ();
+    Alpaca.shutdown ();
     Eio.traceln "Result: %s" res;
     ()
 end
@@ -124,4 +126,5 @@ let top eio_env =
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Gui.top ~set_mutex eio_env
   in
-  Eio.Fiber.all [ run_strategy; run_server ]
+  let _ = Eio.Fiber.first run_strategy run_server in
+  ()
