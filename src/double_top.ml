@@ -62,6 +62,13 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   type state = DT_Status.t State.t
 
+  let init_state =
+    {
+      State.current = `Initialize;
+      bars = Trading_types.Bars.empty;
+      content = DT_Status.Waiting;
+    }
+
   module SU = Strategies.Strategy_utils (Backend)
 
   (* let current_status :  ref = ref Waiting *)
@@ -199,5 +206,5 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         | Waiting -> place_short state
         | Placed order -> cover_position state order)
 
-  let run = SU.run step
+  let run () = SU.run ~init_state step
 end
