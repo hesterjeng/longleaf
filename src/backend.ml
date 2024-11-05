@@ -150,6 +150,9 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
               ())
           position
       in
+      Eio.traceln "@[Position:@]@.@[%a@]@."
+        (Hashtbl.pp String.pp Int.pp)
+        position;
       ()
 end
 
