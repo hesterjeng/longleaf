@@ -57,7 +57,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   module Bar_item = Bars.Bar_item
 
   module DT_Status = struct
-    type t = Placed of Order.t | Waiting
+    type t = Placed of (int * Order.t) | Waiting
   end
 
   type state = DT_Status.t State.t
@@ -74,6 +74,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let min_dip = 0.99
   let lower_now_band = 0.999
   let upper_now_band = 1.001
+  let max_holding_period = 10
 
   let consider_shorting ~history ~now ~(qty : string -> int) symbol :
       (Order.t * Bar_item.t) option =
@@ -160,35 +161,33 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
                 trigger.timestamp);
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           let _ = Backend.create_order order in
-          Placed order
+          Placed (0, order)
     in
     let new_bars = Bars.combine [ latest; state.bars ] in
     Result.return
     @@ { State.current = `Listening; bars = new_bars; content = new_status }
 
-  let cover_position (state : state) (order : Order.t) =
+  let cover_position bars time_held (order : Order.t) =
     let open Result.Infix in
     let* latest = Backend.latest_bars Backend.symbols in
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cover_order =
       let current_price = (Bars.price latest order.symbol).close in
+      let cover_order = { order with side = Side.Buy; price = current_price } in
       let target_price = min_dip *. order.price in
-      if current_price <. target_price then
-        let cover_order =
-          { order with side = Side.Buy; price = current_price }
-        in
+      if current_price <. target_price || time_held > max_holding_period then
         Some cover_order
       else None
     in
     let new_status =
       match cover_order with
-      | None -> state.content
+      | None -> DT_Status.Placed (time_held + 1, order)
       | Some order ->
           Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
           let _ = Backend.create_order order in
           Waiting
     in
-    let new_bars = Bars.combine [ latest; state.bars ] in
+    let new_bars = Bars.combine [ latest; bars ] in
     Result.return
     @@ { State.current = `Listening; bars = new_bars; content = new_status }
 
@@ -199,7 +198,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     | `Ordering -> (
         match state.content with
         | Waiting -> place_short state
-        | Placed order -> cover_position state order)
+        | Placed (time_held, order) -> cover_position state.bars time_held order
+        )
 
   let run () = SU.run ~init_state step
 end
