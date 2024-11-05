@@ -61,8 +61,8 @@ module DoubleTopRun (Mutex : Backend.MUTEX) = struct
           let time = 60.0
         end))
     in
-    let module Backend = Alpaca in
-    (* let module Backend = Backtesting in *)
+    (* let module Backend = Alpaca in *)
+    let module Backend = Backtesting in
     let module Strategy = Double_top.DoubleTop (Backend) in
     let res = Strategy.run () in
     Backend.shutdown ();
