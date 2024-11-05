@@ -61,6 +61,7 @@ let run ~sw ~host ~port env handler =
 
 let start ~sw ~set_mutex env =
   let host = Eio.Net.Ipaddr.V4.loopback in
+  Eio.traceln "Server listening on port 8080";
   run ~sw ~host ~port:8080 env @@ connection_handler ~set_mutex
 
 (* let setup_log ?style_renderer level = *)

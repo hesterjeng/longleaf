@@ -56,12 +56,15 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   module State = Strategies.State
   module Bar_item = Bars.Bar_item
 
-  type short_placed = Placed of Order.t | Waiting
-  type short_status = short_placed ref
+  module DT_Status = struct
+    type t = Placed of Order.t | Waiting
+  end
+
+  type state = DT_Status.t State.t
 
   module SU = Strategies.Strategy_utils (Backend)
 
-  let current_status : short_status = ref Waiting
+  (* let current_status :  ref = ref Waiting *)
   let min_dip = 0.99
   let lower_now_band = 0.999
   let upper_now_band = 1.001
@@ -123,9 +126,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         Some (order, previous_maximum)
     | _ -> None
 
-  let place_short (state : Bars.t State.t) =
+  let place_short (state : state) =
     let open Result.Infix in
     let* latest = Backend.latest_bars Backend.symbols in
+    Eio.traceln "@[Latest bars:@]@.@[%a@]@." Bars.pp latest;
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
     let cash_available = Backend.get_cash () in
     let qty symbol =
@@ -137,26 +141,27 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       | false -> 0
     in
     let short_opt =
-      consider_shorting ~history:state.content.bars ~now:latest ~qty
+      consider_shorting ~history:state.bars.bars ~now:latest ~qty
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
-    let () =
+    let new_status =
       match choice with
-      | None -> ()
+      | None -> state.content
       | Some (order, trigger) ->
           Log.app (fun k ->
               k "@[Short triggered by previous local max at %a@]@." Time.pp
                 trigger.timestamp);
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
-          current_status := Placed order;
           let _ = Backend.create_order order in
-          ()
+          Placed order
     in
-    let new_bars = Bars.combine [ latest; state.content ] in
-    Result.return @@ State.continue { current = `Listening; content = new_bars }
+    let new_bars = Bars.combine [ latest; state.bars ] in
+    Result.return
+    @@ State.continue
+         { current = `Listening; bars = new_bars; content = new_status }
 
-  let cover_position (state : Bars.t State.t) (order : Order.t) =
+  let cover_position (state : state) (order : Order.t) =
     let open Result.Infix in
     let* latest = Backend.latest_bars Backend.symbols in
     let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
@@ -170,26 +175,27 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         Some cover_order
       else None
     in
-    let () =
+    let new_status =
       match cover_order with
-      | None -> ()
+      | None -> state.content
       | Some order ->
           Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
-          current_status := Waiting;
           let _ = Backend.create_order order in
-          ()
+          Waiting
     in
-    let new_bars = Bars.combine [ latest; state.content ] in
-    Result.return @@ State.continue { current = `Listening; content = new_bars }
+    let new_bars = Bars.combine [ latest; state.bars ] in
+    Result.return
+    @@ State.continue
+         { current = `Listening; bars = new_bars; content = new_status }
 
-  let step (state : 'a State.t) =
+  let step (state : state) =
     (* Log.app (fun k -> k "@[%a@]@." State.pp_state state.current); *)
     (* Format.printf ".%a" Format.flush (); *)
     match state.current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering -> (
-        match !current_status with
+        match state.content with
         | Waiting -> place_short state
         | Placed order -> cover_position state order)
 
