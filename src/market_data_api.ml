@@ -34,13 +34,17 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
            ]
         |> Uri.to_string
       in
-      (* Eio.traceln "%a" Headers.pp_hum headers; *)
       let rec collect_data ~endpoint ~headers acc =
+        Eio.traceln "Sending a get request";
         let resp_body_json = get ~headers ~endpoint in
         let acc = Bars.t_of_yojson resp_body_json :: acc in
         match Util.get_next_page_token resp_body_json with
         | Some npt ->
-            let headers = Headers.replace headers "page_token" npt in
+            let endpoint =
+              Uri.of_string endpoint |> fun u ->
+              Uri.remove_query_param u "page_token" |> fun u ->
+              Uri.add_query_param' u ("page_token", npt) |> Uri.to_string
+            in
             collect_data ~endpoint ~headers acc
         | None -> acc
       in
