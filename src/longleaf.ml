@@ -57,7 +57,9 @@ module DoubleTopRun (Mutex : Backend.MUTEX) = struct
               "LLY";
             ]
         end)
-        (Ticker.Make(struct let time = 60.0 end))
+        (Ticker.Make (struct
+          let time = 60.0
+        end))
     in
     let module Backend = Alpaca in
     (* let module Backend = Backtesting in *)
