@@ -103,10 +103,11 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
 
     let close_all_positions (cancel_orders : bool) =
       let cancel_orders = if cancel_orders then "true" else "false" in
-      let endpoint = "/v2/positions" in
-      let headers =
-        headers () |> fun h -> Headers.add h "cancel_orders" cancel_orders
+      let endpoint =
+        Uri.of_string "/v2/positions" |> fun u ->
+        Uri.add_query_param' u ("cancel_orders", cancel_orders) |> Uri.to_string
       in
+      let headers = headers () in
       delete ~headers ~endpoint
   end
 
