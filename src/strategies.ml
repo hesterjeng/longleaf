@@ -8,12 +8,14 @@ module State = struct
   type state = [ nonlogical_state | logical_state ]
   [@@deriving show { with_path = false }]
 
-  type 'a t = { current : state; content : 'a }
+  type 'a t = { current : state; bars : Trading_types.Bars.t; content : 'a }
   type ('a, 'b) status = Running of 'a t | Shutdown of 'b
 
   let continue x = Running x
   let shutdown x = Shutdown x
-  let init () = { current = `Initialize; content = Trading_types.Bars.empty }
+
+  let init () =
+    { current = `Initialize; bars = Trading_types.Bars.empty; content = () }
 end
 
 module type S = sig
@@ -76,7 +78,7 @@ module Strategy_utils (Backend : Backend.S) = struct
   let output_data (state : _ State.t) =
     let backtest = if Backend.is_backtest then "test" else "live" in
     let json =
-      Trading_types.Bars.yojson_of_t state.content |> Yojson.Safe.to_string
+      Trading_types.Bars.yojson_of_t state.bars |> Yojson.Safe.to_string
     in
     let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
     let filename = Format.sprintf "data/%s_%s" backtest tail in
@@ -151,9 +153,9 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
             let _json_resp = Backend.create_order order in
             ()
         in
-        let new_bars = Bars.combine [ latest_bars; state.content ] in
+        let new_bars = Bars.combine [ latest_bars; state.bars ] in
         Result.return
-        @@ State.continue { current = `Listening; content = new_bars }
+        @@ State.continue { state with current = `Listening; bars = new_bars }
 
   let run = SU.run step
 end
