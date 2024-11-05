@@ -60,10 +60,14 @@ module Strategy_utils (Backend : Backend.S) = struct
       | Ok x -> go x
       | Error s -> (
           let try_liquidating () =
+            Eio.traceln
+              "@[Trying to liquidate because of an error occurred: %s@]@." s;
             let liquidate = { prev with State.current = `Liquidate } in
             go liquidate
           in
-          match prev.current with `Liquidate -> s | _ -> try_liquidating ())
+          match prev.current with
+          | `Liquidate | `Finished _ -> s
+          | _ -> try_liquidating ())
     in
     go init_state
 
@@ -95,7 +99,7 @@ module Strategy_utils (Backend : Backend.S) = struct
     | `Liquidate ->
         Backend.liquidate ();
         Result.return
-        @@ { state with current = `Finished "Successfully liquidated" }
+        @@ { state with current = `Finished "Liquidation finished" }
     | `Finished code ->
         output_data state;
         Result.fail code
