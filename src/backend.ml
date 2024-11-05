@@ -195,7 +195,9 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
 
   (* let shutdown = *)
   let shutdown () =
-    Eio.traceln "Alpaca backend shutdown NYI";
+    Eio.traceln "Alpaca backend shutdown";
+    Piaf.Client.shutdown trading_client;
+    Piaf.Client.shutdown data_client;
     ()
 
   let symbols = Input.symbols
