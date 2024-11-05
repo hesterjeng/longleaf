@@ -104,6 +104,7 @@ module Make (Alpaca : Util.CLIENT) = struct
         Uri.of_string "/v2/positions" |> fun u ->
         Uri.add_query_param' u ("cancel_orders", cancel_orders) |> Uri.to_string
       in
+      let headers = headers () in
       delete ~headers ~endpoint
   end
 
