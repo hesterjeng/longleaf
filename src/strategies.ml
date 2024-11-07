@@ -61,7 +61,7 @@ module Strategy_utils (Backend : Backend.S) = struct
       | Error s -> (
           let try_liquidating () =
             Eio.traceln
-              "@[Trying to liquidate because of an error occurred: %s@]@." s;
+              "@[Trying to liquidate because of a signal or error: %s@]@." s;
             let liquidate = { prev with State.current = `Liquidate } in
             go liquidate
           in
