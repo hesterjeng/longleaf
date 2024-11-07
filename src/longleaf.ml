@@ -87,5 +87,5 @@ let top eio_env =
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Gui.top ~set_mutex eio_env
   in
-  let _ = Eio.Fiber.first run_strategy run_server in
+  let _ = Eio.Fiber.both run_strategy run_server in
   ()
