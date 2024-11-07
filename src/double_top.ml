@@ -175,6 +175,16 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
                 trigger.timestamp);
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           let _ = Backend.create_order order in
+          let stop_loss : Order.t =
+            {
+              order with
+              side = Buy;
+              tif = TimeInForce.GoodTillCanceled;
+              order_type = OrderType.StopLimit;
+              price = 1.03 *. order.price;
+            }
+          in
+          let _ = Backend.create_order stop_loss in
           Placed (0, order)
     in
     let new_bars = Bars.combine [ latest; state.bars ] in

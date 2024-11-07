@@ -74,7 +74,7 @@ let top ~set_mutex env =
   (* setup_log (Some Info); *)
   Switch.run (fun sw ->
       let openai_response =
-        Llm.OpenAI.chat ~sw ~env "What is your favorite color?"
+        Llm.Anthropic.chat ~sw ~env "What is your favorite color?"
       in
       Eio.traceln "@[OpenAI response:@]@.@[%a@]@." Yojson.Safe.pp
         openai_response;
