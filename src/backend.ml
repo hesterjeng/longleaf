@@ -105,7 +105,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     match latest with
     | Some x ->
         Result.return Bars.{ bars = x; next_page_token = None; currency = None }
-    | None -> Error "No latest bars in backtest?"
+    | None -> Error "Backtest complete.  There is no data remaining."
 
   let last_data_bar =
     Some
@@ -147,6 +147,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
                   price = (Bars.price final_bar symbol).close;
                 }
               in
+              Eio.traceln "@[%a@]@." Order.pp order;
               let _json_resp = create_order order in
               ())
           position
@@ -249,6 +250,7 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
                   price = (Bars.price last_data_bar symbol).close;
                 }
               in
+              Eio.traceln "%a" Order.pp order;
               let _json_resp = create_order order in
               ())
           position

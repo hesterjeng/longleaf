@@ -76,6 +76,39 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let upper_now_band = 1.001
   let max_holding_period = 10
 
+  module Conditions = struct
+    open Option.Infix
+
+    let check1 ~price_history (current_max : Bar_item.t) =
+      let* _ =
+        List.find_opt
+          (fun (x : Bar_item.t) ->
+            x.close <. min_dip *. current_max.close
+            && Ptime.compare current_max.timestamp x.timestamp = 1)
+          price_history
+      in
+      Some current_max
+
+    let check2 ~minima ~(most_recent_price : Bar_item.t)
+        (current_max : Bar_item.t) =
+      let* _ =
+        List.find_opt
+          (fun (x : Bar_item.t) ->
+            x.close <. min_dip *. current_max.close
+            && Ptime.compare x.timestamp current_max.timestamp = 1
+            && Ptime.compare most_recent_price.timestamp x.timestamp = 1)
+          minima
+      in
+      Some current_max
+
+    let check3 ~(most_recent_price : Bar_item.t) (current_max : Bar_item.t) =
+      let current_price = most_recent_price.close in
+      let lower = lower_now_band *. current_max.close in
+      let upper = upper_now_band *. current_max.close in
+      if lower <. current_price && current_price <. upper then Some current_max
+      else None
+  end
+
   let consider_shorting ~history ~now ~(qty : string -> int) symbol :
       (Order.t * Bar_item.t) option =
     (* 1) There must be a point less than 80% of the critical point before the first max *)
@@ -86,40 +119,21 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let most_recent_price = Bars.price now symbol in
     let minima = Math.find_local_minima 10 price_history in
     let maxima = Math.find_local_maxima 10 price_history in
-    let check1 (current_max : Bar_item.t) =
-      let* _ =
-        List.find_opt
-          (fun (x : Bar_item.t) ->
-            x.close <. min_dip *. current_max.close
-            && Ptime.compare current_max.timestamp x.timestamp = 1)
-          price_history
-      in
-      Some current_max
-    in
-    let check2 (current_max : Bar_item.t) =
-      let* _ =
-        List.find_opt
-          (fun (x : Bar_item.t) ->
-            x.close <. min_dip *. current_max.close
-            && Ptime.compare x.timestamp current_max.timestamp = 1
-            && Ptime.compare most_recent_price.timestamp x.timestamp = 1)
-          minima
-      in
-      Some current_max
-    in
-    let check3 (current_max : Bar_item.t) =
-      let current_price = most_recent_price.close in
-      let lower = lower_now_band *. current_max.close in
-      let upper = upper_now_band *. current_max.close in
-      if lower <. current_price && current_price <. upper then Some current_max
-      else None
-    in
     let candidates =
-      List.filter_map check1 maxima
-      |> List.filter_map check2 |> List.filter_map check3
+      List.filter_map
+        (fun current_max -> Conditions.check1 ~price_history current_max)
+        maxima
+      |> List.filter_map (fun can ->
+             Conditions.check2 ~most_recent_price ~minima can)
+      |> List.filter_map (fun can -> Conditions.check3 ~most_recent_price can)
     in
-    match candidates with
-    | [ previous_maximum ] ->
+    let seed = Unix.time () |> fun t -> [| Int.of_float t |] in
+    let st = Random.State.make seed (* Random.State.make_self_init () in *) in
+    let rand =
+      try Option.return @@ List.random_choose candidates st with _ -> None
+    in
+    match rand with
+    | Some previous_maximum ->
         let order : Order.t =
           {
             symbol;
