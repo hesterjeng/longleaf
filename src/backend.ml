@@ -65,6 +65,39 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   let get_position () = position
   let shutdown () = ()
 
+  module OrderQueue = struct
+    let queue : Order.t list ref = ref []
+    let add x = queue := [ x ]
+
+    let work latest_bars =
+      let res =
+        List.filter_map
+          (fun (order : Order.t) ->
+            let symbol = order.symbol in
+            let price = order.price in
+            let current_price = Bars.price latest_bars symbol in
+            match (order.side, order.order_type) with
+            | Buy, StopLimit ->
+                Eio.traceln
+                  "Executing a Buy StopLimit order because it has been \
+                   triggered";
+                let current_amt =
+                  Hashtbl.get position symbol |> Option.get_or ~default:0
+                in
+                if current_price.close >. price then (
+                  Hashtbl.replace position symbol (current_amt + order.qty);
+                  cash :=
+                    !cash -. (current_price.close *. Float.of_int order.qty);
+                  None)
+                else Some order
+            | Sell, StopLimit ->
+                invalid_arg "Can't do sell stoplimit orders yet"
+            | _, _ -> invalid_arg "Don't know how to handle this order in queue")
+          !queue
+      in
+      queue := res
+  end
+
   let create_order (x : Order.t) : Yojson.Safe.t =
     let symbol = x.symbol in
     let current_amt = Hashtbl.get position symbol |> Option.get_or ~default:0 in
@@ -78,7 +111,13 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
         Hashtbl.replace position symbol (current_amt - qty);
         cash := !cash +. (x.price *. Float.of_int qty);
         `Null
-    | _, _ -> invalid_arg "Backtesting can't handle this yet."
+    | Buy, StopLimit ->
+        OrderQueue.add x;
+        `Null
+    | side, order_type ->
+        invalid_arg
+        @@ Format.asprintf "@[Backtesting can't handle this yet. %a %a@]@."
+             Side.pp side OrderType.pp order_type
 
   let data_remaining = ref Input.bars.bars
 
@@ -104,7 +143,9 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     data_remaining := rest;
     match latest with
     | Some x ->
-        Result.return Bars.{ bars = x; next_page_token = None; currency = None }
+        let res = Bars.{ bars = x; next_page_token = None; currency = None } in
+        OrderQueue.work res;
+        Result.return res
     | None -> Error "Backtest complete.  There is no data remaining."
 
   let last_data_bar =
@@ -211,6 +252,7 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
   let last_data_bar = None
 
   let latest_bars symbols =
+    let _ = Backtesting.latest_bars symbols in
     let res = Market_data_api.Stock.latest_bars symbols in
     Ok res
 
