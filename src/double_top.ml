@@ -74,6 +74,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let min_dip = 0.99
   let lower_now_band = 0.999
   let upper_now_band = 1.001
+  let stop_loss_multiplier = 1.03
   let max_holding_period = 10
 
   module Conditions = struct
@@ -172,21 +173,23 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
                 trigger.timestamp);
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           let _ = Backend.create_order order in
-          let stop_loss : Order.t =
-            {
-              order with
-              side = Buy;
-              tif = TimeInForce.GoodTillCanceled;
-              order_type = OrderType.StopLimit;
-              price = 1.03 *. order.price;
-            }
-          in
-          let _ = Backend.create_order stop_loss in
+          (* let stop_loss : Order.t = *)
+          (*   { *)
+          (*     order with *)
+          (*     side = Buy; *)
+          (*     tif = TimeInForce.GoodTillCanceled; *)
+          (*     order_type = OrderType.StopLimit; *)
+          (*     price = 1.03 *. order.price; *)
+          (*   } *)
+          (* in *)
+          (* let _ = Backend.create_order stop_loss in *)
           Placed (0, order)
     in
     let new_bars = Bars.combine [ latest_bars; state.bars ] in
     Result.return
     @@ { State.current = `Listening; bars = new_bars; content = new_status }
+
+  type cover_reason = Profited | HoldingPeriod | StopLoss | None
 
   let cover_position bars ~latest_bars time_held (order : Order.t) =
     let now = (Bars.price latest_bars (List.hd Backend.symbols)).timestamp in
@@ -194,9 +197,16 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let current_price = (Bars.price latest_bars order.symbol).close in
       let cover_order = { order with side = Side.Buy; price = current_price } in
       let target_price = min_dip *. order.price in
-      if current_price <. target_price || time_held > max_holding_period then
-        Some cover_order
-      else None
+      let cover_reason =
+        if current_price <. target_price then Profited
+        else if time_held > max_holding_period then HoldingPeriod
+        else if current_price >. stop_loss_multiplier *. order.price then
+          StopLoss
+        else None
+      in
+      match cover_reason with
+      | Profited | HoldingPeriod | StopLoss -> Some cover_order
+      | None -> None
     in
     let new_status =
       match cover_order with
