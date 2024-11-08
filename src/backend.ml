@@ -65,44 +65,44 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   let get_position () = position
   let shutdown () = ()
 
-  module OrderQueue = struct
-    let queue : Order.t list ref = ref []
-    let add x = queue := [ x ]
+  (* module OrderQueue = struct *)
+  (*   let queue : Order.t list ref = ref [] *)
+  (*   let add x = queue := [ x ] *)
 
-    let work latest_bars =
-      Eio.traceln "@[Remaining in queue: %d@]@.@[%a@]@." (List.length !queue)
-        (List.pp Order.pp) !queue;
-      let res =
-        List.filter_map
-          (fun (order : Order.t) ->
-            let symbol = order.symbol in
-            let price = order.price in
-            let current_price = Bars.price latest_bars symbol in
-            match (order.side, order.order_type) with
-            | Buy, StopLimit ->
-                Eio.traceln
-                  "@[StopLimit orders execution is probably really buggy!! \
-                   Warning!!!@]@.";
-                let current_amt =
-                  Hashtbl.get position symbol |> Option.get_or ~default:0
-                in
-                if current_price.close >. price then (
-                  Eio.traceln
-                    "Executing a Buy StopLimit order because it has been \
-                     triggered";
-                  Hashtbl.replace position symbol (current_amt + order.qty);
-                  cash :=
-                    !cash -. (current_price.close *. Float.of_int order.qty);
-                  None)
-                else Some order
-            | Sell, StopLimit ->
-                invalid_arg "Can't do sell stoplimit orders yet"
-            | _, _ -> invalid_arg "Don't know how to handle this order in queue")
-          !queue
-      in
-      Eio.traceln "@[Reminaing after work: %d@]@." (List.length res);
-      queue := res
-  end
+  (*   let work latest_bars = *)
+  (*     Eio.traceln "@[Remaining in queue: %d@]@.@[%a@]@." (List.length !queue) *)
+  (*       (List.pp Order.pp) !queue; *)
+  (*     let res = *)
+  (*       List.filter_map *)
+  (*         (fun (order : Order.t) -> *)
+  (*           let symbol = order.symbol in *)
+  (*           let price = order.price in *)
+  (*           let current_price = Bars.price latest_bars symbol in *)
+  (*           match (order.side, order.order_type) with *)
+  (*           | Buy, StopLimit -> *)
+  (*               Eio.traceln *)
+  (* "@[StopLimit orders execution is probably really buggy!! \ *)
+     (*                  Warning!!!@]@."; *)
+  (*               let current_amt = *)
+  (*                 Hashtbl.get position symbol |> Option.get_or ~default:0 *)
+  (*               in *)
+  (*               if current_price.close >. price then ( *)
+  (*                 Eio.traceln *)
+  (* "Executing a Buy StopLimit order because it has been \ *)
+     (*                    triggered"; *)
+  (*                 Hashtbl.replace position symbol (current_amt + order.qty); *)
+  (*                 cash := *)
+  (*                   !cash -. (current_price.close *. Float.of_int order.qty); *)
+  (*                 None) *)
+  (*               else Some order *)
+  (*           | Sell, StopLimit -> *)
+  (*               invalid_arg "Can't do sell stoplimit orders yet" *)
+  (*           | _, _ -> invalid_arg "Don't know how to handle this order in queue") *)
+  (*         !queue *)
+  (*     in *)
+  (*     Eio.traceln "@[Reminaing after work: %d@]@." (List.length res); *)
+  (*     queue := res *)
+  (* end *)
 
   let create_order (x : Order.t) : Yojson.Safe.t =
     let symbol = x.symbol in
@@ -117,9 +117,8 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
         Hashtbl.replace position symbol (current_amt - qty);
         cash := !cash +. (x.price *. Float.of_int qty);
         `Null
-    | Buy, StopLimit ->
-        OrderQueue.add x;
-        `Null
+    (* | Buy, StopLimit -> *)
+    (*     `Null *)
     | side, order_type ->
         invalid_arg
         @@ Format.asprintf "@[Backtesting can't handle this yet. %a %a@]@."
@@ -150,7 +149,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     match latest with
     | Some x ->
         let res = Bars.{ bars = x; next_page_token = None; currency = None } in
-        OrderQueue.work res;
+        (* OrderQueue.work res; *)
         Result.return res
     | None -> Error "Backtest complete.  There is no data remaining."
 
