@@ -147,22 +147,19 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         Some (order, previous_maximum)
     | _ -> None
 
-  let place_short (state : state) =
-    let open Result.Infix in
-    let* latest = Backend.latest_bars Backend.symbols in
-    (* Eio.traceln "@[Latest bars:@]@.@[%a@]@." Bars.pp latest; *)
-    let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
+  let place_short ~latest_bars (state : state) =
+    let now = (Bars.price latest_bars (List.hd Backend.symbols)).timestamp in
     let cash_available = Backend.get_cash () in
     let qty symbol =
       match cash_available >=. 0.0 with
       | true ->
           let tenp = cash_available *. 0.5 in
-          let max_amt = tenp /. (Bars.price latest symbol).close in
+          let max_amt = tenp /. (Bars.price latest_bars symbol).close in
           if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
       | false -> 0
     in
     let short_opt =
-      consider_shorting ~history:state.bars.bars ~now:latest ~qty
+      consider_shorting ~history:state.bars.bars ~now:latest_bars ~qty
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
@@ -187,16 +184,14 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           let _ = Backend.create_order stop_loss in
           Placed (0, order)
     in
-    let new_bars = Bars.combine [ latest; state.bars ] in
+    let new_bars = Bars.combine [ latest_bars; state.bars ] in
     Result.return
     @@ { State.current = `Listening; bars = new_bars; content = new_status }
 
-  let cover_position bars time_held (order : Order.t) =
-    let open Result.Infix in
-    let* latest = Backend.latest_bars Backend.symbols in
-    let now = (Bars.price latest (List.hd Backend.symbols)).timestamp in
+  let cover_position bars ~latest_bars time_held (order : Order.t) =
+    let now = (Bars.price latest_bars (List.hd Backend.symbols)).timestamp in
     let cover_order =
-      let current_price = (Bars.price latest order.symbol).close in
+      let current_price = (Bars.price latest_bars order.symbol).close in
       let cover_order = { order with side = Side.Buy; price = current_price } in
       let target_price = min_dip *. order.price in
       if current_price <. target_price || time_held > max_holding_period then
@@ -211,7 +206,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           let _ = Backend.create_order order in
           Waiting
     in
-    let new_bars = Bars.combine [ latest; bars ] in
+    let new_bars = Bars.combine [ latest_bars; bars ] in
     Result.return
     @@ { State.current = `Listening; bars = new_bars; content = new_status }
 
@@ -220,10 +215,12 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering -> (
+        let open Result.Infix in
+        let* latest_bars = Backend.latest_bars Backend.symbols in
         match state.content with
-        | Waiting -> place_short state
-        | Placed (time_held, order) -> cover_position state.bars time_held order
-        )
+        | Waiting -> place_short ~latest_bars state
+        | Placed (time_held, order) ->
+            cover_position ~latest_bars state.bars time_held order)
 
   let run () = SU.run ~init_state step
 end
