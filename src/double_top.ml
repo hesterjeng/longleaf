@@ -74,8 +74,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let min_dip = 0.99
   let lower_now_band = 0.999
   let upper_now_band = 1.001
-  let stop_loss_multiplier = 1.03
-  let max_holding_period = 10
+  let stop_loss_multiplier = 1.01
+  let max_holding_period = 24
 
   module Conditions = struct
     open Option.Infix
@@ -190,6 +190,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     @@ { State.current = `Listening; bars = new_bars; content = new_status }
 
   type cover_reason = Profited | HoldingPeriod | StopLoss | None
+  [@@deriving show { with_path = false }]
 
   let cover_position bars ~latest_bars time_held (order : Order.t) =
     let now = (Bars.price latest_bars (List.hd Backend.symbols)).timestamp in
@@ -205,7 +206,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         else None
       in
       match cover_reason with
-      | Profited | HoldingPeriod | StopLoss -> Some cover_order
+      | Profited | HoldingPeriod | StopLoss ->
+          Eio.traceln "Covering because of %a" pp_cover_reason cover_reason;
+          Some cover_order
       | None -> None
     in
     let new_status =
