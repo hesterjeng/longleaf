@@ -70,6 +70,8 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     let add x = queue := [ x ]
 
     let work latest_bars =
+      Eio.traceln "@[Remaining in queue: %d@]@.@[%a@]@." (List.length !queue)
+        (List.pp Order.pp) !queue;
       let res =
         List.filter_map
           (fun (order : Order.t) ->
@@ -79,12 +81,15 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
             match (order.side, order.order_type) with
             | Buy, StopLimit ->
                 Eio.traceln
-                  "Executing a Buy StopLimit order because it has been \
-                   triggered";
+                  "@[StopLimit orders execution is probably really buggy!! \
+                   Warning!!!@]@.";
                 let current_amt =
                   Hashtbl.get position symbol |> Option.get_or ~default:0
                 in
                 if current_price.close >. price then (
+                  Eio.traceln
+                    "Executing a Buy StopLimit order because it has been \
+                     triggered";
                   Hashtbl.replace position symbol (current_amt + order.qty);
                   cash :=
                     !cash -. (current_price.close *. Float.of_int order.qty);
@@ -95,6 +100,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
             | _, _ -> invalid_arg "Don't know how to handle this order in queue")
           !queue
       in
+      Eio.traceln "@[Reminaing after work: %d@]@." (List.length res);
       queue := res
   end
 
