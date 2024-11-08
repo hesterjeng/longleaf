@@ -75,6 +75,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let lower_now_band = 0.999
   let upper_now_band = 1.001
   let stop_loss_multiplier = 1.01
+  let profit_multiplier = 1.0
   let max_holding_period = 24
 
   module Conditions = struct
@@ -108,6 +109,11 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let upper = upper_now_band *. current_max.close in
       if lower <. current_price && current_price <. upper then Some current_max
       else None
+
+    let check4 ~(most_recent_price : Bar_item.t) (current_max : Bar_item.t) =
+      let prev_volume = current_max.volume in
+      let most_recent_volume = most_recent_price.volume in
+      if prev_volume > most_recent_volume then Some current_max else None
   end
 
   let consider_shorting ~history ~now ~(qty : string -> int) symbol :
@@ -127,6 +133,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       |> List.filter_map (fun can ->
              Conditions.check2 ~most_recent_price ~minima can)
       |> List.filter_map (fun can -> Conditions.check3 ~most_recent_price can)
+      |> List.filter_map (fun can -> Conditions.check4 ~most_recent_price can)
     in
     let seed = Unix.time () |> fun t -> [| Int.of_float t |] in
     let st = Random.State.make seed (* Random.State.make_self_init () in *) in
@@ -199,7 +206,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let cover_order = { order with side = Side.Buy; price = current_price } in
       let target_price = min_dip *. order.price in
       let cover_reason =
-        if current_price <. target_price then Profited
+        if current_price <. profit_multiplier *. target_price then Profited
         else if time_held > max_holding_period then HoldingPeriod
         else if current_price >. stop_loss_multiplier *. order.price then
           StopLoss
