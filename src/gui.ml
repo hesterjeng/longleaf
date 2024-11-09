@@ -1,5 +1,10 @@
 module Html = struct
-  let plotly_graph_html () =
+  let plotly_graph_html plot_data =
+    let json_data = Yojson.Safe.to_string plot_data in
+    let plotly_html = Template.render json_data in
+    plotly_html
+
+  let plotly_graph_html_default () =
     let plot_data =
       `Assoc
         [
@@ -23,10 +28,7 @@ module Html = struct
               ] );
         ]
     in
-
-    let json_data = Yojson.Basic.to_string plot_data in
-    let plotly_html = Template.render json_data in
-    plotly_html
+    plotly_graph_html plot_data
 end
 
 open Piaf
@@ -37,15 +39,15 @@ let prom, resolver = Promise.create ()
 let connection_handler ~set_mutex (params : Request_info.t Server.ctx) =
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
-      let html = Html.plotly_graph_html () in
+      let html = Html.plotly_graph_html_default () in
       Response.of_string ~body:html `OK
   | { Request.meth = `GET; target = "/shutdown"; _ } ->
       Promise.resolve resolver true;
       set_mutex ();
       Response.of_string ~body:"Shutdown command sent" `OK
-  | { Request.meth = `GET; _ } ->
-      let html = Html.plotly_graph_html () in
-      Response.of_string ~body:html `OK
+  (* | { Request.meth = `GET; _ } -> *)
+  (*     let html = Html.plotly_graph_html () in *)
+  (*     Response.of_string ~body:html `OK *)
   | _ ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Method_not_allowed ~body:""
