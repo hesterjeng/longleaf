@@ -124,7 +124,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
         @@ Format.asprintf "@[Backtesting can't handle this yet. %a %a@]@."
              Side.pp side OrderType.pp order_type
 
-  let data_remaining = ref Input.bars.bars
+  let data_remaining = ref Input.bars.data
 
   let latest_bars _ =
     let bars = !data_remaining in
@@ -147,8 +147,8 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
     in
     data_remaining := rest;
     match latest with
-    | Some x ->
-        let res = Bars.{ bars = x; next_page_token = None; currency = None } in
+    | Some data ->
+        let res = Bars.{ data; next_page_token = None; currency = None } in
         (* OrderQueue.work res; *)
         Result.return res
     | None -> Error "Backtest complete.  There is no data remaining."
@@ -156,13 +156,13 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   let last_data_bar =
     Some
       {
-        Bars.bars =
+        Bars.data =
           List.Assoc.map_values
             (fun bar_item_list ->
               match List.last_opt bar_item_list with
               | Some z -> [ z ]
               | None -> invalid_arg "Empty dataset")
-            Input.bars.bars;
+            Input.bars.data;
         currency = None;
         next_page_token = None;
       }
