@@ -23,8 +23,6 @@ let some_symbols =
   ]
 
 module Downloader = struct
-  module Bars = Longleaf.Trading_types.Bars
-
   let data_client switch eio_env (longleaf_env : Longleaf.Environment.t) =
     let res =
       Piaf.Client.create ~sw:switch eio_env longleaf_env.apca_api_data_url

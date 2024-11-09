@@ -1,4 +1,4 @@
-open Trading_types.Bars
+open Bars
 
 let accumulation_distribution_line (l : Bar_item.t list) =
   let _, res =
