@@ -29,8 +29,8 @@ module type S = sig
   val symbols : string list
   val shutdown : unit -> unit
   val create_order : Trading_types.Order.t -> Yojson.Safe.t
-  val latest_bars : string list -> (Trading_types.Bars.t, string) result
-  val last_data_bar : Trading_types.Bars.t option
+  val latest_bars : string list -> (Bars.t, string) result
+  val last_data_bar : Bars.t option
   val liquidate : unit -> unit
 end
 
@@ -38,7 +38,7 @@ module type BACKEND_INPUT = sig
   val switch : Eio.Switch.t
   val longleaf_env : Environment.t
   val eio_env : Eio_unix.Stdenv.base
-  val bars : Trading_types.Bars.t
+  val bars : Bars.t
   val symbols : string list
 
   module Mutex : MUTEX
@@ -156,7 +156,7 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
   let last_data_bar =
     Some
       {
-        Trading_types.Bars.bars =
+        Bars.bars =
           List.Assoc.map_values
             (fun bar_item_list ->
               match List.last_opt bar_item_list with

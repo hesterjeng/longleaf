@@ -1,5 +1,5 @@
 module Math = struct
-  module Bar_item = Trading_types.Bars.Bar_item
+  module Bar_item = Bars.Bar_item
   open Option.Infix
 
   type critical_point = Min of float | Max of float
@@ -65,7 +65,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let init_state =
     {
       State.current = `Initialize;
-      bars = Trading_types.Bars.empty;
+      bars = Bars.empty;
       content = DT_Status.Waiting;
     }
 
