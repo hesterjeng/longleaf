@@ -96,6 +96,29 @@ module Plotly = struct
             "Cannot create plotly diagram, unable to find datapoints for ticker"
       | Some data -> data
     in
-    let x_axis = List.map (fun x -> x.timestamp) data in
-    `Assoc []
+    let x_axis =
+      List.map (fun x -> `String (x.timestamp |> Time.to_string)) data
+    in
+    let y_axis = List.map (fun x -> `Float x.close) data in
+    `Assoc
+      [
+        ( "data",
+          `List
+            [
+              `Assoc
+                [
+                  ("x", `List x_axis);
+                  ("y", `List y_axis);
+                  ("mode", `String "lines+markers");
+                  ("name", `String symbol);
+                ];
+            ] );
+        ( "layout",
+          `Assoc
+            [
+              ("title", `String "Sample Plotly Graph");
+              ("xaxis", `Assoc [ ("title", `String "X Axis") ]);
+              ("yaxis", `Assoc [ ("title", `String "Y Axis") ]);
+            ] );
+      ]
 end
