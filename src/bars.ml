@@ -41,39 +41,39 @@ module Data = struct
 end
 
 type t = {
-  bars : Data.t;
+  data : Data.t;
   next_page_token : string option; [@default None]
   currency : string option; [@default None]
 }
 [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
-let empty : t = { bars = Data.empty; next_page_token = None; currency = None }
-let tickers (x : t) = List.map fst x.bars
+let empty : t = { data = Data.empty; next_page_token = None; currency = None }
+let tickers (x : t) = List.map fst x.data
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
   let keys =
-    List.flat_map (fun x -> List.Assoc.keys x.bars) l
+    List.flat_map (fun x -> List.Assoc.keys x.data) l
     |> List.uniq ~eq:String.equal
   in
   let get_data key =
     let data =
       List.flat_map
         (fun (x : t) ->
-          match List.Assoc.get ~eq:String.equal key x.bars with
+          match List.Assoc.get ~eq:String.equal key x.data with
           | Some found -> found
           | None -> [])
         l
     in
     List.sort Bar_item.compare data
   in
-  let bars = List.map (fun key -> (key, get_data key)) keys in
-  { bars; next_page_token = None; currency = None }
+  let data = List.map (fun key -> (key, get_data key)) keys in
+  { data; next_page_token = None; currency = None }
 
 let get bars ticker = List.Assoc.get ~eq:String.equal ticker bars
 
 let price x ticker =
-  let bars = x.bars in
+  let bars = x.data in
   match List.Assoc.get ~eq:String.equal ticker bars with
   | Some [ info ] -> info
   | Some _ -> invalid_arg "Multiple bar items on latest bar?"

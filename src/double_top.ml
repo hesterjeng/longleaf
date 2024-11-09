@@ -167,7 +167,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       | false -> 0
     in
     let short_opt =
-      consider_shorting ~history:state.bars.bars ~now:latest_bars ~qty
+      consider_shorting ~history:state.bars.data ~now:latest_bars ~qty
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
