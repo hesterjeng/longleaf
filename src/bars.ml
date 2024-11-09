@@ -47,6 +47,8 @@ type t = {
 }
 [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
+type bars = t [@@deriving show { with_path = false }, yojson]
+
 let empty : t = { data = Data.empty; next_page_token = None; currency = None }
 let tickers (x : t) = List.map fst x.data
 
@@ -70,7 +72,7 @@ let combine (l : t list) : t =
   let data = List.map (fun key -> (key, get_data key)) keys in
   { data; next_page_token = None; currency = None }
 
-let get bars ticker = List.Assoc.get ~eq:String.equal ticker bars
+let get (bars : t) ticker = List.Assoc.get ~eq:String.equal ticker bars.data
 
 let price x ticker =
   let bars = x.data in
@@ -80,3 +82,20 @@ let price x ticker =
   | None ->
       invalid_arg
       @@ Format.asprintf "Unable to get price info for ticker %s" ticker
+
+module Plotly = struct
+  open Bar_item
+
+  type t = Yojson.Safe.t
+
+  let of_bars (x : bars) (symbol : string) : t =
+    let data =
+      match get x symbol with
+      | None ->
+          invalid_arg
+            "Cannot create plotly diagram, unable to find datapoints for ticker"
+      | Some data -> data
+    in
+    let x_axis = List.map (fun x -> x.timestamp) data in
+    `Assoc []
+end

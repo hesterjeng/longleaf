@@ -116,7 +116,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       if prev_volume > most_recent_volume then Some current_max else None
   end
 
-  let consider_shorting ~history ~now ~(qty : string -> int) symbol :
+  let consider_shorting ~(history : Bars.t) ~now ~(qty : string -> int) symbol :
       (Order.t * Bar_item.t) option =
     (* 1) There must be a point less than 80% of the critical point before the first max *)
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
@@ -167,7 +167,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       | false -> 0
     in
     let short_opt =
-      consider_shorting ~history:state.bars.data ~now:latest_bars ~qty
+      consider_shorting ~history:state.bars ~now:latest_bars ~qty
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
