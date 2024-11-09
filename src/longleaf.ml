@@ -7,6 +7,7 @@ module Market_data_api = Market_data_api
 module Ticker = Ticker
 module Time = Time
 module Lots_of_words = Lots_of_words
+module Bars = Bars
 
 module DoubleTopRun (Mutex : Backend.MUTEX) = struct
   let top ~eio_env ~longleaf_env =
@@ -24,16 +25,16 @@ module DoubleTopRun (Mutex : Backend.MUTEX) = struct
       let bars =
         (* Yojson.Safe.from_file "data/test_hexahydroxy_propagation" *)
         Yojson.Safe.from_file "data/download_forcing_Dardistan"
-        |> Trading_types.Bars.t_of_yojson
+        |> Bars.t_of_yojson
 
-      let symbols = Trading_types.Bars.tickers bars
+      let symbols = Bars.tickers bars
     end) in
     let module Alpaca =
       Backend.Alpaca
         (struct
           include Common_eio_stuff
 
-          let bars = Trading_types.Bars.empty
+          let bars = Bars.empty
 
           let symbols =
             [

@@ -8,10 +8,9 @@ module State = struct
   type state = [ nonlogical_state | logical_state ]
   [@@deriving show { with_path = false }]
 
-  type 'a t = { current : state; bars : Trading_types.Bars.t; content : 'a }
+  type 'a t = { current : state; bars : Bars.t; content : 'a }
 
-  let init () =
-    { current = `Initialize; bars = Trading_types.Bars.empty; content = () }
+  let init () = { current = `Initialize; bars = Bars.empty; content = () }
 end
 
 module type S = sig
@@ -75,9 +74,7 @@ module Strategy_utils (Backend : Backend.S) = struct
     Eio.traceln "cash: %f" (Backend.get_cash ());
     if Backend.is_backtest then ()
     else
-      let json =
-        Trading_types.Bars.yojson_of_t state.bars |> Yojson.Safe.to_string
-      in
+      let json = Bars.yojson_of_t state.bars |> Yojson.Safe.to_string in
       let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
       let filename = Format.sprintf "data/live_%s" tail in
       let oc = open_out filename in
@@ -114,11 +111,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
   type state = unit State.t
 
   let init_state : state =
-    {
-      State.current = `Initialize;
-      bars = Trading_types.Bars.empty;
-      content = ();
-    }
+    { State.current = `Initialize; bars = Bars.empty; content = () }
 
   module SU = Strategy_utils (Backend)
 
