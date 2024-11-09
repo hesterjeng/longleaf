@@ -41,7 +41,7 @@ module Data = struct
 end
 
 type t = {
-  data : Data.t;
+  data : Data.t; [@key "bars"]
   next_page_token : string option; [@default None]
   currency : string option; [@default None]
 }
