@@ -86,9 +86,7 @@ let price x ticker =
 module Plotly = struct
   open Bar_item
 
-  type t = Yojson.Safe.t
-
-  let of_bars (x : bars) (symbol : string) : t =
+  let of_bars (x : bars) (symbol : string) : Yojson.Safe.t =
     let data =
       match get x symbol with
       | None ->
