@@ -1,19 +1,41 @@
-module type MUTEX = sig
+module type MUTEX_VAL = sig
   val set_mutex : unit -> unit
   val get_mutex : unit -> bool
 end
 
+module type MUTEX = sig
+  module Shutdown : MUTEX_VAL
+  module RunInfo : MUTEX_VAL
+end
+
 module Mutex = struct
-  type t = { mutable shutdown_signal_received : bool; mutex : Eio.Mutex.t }
+  module Make (INPUT : sig
+    type t
 
-  let t = { shutdown_signal_received = false; mutex = Eio.Mutex.create () }
+    val default : t
+  end) =
+  struct
+    type t = { mutable data : INPUT.t; mutex : Eio.Mutex.t }
 
-  let set_mutex () =
-    Eio.Mutex.use_rw ~protect:true t.mutex @@ fun () ->
-    t.shutdown_signal_received <- true
+    let t = { data = INPUT.default; mutex = Eio.Mutex.create () }
 
-  let get_mutex () =
-    Eio.Mutex.use_ro t.mutex @@ fun () -> t.shutdown_signal_received
+    let set_mutex value =
+      Eio.Mutex.use_rw ~protect:true t.mutex @@ fun () -> t.data <- value
+
+    let get_mutex () = Eio.Mutex.use_ro t.mutex @@ fun () -> t.data
+  end
+
+  module Shutdown = Make (struct
+    type t = bool
+
+    let default = false
+  end)
+
+  module RunInfo = Make (struct
+    type t = Bars.t
+
+    let default = Bars.empty
+  end)
 end
 
 module type S = sig
