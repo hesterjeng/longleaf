@@ -36,18 +36,14 @@ open Eio.Std
 
 let prom, resolver = Promise.create ()
 
-let connection_handler ~set_mutex (params : Request_info.t Server.ctx) =
+let connection_handler ~shutdown_mutex (params : Request_info.t Server.ctx) =
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
       let html = Html.plotly_graph_html_default () in
       Response.of_string ~body:html `OK
   | { Request.meth = `GET; target = "/shutdown"; _ } ->
       Promise.resolve resolver true;
-      set_mutex ();
-      Response.of_string ~body:"Shutdown command sent" `OK
-  | { Request.meth = `GET; target = "/graph"; _ } ->
-      Promise.resolve resolver true;
-      set_mutex ();
+      Parametric_mutex.set shutdown_mutex true;
       Response.of_string ~body:"Shutdown command sent" `OK
   (* | { Request.meth = `GET; _ } -> *)
   (*     let html = Html.plotly_graph_html () in *)
@@ -65,10 +61,10 @@ let run ~sw ~host ~port env handler =
   (* Server.Command.shutdown command *)
   command
 
-let start ~sw ~set_mutex env =
+let start ~sw ~shutdown_mutex env =
   let host = Eio.Net.Ipaddr.V4.loopback in
   Eio.traceln "Server listening on port 8080";
-  run ~sw ~host ~port:8080 env @@ connection_handler ~set_mutex
+  run ~sw ~host ~port:8080 env @@ connection_handler ~shutdown_mutex
 
 (* let setup_log ?style_renderer level = *)
 (*   Logs_threaded.enable (); *)
@@ -76,7 +72,7 @@ let start ~sw ~set_mutex env =
 (*   Logs.set_level ~all:true level; *)
 (*   Logs.set_reporter (Logs_fmt.reporter ()) *)
 
-let top ~set_mutex env =
+let top ~shutdown_mutex env =
   (* setup_log (Some Info); *)
   Switch.run (fun sw ->
       let openai_response =
@@ -84,7 +80,7 @@ let top ~set_mutex env =
       in
       Eio.traceln "@[OpenAI response:@]@.@[%a@]@." Yojson.Safe.pp
         openai_response;
-      let command = start ~set_mutex ~sw env in
+      let command = start ~shutdown_mutex ~sw env in
       let _ =
         let _ = Promise.await prom in
         Ticker.OneSecond.tick env;
