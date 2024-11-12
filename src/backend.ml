@@ -1,46 +1,16 @@
-module type MUTEX_VAL = sig
-  val set_mutex : unit -> unit
-  val get_mutex : unit -> bool
+module type LONGLEAF_MUTEX = sig
+  val shutdown_mutex : bool Parametric_mutex.t
+  val data_mutex : Bars.t Parametric_mutex.t
 end
 
-module type MUTEX = sig
-  module Shutdown : MUTEX_VAL
-  module RunInfo : MUTEX_VAL
-end
-
-module Mutex = struct
-  module Make (INPUT : sig
-    type t
-
-    val default : t
-  end) =
-  struct
-    type t = { mutable data : INPUT.t; mutex : Eio.Mutex.t }
-
-    let t = { data = INPUT.default; mutex = Eio.Mutex.create () }
-
-    let set_mutex value =
-      Eio.Mutex.use_rw ~protect:true t.mutex @@ fun () -> t.data <- value
-
-    let get_mutex () = Eio.Mutex.use_ro t.mutex @@ fun () -> t.data
-  end
-
-  module Shutdown = Make (struct
-    type t = bool
-
-    let default = false
-  end)
-
-  module RunInfo = Make (struct
-    type t = Bars.t
-
-    let default = Bars.empty
-  end)
+module LongleafMutex () : LONGLEAF_MUTEX = struct
+  let shutdown_mutex = Parametric_mutex.make false
+  let data_mutex = Parametric_mutex.make Bars.empty
 end
 
 module type S = sig
   module Ticker : Ticker.S
-  module Mutex : MUTEX
+  module LongleafMutex : LONGLEAF_MUTEX
 
   val get_trading_client : unit -> Piaf.Client.t
   val get_data_client : unit -> Piaf.Client.t
@@ -62,15 +32,13 @@ module type BACKEND_INPUT = sig
   val eio_env : Eio_unix.Stdenv.base
   val bars : Bars.t
   val symbols : string list
-
-  module Mutex : MUTEX
 end
 
 (* Backtesting *)
 module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
   module Ticker = Ticker.Instant
-  module Mutex = Input.Mutex
+  module LongleafMutex = LongleafMutex ()
 
   let get_trading_client _ =
     invalid_arg "Backtesting does not have a trading client"
@@ -231,7 +199,7 @@ module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
   open Trading_types
   module Ticker = Ticker
   module Backtesting = Backtesting (Input)
-  module Mutex = Backtesting.Mutex
+  module LongleafMutex = Backtesting.LongleafMutex
 
   let env = Input.eio_env
 
