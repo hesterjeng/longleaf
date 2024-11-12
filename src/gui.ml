@@ -45,6 +45,10 @@ let connection_handler ~set_mutex (params : Request_info.t Server.ctx) =
       Promise.resolve resolver true;
       set_mutex ();
       Response.of_string ~body:"Shutdown command sent" `OK
+  | { Request.meth = `GET; target = "/graph"; _ } ->
+      Promise.resolve resolver true;
+      set_mutex ();
+      Response.of_string ~body:"Shutdown command sent" `OK
   (* | { Request.meth = `GET; _ } -> *)
   (*     let html = Html.plotly_graph_html () in *)
   (*     Response.of_string ~body:html `OK *)
