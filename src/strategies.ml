@@ -42,6 +42,7 @@ module Strategy_utils (Backend : Backend.S) = struct
     Eio.Fiber.any
     @@ [
          (fun () ->
+           Parametric_mutex.set Backend.LongleafMutex.data_mutex bars;
            if market_closed Backend.is_backtest then (
              Eio.traceln "Waiting five minutes because the market is closed";
              Ticker.FiveMinute.tick Backend.env)
@@ -96,7 +97,7 @@ module Strategy_utils (Backend : Backend.S) = struct
     | `Listening -> (
         Result.return
         @@
-        match listen_tick () with
+        match listen_tick state.bars with
         | `Continue -> { state with current = `Ordering }
         | `Shutdown_signal ->
             Eio.traceln "Attempting to liquidate positions before shutting down";
