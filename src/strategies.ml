@@ -107,6 +107,7 @@ module Strategy_utils (Backend : Backend.S) = struct
         Result.return
         @@ { state with current = `Finished "Liquidation finished" }
     | `Finished code ->
+        Parametric_mutex.set Backend.LongleafMutex.data_mutex state.bars;
         output_data state;
         Result.fail code
 end
