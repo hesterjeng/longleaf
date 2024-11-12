@@ -38,7 +38,7 @@ module Strategy_utils (Backend : Backend.S) = struct
     in
     res
 
-  let listen_tick () =
+  let listen_tick bars =
     Eio.Fiber.any
     @@ [
          (fun () ->
@@ -56,6 +56,7 @@ module Strategy_utils (Backend : Backend.S) = struct
            do
              Ticker.OneSecond.tick Backend.env
            done;
+           Parametric_mutex.set Backend.LongleafMutex.data_mutex bars;
            `Shutdown_signal);
        ]
 
