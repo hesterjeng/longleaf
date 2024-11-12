@@ -19,11 +19,12 @@ let top eio_env backtesting =
   let run_strategy () =
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
-    let module Run = DoubleTopRun (struct
+    let module Context : Run.RUN_CONTEXT = struct
       let eio_env = eio_env
       let longleaf_env = longleaf_env
       let switch = switch
-    end) in
+    end in
+    let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
     Run.top backtesting
   in
   let run_server () =
