@@ -46,7 +46,12 @@ module Strategy_utils (Backend : Backend.S) = struct
            else Backend.Ticker.tick Backend.env;
            `Continue);
          (fun () ->
-           while not @@ Backend.Mutex.get_mutex () do
+           while
+             let shutdown =
+               Parametric_mutex.get Backend.LongleafMutex.shutdown_mutex
+             in
+             not shutdown
+           do
              Ticker.OneSecond.tick Backend.env
            done;
            `Shutdown_signal);
