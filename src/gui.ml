@@ -1,3 +1,8 @@
+type mutices = {
+  shutdown_mutex : bool Parametric_mutex.t;
+  data_mutex : Bars.t Parametric_mutex.t;
+}
+
 module Html = struct
   let plotly_graph_html plot_data =
     let json_data = Yojson.Safe.to_string plot_data in
@@ -36,18 +41,21 @@ open Eio.Std
 
 let prom, resolver = Promise.create ()
 
-let connection_handler ~shutdown_mutex (params : Request_info.t Server.ctx) =
+let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
+    =
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
       let html = Html.plotly_graph_html_default () in
       Response.of_string ~body:html `OK
   | { Request.meth = `GET; target = "/shutdown"; _ } ->
       Promise.resolve resolver true;
-      Parametric_mutex.set shutdown_mutex true;
+      Parametric_mutex.set mutices.shutdown_mutex true;
       Response.of_string ~body:"Shutdown command sent" `OK
-  (* | { Request.meth = `GET; _ } -> *)
-  (*     let html = Html.plotly_graph_html () in *)
-  (*     Response.of_string ~body:html `OK *)
+  | { Request.meth = `GET; target = "/graphs"; _ } ->
+      let bars = Parametric_mutex.get mutices.data_mutex in
+      Response.of_string
+        ~body:(Bars.yojson_of_t bars |> Yojson.Safe.to_string)
+        `OK
   | _ ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Method_not_allowed ~body:""
@@ -61,10 +69,10 @@ let run ~sw ~host ~port env handler =
   (* Server.Command.shutdown command *)
   command
 
-let start ~sw ~shutdown_mutex env =
+let start ~sw ~(mutices : mutices) env =
   let host = Eio.Net.Ipaddr.V4.loopback in
   Eio.traceln "Server listening on port 8080";
-  run ~sw ~host ~port:8080 env @@ connection_handler ~shutdown_mutex
+  run ~sw ~host ~port:8080 env @@ connection_handler ~mutices
 
 (* let setup_log ?style_renderer level = *)
 (*   Logs_threaded.enable (); *)
@@ -72,7 +80,7 @@ let start ~sw ~shutdown_mutex env =
 (*   Logs.set_level ~all:true level; *)
 (*   Logs.set_reporter (Logs_fmt.reporter ()) *)
 
-let top ~shutdown_mutex env =
+let top ~(mutices : mutices) env =
   (* setup_log (Some Info); *)
   Switch.run (fun sw ->
       let openai_response =
@@ -80,7 +88,7 @@ let top ~shutdown_mutex env =
       in
       Eio.traceln "@[OpenAI response:@]@.@[%a@]@." Yojson.Safe.pp
         openai_response;
-      let command = start ~shutdown_mutex ~sw env in
+      let command = start ~mutices ~sw env in
       let _ =
         let _ = Promise.await prom in
         Ticker.OneSecond.tick env;
