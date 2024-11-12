@@ -18,6 +18,8 @@ module type S = sig
   val shutdown : unit -> unit
 end
 
+module type STRAT_BUILDER = functor (_ : Backend.S) -> S
+
 module Log = (val Logs.src_log Logs.(Src.create "strategies"))
 
 module Strategy_utils (Backend : Backend.S) = struct
