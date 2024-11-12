@@ -35,10 +35,11 @@ module type BACKEND_INPUT = sig
 end
 
 (* Backtesting *)
-module Backtesting (Input : BACKEND_INPUT) : S = struct
+module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
+  S = struct
   open Trading_types
   module Ticker = Ticker.Instant
-  module LongleafMutex = LongleafMutex ()
+  module LongleafMutex = LongleafMutex
 
   let get_trading_client _ =
     invalid_arg "Backtesting does not have a trading client"
@@ -195,10 +196,13 @@ module Backtesting (Input : BACKEND_INPUT) : S = struct
 end
 
 (* Live trading *)
-module Alpaca (Input : BACKEND_INPUT) (Ticker : Ticker.S) : S = struct
+module Alpaca
+    (Input : BACKEND_INPUT)
+    (Ticker : Ticker.S)
+    (LongleafMutex : LONGLEAF_MUTEX) : S = struct
   open Trading_types
   module Ticker = Ticker
-  module Backtesting = Backtesting (Input)
+  module Backtesting = Backtesting (Input) (LongleafMutex)
   module LongleafMutex = Backtesting.LongleafMutex
 
   let env = Input.eio_env
