@@ -15,7 +15,14 @@ let top eio_env backtesting =
   CalendarLib.Time_Zone.change (UTC_Plus (-5));
   let longleaf_env = Environment.make () in
   let domain_manager = Eio.Stdenv.domain_mgr eio_env in
-  let shutdown_mutex = LongleafMutex.shutdown_mutex in
+  (* let shutdown_mutex = LongleafMutex.shutdown_mutex in *)
+  (* let data_mutex = LongleafMutex.data_mutex in *)
+  let mutices : Gui.mutices =
+    {
+      shutdown_mutex = LongleafMutex.shutdown_mutex;
+      data_mutex = LongleafMutex.data_mutex;
+    }
+  in
   let run_strategy () =
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
@@ -28,8 +35,7 @@ let top eio_env backtesting =
     Run.top backtesting
   in
   let run_server () =
-    Eio.Domain_manager.run domain_manager @@ fun () ->
-    Gui.top ~shutdown_mutex eio_env
+    Eio.Domain_manager.run domain_manager @@ fun () -> Gui.top ~mutices eio_env
   in
   let _ = Eio.Fiber.both run_strategy run_server in
   ()
