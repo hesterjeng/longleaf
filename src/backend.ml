@@ -47,8 +47,6 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let get_data_client _ =
     invalid_arg "Backtesting does not have a trading client"
 
-  module Backend_position = Backend_position.Make ()
-
   let position = Backend_position.make ()
   let env = Input.eio_env
   let symbols = Input.symbols
@@ -94,8 +92,9 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   (*     queue := res *)
   (* end *)
 
-  let create_order (x : Order.t) : Yojson.Safe.t =
-    Back
+  let create_order (order : Order.t) : Yojson.Safe.t =
+    Backend_position.execute_order position order;
+    `Null
 
   let data_remaining = ref Input.bars.data
 
@@ -141,40 +140,17 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
       }
 
   let liquidate () =
-    let position = get_position () in
-    if List.is_empty @@ Hashtbl.keys_list position then ()
-    else
-      let final_bar =
-        match last_data_bar with
-        | Some b -> b
-        | None ->
-            invalid_arg "Expected to have last data bar in backtesting backend"
-      in
-      let _ =
-        Hashtbl.map_list
-          (fun symbol qty ->
-            if qty = 0 then ()
-            else
-              let side = if qty >= 0 then Side.Sell else Side.Buy in
-              let order : Order.t =
-                {
-                  symbol;
-                  side;
-                  tif = TimeInForce.GoodTillCanceled;
-                  order_type = OrderType.Market;
-                  qty = Int.abs qty;
-                  price = (Bars.price final_bar symbol).close;
-                }
-              in
-              Eio.traceln "@[%a@]@." Order.pp order;
-              let _json_resp = create_order order in
-              ())
-          position
-      in
-      Eio.traceln "@[Position:@]@.@[%a@]@."
-        (Hashtbl.pp String.pp Int.pp)
-        position;
-      ()
+    let final_bar =
+      match last_data_bar with
+      | Some b -> b
+      | None ->
+          invalid_arg "Expected to have last data bar in backtesting backend"
+    in
+    Backend_position.liquidate position final_bar;
+    Eio.traceln "@[Position:@]@.@[%a@]@."
+      (Hashtbl.pp String.pp Int.pp)
+      position.position;
+    ()
 end
 
 (* Live trading *)
