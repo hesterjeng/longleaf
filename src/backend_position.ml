@@ -14,7 +14,7 @@ module Make () = struct
   let set_cash x amt = x.cash <- amt
   let pos = make ()
 
-  let execute (order : Order.t) =
+  let execute_order (order : Order.t) =
     let symbol = order.symbol in
     let qty = order.qty in
     let price = order.price in
