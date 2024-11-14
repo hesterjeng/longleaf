@@ -18,9 +18,9 @@ module TimeInForce = struct
 end
 
 module Side = struct
-  type t = [ `Buy | `Sell ] [@@deriving show, yojson]
+  type t = Buy | Sell [@@deriving show, yojson]
 
-  let to_string = function `Buy -> "buy" | `Sell -> "sell"
+  let to_string = function Buy -> "buy" | Sell -> "sell"
 end
 
 module OrderType = struct
