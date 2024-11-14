@@ -47,13 +47,12 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let get_data_client _ =
     invalid_arg "Backtesting does not have a trading client"
 
+  module Backend_position = Backend_position.Make ()
+
+  let position = Backend_position.make ()
   let env = Input.eio_env
   let symbols = Input.symbols
   let is_backtest = true
-  let position : (string, int) Hashtbl.t = Hashtbl.create 0
-  let cash = ref 100000.0
-  let get_cash () = !cash
-  let get_position () = position
   let shutdown () = ()
 
   (* module OrderQueue = struct *)
@@ -96,24 +95,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   (* end *)
 
   let create_order (x : Order.t) : Yojson.Safe.t =
-    let symbol = x.symbol in
-    let current_amt = Hashtbl.get position symbol |> Option.get_or ~default:0 in
-    let qty = x.qty in
-    match (x.side, x.order_type) with
-    | Buy, Market ->
-        Hashtbl.replace position symbol (current_amt + qty);
-        cash := !cash -. (x.price *. Float.of_int qty);
-        `Null
-    | Sell, Market ->
-        Hashtbl.replace position symbol (current_amt - qty);
-        cash := !cash +. (x.price *. Float.of_int qty);
-        `Null
-    (* | Buy, StopLimit -> *)
-    (*     `Null *)
-    | side, order_type ->
-        invalid_arg
-        @@ Format.asprintf "@[Backtesting can't handle this yet. %a %a@]@."
-             Side.pp side OrderType.pp order_type
+    Back
 
   let data_remaining = ref Input.bars.data
 
