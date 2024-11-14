@@ -16,8 +16,7 @@ module type S = sig
   val get_data_client : unit -> Piaf.Client.t
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
-  val get_cash : unit -> float
-  val get_position : unit -> (string, int) Hashtbl.t
+  val get_position : unit -> Backend_position.t
   val symbols : string list
   val shutdown : unit -> unit
   val create_order : Trading_types.Order.t -> Yojson.Safe.t
@@ -52,6 +51,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let symbols = Input.symbols
   let is_backtest = true
   let shutdown () = ()
+  let get_position () = position
 
   (* module OrderQueue = struct *)
   (*   let queue : Order.t list ref = ref [] *)
@@ -214,7 +214,6 @@ module Alpaca
     Ok res
 
   let get_clock = Trading_api.Clock.get
-  let get_cash = Backtesting.get_cash
   let get_position = Backtesting.get_position
 
   let create_order order =
@@ -224,35 +223,33 @@ module Alpaca
 
   let liquidate () =
     let position = get_position () in
-    if List.is_empty @@ Hashtbl.keys_list position then ()
-    else
-      let symbols = Hashtbl.keys_list position in
-      let last_data_bar =
-        match latest_bars symbols with
-        | Ok x -> x
-        | Error _ ->
-            invalid_arg
-              "Unable to get price information for symbol while liquidating"
-      in
-      let _ =
-        Hashtbl.map_list
-          (fun symbol qty ->
-            if qty = 0 then ()
-            else
-              let order : Order.t =
-                {
-                  symbol;
-                  side = (if qty >= 0 then Side.Sell else Side.Buy);
-                  tif = TimeInForce.GoodTillCanceled;
-                  order_type = OrderType.Market;
-                  qty = Int.abs qty;
-                  price = (Bars.price last_data_bar symbol).close;
-                }
-              in
-              Eio.traceln "%a" Order.pp order;
-              let _json_resp = create_order order in
-              ())
-          position
-      in
-      ()
+    let symbols = Hashtbl.keys_list position.position in
+    let last_data_bar =
+      match latest_bars symbols with
+      | Ok x -> x
+      | Error _ ->
+          invalid_arg
+            "Unable to get price information for symbol while liquidating"
+    in
+    let _ =
+      Hashtbl.map_list
+        (fun symbol qty ->
+          if qty = 0 then ()
+          else
+            let order : Order.t =
+              {
+                symbol;
+                side = (if qty >= 0 then Side.Sell else Side.Buy);
+                tif = TimeInForce.GoodTillCanceled;
+                order_type = OrderType.Market;
+                qty = Int.abs qty;
+                price = (Bars.price last_data_bar symbol).close;
+              }
+            in
+            Eio.traceln "%a" Order.pp order;
+            let _json_resp = create_order order in
+            ())
+        position.position
+    in
+    ()
 end
