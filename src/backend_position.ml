@@ -24,7 +24,7 @@ let execute_order pos (order : Order.t) =
       Hashtbl.replace pos.position symbol (current_amt + qty);
       set_cash pos @@ (pos.cash -. (price *. Float.of_int qty))
   | Sell, Market ->
-      Hashtbl.replace pos.position symbol (current_amt + qty);
+      Hashtbl.replace pos.position symbol (current_amt - qty);
       set_cash pos @@ (pos.cash +. (price *. Float.of_int qty))
   | _ ->
       invalid_arg

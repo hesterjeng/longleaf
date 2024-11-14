@@ -17,6 +17,7 @@ module type S = sig
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
   val get_position : unit -> Backend_position.t
+  val get_cash : unit -> float
   val symbols : string list
   val shutdown : unit -> unit
   val create_order : Trading_types.Order.t -> Yojson.Safe.t
@@ -52,6 +53,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let is_backtest = true
   let shutdown () = ()
   let get_position () = position
+  let get_cash () = get_position () |> fun x -> x.cash
 
   (* module OrderQueue = struct *)
   (*   let queue : Order.t list ref = ref [] *)
@@ -215,6 +217,7 @@ module Alpaca
 
   let get_clock = Trading_api.Clock.get
   let get_position = Backtesting.get_position
+  let get_cash = Backtesting.get_cash
 
   let create_order order =
     let res = Trading_api.Orders.create_market_order order in
