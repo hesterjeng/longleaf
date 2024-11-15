@@ -83,11 +83,11 @@ let start ~sw ~(mutices : mutices) env =
 let top ~(mutices : mutices) env =
   (* setup_log (Some Info); *)
   Switch.run (fun sw ->
-      let openai_response =
-        Llm.Anthropic.chat ~sw ~env "What is your favorite color?"
-      in
-      Eio.traceln "@[OpenAI response:@]@.@[%a@]@." Yojson.Safe.pp
-        openai_response;
+      (* let openai_response = *)
+      (*   Llm.Anthropic.chat ~sw ~env "What is your favorite color?" *)
+      (* in *)
+      (* Eio.traceln "@[OpenAI response:@]@.@[%a@]@." Yojson.Safe.pp *)
+      (*   openai_response; *)
       let command = start ~mutices ~sw env in
       let _ =
         let _ = Promise.await prom in

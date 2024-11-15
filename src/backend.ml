@@ -11,13 +11,15 @@ end
 module type S = sig
   module Ticker : Ticker.S
   module LongleafMutex : LONGLEAF_MUTEX
+  module Backend_position : Backend_position.S
 
   val get_trading_client : unit -> Piaf.Client.t
   val get_data_client : unit -> Piaf.Client.t
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
+
+  (* val get_position : unit -> Backend_position.t *)
   val get_cash : unit -> float
-  val get_position : unit -> (string, int) Hashtbl.t
   val symbols : string list
   val shutdown : unit -> unit
   val create_order : Trading_types.Order.t -> Yojson.Safe.t
@@ -40,6 +42,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   open Trading_types
   module Ticker = Ticker.Instant
   module LongleafMutex = LongleafMutex
+  module Backend_position = Backend_position.Generative ()
 
   let get_trading_client _ =
     invalid_arg "Backtesting does not have a trading client"
@@ -50,11 +53,8 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let env = Input.eio_env
   let symbols = Input.symbols
   let is_backtest = true
-  let position : (string, int) Hashtbl.t = Hashtbl.create 0
-  let cash = ref 100000.0
-  let get_cash () = !cash
-  let get_position () = position
   let shutdown () = ()
+  let get_cash = Backend_position.get_cash
 
   (* module OrderQueue = struct *)
   (*   let queue : Order.t list ref = ref [] *)
@@ -95,25 +95,9 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   (*     queue := res *)
   (* end *)
 
-  let create_order (x : Order.t) : Yojson.Safe.t =
-    let symbol = x.symbol in
-    let current_amt = Hashtbl.get position symbol |> Option.get_or ~default:0 in
-    let qty = x.qty in
-    match (x.side, x.order_type) with
-    | Buy, Market ->
-        Hashtbl.replace position symbol (current_amt + qty);
-        cash := !cash -. (x.price *. Float.of_int qty);
-        `Null
-    | Sell, Market ->
-        Hashtbl.replace position symbol (current_amt - qty);
-        cash := !cash +. (x.price *. Float.of_int qty);
-        `Null
-    (* | Buy, StopLimit -> *)
-    (*     `Null *)
-    | side, order_type ->
-        invalid_arg
-        @@ Format.asprintf "@[Backtesting can't handle this yet. %a %a@]@."
-             Side.pp side OrderType.pp order_type
+  let create_order (order : Order.t) : Yojson.Safe.t =
+    Backend_position.execute_order order;
+    `Null
 
   let data_remaining = ref Input.bars.data
 
@@ -159,40 +143,17 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
       }
 
   let liquidate () =
-    let position = get_position () in
-    if List.is_empty @@ Hashtbl.keys_list position then ()
-    else
-      let final_bar =
-        match last_data_bar with
-        | Some b -> b
-        | None ->
-            invalid_arg "Expected to have last data bar in backtesting backend"
-      in
-      let _ =
-        Hashtbl.map_list
-          (fun symbol qty ->
-            if qty = 0 then ()
-            else
-              let side = if qty >= 0 then Side.Sell else Side.Buy in
-              let order : Order.t =
-                {
-                  symbol;
-                  side;
-                  tif = TimeInForce.GoodTillCanceled;
-                  order_type = OrderType.Market;
-                  qty = Int.abs qty;
-                  price = (Bars.price final_bar symbol).close;
-                }
-              in
-              Eio.traceln "@[%a@]@." Order.pp order;
-              let _json_resp = create_order order in
-              ())
-          position
-      in
-      Eio.traceln "@[Position:@]@.@[%a@]@."
-        (Hashtbl.pp String.pp Int.pp)
-        position;
-      ()
+    let final_bar =
+      match last_data_bar with
+      | Some b -> b
+      | None ->
+          invalid_arg "Expected to have last data bar in backtesting backend"
+    in
+    Backend_position.liquidate final_bar;
+    (* Eio.traceln "@[Position:@]@.@[%a@]@." *)
+    (*   (Hashtbl.pp String.pp Int.pp) *)
+    (*   position.position; *)
+    ()
 end
 
 (* Live trading *)
@@ -204,7 +165,9 @@ module Alpaca
   module Ticker = Ticker
   module Backtesting = Backtesting (Input) (LongleafMutex)
   module LongleafMutex = Backtesting.LongleafMutex
+  module Backend_position = Backtesting.Backend_position
 
+  let get_cash = Backend_position.get_cash
   let env = Input.eio_env
 
   let trading_client =
@@ -256,8 +219,6 @@ module Alpaca
     Ok res
 
   let get_clock = Trading_api.Clock.get
-  let get_cash = Backtesting.get_cash
-  let get_position = Backtesting.get_position
 
   let create_order order =
     let res = Trading_api.Orders.create_market_order order in
@@ -265,36 +226,36 @@ module Alpaca
     res
 
   let liquidate () =
-    let position = get_position () in
-    if List.is_empty @@ Hashtbl.keys_list position then ()
-    else
-      let symbols = Hashtbl.keys_list position in
-      let last_data_bar =
-        match latest_bars symbols with
-        | Ok x -> x
-        | Error _ ->
-            invalid_arg
-              "Unable to get price information for symbol while liquidating"
-      in
-      let _ =
-        Hashtbl.map_list
-          (fun symbol qty ->
-            if qty = 0 then ()
-            else
-              let order : Order.t =
-                {
-                  symbol;
-                  side = (if qty >= 0 then Side.Sell else Side.Buy);
-                  tif = TimeInForce.GoodTillCanceled;
-                  order_type = OrderType.Market;
-                  qty = Int.abs qty;
-                  price = (Bars.price last_data_bar symbol).close;
-                }
-              in
-              Eio.traceln "%a" Order.pp order;
-              let _json_resp = create_order order in
-              ())
-          position
-      in
-      ()
+    (* let symbols = Hashtbl.keys_list position.position in *)
+    let symbols = Backend_position.symbols () in
+    let last_data_bar =
+      match latest_bars symbols with
+      | Ok x -> x
+      | Error _ ->
+          invalid_arg
+            "Unable to get price information for symbol while liquidating"
+    in
+    let _ =
+      (* Hashtbl.map_list *)
+      List.iter
+        (fun symbol ->
+          let qty = Backend_position.qty symbol in
+          if qty = 0 then ()
+          else
+            let order : Order.t =
+              {
+                symbol;
+                side = (if qty >= 0 then Side.Sell else Side.Buy);
+                tif = TimeInForce.GoodTillCanceled;
+                order_type = OrderType.Market;
+                qty = Int.abs qty;
+                price = (Bars.price last_data_bar symbol).close;
+              }
+            in
+            Eio.traceln "%a" Order.pp order;
+            let _json_resp = create_order order in
+            ())
+        symbols
+    in
+    ()
 end

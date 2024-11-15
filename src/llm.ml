@@ -35,6 +35,9 @@ module OpenAI = struct
         match Piaf.Body.to_string body with
         | Ok body_str -> body_str
         | Error e -> invalid_arg @@ Piaf.Error.to_string e)
+    | Error (`Connect_error e) ->
+        Eio.traceln "@[Unable to connect to host: %s@]@." e;
+        invalid_arg e
     | Error e -> invalid_arg @@ Piaf.Error.to_string e
 end
 
@@ -74,6 +77,12 @@ module Anthropic = struct
         @@
         match Piaf.Body.to_string body with
         | Ok body_str -> body_str
-        | Error e -> invalid_arg @@ Piaf.Error.to_string e)
+        | Error e ->
+            Eio.traceln
+              "@[Error while trying to convert response body to string:@]@.";
+            invalid_arg @@ Piaf.Error.to_string e)
+    | Error (`Connect_error e) ->
+        Eio.traceln "@[Unable to connect to host: %s@]@." e;
+        invalid_arg e
     | Error e -> invalid_arg @@ Piaf.Error.to_string e
 end

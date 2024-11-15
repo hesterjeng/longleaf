@@ -74,8 +74,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let min_dip = 0.99
   let lower_now_band = 0.999
   let upper_now_band = 1.001
-  let stop_loss_multiplier = 1.01
-  let profit_multiplier = 1.0
+  let stop_loss_multiplier = 1.02
+  let profit_multiplier = 1.04
   let max_holding_period = 24
 
   module Conditions = struct
