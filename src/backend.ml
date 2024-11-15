@@ -11,12 +11,14 @@ end
 module type S = sig
   module Ticker : Ticker.S
   module LongleafMutex : LONGLEAF_MUTEX
+  module Backend_position : Backend_position.S
 
   val get_trading_client : unit -> Piaf.Client.t
   val get_data_client : unit -> Piaf.Client.t
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
-  val get_position : unit -> Backend_position.t
+
+  (* val get_position : unit -> Backend_position.t *)
   val get_cash : unit -> float
   val symbols : string list
   val shutdown : unit -> unit
@@ -40,6 +42,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   open Trading_types
   module Ticker = Ticker.Instant
   module LongleafMutex = LongleafMutex
+  module Backend_position = Backend_position.Generative ()
 
   let get_trading_client _ =
     invalid_arg "Backtesting does not have a trading client"
@@ -47,13 +50,11 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let get_data_client _ =
     invalid_arg "Backtesting does not have a trading client"
 
-  let position = Backend_position.make ()
   let env = Input.eio_env
   let symbols = Input.symbols
   let is_backtest = true
   let shutdown () = ()
-  let get_position () = position
-  let get_cash () = get_position () |> fun x -> x.cash
+  let get_cash = Backend_position.get_cash
 
   (* module OrderQueue = struct *)
   (*   let queue : Order.t list ref = ref [] *)
@@ -95,7 +96,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   (* end *)
 
   let create_order (order : Order.t) : Yojson.Safe.t =
-    Backend_position.execute_order position order;
+    Backend_position.execute_order order;
     `Null
 
   let data_remaining = ref Input.bars.data
@@ -148,10 +149,10 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
       | None ->
           invalid_arg "Expected to have last data bar in backtesting backend"
     in
-    Backend_position.liquidate position final_bar;
-    Eio.traceln "@[Position:@]@.@[%a@]@."
-      (Hashtbl.pp String.pp Int.pp)
-      position.position;
+    Backend_position.liquidate final_bar;
+    (* Eio.traceln "@[Position:@]@.@[%a@]@." *)
+    (*   (Hashtbl.pp String.pp Int.pp) *)
+    (*   position.position; *)
     ()
 end
 
@@ -164,7 +165,9 @@ module Alpaca
   module Ticker = Ticker
   module Backtesting = Backtesting (Input) (LongleafMutex)
   module LongleafMutex = Backtesting.LongleafMutex
+  module Backend_position = Backtesting.Backend_position
 
+  let get_cash = Backend_position.get_cash
   let env = Input.eio_env
 
   let trading_client =
@@ -216,8 +219,6 @@ module Alpaca
     Ok res
 
   let get_clock = Trading_api.Clock.get
-  let get_position = Backtesting.get_position
-  let get_cash = Backtesting.get_cash
 
   let create_order order =
     let res = Trading_api.Orders.create_market_order order in
@@ -225,8 +226,8 @@ module Alpaca
     res
 
   let liquidate () =
-    let position = get_position () in
-    let symbols = Hashtbl.keys_list position.position in
+    (* let symbols = Hashtbl.keys_list position.position in *)
+    let symbols = Backend_position.symbols () in
     let last_data_bar =
       match latest_bars symbols with
       | Ok x -> x
@@ -235,8 +236,10 @@ module Alpaca
             "Unable to get price information for symbol while liquidating"
     in
     let _ =
-      Hashtbl.map_list
-        (fun symbol qty ->
+      (* Hashtbl.map_list *)
+      List.iter
+        (fun symbol ->
+          let qty = Backend_position.qty symbol in
           if qty = 0 then ()
           else
             let order : Order.t =
@@ -252,7 +255,7 @@ module Alpaca
             Eio.traceln "%a" Order.pp order;
             let _json_resp = create_order order in
             ())
-        position.position
+        symbols
     in
     ()
 end
