@@ -53,9 +53,10 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       Response.of_string ~body:"Shutdown command sent" `OK
   | { Request.meth = `GET; target = "/graphs"; _ } ->
       let bars = Parametric_mutex.get mutices.data_mutex in
-      Response.of_string
-        ~body:(Bars.yojson_of_t bars |> Yojson.Safe.to_string)
-        `OK
+      let plotly_json =
+        Bars.Plotly.of_bars bars "NVDA" |> Yojson.Safe.to_string
+      in
+      Response.of_string ~body:plotly_json `OK
   | _ ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Method_not_allowed ~body:""
