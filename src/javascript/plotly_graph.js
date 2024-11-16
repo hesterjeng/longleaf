@@ -1,4 +1,4 @@
-const endpointUrl = "/your-json-endpoint";
+const endpointUrl = "http://localhost:8080/graphs";
 
 // Function to fetch data and update the graph
 async function fetchAndRender() {
