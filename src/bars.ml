@@ -95,7 +95,13 @@ module Plotly = struct
       | Some data -> data
     in
     let x_axis =
-      List.map (fun x -> `String (x.timestamp |> Time.to_string)) data
+      (* FIXME:  This doesn't seem to be working! Maybe it's in the JS? *)
+      let mk_plotly_x x =
+        let time = x.timestamp in
+        Ptime.to_float_s time
+        (* x.timestamp |> Time.to_string *)
+      in
+      List.map (fun x -> `Float (mk_plotly_x x)) data
     in
     let y_axis = List.map (fun x -> `Float x.close) data in
     `Assoc
