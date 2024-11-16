@@ -17,6 +17,7 @@ let render data =
     <script>
       // var plotData = <%s! data%>;
       // Plotly.newPlot('plot', plotData.data, plotData.layout);
+      <%s! plotly_graph_js%>
     </script>
     <div id='backtest_button' style="display: grid; place-items: center">
       <h1 class = "text-3xl font-bold text-center mt-5">Run a backtest</h1>
