@@ -98,10 +98,12 @@ module Plotly = struct
       (* FIXME:  This doesn't seem to be working! Maybe it's in the JS? *)
       let mk_plotly_x x =
         let time = x.timestamp in
-        Ptime.to_float_s time
-        (* x.timestamp |> Time.to_string *)
+        let res = Ptime.to_rfc3339 time in
+        `String res
+        (* let res = Ptime.to_float_s time |> Int.of_float in *)
+        (* `Int res *)
       in
-      List.map (fun x -> `Float (mk_plotly_x x)) data
+      List.map mk_plotly_x data
     in
     let y_axis = List.map (fun x -> `Float x.close) data in
     `Assoc
@@ -121,7 +123,7 @@ module Plotly = struct
           `Assoc
             [
               ("title", `String "Sample Plotly Graph");
-              ("xaxis", `Assoc [ ("title", `String "X Axis") ]);
+              ("xaxis", `Assoc [ ("title", `String "X Axis"); ("type", `String "date") ]);
               ("yaxis", `Assoc [ ("title", `String "Y Axis") ]);
             ] );
       ]
