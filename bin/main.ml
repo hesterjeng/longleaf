@@ -1,20 +1,33 @@
 module Args = struct
   (* Define the CLI arguments *)
-  let runtype =
+  let runtype_arg =
+    let runtype_conv = Longleaf.Options.Runtype.conv in
     let doc = "The type of run." in
     Cmdliner.Arg.(
-      required & pos 0 (some float) None & info [] ~docv:"WIDTH" ~doc)
+      required & pos 0 (some runtype_conv) None & info [] ~docv:"runtype" ~doc)
 
-  let height_arg =
-    let doc = "The height of the rectangle." in
-    Cmdliner.Arg.(
-      required & pos 1 (some float) None & info [] ~docv:"HEIGHT" ~doc)
+  (* let output_file_arg = *)
+  (*   let doc = "The height of the rectangle." in *)
+  (*   Cmdliner.Arg.( *)
+  (*     val (pos 1 (non_dir_file)) *)
+  (*   ) *)
+  (* Cmdliner.Arg.( *)
+  (* opt & pos 1 (some string) None & info [] ~docv:"HEIGHT" ~doc) *)
 end
 
-let run runtype output_file =
-  let backtesting = true in
-  Fmt_tty.setup_std_outputs ();
-  let reporter = Logs_fmt.reporter () in
-  Logs.set_reporter reporter;
-  Logs.set_level ~all:true (Some Logs.Info);
-  Eio_main.run @@ fun eio_env -> Longleaf.top eio_env backtesting
+module Cmd = struct
+  let run runtype =
+    let backtesting = true in
+    Fmt_tty.setup_std_outputs ();
+    let reporter = Logs_fmt.reporter () in
+    Logs.set_reporter reporter;
+    Logs.set_level ~all:true (Some Logs.Info);
+    Eio_main.run @@ fun eio_env -> Longleaf.top ~runtype eio_env backtesting
+
+  let top =
+    let term = Cmdliner.Term.(const run $ Args.runtype_arg) in
+    let info = Cmdliner.Cmd.info "longleaf" in
+    Cmdliner.Cmd.v info term
+end
+
+let () = Stdlib.exit @@ Cmdliner.Cmd.eval Cmd.top

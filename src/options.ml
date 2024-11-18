@@ -8,7 +8,7 @@ module Runtype = struct
     | "Backtest" | "backtest" -> Ok Backtest
     | _ -> Error (`Msg "Expected a valid runtype")
 
-  let runtype_conv = Cmdliner.Arg.conv (of_string_res, pp)
+  let conv = Cmdliner.Arg.conv (of_string_res, pp)
 end
 
 type t = { runtype : Runtype.t; output_file : string option } [@@deriving show]
