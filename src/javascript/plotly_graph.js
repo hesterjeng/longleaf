@@ -11,18 +11,21 @@ async function fetchAndRender() {
       return;
     }
 
+    const text = data.data[0].name;
+
     console.log("Fetched data:", data);
 
     // Process data for Plotly (assuming it returns arrays x and y)
     const trace = {
       x: data.data[0].x,
       y: data.data[0].y,
+      text: text,
       type: "scatter",
     };
 
     const layout = {
       title: "Dynamic Plotly Graph",
-      xaxis: { title: "X-axis", type: "category", tickmode: "linear", dtick: 20,},
+      xaxis: { title: "X-axis", type: "category", tickmode: "linear", dtick: 20, showticklabels: false,},
       yaxis: { title: "Y-axis" },
     };
 
