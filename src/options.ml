@@ -1,11 +1,14 @@
-type runtype = Live | Paper | Backtest [@@deriving show]
-type t = { runtype : runtype; output_file : string option } [@@deriving show]
+module Runtype = struct
+  type t = Live | Paper | Backtest [@@deriving show]
 
-let runtype_of_string_res x =
-  match x with
-  | "Live" -> Ok Live
-  | "Paper" -> Ok Paper
-  | "Backtest" -> Ok Backtest
-  | _ -> Error (`Msg "Expected a valid runtype")
+  let of_string_res x =
+    match x with
+    | "Live" | "live" -> Ok Live
+    | "Paper" | "paper" -> Ok Paper
+    | "Backtest" | "backtest" -> Ok Backtest
+    | _ -> Error (`Msg "Expected a valid runtype")
 
-let runtype_conv = Cmdliner.Arg.conv (runtype_of_string_res,pp_runtype)
+  let runtype_conv = Cmdliner.Arg.conv (of_string_res, pp)
+end
+
+type t = { runtype : Runtype.t; output_file : string option } [@@deriving show]
