@@ -12,6 +12,7 @@
   longleaf
   containers
   containers-data
+  cmdliner
   zarith
   ptime
   yojson
