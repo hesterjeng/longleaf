@@ -12,6 +12,7 @@
   angstrom
   calendar
   eio_main
+  cmdliner
   tyxml
   piaf)
  (preprocess
