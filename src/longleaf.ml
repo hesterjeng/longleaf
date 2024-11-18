@@ -8,9 +8,10 @@ module Ticker = Ticker
 module Time = Time
 module Lots_of_words = Lots_of_words
 module Bars = Bars
+module Options = Options
 module LongleafMutex = Backend.LongleafMutex ()
 
-let top eio_env backtesting =
+let top ~runtype eio_env backtesting =
   Util.yojson_safe @@ fun () ->
   CalendarLib.Time_Zone.change (UTC_Plus (-5));
   let longleaf_env = Environment.make () in
