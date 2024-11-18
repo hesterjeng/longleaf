@@ -8,7 +8,7 @@ module Bar_item = struct
     volume : int; [@key "v"]
     trade_count : int; [@key "n"]
     volume_weighted : float; [@key "vw"]
-    action_taken : Trading_types.Order.t option [@default None];
+    action_taken : Trading_types.Order.t option; [@default None]
   }
   [@@deriving show { with_path = false }, yojson]
 
@@ -124,7 +124,9 @@ module Plotly = struct
           `Assoc
             [
               ("title", `String "Sample Plotly Graph");
-              ("xaxis", `Assoc [ ("title", `String "X Axis"); ("type", `String "date") ]);
+              ( "xaxis",
+                `Assoc [ ("title", `String "X Axis"); ("type", `String "date") ]
+              );
               ("yaxis", `Assoc [ ("title", `String "Y Axis") ]);
             ] );
       ]
