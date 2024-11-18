@@ -8,9 +8,20 @@ module State = struct
   type state = [ nonlogical_state | logical_state ]
   [@@deriving show { with_path = false }]
 
-  type 'a t = { current : state; bars : Bars.t; content : 'a }
+  type 'a t = {
+    current : state;
+    bars : Bars.t;
+    latest_bars : Bars.t;
+    content : 'a;
+  }
 
-  let init () = { current = `Initialize; bars = Bars.empty; content = () }
+  let init () =
+    {
+      current = `Initialize;
+      bars = Bars.empty;
+      latest_bars = Bars.empty;
+      content = ();
+    }
 end
 
 module type S = sig
@@ -95,13 +106,15 @@ module Strategy_utils (Backend : Backend.S) = struct
     match current with
     | `Initialize -> Result.return @@ { state with current = `Listening }
     | `Listening -> (
-        Result.return
-        @@
         match listen_tick state.bars with
-        | `Continue -> { state with current = `Ordering }
+        | `Continue ->
+            let open Result.Infix in
+            let+ latest_bars = Backend.latest_bars Backend.symbols in
+            let bars = Bars.combine [ latest_bars; state.bars ] in
+            { state with current = `Ordering; bars; latest_bars }
         | `Shutdown_signal ->
             Eio.traceln "Attempting to liquidate positions before shutting down";
-            { state with current = `Liquidate })
+            Result.return { state with current = `Liquidate })
     | `Liquidate ->
         Backend.liquidate ();
         Result.return
@@ -121,19 +134,22 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
   type state = unit State.t
 
   let init_state : state =
-    { State.current = `Initialize; bars = Bars.empty; content = () }
+    {
+      State.current = `Initialize;
+      bars = Bars.empty;
+      latest_bars = Bars.empty;
+      content = ();
+    }
 
   module SU = Strategy_utils (Backend)
 
   let step (state : 'a State.t) =
-    let open Result.Infix in
     match state.current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering ->
-        let* latest_bars = Backend.latest_bars [ "MSFT"; "NVDA" ] in
-        let msft = Bars.price latest_bars "MSFT" in
-        let nvda = Bars.price latest_bars "NVDA" in
+        let msft = Bars.price state.latest_bars "MSFT" in
+        let nvda = Bars.price state.latest_bars "NVDA" in
         let cash_available = Backend.get_cash () in
         let qty =
           match cash_available >=. 0.0 with
@@ -160,8 +176,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
             let _json_resp = Backend.create_order order in
             ()
         in
-        let new_bars = Bars.combine [ latest_bars; state.bars ] in
-        Result.return @@ { state with current = `Listening; bars = new_bars }
+        Result.return @@ { state with current = `Listening }
 
   let run () = SU.run ~init_state step
 end
