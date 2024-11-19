@@ -1,5 +1,6 @@
 (executables
  (names main data_downloader)
+ (modes native)
  (public_names main data_downloader)
  (promote
   (until-clean)
