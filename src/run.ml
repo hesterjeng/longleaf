@@ -8,12 +8,10 @@ module type RUN_CONTEXT = sig
   val eio_env : Eio_unix.Stdenv.base
   val longleaf_env : Environment.t
   val switch : Eio.Switch.t
-
-  (* module StrategyBuilder : Strategies.STRAT_BUILDER *)
 end
 
 module type S = sig
-  val top : bool -> unit
+  val top : Options.Runtype.t -> unit
 end
 
 module Make
@@ -37,10 +35,12 @@ module Make
       end))
       (LongleafMutex)
 
-  let top backtesting =
+  let top (runtype : Options.Runtype.t) =
     let backend =
-      if backtesting then (module Backtesting () : Backend.S)
-      else (module Alpaca () : Backend.S)
+      match runtype with
+      | Live -> invalid_arg "Live trading is not implemented yet."
+      | Paper -> (module Alpaca () : Backend.S)
+      | Backtest -> (module Backtesting () : Backend.S)
     in
     let module Backend = (val backend) in
     let module Strategy = StrategyBuilder (Backend) in
