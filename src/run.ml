@@ -39,7 +39,13 @@ module Make
     let backend =
       match runtype with
       | Live -> invalid_arg "Live trading is not implemented yet."
-      | Paper -> (module Alpaca () : Backend.S)
+      | Paper ->
+          Eio.traceln
+            "@[Creating Alpaca paper backend with:@.tick: %f@.symbols: %a@]@."
+            Input.tick
+            List.(pp String.pp)
+            Input.symbols;
+          (module Alpaca () : Backend.S)
       | Backtest -> (module Backtesting () : Backend.S)
     in
     let module Backend = (val backend) in
