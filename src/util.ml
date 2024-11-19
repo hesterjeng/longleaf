@@ -109,14 +109,16 @@ let read_file_as_string filename =
 
 let yojson_safe stacktrace (f : unit -> 'a) : 'a =
   try f ()
-  with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, j) as excn ->
-    if stacktrace then (
-      let str = Printexc.get_callstack 10 |> Printexc.raw_backtrace_to_string in
-      Eio.traceln "@[%s@]@." str;
-      Eio.traceln "Yojson error in main longleaf program!";
-      Eio.traceln "@[%a@]@." Yojson.Safe.pp j;
-      let err = Printexc.to_string e in
-      invalid_arg @@ Format.asprintf "%s" err)
+  with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, j) ->
+    (if stacktrace then
+       let str =
+         Printexc.get_callstack 10 |> Printexc.raw_backtrace_to_string
+       in
+       Eio.traceln "@[%s@]@." str);
+    Eio.traceln "Yojson error in main longleaf program!";
+    Eio.traceln "@[%a@]@." Yojson.Safe.pp j;
+    let err = Printexc.to_string e in
+    invalid_arg @@ Format.asprintf "%s" err
 
 module type ALPACA_SERVER = sig
   val longleaf_env : Environment.t
