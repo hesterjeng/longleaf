@@ -137,9 +137,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       |> List.filter_map (fun can -> Conditions.check4 ~most_recent_price can)
     in
     let seed = Unix.time () |> fun t -> [| Int.of_float t |] in
-    let st = Random.State.make seed (* Random.State.make_self_init () in *) in
+    let st = Random.State.make seed in
     let rand =
-      try Option.return @@ List.random_choose candidates st with _ -> None
+      let candidates = List.map Random.pure candidates in
+      Random.choose candidates st
     in
     match rand with
     | Some previous_maximum ->
