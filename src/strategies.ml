@@ -68,6 +68,7 @@ module Strategy_utils (Backend : Backend.S) = struct
            do
              Ticker.OneSecond.tick Backend.env
            done;
+           Eio.traceln "@[Shutdown command received by strategy.@]@.";
            Parametric_mutex.set Backend.LongleafMutex.data_mutex bars;
            `Shutdown_signal);
        ]

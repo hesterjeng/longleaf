@@ -214,9 +214,12 @@ module Alpaca
   let last_data_bar = None
 
   let latest_bars symbols =
-    let _ = Backtesting.latest_bars symbols in
-    let res = Market_data_api.Stock.latest_bars symbols in
-    Ok res
+    match symbols with
+    | [] -> Ok Bars.empty
+    | _ ->
+        let _ = Backtesting.latest_bars symbols in
+        let res = Market_data_api.Stock.latest_bars symbols in
+        Ok res
 
   let get_clock = Trading_api.Clock.get
 
@@ -226,7 +229,6 @@ module Alpaca
     res
 
   let liquidate () =
-    (* let symbols = Hashtbl.keys_list position.position in *)
     let symbols = Backend_position.symbols () in
     let last_data_bar =
       match latest_bars symbols with
