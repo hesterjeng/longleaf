@@ -11,7 +11,7 @@ module Bars = Bars
 module Options = Options
 module LongleafMutex = Backend.LongleafMutex ()
 
-let top ~runtype ~output eio_env backtesting =
+let top ~runtype ~output eio_env =
   Util.yojson_safe @@ fun () ->
   CalendarLib.Time_Zone.change (UTC_Plus (-5));
   let longleaf_env = Environment.make () in
@@ -33,7 +33,7 @@ let top ~runtype ~output eio_env backtesting =
       let switch = switch
     end in
     let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
-    Run.top backtesting
+    Run.top runtype
   in
   let run_server () =
     Eio.Domain_manager.run domain_manager @@ fun () -> Gui.top ~mutices eio_env
