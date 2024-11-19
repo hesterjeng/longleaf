@@ -3,3 +3,4 @@ _build/
 server.exe
 main.exe
 data_downloader.exe
+shutdown.exe
