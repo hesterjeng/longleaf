@@ -11,7 +11,7 @@ module Bars = Bars
 module Options = Options
 module LongleafMutex = Backend.LongleafMutex ()
 
-let top ~runtype eio_env backtesting =
+let top ~runtype ~output eio_env backtesting =
   Util.yojson_safe @@ fun () ->
   CalendarLib.Time_Zone.change (UTC_Plus (-5));
   let longleaf_env = Environment.make () in
