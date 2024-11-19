@@ -2,7 +2,10 @@ module Args = struct
   (* Define the CLI arguments *)
   let runtype_arg =
     let runtype_conv = Longleaf.Options.Runtype.conv in
-    let doc = "The type of run." in
+    let doc =
+      "The type of run.  Valid choices are \"live\", \"paper\", or \
+       \"backtest\"."
+    in
     Cmdliner.Arg.(
       required & pos 0 (some runtype_conv) None & info [] ~docv:"runtype" ~doc)
 
@@ -25,7 +28,7 @@ module Cmd = struct
     let term =
       Cmdliner.Term.(const run $ Args.runtype_arg $ Args.output_file_arg)
     in
-    let info = Cmdliner.Cmd.info "longleaf" in
+    let info = Cmdliner.Cmd.info "./main.exe" in
     Cmdliner.Cmd.v info term
 end
 
