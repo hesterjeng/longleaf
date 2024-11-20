@@ -10,5 +10,5 @@ let () =
       exit 0
   | Error e ->
       Eio.traceln "@[%a@]@." Piaf.Error.pp_hum e;
-      Eio.traceln "@[Error while sending shutdown command.]@.";
+      Eio.traceln "@[Error while sending shutdown command.@]@.";
       exit 1
