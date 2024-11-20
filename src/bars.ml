@@ -37,8 +37,10 @@ module Data = struct
             s
       | _ -> invalid_arg "Bars must be a toplevel Assoc"
     with _ ->
-      Format.printf "@[Trying Data.original_t_of_yojson@]@.";
-      original_t_of_yojson x
+      Eio.traceln "@[Trying Data.original_t_of_yojson.@]@.";
+      let res = original_t_of_yojson x in
+      Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
+      res
 end
 
 type t = {
