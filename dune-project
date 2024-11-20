@@ -34,6 +34,7 @@
   ptime
   calendar
   owl
+  tyxml
   (yojson
    (>= "1.6"))
   ppx_yojson_conv
