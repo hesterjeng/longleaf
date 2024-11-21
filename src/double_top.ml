@@ -53,7 +53,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   open Trading_types
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
-  module State = Strategies.State
   module Bar_item = Bars.Bar_item
 
   module DT_Status = struct
