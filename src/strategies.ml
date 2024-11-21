@@ -148,7 +148,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
                 price = nvda.close;
               }
             in
-            let _json_resp = Backend.create_order order in
+            let _json_resp = Backend.place_order order in
             ()
         in
         Result.return @@ { state with current = `Listening }

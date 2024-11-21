@@ -22,7 +22,7 @@ module type S = sig
   val get_cash : unit -> float
   val symbols : string list
   val shutdown : unit -> unit
-  val create_order : Trading_types.Order.t -> Yojson.Safe.t
+  val place_order : Trading_types.Order.t -> Yojson.Safe.t
   val latest_bars : string list -> (Bars.t, string) result
   val last_data_bar : Bars.t option
   val liquidate : unit -> unit
@@ -95,7 +95,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   (*     queue := res *)
   (* end *)
 
-  let create_order (order : Order.t) : Yojson.Safe.t =
+  let place_order (order : Order.t) : Yojson.Safe.t =
     Backend_position.execute_order order;
     `Null
 
@@ -223,9 +223,9 @@ module Alpaca
 
   let get_clock = Trading_api.Clock.get
 
-  let create_order order =
+  let place_order order =
     let res = Trading_api.Orders.create_market_order order in
-    let _ = Backtesting.create_order order in
+    let _ = Backtesting.place_order order in
     res
 
   let liquidate () =
@@ -255,7 +255,7 @@ module Alpaca
               }
             in
             Eio.traceln "%a" Order.pp order;
-            let _json_resp = create_order order in
+            let _json_resp = place_order order in
             ())
         symbols
     in
