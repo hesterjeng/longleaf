@@ -1,3 +1,5 @@
+module Order = Trading_types.Order
+
 type nonlogical_state =
   [ `Initialize | `Listening | `Liquidate | `Finished of string ]
 [@@deriving show { with_path = false }]
@@ -11,13 +13,8 @@ type 'a t = {
   current : state;
   bars : Bars.t;
   latest_bars : Bars.t;
+  order_history : (Time.t, Order.t) Hashtbl.t;
   content : 'a;
 }
 
-let init () =
-  {
-    current = `Initialize;
-    bars = Bars.empty;
-    latest_bars = Bars.empty;
-    content = ();
-  }
+let record_order state time order = Hashtbl.add state.order_history time order
