@@ -22,10 +22,13 @@ module type S = sig
   val get_cash : unit -> float
   val symbols : string list
   val shutdown : unit -> unit
-  val place_order : Trading_types.Order.t -> Yojson.Safe.t
+
+  val place_order :
+    _ State.t -> Time.t -> Trading_types.Order.t -> Yojson.Safe.t
+
   val latest_bars : string list -> (Bars.t, string) result
   val last_data_bar : Bars.t option
-  val liquidate : unit -> unit
+  val liquidate : _ State.t -> Time.t -> unit
 end
 
 module type BACKEND_INPUT = sig
@@ -95,8 +98,8 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   (*     queue := res *)
   (* end *)
 
-  let place_order (order : Order.t) : Yojson.Safe.t =
-    Backend_position.execute_order order;
+  let place_order state time (order : Order.t) : Yojson.Safe.t =
+    Backend_position.execute_order state time order;
     `Null
 
   let data_remaining = ref Input.bars.data
@@ -142,14 +145,14 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
         next_page_token = None;
       }
 
-  let liquidate () =
+  let liquidate state time =
     let final_bar =
       match last_data_bar with
       | Some b -> b
       | None ->
           invalid_arg "Expected to have last data bar in backtesting backend"
     in
-    Backend_position.liquidate final_bar;
+    Backend_position.liquidate state time final_bar;
     (* Eio.traceln "@[Position:@]@.@[%a@]@." *)
     (*   (Hashtbl.pp String.pp Int.pp) *)
     (*   position.position; *)
@@ -223,12 +226,12 @@ module Alpaca
 
   let get_clock = Trading_api.Clock.get
 
-  let place_order order =
+  let place_order state time order =
     let res = Trading_api.Orders.create_market_order order in
-    let _ = Backtesting.place_order order in
+    let _ = Backtesting.place_order state time order in
     res
 
-  let liquidate () =
+  let liquidate state time =
     let symbols = Backend_position.symbols () in
     let last_data_bar =
       match latest_bars symbols with
@@ -244,6 +247,8 @@ module Alpaca
           let qty = Backend_position.qty symbol in
           if qty = 0 then ()
           else
+            let latest_info = Bars.price last_data_bar symbol in
+            let time = latest_info.timestamp in
             let order : Order.t =
               {
                 symbol;
@@ -251,11 +256,11 @@ module Alpaca
                 tif = TimeInForce.GoodTillCanceled;
                 order_type = OrderType.Market;
                 qty = Int.abs qty;
-                price = (Bars.price last_data_bar symbol).close;
+                price = latest_info.close;
               }
             in
             Eio.traceln "%a" Order.pp order;
-            let _json_resp = place_order order in
+            let _json_resp = place_order state time order in
             ())
         symbols
     in

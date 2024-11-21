@@ -91,7 +91,7 @@ module Strategy_utils (Backend : Backend.S) = struct
             Eio.traceln "Attempting to liquidate positions before shutting down";
             Result.return { state with current = `Liquidate })
     | `Liquidate ->
-        Backend.liquidate ();
+        Backend.liquidate state;
         Result.return
         @@ { state with current = `Finished "Liquidation finished" }
     | `Finished code ->
@@ -114,6 +114,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
       bars = Bars.empty;
       latest_bars = Bars.empty;
       content = ();
+      order_history = Hashtbl.create 20;
     }
 
   module SU = Strategy_utils (Backend)
@@ -148,7 +149,8 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
                 price = nvda.close;
               }
             in
-            let _json_resp = Backend.place_order order in
+            let time = msft.timestamp in
+            let _json_resp = Backend.place_order state time order in
             ()
         in
         Result.return @@ { state with current = `Listening }
