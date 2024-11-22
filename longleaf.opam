@@ -17,7 +17,6 @@ depends: [
   "tsort"
   "uuidm"
   "ptime"
-  "calendar"
   "owl"
   "tyxml"
   "yojson" {>= "1.6"}
