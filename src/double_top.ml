@@ -26,17 +26,18 @@ module Math = struct
     | Some max -> max
     | None -> invalid_arg "Cannot find maximum of empty list"
 
-  let window_map ~window_size ~(choose : 'a list -> 'a) l =
-    let rec aux acc l =
-      match l with
-      | [] -> List.rev acc
-      | l ->
+  let window_map ~window_size ~(choose : 'a list -> 'a) (l : _ Vector.t) =
+    let l = Vector.to_list l in
+    let rec aux acc (l : _ list) =
+      match List.length l with
+      | 0 -> List.rev acc
+      | _ ->
           let window, rest = List.take_drop window_size l in
           aux (choose window :: acc) rest
     in
     aux l []
 
-  let find_local_maxima window_size l =
+  let find_local_maxima window_size (l : _ Vector.t) =
     window_map ~window_size ~choose:max_close l
 
   let find_local_minima window_size l =
@@ -84,7 +85,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
     let check1 ~price_history (current_max : Bar_item.t) =
       let* _ =
-        List.find_opt
+        Vector.find
           (fun (x : Bar_item.t) ->
             x.close <. min_dip *. current_max.close
             && Ptime.compare current_max.timestamp x.timestamp = 1)
