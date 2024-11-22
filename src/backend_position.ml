@@ -4,7 +4,7 @@ type pos = (string, int) Hashtbl.t [@@deriving show]
 
 module type S = sig
   val execute_order : _ State.t -> Time.t -> Order.t -> unit
-  val liquidate : _ State.t -> Time.t -> Bars.t -> unit
+  val liquidate : _ State.t -> Bars.t -> unit
   val get_cash : unit -> float
   val symbols : unit -> string list
   val qty : string -> int
@@ -48,13 +48,14 @@ module Generative () : S = struct
         invalid_arg
         @@ Format.asprintf "@[Unsupported order: %a@]@." Order.pp order
 
-  let liquidate state time bars =
+  let liquidate state bars =
     let open Trading_types in
     Hashtbl.iter
       (fun symbol qty ->
         if qty = 0 then ()
         else
           let side = if qty >= 0 then Side.Sell else Side.Buy in
+          let latest = Bars.price bars symbol in
           let order : Order.t =
             {
               symbol;
@@ -62,10 +63,10 @@ module Generative () : S = struct
               tif = TimeInForce.GoodTillCanceled;
               order_type = OrderType.Market;
               qty = Int.abs qty;
-              price = (Bars.price bars symbol).close;
+              price = latest.close;
             }
           in
           Eio.traceln "@[%a@]@." Order.pp order;
-          execute_order state time order)
+          execute_order state latest.timestamp order)
       pos.position
 end
