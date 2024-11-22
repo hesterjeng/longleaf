@@ -10,7 +10,6 @@
   ptime
   owl
   angstrom
-  calendar
   eio_main
   cmdliner
   tyxml

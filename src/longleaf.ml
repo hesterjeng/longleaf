@@ -14,7 +14,6 @@ module LongleafMutex = Backend.LongleafMutex ()
 let top ~runtype ~stacktrace ~output eio_env =
   if stacktrace then Printexc.record_backtrace true;
   Util.yojson_safe stacktrace @@ fun () ->
-  CalendarLib.Time_Zone.change (UTC_Plus (-5));
   let longleaf_env = Environment.make () in
   let domain_manager = Eio.Stdenv.domain_mgr eio_env in
   (* let shutdown_mutex = LongleafMutex.shutdown_mutex in *)

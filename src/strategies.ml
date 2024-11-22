@@ -8,31 +8,19 @@ module type STRAT_BUILDER = functor (_ : Backend.S) -> S
 module Log = (val Logs.src_log Logs.(Src.create "strategies"))
 
 module Strategy_utils (Backend : Backend.S) = struct
-  let market_closed backtest =
-    let res =
-      let open CalendarLib in
-      let time = Time.now () in
-      let open_time = Calendar.Time.lmake ~hour:8 ~minute:30 () in
-      let close_time = Calendar.Time.lmake ~hour:16 () in
-      if
-        backtest
-        || Calendar.Time.compare time open_time = 1
-           && Calendar.Time.compare time close_time = -1
-      then false
-      else true
-    in
-    res
-
   let listen_tick bars =
     Eio.Fiber.any
     @@ [
          (fun () ->
            Parametric_mutex.set Backend.LongleafMutex.data_mutex bars;
-           if market_closed Backend.is_backtest then (
-             Eio.traceln "Waiting five minutes because the market is closed";
-             Ticker.FiveMinute.tick Backend.env)
-           else Backend.Ticker.tick Backend.env;
-           `Continue);
+           match Backend.next_market_open () with
+           | None ->
+               Backend.Ticker.tick Backend.env;
+               `Continue
+           | Some open_time ->
+               let open_time = Ptime.to_float_s open_time in
+               Eio.Time.sleep_until Backend.env#clock open_time;
+               `Continue);
          (fun () ->
            while
              let shutdown =
@@ -60,7 +48,9 @@ module Strategy_utils (Backend : Backend.S) = struct
             go liquidate
           in
           match prev.current with
-          | `Liquidate | `Finished _ -> s
+          | `Liquidate | `Finished _ ->
+              Eio.traceln "@[Exiting run.@]@.";
+              s
           | _ -> try_liquidating ())
     in
     go init_state
@@ -95,6 +85,7 @@ module Strategy_utils (Backend : Backend.S) = struct
         Result.return
         @@ { state with current = `Finished "Liquidation finished" }
     | `Finished code ->
+        Eio.traceln "@[Reached finished state.@]@.";
         Parametric_mutex.set Backend.LongleafMutex.data_mutex state.bars;
         output_data state;
         Result.fail code

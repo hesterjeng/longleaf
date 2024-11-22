@@ -21,16 +21,16 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
   module Clock = struct
     type t = {
       is_open : bool;
-      timestamp : string;
-      next_open : string;
-      next_close : string;
+      timestamp : Time.t;
+      next_open : Time.t;
+      next_close : Time.t;
     }
     [@@deriving show, yojson]
 
     let get () =
       let endpoint = "/v2/clock" in
       let headers = headers () in
-      get ~headers ~endpoint
+      get ~headers ~endpoint |> t_of_yojson
   end
 
   module Accounts = struct
