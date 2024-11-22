@@ -14,7 +14,9 @@ module Strategy_utils (Backend : Backend.S) = struct
          (fun () ->
            Parametric_mutex.set Backend.LongleafMutex.data_mutex bars;
            match Backend.next_market_open () with
-           | None -> `Continue
+           | None ->
+               Backend.Ticker.tick Backend.env;
+               `Continue
            | Some open_time ->
                let open_time = Ptime.to_float_s open_time in
                Eio.Time.sleep_until Backend.env#clock open_time;
