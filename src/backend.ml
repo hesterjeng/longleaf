@@ -28,7 +28,7 @@ module type S = sig
 
   val latest_bars : string list -> (Bars.t, string) result
   val last_data_bar : Bars.t option
-  val liquidate : _ State.t -> Time.t -> unit
+  val liquidate : _ State.t -> unit
 end
 
 module type BACKEND_INPUT = sig
@@ -145,14 +145,14 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
         next_page_token = None;
       }
 
-  let liquidate state time =
+  let liquidate state =
     let final_bar =
       match last_data_bar with
       | Some b -> b
       | None ->
           invalid_arg "Expected to have last data bar in backtesting backend"
     in
-    Backend_position.liquidate state time final_bar;
+    Backend_position.liquidate state final_bar;
     (* Eio.traceln "@[Position:@]@.@[%a@]@." *)
     (*   (Hashtbl.pp String.pp Int.pp) *)
     (*   position.position; *)
@@ -231,7 +231,7 @@ module Alpaca
     let _ = Backtesting.place_order state time order in
     res
 
-  let liquidate state time =
+  let liquidate state =
     let symbols = Backend_position.symbols () in
     let last_data_bar =
       match latest_bars symbols with
