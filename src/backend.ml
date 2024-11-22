@@ -23,6 +23,9 @@ module type S = sig
   val symbols : string list
   val shutdown : unit -> unit
 
+  (* Return the next open time if the market is closed *)
+  val next_market_open : unit -> Time.t option
+
   val place_order :
     _ State.t -> Time.t -> Trading_types.Order.t -> Yojson.Safe.t
 
@@ -53,6 +56,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let get_data_client _ =
     invalid_arg "Backtesting does not have a trading client"
 
+  let next_market_open _ = None
   let env = Input.eio_env
   let symbols = Input.symbols
   let is_backtest = true
@@ -211,6 +215,10 @@ module Alpaca
     let client = data_client
     let longleaf_env = Input.longleaf_env
   end)
+
+  let next_market_open () =
+    let clock = Trading_api.Clock.get () in
+    if clock.is_open then None else Some clock.next_open
 
   (* let shutdown = *)
   let shutdown () =
