@@ -32,7 +32,6 @@
   tsort
   uuidm
   ptime
-  calendar
   owl
   tyxml
   (yojson
