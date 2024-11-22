@@ -107,20 +107,25 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let latest_bars _ =
     let bars = !data_remaining in
     let latest =
-      if List.exists (fun (_, l) -> List.is_empty l) bars then None
+      if List.exists (fun (_, l) -> Vector.is_empty l) bars then None
       else
         Some
           (List.Assoc.map_values
-             (fun bar_item_list ->
-               match bar_item_list with
-               | [] -> invalid_arg "latest_bars"
-               | x :: _ -> [ x ])
+             (fun bar_items ->
+               assert (not @@ Vector.is_empty bar_items);
+               Vector.make 1 @@ Vector.get bar_items 0)
              bars)
     in
     let rest =
       List.Assoc.map_values
-        (fun bar_item_list ->
-          match bar_item_list with [] -> [] | _ :: xs -> xs)
+        (fun bar_items ->
+          if Vector.is_empty bar_items then bar_items
+          else (
+            Vector.remove_and_shift bar_items 0;
+            bar_items))
+        (* match bar_item_list with *)
+        (*   [] -> [] *)
+        (* | _ :: xs -> xs) *)
         bars
     in
     data_remaining := rest;
@@ -135,12 +140,15 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     Some
       {
         Bars.data =
-          List.Assoc.map_values
-            (fun bar_item_list ->
-              match List.last_opt bar_item_list with
-              | Some z -> [ z ]
-              | None -> invalid_arg "Empty dataset")
-            Input.bars.data;
+          (let res =
+             List.Assoc.map_values
+               (fun bar_items ->
+                 match Vector.pop bar_items with
+                 | Some z -> Vector.make 1 z
+                 | None -> invalid_arg "Empty dataset")
+               Input.bars.data
+           in
+           res);
         currency = None;
         next_page_token = None;
       }

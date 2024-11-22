@@ -16,12 +16,17 @@ module Bar_item = struct
 end
 
 module Data = struct
-  type t = (string * Bar_item.t list) list [@@deriving show, yojson]
+  type received = (string * Bar_item.t list) list [@@deriving show, yojson]
+  type symbol_history = Bar_item.t Vector.vector
+
+  let pp_symbol_history : symbol_history Vector.printer = Vector.pp Bar_item.pp
+
+  type t = (string * symbol_history) list [@@deriving show]
 
   let empty : t = []
-  let original_t_of_yojson = t_of_yojson
+  let original_received_of_yojson = received_of_yojson
 
-  let t_of_yojson (x : Yojson.Safe.t) =
+  let received_of_yojson (x : Yojson.Safe.t) : received =
     try
       match x with
       | `Assoc s ->
@@ -38,9 +43,21 @@ module Data = struct
       | _ -> invalid_arg "Bars must be a toplevel Assoc"
     with _ ->
       Eio.traceln "@[Trying Data.original_t_of_yojson.@]@.";
-      let res = original_t_of_yojson x in
+      let res = original_received_of_yojson x in
       Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
       res
+
+  let t_of_yojson json : t =
+    let received = received_of_yojson json in
+    List.map
+      (fun (symbol, history) -> (symbol, Vector.of_list history))
+      received
+
+  let yojson_of_t (x : t) =
+    let listified : received =
+      List.map (fun (symbol, history) -> (symbol, Vector.to_list history)) x
+    in
+    yojson_of_received listified
 end
 
 type t = {
@@ -63,14 +80,16 @@ let combine (l : t list) : t =
   in
   let get_data key =
     let data =
-      List.flat_map
+      Vector.flat_map
         (fun (x : t) ->
           match List.Assoc.get ~eq:String.equal key x.data with
           | Some found -> found
-          | None -> [])
-        l
+          | None -> Vector.of_array [||]
+          (* Vector.make 0 *))
+        (Vector.of_list l)
     in
-    List.sort Bar_item.compare data
+    Vector.sort' Bar_item.compare data;
+    data
   in
   let data = List.map (fun key -> (key, get_data key)) keys in
   { data; next_page_token = None; currency = None }
@@ -80,7 +99,7 @@ let get (bars : t) ticker = List.Assoc.get ~eq:String.equal ticker bars.data
 let price x ticker =
   let bars = x.data in
   match List.Assoc.get ~eq:String.equal ticker bars with
-  | Some [ info ] -> info
+  | Some vec when Vector.length vec = 1 -> Vector.get vec 0
   | Some _ -> invalid_arg "Multiple bar items on latest bar?"
   | None ->
       invalid_arg
@@ -106,9 +125,9 @@ module Plotly = struct
         (* let res = Ptime.to_float_s time |> Int.of_float in *)
         (* `Int res *)
       in
-      List.map mk_plotly_x data
+      Vector.to_list @@ Vector.map mk_plotly_x data
     in
-    let y_axis = List.map (fun x -> `Float x.close) data in
+    let y_axis = List.map (fun x -> `Float x.close) @@ Vector.to_list data in
     `Assoc
       [
         ( "data",
