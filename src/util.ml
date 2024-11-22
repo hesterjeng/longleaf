@@ -69,36 +69,6 @@ let get_next_page_token (x : Yojson.Safe.t) =
     | `Null -> None
     | _ -> invalid_arg "next_page_token must be a string or null")
 
-let rfc339 () =
-  let open CalendarLib in
-  let datetime = Calendar.now () in
-  let year = Calendar.year datetime in
-  let month = Date.int_of_month @@ Calendar.month datetime in
-  let day = Calendar.day_of_month datetime in
-  let hour = Calendar.hour datetime in
-  let minute = Calendar.minute datetime in
-  let second = Calendar.second datetime in
-  Printf.sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ" year month day hour minute
-    second
-
-let show_calendar_t datetime =
-  let open CalendarLib in
-  let year = Calendar.year datetime in
-  let month = Date.int_of_month @@ Calendar.month datetime in
-  let day = Calendar.day_of_month datetime in
-  let hour = Calendar.hour datetime in
-  let minute = Calendar.minute datetime in
-  let second = Calendar.second datetime in
-  Printf.sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ" year month day hour minute
-    second
-
-let show_calendar_time_t time =
-  let open CalendarLib in
-  let hour = Calendar.Time.hour time in
-  let minute = Calendar.Time.minute time in
-  let second = Calendar.Time.second time in
-  Printf.sprintf "%02d:%02d:%02d" hour minute second
-
 let read_file_as_string filename =
   let ic = open_in filename in
   let len = in_channel_length ic in
