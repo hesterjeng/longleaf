@@ -17,10 +17,18 @@ module Strategy_utils (Backend : Backend.S) = struct
            | None ->
                Backend.Ticker.tick Backend.env;
                `Continue
-           | Some open_time ->
+           | Some open_time -> (
                let open_time = Ptime.to_float_s open_time in
+               Eio.traceln "@[Waiting until market open...@]@.";
                Eio.Time.sleep_until Backend.env#clock open_time;
-               `Continue);
+               Eio.traceln "@[Market is open, resuming.@]@.";
+               Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
+               | Some t ->
+                   Eio.traceln "@[Current time: %a@]@." Time.pp t;
+                   `Continue
+               | None ->
+                   Eio.traceln "@[Detected an illegal time!  Shutting down.@]@.";
+                   `Shutdown_signal));
          (fun () ->
            while
              let shutdown =
@@ -30,7 +38,7 @@ module Strategy_utils (Backend : Backend.S) = struct
            do
              Ticker.OneSecond.tick Backend.env
            done;
-           Eio.traceln "@[Shutdown command received by strategy.@]@.";
+           Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
            Parametric_mutex.set Backend.LongleafMutex.data_mutex bars;
            `Shutdown_signal);
        ]
