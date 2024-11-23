@@ -27,7 +27,7 @@ module type S = sig
   val next_market_open : unit -> Time.t option
 
   val place_order :
-    _ State.t -> Time.t -> Trading_types.Order.t -> Yojson.Safe.t
+    _ State.t -> Time.t -> Trading_types.Order.t -> Piaf.Response.t
 
   val latest_bars : string list -> (Bars.t, string) result
   val last_data_bar : Bars.t option
@@ -102,9 +102,9 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   (*     queue := res *)
   (* end *)
 
-  let place_order state time (order : Order.t) : Yojson.Safe.t =
+  let place_order state time (order : Order.t) =
     Backend_position.execute_order state time order;
-    `Null
+    Piaf.Response.create `OK
 
   let data_remaining = ref Input.bars.data
 
@@ -243,9 +243,10 @@ module Alpaca
   let get_clock = Trading_api.Clock.get
 
   let place_order state time order =
-    let res = Trading_api.Orders.create_market_order order in
+    let response = Trading_api.Orders.create_market_order order in
     let _ = Backtesting.place_order state time order in
-    res
+    let status = Piaf.Response.status response in
+    status
 
   let liquidate state =
     let symbols = Backend_position.symbols () in

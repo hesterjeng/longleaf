@@ -47,19 +47,9 @@ let post_piaf ~client ~body ~headers ~endpoint =
   let open Piaf in
   let headers = Headers.to_list headers in
   let body = Yojson.Safe.to_string body |> Body.of_string in
-  let resp =
-    match Client.post client ~headers ~body endpoint with
-    | Ok x -> x
-    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
-  in
-  let _status = Response.status resp in
-  let body = Response.body resp in
-  let json =
-    match Body.to_string body with
-    | Ok x -> x
-    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
-  in
-  Yojson.Safe.from_string json
+  match Client.post client ~headers ~body endpoint with
+  | Ok x -> x
+  | Error e -> invalid_arg @@ Format.asprintf "post_piaf: %a" Error.pp_hum e
 
 let get_next_page_token (x : Yojson.Safe.t) =
   Option.(
