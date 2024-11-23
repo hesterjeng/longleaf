@@ -63,16 +63,30 @@ module Strategy_utils (Backend : Backend.S) = struct
     in
     go init_state
 
-  let output_data (state : _ State.t) =
+  let get_filename () = Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
+
+  let output_data (state : _ State.t) filename =
     Eio.traceln "cash: %f" (Backend.get_cash ());
     if Backend.is_backtest then ()
     else
       let json = Bars.yojson_of_t state.bars |> Yojson.Safe.to_string in
-      let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
-      let filename = Format.sprintf "data/live_%s" tail in
+      (* let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in *)
+      let filename = Format.sprintf "data/live_%s.json" filename in
       let oc = open_out filename in
       output_string oc json;
       close_out oc
+
+  let output_order_history (state : _ State.t) filename =
+    let order_history : State.order_history =
+      Hashtbl.to_list state.order_history
+    in
+    let json =
+      State.yojson_of_order_history order_history |> Yojson.Safe.to_string
+    in
+    let filename = Format.sprintf "data/order_history_%s.json" filename in
+    let oc = open_out filename in
+    output_string oc json;
+    close_out oc
 
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
@@ -95,7 +109,9 @@ module Strategy_utils (Backend : Backend.S) = struct
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
         Parametric_mutex.set Backend.LongleafMutex.data_mutex state.bars;
-        output_data state;
+        let filename = get_filename () in
+        output_data state filename;
+        output_order_history state filename;
         Result.fail code
 end
 
