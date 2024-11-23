@@ -1,7 +1,4 @@
-type mutices = {
-  shutdown_mutex : bool Parametric_mutex.t;
-  data_mutex : Bars.t Parametric_mutex.t;
-}
+type mutices = { shutdown_mutex : bool Pmutex.t; data_mutex : Bars.t Pmutex.t }
 
 module Html = struct
   let plotly_graph_html plot_data =
@@ -49,10 +46,10 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       Response.of_string ~body:html `OK
   | { Request.meth = `GET; target = "/shutdown"; _ } ->
       Promise.resolve resolver true;
-      Parametric_mutex.set mutices.shutdown_mutex true;
+      Pmutex.set mutices.shutdown_mutex true;
       Response.of_string ~body:"Shutdown command sent" `OK
   | { Request.meth = `GET; target = "/graphs"; _ } ->
-      let bars = Parametric_mutex.get mutices.data_mutex in
+      let bars = Pmutex.get mutices.data_mutex in
       let plotly_json =
         Bars.Plotly.of_bars bars "NVDA" |> Yojson.Safe.to_string
       in
