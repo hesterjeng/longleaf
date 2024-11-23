@@ -88,39 +88,23 @@ end
 
 module Status = struct
   type t =
-    | New_
-    | Partially_filled
-    | Filled
-    | Done_for_day
-    | Canceled
-    | Expired
-    | Replaced
-    | Pending_cancel
-    | Pending_replace
-    | Accepted
-    | Pending_new
-    | Accepted_for_bidding
-    | Stopped
-    | Rejected
-    | Suspended
-    | Calculated
+    | New [@name "new"]
+    | Partially_filled [@name "partially_filled"]
+    | Filled [@name "filled"]
+    | Done_for_day [@name "done_for_day"]
+    | Canceled [@name "canceled"]
+    | Expired [@name "expired"]
+    | Replaced [@name "replaced"]
+    | Pending_cancel [@name "pending_cancel"]
+    | Pending_replace [@name "pending_replace"]
+    | Accepted [@name "accepted"]
+    | Pending_new [@name "pending_new"]
+    | Accepted_for_bidding [@name "accepted_for_bidding"]
+    | Stopped [@name "stopped"]
+    | Rejected [@name "rejected"]
+    | Suspended [@name "suspended"]
+    | Calculated [@name "calculated"]
   [@@deriving show, yojson]
-  (* | new_ *)
-  (* | partially_filled *)
-  (* | filled *)
-  (* | done_for_day *)
-  (* | canceled *)
-  (* | expired *)
-  (* | replaced *)
-  (* | pending_cancel *)
-  (* | pending_replace *)
-  (* | accepted *)
-  (* | pending_new *)
-  (* | accepted_for_bidding *)
-  (* | stopped *)
-  (* | rejected *)
-  (* | suspended *)
-  (* | calculated *)
 end
 
 module Order : sig
@@ -131,9 +115,19 @@ module Order : sig
     order_type : OrderType.t;
     qty : int;
     price : float;
+    id : string Pmutex.t;
     status : Status.t Pmutex.t;
   }
   [@@deriving show, yojson]
+
+  val make :
+    symbol:string ->
+    side:Side.t ->
+    tif:TimeInForce.t ->
+    order_type:OrderType.t ->
+    qty:int ->
+    price:float ->
+    t
 end = struct
   type t = {
     symbol : string;
@@ -142,11 +136,20 @@ end = struct
     order_type : OrderType.t;
     qty : int;
     price : float;
+    id : string Pmutex.t;
     status : Status.t Pmutex.t;
   }
   [@@deriving show, yojson]
 
-  module Response = struct
-    type t = { id : string; status : string }
-  end
+  let make ~symbol ~side ~tif ~order_type ~qty ~price =
+    {
+      symbol;
+      side;
+      tif;
+      order_type;
+      qty;
+      price;
+      id = Pmutex.make "not_set";
+      status = Pmutex.make Status.New;
+    }
 end
