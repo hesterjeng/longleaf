@@ -146,14 +146,12 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     match rand with
     | Some previous_maximum ->
         let order : Order.t =
-          {
-            symbol;
-            side = Side.Sell;
-            tif = TimeInForce.GoodTillCanceled;
-            order_type = OrderType.Market;
-            qty = qty symbol;
-            price = most_recent_price.close;
-          }
+          let side = Side.Sell in
+          let tif = TimeInForce.GoodTillCanceled in
+          let order_type = OrderType.Market in
+          let qty = qty symbol in
+          let price = most_recent_price.close in
+          Order.make ~symbol ~side ~tif ~order_type ~qty ~price
         in
         Some (order, previous_maximum)
     | _ -> None
@@ -209,7 +207,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     in
     let cover_order =
       let current_price = (Bars.price state.latest_bars order.symbol).close in
-      let cover_order = { order with side = Side.Buy; price = current_price } in
+      let cover_order =
+        Order.make ~symbol:order.symbol ~side:Side.Buy ~tif:order.tif
+          ~order_type:order.order_type ~qty:order.qty ~price:current_price
+      in
       let target_price = min_dip *. order.price in
       let cover_reason =
         if current_price <. profit_multiplier *. target_price then Profited
