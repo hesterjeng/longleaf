@@ -1,6 +1,8 @@
 module Log = (val Logs.src_log Logs.(Src.create "trading-api"))
 open Trading_types
 module Headers = Piaf.Headers
+module Response = Piaf.Response
+module Status = Piaf.Status
 
 (* Create the headers based on the current environment *)
 
@@ -112,6 +114,17 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
   end
 
   module Orders = struct
+
+    module OrderResponse = struct
+
+      type t =
+        {
+          id : string;
+          status : string;
+        }
+
+    end
+
     let create_market_order (order : Order.t) =
       let endpoint = "/v2/orders" in
       let headers = headers () in
@@ -125,7 +138,10 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
             ("qty", `String (Int.to_string order.qty));
           ]
       in
-      post ~headers ~body ~endpoint
+      let response = post ~headers ~body ~endpoint in
+      match Response.status response with
+      | `OK -> ()
+      | x -> Eio.traceln "@[create_market_order: %a@]@." Status.pp_hum x
 
     let get_all_orders () =
       let endpoint = "/v2/orders" in
