@@ -1,11 +1,11 @@
 module type LONGLEAF_MUTEX = sig
-  val shutdown_mutex : bool Parametric_mutex.t
-  val data_mutex : Bars.t Parametric_mutex.t
+  val shutdown_mutex : bool Pmutex.t
+  val data_mutex : Bars.t Pmutex.t
 end
 
 module LongleafMutex () : LONGLEAF_MUTEX = struct
-  let shutdown_mutex = Parametric_mutex.make false
-  let data_mutex = Parametric_mutex.make Bars.empty
+  let shutdown_mutex = Pmutex.make false
+  let data_mutex = Pmutex.make Bars.empty
 end
 
 module type S = sig
@@ -266,14 +266,12 @@ module Alpaca
             let latest_info = Bars.price last_data_bar symbol in
             let time = latest_info.timestamp in
             let order : Order.t =
-              {
-                symbol;
-                side = (if qty >= 0 then Side.Sell else Side.Buy);
-                tif = TimeInForce.GoodTillCanceled;
-                order_type = OrderType.Market;
-                qty = Int.abs qty;
-                price = latest_info.close;
-              }
+              let side = if qty >= 0 then Side.Sell else Side.Buy in
+              let tif = TimeInForce.GoodTillCanceled in
+              let order_type = OrderType.Market in
+              let qty = Int.abs qty in
+              let price = latest_info.close in
+              Order.make ~symbol ~side ~tif ~order_type ~qty ~price
             in
             Eio.traceln "%a" Order.pp order;
             let _json_resp = place_order state time order in

@@ -57,14 +57,11 @@ module Generative () : S = struct
           let side = if qty >= 0 then Side.Sell else Side.Buy in
           let latest = Bars.price bars symbol in
           let order : Order.t =
-            {
-              symbol;
-              side;
-              tif = TimeInForce.GoodTillCanceled;
-              order_type = OrderType.Market;
-              qty = Int.abs qty;
-              price = latest.close;
-            }
+            let tif = TimeInForce.GoodTillCanceled in
+            let order_type = OrderType.Market in
+            let qty = Int.abs qty in
+            let price = latest.close in
+            Order.make ~symbol ~side ~tif ~order_type ~qty ~price
           in
           Eio.traceln "@[%a@]@." Order.pp order;
           execute_order state latest.timestamp order)
