@@ -1,4 +1,8 @@
-type 'a t = { mutable data : 'a; mutex : Eio.Mutex.t }
+type 'a t = {
+  mutable data : 'a;
+  mutex : (Eio.Mutex.t[@opaque] [@yojson.opaque]);
+}
+[@@deriving show, yojson]
 
 let make x = { data = x; mutex = Eio.Mutex.create () }
 
