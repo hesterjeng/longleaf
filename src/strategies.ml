@@ -12,7 +12,7 @@ module Strategy_utils (Backend : Backend.S) = struct
     Eio.Fiber.any
     @@ [
          (fun () ->
-           Parametric_mutex.set Backend.LongleafMutex.data_mutex bars;
+           Pmutex.set Backend.LongleafMutex.data_mutex bars;
            match Backend.next_market_open () with
            | None ->
                Backend.Ticker.tick Backend.env;
@@ -31,15 +31,13 @@ module Strategy_utils (Backend : Backend.S) = struct
                    `Shutdown_signal));
          (fun () ->
            while
-             let shutdown =
-               Parametric_mutex.get Backend.LongleafMutex.shutdown_mutex
-             in
+             let shutdown = Pmutex.get Backend.LongleafMutex.shutdown_mutex in
              not shutdown
            do
              Ticker.OneSecond.tick Backend.env
            done;
            Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
-           Parametric_mutex.set Backend.LongleafMutex.data_mutex bars;
+           Pmutex.set Backend.LongleafMutex.data_mutex bars;
            `Shutdown_signal);
        ]
 
@@ -108,7 +106,7 @@ module Strategy_utils (Backend : Backend.S) = struct
         @@ { state with current = `Finished "Liquidation finished" }
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
-        Parametric_mutex.set Backend.LongleafMutex.data_mutex state.bars;
+        Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
         let filename = get_filename () in
         output_data state filename;
         output_order_history state filename;
@@ -155,14 +153,12 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
           if msft.close <. nvda.close then ()
           else
             let order : Order.t =
-              {
-                symbol = "NVDA";
-                side = Side.Buy;
-                tif = TimeInForce.Day;
-                order_type = OrderType.Market;
-                qty;
-                price = nvda.close;
-              }
+              let symbol = "NVDA" in
+              let side = Side.Buy in
+              let tif = TimeInForce.Day in
+              let order_type = OrderType.Market in
+              let price = nvda.close in
+              Order.make ~symbol ~side ~tif ~order_type ~price ~qty
             in
             let time = msft.timestamp in
             let _json_resp = Backend.place_order state time order in
