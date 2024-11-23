@@ -245,8 +245,7 @@ module Alpaca
   let place_order state time order =
     let response = Trading_api.Orders.create_market_order order in
     let _ = Backtesting.place_order state time order in
-    let status = Piaf.Response.status response in
-    status
+    Piaf.Response.create `OK
 
   let liquidate state =
     let symbols = Backend_position.symbols () in

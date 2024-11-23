@@ -114,17 +114,6 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
   end
 
   module Orders = struct
-
-    module OrderResponse = struct
-
-      type t =
-        {
-          id : string;
-          status : string;
-        }
-
-    end
-
     let create_market_order (order : Order.t) =
       let endpoint = "/v2/orders" in
       let headers = headers () in
@@ -140,8 +129,10 @@ module Make (Alpaca : Util.ALPACA_SERVER) = struct
       in
       let response = post ~headers ~body ~endpoint in
       match Response.status response with
-      | `OK -> ()
-      | x -> Eio.traceln "@[create_market_order: %a@]@." Status.pp_hum x
+      | `OK -> `OK
+      | x ->
+          Eio.traceln "@[create_market_order: %a@]@." Status.pp_hum x;
+          invalid_arg "Bad response in create_market_order"
 
     let get_all_orders () =
       let endpoint = "/v2/orders" in
