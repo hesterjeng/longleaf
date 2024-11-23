@@ -8,3 +8,6 @@
 
 @watch:
 	dune exec bin/server.exe --watch
+
+@bt:
+	dune exec bin/main.exe backtest
