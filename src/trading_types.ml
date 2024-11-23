@@ -86,44 +86,55 @@ end = struct
     Month i
 end
 
-module Order = struct
-  module Status = struct
-    type t =
-      | New_
-      | Partially_filled
-      | Filled
-      | Done_for_day
-      | Canceled
-      | Expired
-      | Replaced
-      | Pending_cancel
-      | Pending_replace
-      | Accepted
-      | Pending_new
-      | Accepted_for_bidding
-      | Stopped
-      | Rejected
-      | Suspended
-      | Calculated
-    [@@deriving show, yojson]
-    (* | new_ *)
-    (* | partially_filled *)
-    (* | filled *)
-    (* | done_for_day *)
-    (* | canceled *)
-    (* | expired *)
-    (* | replaced *)
-    (* | pending_cancel *)
-    (* | pending_replace *)
-    (* | accepted *)
-    (* | pending_new *)
-    (* | accepted_for_bidding *)
-    (* | stopped *)
-    (* | rejected *)
-    (* | suspended *)
-    (* | calculated *)
-  end
+module Status = struct
+  type t =
+    | New_
+    | Partially_filled
+    | Filled
+    | Done_for_day
+    | Canceled
+    | Expired
+    | Replaced
+    | Pending_cancel
+    | Pending_replace
+    | Accepted
+    | Pending_new
+    | Accepted_for_bidding
+    | Stopped
+    | Rejected
+    | Suspended
+    | Calculated
+  [@@deriving show, yojson]
+  (* | new_ *)
+  (* | partially_filled *)
+  (* | filled *)
+  (* | done_for_day *)
+  (* | canceled *)
+  (* | expired *)
+  (* | replaced *)
+  (* | pending_cancel *)
+  (* | pending_replace *)
+  (* | accepted *)
+  (* | pending_new *)
+  (* | accepted_for_bidding *)
+  (* | stopped *)
+  (* | rejected *)
+  (* | suspended *)
+  (* | calculated *)
+end
 
+module Order : sig
+  type t = private {
+    symbol : string;
+    side : Side.t;
+    tif : TimeInForce.t;
+    order_type : OrderType.t;
+    qty : int;
+    price : float;
+    status : Status.t Pmutex.t;
+  }
+  [@@deriving show, yojson]
+end = struct
   type t = {
     symbol : string;
     side : Side.t;
@@ -131,12 +142,11 @@ module Order = struct
     order_type : OrderType.t;
     qty : int;
     price : float;
+    status : Status.t Pmutex.t;
   }
   [@@deriving show, yojson]
 
   module Response = struct
     type t = { id : string; status : string }
-
-    let filled x = x.status
   end
 end
