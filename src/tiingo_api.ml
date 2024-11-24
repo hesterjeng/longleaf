@@ -14,6 +14,14 @@ type t = {
 }
 [@@deriving show { with_path = false }, yojson] [@@yojosn.allow_extra_fields]
 
+let tiingo_client eio_env sw =
+  let res =
+    Piaf.Client.create ~sw eio_env @@ Uri.of_string "https://api.tiingo.com/iex"
+  in
+  match res with
+  | Ok x -> x
+  | Error _ -> invalid_arg "Unable to create trading client"
+
 module Make (Tiingo : Util.CLIENT) = struct
   let client = Tiingo.client
   let tiingo_key = Tiingo.longleaf_env.tiingo_key
