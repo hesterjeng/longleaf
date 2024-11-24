@@ -80,7 +80,7 @@ let yojson_safe stacktrace (f : unit -> 'a) : 'a =
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
 
-module type ALPACA_SERVER = sig
+module type CLIENT = sig
   val longleaf_env : Environment.t
   val client : Piaf.Client.t
 end
