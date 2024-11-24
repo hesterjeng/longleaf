@@ -7,7 +7,7 @@ module Runtype = struct
     | "Paper" | "paper" -> Ok Paper
     | "Backtest" | "backtest" -> Ok Backtest
     | "Manual" | "manual" -> Ok Backtest
-    | _ -> Error (`Msg "Expected a valid runtype")
+    | _ -> Error (`Msg "Expected a valid runtype") [@@deriving eq]
 
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
 end
