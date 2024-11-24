@@ -16,7 +16,7 @@ type t = {
 
 let tiingo_client eio_env sw =
   let res =
-    Piaf.Client.create ~sw eio_env @@ Uri.of_string "https://api.tiingo.com/iex"
+    Piaf.Client.create ~sw eio_env @@ Uri.of_string "https://api.tiingo.com"
   in
   match res with
   | Ok x -> x
@@ -24,21 +24,33 @@ let tiingo_client eio_env sw =
 
 module Make (Tiingo : Util.CLIENT) = struct
   let client = Tiingo.client
-  let tiingo_key = Tiingo.longleaf_env.tiingo_key
 
-  let headers =
-    match tiingo_key with
-    | Some key ->
-        Headers.of_list [ ("Authorization", Format.asprintf "Token %s" key) ]
+  let tiingo_key =
+    match Tiingo.longleaf_env.tiingo_key with
+    | Some s -> s
     | None -> invalid_arg "No tiingo key when trying to make tiingo connection"
 
+  let headers =
+    Headers.of_list
+      [
+        ("Content-Type", "application/json");
+        ("Authorization", Format.asprintf "Token %s" tiingo_key);
+      ]
+
   let get = Util.get_piaf ~client:Tiingo.client
-  let iex_endpoint = Uri.of_string "iex"
+  let endpoint = Uri.of_string "/iex"
+
+  let test () =
+    let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
+    get ~headers ~endpoint
 
   let latest tickers : t =
     let endpoint =
-      Uri.add_query_param' iex_endpoint ("tickers", String.concat "," tickers)
+      Uri.add_query_params' endpoint [ ("tickers", String.concat "," tickers) ]
       |> Uri.to_string
     in
-    get ~headers ~endpoint |> t_of_yojson
+    Eio.traceln "@[endpoint: %s@]@." endpoint;
+    let resp = get ~headers ~endpoint in
+    Eio.traceln "@[%a@]@." Yojson.Safe.pp resp;
+    t_of_yojson resp
 end
