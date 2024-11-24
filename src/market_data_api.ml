@@ -6,7 +6,7 @@ module Historical_bars_request = struct
   [@@deriving show, yojson]
 end
 
-module Make (Alpaca : Util.ALPACA_SERVER) = struct
+module Make (Alpaca : Util.CLIENT) = struct
   let client = Alpaca.client
   let longleaf_env = Alpaca.longleaf_env
   let get = Util.get_piaf ~client

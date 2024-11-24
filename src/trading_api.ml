@@ -6,7 +6,7 @@ module Status = Piaf.Status
 
 (* Create the headers based on the current environment *)
 
-module Make (Alpaca : Util.ALPACA_SERVER) = struct
+module Make (Alpaca : Util.CLIENT) = struct
   let client = Alpaca.client
   let longleaf_env = Alpaca.longleaf_env
   let get = Util.get_piaf ~client
