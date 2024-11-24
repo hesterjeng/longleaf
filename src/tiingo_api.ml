@@ -1,11 +1,18 @@
 module Headers = Piaf.Headers
 
-(* WIP *)
-type data =
-  {
-    ticker : string;
-  }
-  [@@deriving show { with_path = false }, yojson]
+type t = {
+  ticker : string;
+  timestamp : Time.t;
+  last : float;
+  open_ : float; [@key "open"]
+  high : float;
+  ask_price : float; [@key "askPrice"]
+  bid_price : float; [@key "bidPrice"]
+  low : float;
+  close : float;
+  volume : int;
+}
+[@@deriving show { with_path = false }, yojson] [@@yojosn.allow_extra_fields]
 
 module Make (Tiingo : Util.CLIENT) = struct
   let client = Tiingo.client
@@ -20,10 +27,10 @@ module Make (Tiingo : Util.CLIENT) = struct
   let get = Util.get_piaf ~client:Tiingo.client
   let iex_endpoint = Uri.of_string "iex"
 
-  let latest_bars tickers =
+  let latest tickers : t =
     let endpoint =
       Uri.add_query_param' iex_endpoint ("tickers", String.concat "," tickers)
       |> Uri.to_string
     in
-    get ~headers ~endpoint
+    get ~headers ~endpoint |> t_of_yojson
 end
