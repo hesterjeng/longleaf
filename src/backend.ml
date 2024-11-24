@@ -194,6 +194,22 @@ module Alpaca
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create trading client"
 
+  let tiingo_client =
+    let res =
+      Piaf.Client.create ~sw:Input.switch Input.eio_env
+      @@ Uri.of_string "https://api.tiingo.com/iex"
+    in
+    match res with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Unable to create trading client"
+
+  module Tiingo_client : Util.CLIENT = struct
+    let longleaf_env = Input.longleaf_env
+    let client = tiingo_client
+  end
+
+  module Tiingo = Tiingo_api.Make (Tiingo_client)
+
   let data_client =
     let res =
       Piaf.Client.create ~sw:Input.switch Input.eio_env
