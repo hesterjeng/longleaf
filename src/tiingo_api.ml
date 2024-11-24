@@ -1,6 +1,6 @@
 module Headers = Piaf.Headers
 
-type t = {
+type item = {
   ticker : string;
   timestamp : Time.t;
   last : float;
@@ -13,6 +13,8 @@ type t = {
   volume : int;
 }
 [@@deriving show { with_path = false }, yojson] [@@yojosn.allow_extra_fields]
+
+type t = item list [@@deriving show { with_path = false }, yojson]
 
 let tiingo_client eio_env sw =
   let res =
