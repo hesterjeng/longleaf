@@ -1,5 +1,12 @@
 module Headers = Piaf.Headers
 
+(* WIP *)
+type data =
+  {
+    ticker : string;
+  }
+  [@@deriving show { with_path = false }, yojson]
+
 module Make (Tiingo : Util.CLIENT) = struct
   let client = Tiingo.client
   let tiingo_key = Tiingo.longleaf_env.tiingo_key
