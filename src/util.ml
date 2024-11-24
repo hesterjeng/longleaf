@@ -24,7 +24,11 @@ let get_piaf ~client ~headers ~endpoint =
     | Ok x -> x
     | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
   in
-  Yojson.Safe.from_string json
+  try Yojson.Safe.from_string json
+  with Yojson.Json_error s as e ->
+    Eio.traceln
+      "@[Error converting body of response to json in get_piaf.@]@.@[%s@]@." s;
+    raise e
 
 let delete_piaf ~client ~headers ~endpoint =
   let open Piaf in
