@@ -38,7 +38,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       ]
 
   let get = Util.get_piaf ~client:Tiingo.client
-  let endpoint = Uri.of_string "/iex"
+  let endpoint = Uri.of_string "/iex/"
 
   let test () =
     let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
