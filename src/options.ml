@@ -6,7 +6,7 @@ module Runtype = struct
     | "Live" | "live" -> Ok Live
     | "Paper" | "paper" -> Ok Paper
     | "Backtest" | "backtest" -> Ok Backtest
-    | "Manual" | "manual" -> Ok Backtest
+    | "Manual" | "manual" -> Ok Manual
     | _ -> Error (`Msg "Expected a valid runtype")
   [@@deriving eq]
 
