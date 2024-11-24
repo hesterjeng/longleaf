@@ -36,7 +36,7 @@ module Downloader = struct
     Util.yojson_safe true @@ fun () ->
     let longleaf_env = Environment.make () in
     let data_client = data_client switch eio_env longleaf_env in
-    let module Conn : Longleaf.Util.ALPACA_SERVER = struct
+    let module Conn : Longleaf.Util.CLIENT = struct
       let client = data_client
       let longleaf_env = longleaf_env
     end in
