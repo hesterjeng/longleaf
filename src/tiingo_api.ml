@@ -6,10 +6,9 @@ type item = {
   last : float;
   open_ : float; [@key "open"]
   high : float;
-  ask_price : float; [@key "askPrice"]
-  bid_price : float; [@key "bidPrice"]
+  ask_price : float option; [@key "askPrice"]
+  bid_price : float option; [@key "bidPrice"]
   low : float;
-  close : float;
   volume : int;
 }
 [@@deriving show { with_path = false }, yojson] [@@yojosn.allow_extra_fields]

@@ -79,7 +79,7 @@ let yojson_safe stacktrace (f : unit -> 'a) : 'a =
   with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, j) ->
     (if stacktrace then
        let str =
-         Printexc.get_callstack 10 |> Printexc.raw_backtrace_to_string
+         Printexc.get_callstack 40 |> Printexc.raw_backtrace_to_string
        in
        Eio.traceln "@[%s@]@." str);
     Eio.traceln "Yojson error in main longleaf program!";
