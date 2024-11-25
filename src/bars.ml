@@ -5,6 +5,7 @@ module Bar_item = struct
     high : float; [@key "h"]
     low : float; [@key "l"]
     close : float; [@key "c"] (* We are using this as the latest price... *)
+    last : float option [@default None];
     volume : int; [@key "v"]
     (* trade_count : int; [@key "n"] *)
     (* volume_weighted : float; [@key "vw"] *)
