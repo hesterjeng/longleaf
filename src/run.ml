@@ -60,9 +60,8 @@ end
 module DoubleTop = struct
   module Data : RUN_DATA = struct
     let bars =
-      Bars.empty
-      (* Yojson.Safe.from_file "data/download_forcing_Dardistan" *)
-      (* |> Bars.t_of_yojson *)
+      Yojson.Safe.from_file "data/download_forcing_Dardistan"
+      |> Bars.t_of_yojson
 
     let symbols =
       [
