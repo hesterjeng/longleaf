@@ -37,7 +37,11 @@ end = struct
   [@@yojson.allow_extra_fields]
 
   let t_of_yojson x =
-    try t_of_yojson x |> fun (x : t) -> { x with last = x.close }
+    try
+      t_of_yojson x |> fun (x : t) ->
+      if Float.equal x.last Float.max_finite_value then
+        { x with last = x.close }
+      else x
     with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) ->
       let exc = Printexc.to_string e in
       Eio.traceln "@[bar_item:@]@.@[%s@]@.@[%s@]@." exc
