@@ -21,15 +21,13 @@ module Bar_item : sig
   val close : t -> float
   val volume : t -> int
 end = struct
-  [@@@warning "-11"]
-
   type t = {
     timestamp : Time.t; [@key "t"]
     open_ : float; [@key "o"]
     high : float; [@key "h"]
     low : float; [@key "l"]
     close : float; [@key "c"] (* We are using this as the latest price... *)
-    last : float; [@key "c"]
+    last : float; [@yojson.default Float.max_finite_value]
     volume : int; [@key "v"]
     (* trade_count : int; [@key "n"] *)
     (* volume_weighted : float; [@key "vw"] *)
@@ -37,6 +35,14 @@ end = struct
   }
   [@@deriving show { with_path = false }, yojson, make]
   [@@yojson.allow_extra_fields]
+
+  let t_of_yojson x =
+    try t_of_yojson x |> fun (x : t) -> { x with last = x.close }
+    with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) ->
+      let exc = Printexc.to_string e in
+      Eio.traceln "@[bar_item:@]@.@[%s@]@.@[%s@]@." exc
+        (Yojson.Safe.to_string j);
+      exit 1
 
   let timestamp (x : t) = x.timestamp
   let close x = x.close
@@ -84,6 +90,13 @@ module Data = struct
     List.map
       (fun (symbol, history) -> (symbol, Vector.of_list history))
       received
+
+  let t_of_yojson x =
+    try t_of_yojson x
+    with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) ->
+      let exc = Printexc.to_string e in
+      Eio.traceln "data: %s: %s" exc (Yojson.Safe.to_string j);
+      exit 1
 
   let yojson_of_t (x : t) =
     let listified : received =
