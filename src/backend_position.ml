@@ -60,10 +60,11 @@ module Generative () : S = struct
             let tif = TimeInForce.GoodTillCanceled in
             let order_type = OrderType.Market in
             let qty = Int.abs qty in
-            let price = latest.close in
+            let price = Bars.Bar_item.last latest in
             Order.make ~symbol ~side ~tif ~order_type ~qty ~price
           in
+          let time = Bars.Bar_item.timestamp latest in
           Eio.traceln "@[%a@]@." Order.pp order;
-          execute_order state latest.timestamp order)
+          execute_order state time order)
       pos.position
 end
