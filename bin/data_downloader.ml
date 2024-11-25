@@ -46,7 +46,7 @@ module Downloader = struct
     let bars = MDA.Stock.historical_bars request |> Bars.yojson_of_t in
     let str = Yojson.Safe.to_string bars in
     let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
-    let filename = Format.sprintf "data/download_%s" tail in
+    let filename = Format.sprintf "data/download_%s.json" tail in
     let oc = open_out filename in
     output_string oc str;
     close_out oc;
@@ -60,7 +60,7 @@ let _ =
   Logs.set_level ~all:true (Some Logs.Info);
   let request : Longleaf.Market_data_api.Historical_bars_request.t =
     {
-      timeframe = Trading_types.Timeframe.min 30;
+      timeframe = Trading_types.Timeframe.min 10;
       start = Time.of_ymd "2024-10-01";
       symbols = some_symbols;
     }
