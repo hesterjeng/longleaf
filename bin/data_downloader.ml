@@ -61,7 +61,7 @@ let _ =
   let request : Longleaf.Market_data_api.Historical_bars_request.t =
     {
       timeframe = Trading_types.Timeframe.min 10;
-      start = Time.of_ymd "2024-10-01";
+      start = Time.of_ymd "2024-11-01";
       symbols = some_symbols;
     }
   in
