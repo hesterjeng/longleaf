@@ -60,7 +60,8 @@ end
 module DoubleTop = struct
   module Data : RUN_DATA = struct
     let bars =
-      Yojson.Safe.from_file "data/download_Elegance_Fleeting.json"
+      (* Yojson.Safe.from_file "data/download_Elegance_Fleeting.json" *)
+      Yojson.Safe.from_file "data/download_Calculated_Meddler.json"
       |> Bars.t_of_yojson
 
     let symbols =
@@ -85,7 +86,7 @@ module DoubleTop = struct
         "LLY";
       ]
 
-    let tick = 300.0
+    let tick = 600.0
   end
 
   module Make = Make (Data) (Double_top.DoubleTop)
