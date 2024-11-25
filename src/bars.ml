@@ -1,11 +1,19 @@
-module Bar_item = struct
+module Bar_item : sig
+  type t [@@deriving show, yojson]
+
+  val compare : t Ord.t
+  val timestamp : t -> Time.t
+  val last : t -> float
+  val close : t -> float
+  val volume : t -> int
+end = struct
   type t = {
     timestamp : Time.t; [@key "t"]
     open_ : float; [@key "o"]
     high : float; [@key "h"]
     low : float; [@key "l"]
     close : float; [@key "c"] (* We are using this as the latest price... *)
-    last : float option [@default None];
+    last : float option; [@default None]
     volume : int; [@key "v"]
     (* trade_count : int; [@key "n"] *)
     (* volume_weighted : float; [@key "vw"] *)
@@ -13,6 +21,19 @@ module Bar_item = struct
   }
   [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
+  let timestamp (x : t) = x.timestamp
+
+  let close x = x.close
+
+  let last (x : t) =
+    match x.last with
+    | Some x -> x
+    | None ->
+        invalid_arg
+          "There is no last field in this bar item.  Are we using Tiingo style \
+           on Alpaca data?"
+
+  let volume x = x.volume
   let compare x y = Ptime.compare x.timestamp y.timestamp
 end
 
