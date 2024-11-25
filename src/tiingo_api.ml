@@ -64,7 +64,7 @@ module Make (Tiingo : Util.CLIENT) = struct
     let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
     get ~headers ~endpoint
 
-  let latest tickers : t =
+  let latest tickers : Bars.t =
     let endpoint =
       Uri.add_query_params' endpoint [ ("tickers", String.concat "," tickers) ]
       |> Uri.to_string
@@ -73,5 +73,5 @@ module Make (Tiingo : Util.CLIENT) = struct
     let resp = get ~headers ~endpoint in
     Eio.traceln "@[%a@]@." Yojson.Safe.pp resp;
     let tiingo = t_of_yojson resp in
-    tiingo
+    to_bars tiingo
 end
