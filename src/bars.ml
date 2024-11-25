@@ -1,17 +1,49 @@
-module Bar_item = struct
+module Bar_item : sig
+  type t [@@deriving show, yojson]
+
+  val make :
+    timestamp:Time.t ->
+    open_:float ->
+    high:float ->
+    low:float ->
+    close:float ->
+    last:float ->
+    volume:int ->
+    ?action_taken:Trading_types.Order.t option ->
+    unit ->
+    t
+
+  val compare : t Ord.t
+  val timestamp : t -> Time.t
+  val last : t -> float
+  val high : t -> float
+  val low : t -> float
+  val close : t -> float
+  val volume : t -> int
+end = struct
+  [@@@warning "-11"]
+
   type t = {
     timestamp : Time.t; [@key "t"]
     open_ : float; [@key "o"]
     high : float; [@key "h"]
     low : float; [@key "l"]
     close : float; [@key "c"] (* We are using this as the latest price... *)
+    last : float; [@key "c"]
     volume : int; [@key "v"]
     (* trade_count : int; [@key "n"] *)
     (* volume_weighted : float; [@key "vw"] *)
     action_taken : Trading_types.Order.t option; [@default None]
   }
-  [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
+  [@@deriving show { with_path = false }, yojson, make]
+  [@@yojson.allow_extra_fields]
 
+  let timestamp (x : t) = x.timestamp
+  let close x = x.close
+  let high x = x.high
+  let low x = x.low
+  let last (x : t) = x.last
+  let volume x = x.volume
   let compare x y = Ptime.compare x.timestamp y.timestamp
 end
 
@@ -119,7 +151,7 @@ module Plotly = struct
     let x_axis =
       (* FIXME:  This doesn't seem to be working! Maybe it's in the JS? *)
       let mk_plotly_x x =
-        let time = x.timestamp in
+        let time = timestamp x in
         let res = Ptime.to_rfc3339 time in
         `String res
         (* let res = Ptime.to_float_s time |> Int.of_float in *)
@@ -127,7 +159,7 @@ module Plotly = struct
       in
       Vector.to_list @@ Vector.map mk_plotly_x data
     in
-    let y_axis = List.map (fun x -> `Float x.close) @@ Vector.to_list data in
+    let y_axis = List.map (fun x -> `Float (last x)) @@ Vector.to_list data in
     `Assoc
       [
         ( "data",
