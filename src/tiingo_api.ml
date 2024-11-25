@@ -5,6 +5,7 @@ type item = {
   timestamp : Time.t;
   last : float;
   open_ : float; [@key "open"]
+  prevClose : float;
   high : float;
   ask_price : float option; [@key "askPrice"]
   bid_price : float option; [@key "bidPrice"]
@@ -21,7 +22,8 @@ let item_to_bar_item (x : item) : Bars.Bar_item.t =
     timestamp = x.timestamp;
     high = x.high;
     low = x.low;
-    close = x.last;
+    close = x.prevClose;
+    last = Some x.last;
     volume = x.volume;
     action_taken = None;
   }
