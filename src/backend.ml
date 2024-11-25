@@ -246,7 +246,8 @@ module Alpaca
     | [] -> Ok Bars.empty
     | _ ->
         let _ = Backtesting.latest_bars symbols in
-        let res = Market_data_api.Stock.latest_bars symbols in
+        (* let res = Market_data_api.Stock.latest_bars symbols in *)
+        let res = Tiingo.latest symbols in
         Ok res
 
   let get_clock = Trading_api.Clock.get

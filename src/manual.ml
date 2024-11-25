@@ -13,6 +13,6 @@ let top eio_env longleaf_env =
   let test_resp = Tiingo.test () in
   Eio.traceln "@[%a@]@." Yojson.Safe.pp test_resp;
   let resp = Tiingo.latest tickers in
-  Eio.traceln "@[%a@]@." Tiingo_api.pp resp;
+  Eio.traceln "@[%a@]@." Bars.pp resp;
   Piaf.Client.shutdown client;
   ()
