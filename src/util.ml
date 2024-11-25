@@ -24,7 +24,14 @@ let get_piaf ~client ~headers ~endpoint =
     | Ok x -> x
     | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
   in
-  Yojson.Safe.from_string json
+  try Yojson.Safe.from_string json
+  with Yojson.Json_error s as e ->
+    let resp_headers = Response.headers resp in
+    Eio.traceln
+      "@[Error converting body of response to json in get_piaf.@]@.@[reason: \
+       %s@]@.@[headers: %a@]@."
+      s Headers.pp_hum resp_headers;
+    raise e
 
 let delete_piaf ~client ~headers ~endpoint =
   let open Piaf in
@@ -72,7 +79,7 @@ let yojson_safe stacktrace (f : unit -> 'a) : 'a =
   with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, j) ->
     (if stacktrace then
        let str =
-         Printexc.get_callstack 10 |> Printexc.raw_backtrace_to_string
+         Printexc.get_callstack 40 |> Printexc.raw_backtrace_to_string
        in
        Eio.traceln "@[%s@]@." str);
     Eio.traceln "Yojson error in main longleaf program!";

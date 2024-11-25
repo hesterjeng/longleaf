@@ -39,6 +39,7 @@ module Make
     let backend =
       match runtype with
       | Live -> invalid_arg "Live trading is not implemented yet."
+      | Manual -> invalid_arg "Cannot create a strategy with manual runtype."
       | Paper ->
           Eio.traceln
             "@[Creating Alpaca paper backend with:@.tick: %f@.symbols: %a@]@."

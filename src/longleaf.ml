@@ -13,8 +13,11 @@ module LongleafMutex = Backend.LongleafMutex ()
 
 let top ~runtype ~stacktrace ~output eio_env =
   if stacktrace then Printexc.record_backtrace true;
-  Util.yojson_safe stacktrace @@ fun () ->
   let longleaf_env = Environment.make () in
+  if Options.Runtype.is_manual runtype then (
+    Manual.top eio_env longleaf_env;
+    exit 0);
+  Util.yojson_safe stacktrace @@ fun () ->
   let domain_manager = Eio.Stdenv.domain_mgr eio_env in
   (* let shutdown_mutex = LongleafMutex.shutdown_mutex in *)
   (* let data_mutex = LongleafMutex.data_mutex in *)
