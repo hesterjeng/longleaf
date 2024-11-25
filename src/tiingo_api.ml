@@ -11,9 +11,28 @@ type item = {
   low : float;
   volume : int;
 }
-[@@deriving show { with_path = false }, yojson] [@@yojosn.allow_extra_fields]
+[@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
 type t = item list [@@deriving show { with_path = false }, yojson]
+
+let item_to_bar_item (x : item) : Bars.Bar_item.t =
+  {
+    open_ = x.open_;
+    timestamp = x.timestamp;
+    high = x.high;
+    low = x.low;
+    close = x.last;
+    volume = x.volume;
+    action_taken = None;
+  }
+
+let to_bars (l : t) : Bars.t =
+  let data : Bars.Data.t =
+    List.map
+      (fun (x : item) -> (x.ticker, Vector.return @@ item_to_bar_item x))
+      l
+  in
+  { data; next_page_token = None; currency = None }
 
 let tiingo_client eio_env sw =
   let res =
@@ -53,5 +72,6 @@ module Make (Tiingo : Util.CLIENT) = struct
     Eio.traceln "@[endpoint: %s@]@." endpoint;
     let resp = get ~headers ~endpoint in
     Eio.traceln "@[%a@]@." Yojson.Safe.pp resp;
-    t_of_yojson resp
+    let tiingo = t_of_yojson resp in
+    tiingo
 end
