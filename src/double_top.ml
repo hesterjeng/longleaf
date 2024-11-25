@@ -14,14 +14,14 @@ module Math = struct
 
   let max_close (l : Bar_item.t list) =
     match
-      select ~ord:Float.compare ~get:(fun (x : Bar_item.t) -> x.close) l
+      select ~ord:Float.compare ~get:(fun (x : Bar_item.t) -> Bar_item.last x) l
     with
     | Some max -> max
     | None -> invalid_arg "Cannot find maximum of empty list"
 
   let min_close (l : Bar_item.t list) =
     match
-      select ~ord:Float.compare ~get:(fun (x : Bar_item.t) -> x.close) l
+      select ~ord:Float.compare ~get:(fun (x : Bar_item.t) -> Bar_item.last x) l
     with
     | Some max -> max
     | None -> invalid_arg "Cannot find maximum of empty list"
@@ -87,8 +87,14 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let* _ =
         Vector.find
           (fun (x : Bar_item.t) ->
-            x.close <. min_dip *. current_max.close
-            && Ptime.compare current_max.timestamp x.timestamp = 1)
+            let current_max_last, x_last =
+              Pair.map_same Bar_item.last (current_max, x)
+            in
+            let current_max_time, x_time =
+              Pair.map_same Bar_item.timestamp (current_max, x)
+            in
+            x_last <. min_dip *. current_max_last
+            && Ptime.compare current_max_time x_time = 1)
           price_history
       in
       Some current_max
@@ -98,23 +104,31 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let* _ =
         List.find_opt
           (fun (x : Bar_item.t) ->
-            x.close <. min_dip *. current_max.close
-            && Ptime.compare x.timestamp current_max.timestamp = 1
-            && Ptime.compare most_recent_price.timestamp x.timestamp = 1)
+            let current_max_last, x_last =
+              Pair.map_same Bar_item.last (current_max, x)
+            in
+            let current_max_time, x_time =
+              Pair.map_same Bar_item.timestamp (current_max, x)
+            in
+            let most_recent_time = Bar_item.timestamp most_recent_price in
+            x_last <. min_dip *. current_max_last
+            && Ptime.compare x_time current_max_time = 1
+            && Ptime.compare most_recent_time x_time = 1)
           minima
       in
       Some current_max
 
     let check3 ~(most_recent_price : Bar_item.t) (current_max : Bar_item.t) =
-      let current_price = most_recent_price.close in
-      let lower = lower_now_band *. current_max.close in
-      let upper = upper_now_band *. current_max.close in
+      let current_price = Bar_item.last most_recent_price in
+      let current_max_price = Bar_item.last current_max in
+      let lower = lower_now_band *. current_max_price in
+      let upper = upper_now_band *. current_max_price in
       if lower <. current_price && current_price <. upper then Some current_max
       else None
 
     let check4 ~(most_recent_price : Bar_item.t) (current_max : Bar_item.t) =
-      let prev_volume = current_max.volume in
-      let most_recent_volume = most_recent_price.volume in
+      let prev_volume = Bar_item.volume current_max in
+      let most_recent_volume = Bar_item.volume most_recent_price in
       if prev_volume > most_recent_volume then Some current_max else None
   end
 
@@ -150,7 +164,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           let tif = TimeInForce.GoodTillCanceled in
           let order_type = OrderType.Market in
           let qty = qty symbol in
-          let price = most_recent_price.close in
+          let price = Bar_item.last most_recent_price in
           Order.make ~symbol ~side ~tif ~order_type ~qty ~price
         in
         Some (order, previous_maximum)
@@ -158,14 +172,18 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let place_short ~(state : state) =
     let now =
-      (Bars.price state.latest_bars (List.hd Backend.symbols)).timestamp
+      Bar_item.timestamp
+      @@ Bars.price state.latest_bars (List.hd Backend.symbols)
     in
     let cash_available = Backend.get_cash () in
     let qty symbol =
       match cash_available >=. 0.0 with
       | true ->
           let tenp = cash_available *. 0.5 in
-          let max_amt = tenp /. (Bars.price state.latest_bars symbol).close in
+          let current_price =
+            Bar_item.last @@ Bars.price state.latest_bars symbol
+          in
+          let max_amt = tenp /. current_price in
           if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
       | false -> 0
     in
@@ -180,7 +198,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       | Some (order, trigger) ->
           Log.app (fun k ->
               k "@[Short triggered by previous local max at %a@]@." Time.pp
-                trigger.timestamp);
+                (Bar_item.timestamp trigger));
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
           let _ = Backend.place_order state now order in
           (* let stop_loss : Order.t = *)
@@ -203,10 +221,13 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let cover_position ~(state : state) time_held (order : Order.t) =
     let now =
-      (Bars.price state.latest_bars (List.hd Backend.symbols)).timestamp
+      Bar_item.timestamp
+      @@ Bars.price state.latest_bars (List.hd Backend.symbols)
     in
     let cover_order =
-      let current_price = (Bars.price state.latest_bars order.symbol).close in
+      let current_price =
+        Bar_item.last @@ Bars.price state.latest_bars order.symbol
+      in
       let cover_order =
         Order.make ~symbol:order.symbol ~side:Side.Buy ~tif:order.tif
           ~order_type:order.order_type ~qty:order.qty ~price:current_price

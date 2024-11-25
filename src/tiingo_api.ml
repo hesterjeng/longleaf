@@ -5,6 +5,7 @@ type item = {
   timestamp : Time.t;
   last : float;
   open_ : float; [@key "open"]
+  prevClose : float;
   high : float;
   ask_price : float option; [@key "askPrice"]
   bid_price : float option; [@key "bidPrice"]
@@ -16,15 +17,16 @@ type item = {
 type t = item list [@@deriving show { with_path = false }, yojson]
 
 let item_to_bar_item (x : item) : Bars.Bar_item.t =
-  {
-    open_ = x.open_;
-    timestamp = x.timestamp;
-    high = x.high;
-    low = x.low;
-    close = x.last;
-    volume = x.volume;
-    action_taken = None;
-  }
+  let open_ = x.open_ in
+  let timestamp = x.timestamp in
+  let high = x.high in
+  let low = x.low in
+  let close = x.prevClose in
+  let last = x.last in
+  let volume = x.volume in
+  let action_taken = None in
+  Bars.Bar_item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume
+    ~action_taken ()
 
 let to_bars (l : t) : Bars.t =
   let data : Bars.Data.t =

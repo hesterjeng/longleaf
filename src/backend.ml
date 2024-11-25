@@ -274,17 +274,17 @@ module Alpaca
           if qty = 0 then ()
           else
             let latest_info = Bars.price last_data_bar symbol in
-            let time = latest_info.timestamp in
+            let timestamp = Bars.Bar_item.timestamp latest_info in
             let order : Order.t =
               let side = if qty >= 0 then Side.Sell else Side.Buy in
               let tif = TimeInForce.GoodTillCanceled in
               let order_type = OrderType.Market in
               let qty = Int.abs qty in
-              let price = latest_info.close in
+              let price = Bars.Bar_item.last latest_info in
               Order.make ~symbol ~side ~tif ~order_type ~qty ~price
             in
             Eio.traceln "%a" Order.pp order;
-            let _json_resp = place_order state time order in
+            let _json_resp = place_order state timestamp order in
             ())
         symbols
     in
