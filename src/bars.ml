@@ -4,13 +4,13 @@ module Bar_item = struct
     open_ : float; [@key "o"]
     high : float; [@key "h"]
     low : float; [@key "l"]
-    close : float; [@key "c"]
+    close : float; [@key "c"] (* We are using this as the latest price... *)
     volume : int; [@key "v"]
-    trade_count : int; [@key "n"]
-    volume_weighted : float; [@key "vw"]
+    (* trade_count : int; [@key "n"] *)
+    (* volume_weighted : float; [@key "vw"] *)
     action_taken : Trading_types.Order.t option; [@default None]
   }
-  [@@deriving show { with_path = false }, yojson]
+  [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
   let compare x y = Ptime.compare x.timestamp y.timestamp
 end
