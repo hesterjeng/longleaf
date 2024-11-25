@@ -85,7 +85,7 @@ module DoubleTop = struct
         "LLY";
       ]
 
-    let tick = 600.0
+    let tick = 300.0
   end
 
   module Make = Make (Data) (Double_top.DoubleTop)
