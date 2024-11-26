@@ -25,6 +25,7 @@ let top ~runtype ~stacktrace ~output eio_env =
     {
       shutdown_mutex = LongleafMutex.shutdown_mutex;
       data_mutex = LongleafMutex.data_mutex;
+      orders_mutex = LongleafMutex.orders_mutex;
     }
   in
   let run_strategy () =
