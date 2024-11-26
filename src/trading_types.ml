@@ -149,7 +149,7 @@ end = struct
       order_type;
       qty;
       price;
-      id = Pmutex.make "not_set";
+      id = Pmutex.make "id_not_set";
       status = Pmutex.make Status.New;
     }
 end
