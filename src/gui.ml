@@ -53,15 +53,13 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       Pmutex.set mutices.shutdown_mutex true;
       Response.of_string ~body:"Shutdown command sent" `OK
   | { Request.meth = `GET; target = "/orders"; _ } ->
-      let bars = Pmutex.get mutices.data_mutex in
-      let body = "WIP" in
+      let orders = Pmutex.get mutices.orders_mutex in
+      let body = Order_history.yojson_of_t orders |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
-      let plotly_json =
-        Bars.Plotly.of_bars bars "NVDA" |> Yojson.Safe.to_string
-      in
-      Response.of_string ~body:plotly_json `OK
+      let body = Bars.Plotly.of_bars bars "NVDA" |> Yojson.Safe.to_string in
+      Response.of_string ~body `OK
   | _ ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Method_not_allowed ~body:""
