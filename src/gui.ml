@@ -1,7 +1,7 @@
 type mutices = {
   shutdown_mutex : bool Pmutex.t;
   data_mutex : Bars.t Pmutex.t;
-      (* orders_mutex : State.order_history Pmutex.t; *)
+  orders_mutex : Order_history.t Pmutex.t;
 }
 
 module Html = struct
