@@ -24,9 +24,8 @@ let item_to_bar_item (x : item) : Bars.Bar_item.t =
   let close = x.prevClose in
   let last = x.last in
   let volume = x.volume in
-  let action_taken = None in
-  Bars.Bar_item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume
-    ~action_taken ()
+  let order = None in
+  Bars.Bar_item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume ~order ()
 
 let to_bars (l : t) : Bars.t =
   let data : Bars.Data.t =
