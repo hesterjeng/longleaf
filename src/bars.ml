@@ -22,6 +22,7 @@ module Bar_item : sig
   val low : t -> float
   val close : t -> float
   val volume : t -> int
+  val add_order : Order.t -> t -> t
 end = struct
   type t = {
     timestamp : Time.t; [@key "t"]
@@ -98,6 +99,20 @@ module Data = struct
       Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
       res
 
+  let add_order (time : Time.t) (order : Order.t) (data : t) =
+    let symbol_history : symbol_history =
+      List.Assoc.get ~eq:String.equal order.symbol data |> function
+      | Some x -> x
+      | None ->
+          invalid_arg "Unable to find symbol in order history: %s" order.symbol
+    in
+    Vector.map_in_place
+      (fun bar_item ->
+        if Ptime.equal (Bar_item.timestamp bar_item) time then
+          Bar_item.add_order order bar_item
+        else bar_item)
+      symbol_history
+
   let t_of_yojson json : t =
     let received = received_of_yojson json in
     List.map
@@ -153,10 +168,6 @@ let combine (l : t list) : t =
   { data; next_page_token = None; currency = None }
 
 let get (bars : t) ticker = List.Assoc.get ~eq:String.equal ticker bars.data
-
-let vector_map f (x : t) =
-  let data = x.data in
-  invalid_arg "Bars.vector_map NYI"
 
 let price x ticker =
   let bars = x.data in
