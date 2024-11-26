@@ -3,11 +3,13 @@ module Order = Trading_types.Order
 module type LONGLEAF_MUTEX = sig
   val shutdown_mutex : bool Pmutex.t
   val data_mutex : Bars.t Pmutex.t
+  val orders_mutex : Order_history.t Pmutex.t
 end
 
 module LongleafMutex () : LONGLEAF_MUTEX = struct
   let shutdown_mutex = Pmutex.make false
   let data_mutex = Pmutex.make Bars.empty
+  let orders_mutex = Pmutex.make @@ Hashtbl.create 0
 end
 
 module type S = sig

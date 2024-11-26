@@ -8,11 +8,12 @@ module type STRAT_BUILDER = functor (_ : Backend.S) -> S
 module Log = (val Logs.src_log Logs.(Src.create "strategies"))
 
 module Strategy_utils (Backend : Backend.S) = struct
-  let listen_tick bars =
+  let listen_tick orders bars =
     Eio.Fiber.any
     @@ [
          (fun () ->
            Pmutex.set Backend.LongleafMutex.data_mutex bars;
+           Pmutex.set Backend.LongleafMutex.orders_mutex orders;
            match Backend.next_market_open () with
            | None ->
                Backend.Ticker.tick Backend.env;
@@ -75,15 +76,12 @@ module Strategy_utils (Backend : Backend.S) = struct
       close_out oc
 
   let output_order_history (state : _ State.t) filename =
-    let order_history : State.order_history =
-      Hashtbl.to_list state.order_history
-    in
-    let json =
-      State.yojson_of_order_history order_history |> Yojson.Safe.to_string
+    let json_str =
+      Order_history.yojson_of_t state.order_history |> Yojson.Safe.to_string
     in
     let filename = Format.sprintf "data/order_history_%s.json" filename in
     let oc = open_out filename in
-    output_string oc json;
+    output_string oc json_str;
     close_out oc
 
   let handle_nonlogical_state (current : State.nonlogical_state)
@@ -91,7 +89,7 @@ module Strategy_utils (Backend : Backend.S) = struct
     match current with
     | `Initialize -> Result.return @@ { state with current = `Listening }
     | `Listening -> (
-        match listen_tick state.bars with
+        match listen_tick state.order_history state.bars with
         | `Continue ->
             let open Result.Infix in
             let+ latest_bars = Backend.latest_bars Backend.symbols in
