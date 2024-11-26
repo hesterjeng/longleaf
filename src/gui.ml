@@ -58,6 +58,8 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
+      let orders = Pmutex.get mutices.orders_mutex in
+      Hashtbl.iter (fun time order -> Bars.add_order time order bars) orders;
       let body = Bars.Plotly.of_bars bars "NVDA" |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | _ ->

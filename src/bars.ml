@@ -1,3 +1,5 @@
+module Order = Trading_types.Order
+
 module Bar_item : sig
   type t [@@deriving show, yojson]
 
@@ -9,7 +11,7 @@ module Bar_item : sig
     close:float ->
     last:float ->
     volume:int ->
-    ?action_taken:Trading_types.Order.t option ->
+    ?order:Trading_types.Order.t option ->
     unit ->
     t
 
@@ -20,6 +22,7 @@ module Bar_item : sig
   val low : t -> float
   val close : t -> float
   val volume : t -> int
+  val add_order : Order.t -> t -> t
 end = struct
   type t = {
     timestamp : Time.t; [@key "t"]
@@ -31,7 +34,7 @@ end = struct
     volume : int; [@key "v"]
     (* trade_count : int; [@key "n"] *)
     (* volume_weighted : float; [@key "vw"] *)
-    action_taken : Trading_types.Order.t option; [@default None]
+    order : Trading_types.Order.t option; [@default None]
   }
   [@@deriving show { with_path = false }, yojson, make]
   [@@yojson.allow_extra_fields]
@@ -47,6 +50,13 @@ end = struct
       Eio.traceln "@[bar_item:@]@.@[%s@]@.@[%s@]@." exc
         (Yojson.Safe.to_string j);
       exit 1
+
+  let add_order (order : Order.t) (x : t) =
+    match x.order with
+    | None -> { x with order = Some order }
+    | Some _ ->
+        invalid_arg
+          "@[Multiple orders placed for same symbol in one bar item?@]@."
 
   let timestamp (x : t) = x.timestamp
   let close x = x.close
@@ -89,6 +99,22 @@ module Data = struct
       Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
       res
 
+  let add_order (time : Time.t) (order : Order.t) (data : t) =
+    let symbol_history : symbol_history =
+      List.Assoc.get ~eq:String.equal order.symbol data |> function
+      | Some x -> x
+      | None ->
+          invalid_arg
+          @@ Format.asprintf "Unable to find symbol in order history: %s"
+               order.symbol
+    in
+    Vector.map_in_place
+      (fun bar_item ->
+        if Ptime.equal (Bar_item.timestamp bar_item) time then
+          Bar_item.add_order order bar_item
+        else bar_item)
+      symbol_history
+
   let t_of_yojson json : t =
     let received = received_of_yojson json in
     List.map
@@ -120,6 +146,9 @@ type bars = t [@@deriving show { with_path = false }, yojson]
 
 let empty : t = { data = Data.empty; next_page_token = None; currency = None }
 let tickers (x : t) = List.map fst x.data
+
+let add_order (time : Time.t) (order : Order.t) (x : t) =
+  Data.add_order time order x.data
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
