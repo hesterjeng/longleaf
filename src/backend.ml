@@ -1,11 +1,15 @@
+module Order = Trading_types.Order
+
 module type LONGLEAF_MUTEX = sig
   val shutdown_mutex : bool Pmutex.t
   val data_mutex : Bars.t Pmutex.t
+  val orders_mutex : Order_history.t Pmutex.t
 end
 
 module LongleafMutex () : LONGLEAF_MUTEX = struct
   let shutdown_mutex = Pmutex.make false
   let data_mutex = Pmutex.make Bars.empty
+  let orders_mutex = Pmutex.make @@ Hashtbl.create 0
 end
 
 module type S = sig
@@ -25,10 +29,7 @@ module type S = sig
 
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
-
-  val place_order :
-    _ State.t -> Time.t -> Trading_types.Order.t -> Piaf.Response.t
-
+  val place_order : _ State.t -> Time.t -> Order.t -> unit
   val latest_bars : string list -> (Bars.t, string) result
   val last_data_bar : Bars.t option
   val liquidate : _ State.t -> unit
@@ -103,8 +104,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   (* end *)
 
   let place_order state time (order : Order.t) =
-    Backend_position.execute_order state time order;
-    Piaf.Response.create `OK
+    Backend_position.execute_order state time order
 
   let data_remaining = ref Input.bars.data
 
@@ -253,9 +253,8 @@ module Alpaca
   let get_clock = Trading_api.Clock.get
 
   let place_order state time order =
-    let response = Trading_api.Orders.create_market_order order in
-    let _ = Backtesting.place_order state time order in
-    Piaf.Response.create `OK
+    Backtesting.place_order state time order;
+    Trading_api.Orders.create_market_order order
 
   let liquidate state =
     let symbols = Backend_position.symbols () in
