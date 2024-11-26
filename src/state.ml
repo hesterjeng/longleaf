@@ -9,13 +9,11 @@ type logical_state = [ `Ordering ] [@@deriving show { with_path = false }]
 type state = [ nonlogical_state | logical_state ]
 [@@deriving show { with_path = false }]
 
-type order_history = (Time.t * Order.t) list [@@deriving show, yojson]
-
 type 'a t = {
   current : state;
   bars : Bars.t;
   latest_bars : Bars.t;
-  order_history : (Time.t, Order.t) Hashtbl.t;
+  order_history : Order_history.t;
   content : 'a;
 }
 
