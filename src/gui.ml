@@ -1,4 +1,8 @@
-type mutices = { shutdown_mutex : bool Pmutex.t; data_mutex : Bars.t Pmutex.t }
+type mutices = {
+  shutdown_mutex : bool Pmutex.t;
+  data_mutex : Bars.t Pmutex.t;
+      (* orders_mutex : State.order_history Pmutex.t; *)
+}
 
 module Html = struct
   let plotly_graph_html plot_data =
