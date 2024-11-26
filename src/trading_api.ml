@@ -114,6 +114,10 @@ module Make (Alpaca : Util.CLIENT) = struct
   end
 
   module Orders = struct
+    type response = { id : string; status : Trading_types.Status.t }
+    [@@deriving show { with_path = false }, yojson]
+    [@@yojson.allow_extra_fields]
+
     let create_market_order (order : Order.t) =
       let endpoint = "/v2/orders" in
       let headers = headers () in
@@ -129,7 +133,22 @@ module Make (Alpaca : Util.CLIENT) = struct
       in
       let response = post ~headers ~body ~endpoint in
       match Response.status response with
-      | `OK -> `OK
+      | `OK -> (
+          Response.body response |> Piaf.Body.to_string |> function
+          | Ok x ->
+              let response_t =
+                Yojson.Safe.from_string x |> response_of_yojson
+              in
+              Pmutex.set order.id response_t.id;
+              Pmutex.set order.status response_t.status;
+              ()
+          | Error e ->
+              Eio.traceln
+                "@[Error when converting create_market_order reponse body to \
+                 string: %a@]@."
+                Piaf.Error.pp_hum e;
+              invalid_arg
+                "Error converting create_market_order response body to string")
       | x ->
           Eio.traceln "@[create_market_order: %a@]@." Status.pp_hum x;
           invalid_arg "Bad response in create_market_order"
