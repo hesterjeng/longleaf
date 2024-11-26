@@ -1,3 +1,5 @@
+module Order = Trading_types.Order
+
 module Bar_item : sig
   type t [@@deriving show, yojson]
 
@@ -9,7 +11,7 @@ module Bar_item : sig
     close:float ->
     last:float ->
     volume:int ->
-    ?action_taken:Trading_types.Order.t option ->
+    ?order:Trading_types.Order.t option ->
     unit ->
     t
 
@@ -31,7 +33,7 @@ end = struct
     volume : int; [@key "v"]
     (* trade_count : int; [@key "n"] *)
     (* volume_weighted : float; [@key "vw"] *)
-    action_taken : Trading_types.Order.t option; [@default None]
+    order : Trading_types.Order.t option; [@default None]
   }
   [@@deriving show { with_path = false }, yojson, make]
   [@@yojson.allow_extra_fields]
@@ -47,6 +49,13 @@ end = struct
       Eio.traceln "@[bar_item:@]@.@[%s@]@.@[%s@]@." exc
         (Yojson.Safe.to_string j);
       exit 1
+
+  let add_order (order : Order.t) (x : t) =
+    match x.order with
+    | None -> { x with order = Some order }
+    | Some _ ->
+        invalid_arg
+          "@[Multiple orders placed for same symbol in one bar item?@]@."
 
   let timestamp (x : t) = x.timestamp
   let close x = x.close
@@ -144,6 +153,10 @@ let combine (l : t list) : t =
   { data; next_page_token = None; currency = None }
 
 let get (bars : t) ticker = List.Assoc.get ~eq:String.equal ticker bars.data
+
+let vector_map f (x : t) =
+  let data = x.data in
+  invalid_arg "Bars.vector_map NYI"
 
 let price x ticker =
   let bars = x.data in
