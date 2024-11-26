@@ -104,7 +104,9 @@ module Data = struct
       List.Assoc.get ~eq:String.equal order.symbol data |> function
       | Some x -> x
       | None ->
-          invalid_arg "Unable to find symbol in order history: %s" order.symbol
+          invalid_arg
+          @@ Format.asprintf "Unable to find symbol in order history: %s"
+               order.symbol
     in
     Vector.map_in_place
       (fun bar_item ->
@@ -144,6 +146,9 @@ type bars = t [@@deriving show { with_path = false }, yojson]
 
 let empty : t = { data = Data.empty; next_page_token = None; currency = None }
 let tickers (x : t) = List.map fst x.data
+
+let add_order (time : Time.t) (order : Order.t) (x : t) =
+  Data.add_order time order x.data
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
