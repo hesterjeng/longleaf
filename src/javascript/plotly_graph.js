@@ -17,15 +17,24 @@ async function fetchAndRender() {
 
     const xValues = data.data[0].x;
     const yValues = data.data[0].y;
-    const orderValues = data.data[0].order;
+    const buyValues = data.data[0].buy;
+    const sellValues = data.data[0].sell;
 
     // Filter data based on the "order" field
-    const filteredX = [];
-    const filteredY = [];
-    for (let i = 0; i < orderValues.length; i++) {
-      if (orderValues[i] !== null) {
-        filteredX.push(xValues[i]);
-        filteredY.push(yValues[i]);
+    const buyX = [];
+    const buyY = [];
+    const sellX = [];
+    const sellY = [];
+    for (let i = 0; i < yValues.length; i++) {
+      if (buyValues[i] !== null) {
+        buyX.push(xValues[i]);
+        buyY.push(yValues[i]);
+      }
+    }
+    for (let i = 0; i < yValues.length; i++) {
+      if (sellValues[i] !== null) {
+        sellX.push(xValues[i]);
+        sellY.push(yValues[i]);
       }
     }
 
@@ -37,13 +46,22 @@ async function fetchAndRender() {
       type: "scatter",
     };
 
-    const dotTrace = {
-      x: filteredX,
-      y: filteredY,
+    const buyTrace = {
+      x: buyX,
+      y: buyY,
+      type: "scatter",
+      mode: "markers", // Only markers for dots
+      marker: { color: "green", size: 10 },
+      name: "Highlighted Buy",
+    };
+
+    const sellTrace = {
+      x: sellX,
+      y: sellY,
       type: "scatter",
       mode: "markers", // Only markers for dots
       marker: { color: "red", size: 10 },
-      name: "Highlighted Dots",
+      name: "Highlighted Sell",
     };
 
     const layout = {
@@ -53,7 +71,7 @@ async function fetchAndRender() {
     };
 
     // Render the graph (use Plotly.react for updates)
-    Plotly.react("graph", [trace, dotTrace], layout);
+    Plotly.react("graph", [trace, buyTrace, sellTrace], layout);
   } catch (error) {
     console.error("Error AFTER fetching:", error);
   }
