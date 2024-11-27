@@ -52,7 +52,7 @@ async function fetchAndRender() {
       type: "scatter",
       mode: "markers", // Only markers for dots
       marker: { color: "green", size: 10 },
-      name: "Highlighted Buy",
+      name: "Buy",
     };
 
     const sellTrace = {
@@ -61,7 +61,7 @@ async function fetchAndRender() {
       type: "scatter",
       mode: "markers", // Only markers for dots
       marker: { color: "red", size: 10 },
-      name: "Highlighted Sell",
+      name: "Sell",
     };
 
     const layout = {
