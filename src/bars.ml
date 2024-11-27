@@ -113,17 +113,17 @@ module Data = struct
                order.symbol
     in
     let found = ref false in
-    let res = Vector.map_in_place
-      (fun bar_item ->
-        if Ptime.equal (Bar_item.timestamp bar_item) time then
-          (
-          found := true;
-          Bar_item.add_order order bar_item)
-        else bar_item)
-      symbol_history in
+    let res =
+      Vector.map_in_place
+        (fun bar_item ->
+          if Ptime.equal (Bar_item.timestamp bar_item) time then (
+            found := true;
+            Bar_item.add_order order bar_item)
+          else bar_item)
+        symbol_history
+    in
     if not @@ !found then invalid_arg "Unable to find time to place order!";
     res
-
 
   let t_of_yojson json : t =
     let received = received_of_yojson json in
