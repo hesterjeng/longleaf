@@ -22,6 +22,7 @@ module Bar_item : sig
   val low : t -> float
   val close : t -> float
   val volume : t -> int
+  val order : t -> Order.t option
   val add_order : Order.t -> t -> t
 end = struct
   type t = {
@@ -50,6 +51,8 @@ end = struct
       Eio.traceln "@[bar_item:@]@.@[%s@]@.@[%s@]@." exc
         (Yojson.Safe.to_string j);
       exit 1
+
+  let order x = x.order
 
   let add_order (order : Order.t) (x : t) =
     match x.order with
@@ -193,20 +196,35 @@ module Plotly = struct
       | None ->
           invalid_arg
             "Cannot create plotly diagram, unable to find datapoints for ticker"
-      | Some data -> data
+      | Some data -> Vector.to_list data
     in
     let x_axis =
-      (* FIXME:  This doesn't seem to be working! Maybe it's in the JS? *)
       let mk_plotly_x x =
         let time = timestamp x in
         let res = Ptime.to_rfc3339 time in
         `String res
-        (* let res = Ptime.to_float_s time |> Int.of_float in *)
-        (* `Int res *)
       in
-      Vector.to_list @@ Vector.map mk_plotly_x data
+      List.map mk_plotly_x data
     in
-    let y_axis = List.map (fun x -> `Float (last x)) @@ Vector.to_list data in
+    let buy_axis =
+      List.map
+        (fun (x : Bar_item.t) ->
+          match order x with
+          | None -> `Null
+          | Some order -> (
+              match order.side with Buy -> `String "buy" | Sell -> `Null))
+        data
+    in
+    let sell_axis =
+      List.map
+        (fun (x : Bar_item.t) ->
+          match order x with
+          | None -> `Null
+          | Some order -> (
+              match order.side with Buy -> `Null | Sell -> `String "sell"))
+        data
+    in
+    let y_axis = List.map (fun x -> `Float (last x)) data in
     `Assoc
       [
         ( "data",
@@ -216,6 +234,8 @@ module Plotly = struct
                 [
                   ("x", `List x_axis);
                   ("y", `List y_axis);
+                  ("buy", `List buy_axis);
+                  ("sell", `List sell_axis);
                   ("mode", `String "lines+markers");
                   ("name", `String symbol);
                 ];
