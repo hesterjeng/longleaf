@@ -4,49 +4,32 @@ type mutices = {
   orders_mutex : Order_history.t Pmutex.t;
 }
 
-module Html = struct
-  let plotly_graph_html plot_data =
-    let json_data = Yojson.Safe.to_string plot_data in
-    let plotly_html = Template.render json_data in
-    plotly_html
-
-  let plotly_graph_html_default () =
-    let plot_data =
-      `Assoc
-        [
-          ( "data",
-            `List
-              [
-                `Assoc
-                  [
-                    ("x", `List [ `Float 1.0; `Float 2.0; `Float 3.0 ]);
-                    ("y", `List [ `Float 4.0; `Float 5.0; `Float 6.0 ]);
-                    ("mode", `String "lines+markers");
-                    ("name", `String "Sample Data");
-                  ];
-              ] );
-          ( "layout",
-            `Assoc
-              [
-                ("title", `String "Sample Plotly Graph");
-                ("xaxis", `Assoc [ ("title", `String "X Axis") ]);
-                ("yaxis", `Assoc [ ("title", `String "Y Axis") ]);
-              ] );
-        ]
-    in
-    plotly_graph_html plot_data
-end
-
 open Piaf
 open Eio.Std
 
 let prom, resolver = Promise.create ()
 
+let plotly_response_of_symbol ~mutices target =
+  let bars = Pmutex.get mutices.data_mutex in
+  let orders = Pmutex.get mutices.orders_mutex in
+  Vector.iter (fun order -> Bars.add_order order bars) orders;
+  let bars_json_opt =
+    ( Bars.Plotly.of_bars bars target,
+      Bars.Plotly.of_bars bars @@ String.uppercase_ascii target )
+  in
+  match bars_json_opt with
+  | Some bars, None | None, Some bars | Some bars, _ ->
+      Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
+  | None, None ->
+      let headers = Headers.of_list [ ("connection", "close") ] in
+      Response.of_string ~headers `Not_found
+        ~body:(Format.asprintf "Could not find bars for symbol: %S" target)
+
 let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
     =
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
-      let html = Html.plotly_graph_html_default () in
+      let html = Template.render () in
       Response.of_string ~body:html `OK
   | { Request.meth = `GET; target = "/shutdown"; _ } ->
       Promise.resolve resolver true;
@@ -61,11 +44,10 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs"; _ } ->
-      let bars = Pmutex.get mutices.data_mutex in
-      let orders = Pmutex.get mutices.orders_mutex in
-      Vector.iter (fun order -> Bars.add_order order bars) orders;
-      let body = Bars.Plotly.of_bars bars "NVDA" |> Yojson.Safe.to_string in
-      Response.of_string ~body `OK
+      plotly_response_of_symbol ~mutices "NVDA"
+  | { Request.meth = `GET; target; _ } ->
+      let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
+      plotly_response_of_symbol ~mutices target
   | _ ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Method_not_allowed ~body:""
