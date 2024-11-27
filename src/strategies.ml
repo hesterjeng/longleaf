@@ -162,7 +162,8 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
               let tif = TimeInForce.Day in
               let order_type = OrderType.Market in
               let price = nvda_last in
-              Order.make ~symbol ~side ~tif ~order_type ~price ~qty
+              let timestamp = Bars.Bar_item.timestamp msft in
+              Order.make ~symbol ~side ~tif ~order_type ~price ~qty ~timestamp
             in
             let timestamp = Bars.Bar_item.timestamp msft in
             let _json_resp = Backend.place_order state timestamp order in
