@@ -9,7 +9,7 @@ end
 module LongleafMutex () : LONGLEAF_MUTEX = struct
   let shutdown_mutex = Pmutex.make false
   let data_mutex = Pmutex.make Bars.empty
-  let orders_mutex = Pmutex.make @@ Hashtbl.create 0
+  let orders_mutex = Pmutex.make @@ Vector.create ()
 end
 
 module type S = sig
@@ -29,7 +29,7 @@ module type S = sig
 
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
-  val place_order : _ State.t -> Time.t -> Order.t -> unit
+  val place_order : _ State.t -> Order.t -> unit
   val latest_bars : string list -> (Bars.t, string) result
   val last_data_bar : Bars.t option
   val liquidate : _ State.t -> unit
@@ -103,8 +103,8 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   (*     queue := res *)
   (* end *)
 
-  let place_order state time (order : Order.t) =
-    Backend_position.execute_order state time order
+  let place_order state (order : Order.t) =
+    Backend_position.execute_order state order
 
   let data_remaining = ref Input.bars.data
 
@@ -252,8 +252,8 @@ module Alpaca
 
   let get_clock = Trading_api.Clock.get
 
-  let place_order state time order =
-    Backtesting.place_order state time order;
+  let place_order state order =
+    Backtesting.place_order state order;
     Trading_api.Orders.create_market_order order
 
   let liquidate state =
@@ -273,7 +273,6 @@ module Alpaca
           if qty = 0 then ()
           else
             let latest_info = Bars.price last_data_bar symbol in
-            let timestamp = Bars.Bar_item.timestamp latest_info in
             let order : Order.t =
               let side = if qty >= 0 then Side.Sell else Side.Buy in
               let tif = TimeInForce.GoodTillCanceled in
@@ -284,7 +283,7 @@ module Alpaca
               Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
             in
             Eio.traceln "%a" Order.pp order;
-            let _json_resp = place_order state timestamp order in
+            let _json_resp = place_order state order in
             ())
         symbols
     in
