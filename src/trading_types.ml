@@ -130,6 +130,8 @@ module Order : sig
     price:float ->
     timestamp:Time.t ->
     t
+
+  val timestamp : t -> Time.t
 end = struct
   type t = {
     symbol : string;
@@ -143,6 +145,8 @@ end = struct
     status : Status.t Pmutex.t;
   }
   [@@deriving show, yojson]
+
+  let timestamp x = x.timestamp
 
   let make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp =
     {

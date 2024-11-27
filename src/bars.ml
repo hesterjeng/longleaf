@@ -103,7 +103,7 @@ module Data = struct
       Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
       res
 
-  let add_order (time : Time.t) (order : Order.t) (data : t) =
+  let add_order (order : Order.t) (data : t) =
     let symbol_history : symbol_history =
       List.Assoc.get ~eq:String.equal order.symbol data |> function
       | Some x -> x
@@ -113,6 +113,7 @@ module Data = struct
                order.symbol
     in
     let found = ref false in
+    let time = Order.timestamp order in
     let res =
       Vector.map_in_place
         (fun bar_item ->
@@ -158,9 +159,7 @@ type bars = t [@@deriving show { with_path = false }, yojson]
 
 let empty : t = { data = Data.empty; next_page_token = None; currency = None }
 let tickers (x : t) = List.map fst x.data
-
-let add_order (time : Time.t) (order : Order.t) (x : t) =
-  Data.add_order time order x.data
+let add_order (order : Order.t) (x : t) = Data.add_order order x.data
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
