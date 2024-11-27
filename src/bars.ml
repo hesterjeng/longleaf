@@ -57,9 +57,9 @@ end = struct
   let add_order (order : Order.t) (x : t) =
     match x.order with
     | None -> { x with order = Some order }
-    | Some prev_order ->
-        Eio.traceln "@[Warning: trying to replace: %a with %a@]@." Order.pp
-          prev_order Order.pp order;
+    | Some _ ->
+        (* Eio.traceln "@[Warning: trying to replace: %a with %a@]@." Order.pp *)
+        (* prev_order Order.pp order; *)
         x
 
   let timestamp (x : t) = x.timestamp
@@ -122,7 +122,9 @@ module Data = struct
           else bar_item)
         symbol_history
     in
-    if not @@ !found then invalid_arg "Unable to find time to place order!";
+    if not @@ !found then
+      Eio.traceln "@[[ERROR] Unplaceable order! %a@]@.@[%a@]@." Time.pp time
+        Order.pp order;
     res
 
   let t_of_yojson json : t =
