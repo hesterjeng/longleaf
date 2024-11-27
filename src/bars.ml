@@ -54,9 +54,10 @@ end = struct
   let add_order (order : Order.t) (x : t) =
     match x.order with
     | None -> { x with order = Some order }
-    | Some _ ->
-        invalid_arg
-          "@[Multiple orders placed for same symbol in one bar item?@]@."
+    | Some prev_order ->
+        Eio.traceln "@[Warning: trying to replace: %a with %a@]@." Order.pp
+          prev_order Order.pp order;
+        x
 
   let timestamp (x : t) = x.timestamp
   let close x = x.close
