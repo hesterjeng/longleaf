@@ -104,7 +104,7 @@ module Strategy_utils (Backend : Backend.S) = struct
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
         let bars = state.bars in
-        Hashtbl.iter (fun time order -> Bars.add_order time order bars)
+        Vector.iter (fun order -> Bars.add_order order bars)
         @@ Pmutex.get Backend.LongleafMutex.orders_mutex;
         Pmutex.set Backend.LongleafMutex.data_mutex bars;
         let filename = get_filename () in
@@ -127,7 +127,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
       bars = Bars.empty;
       latest_bars = Bars.empty;
       content = ();
-      order_history = Hashtbl.create 20;
+      order_history = Vector.create ();
     }
 
   module SU = Strategy_utils (Backend)
@@ -165,8 +165,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
               let timestamp = Bars.Bar_item.timestamp msft in
               Order.make ~symbol ~side ~tif ~order_type ~price ~qty ~timestamp
             in
-            let timestamp = Bars.Bar_item.timestamp msft in
-            let _json_resp = Backend.place_order state timestamp order in
+            let _json_resp = Backend.place_order state order in
             ()
         in
         Result.return @@ { state with current = `Listening }

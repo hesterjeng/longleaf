@@ -68,7 +68,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       bars = Bars.empty;
       latest_bars = Bars.empty;
       content = DT_Status.Waiting;
-      order_history = Hashtbl.create 20;
+      order_history = Vector.create ();
     }
 
   module SU = Strategies.Strategy_utils (Backend)
@@ -204,7 +204,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
               k "@[Short triggered by previous local max at %a@]@." Time.pp
                 (Bar_item.timestamp trigger));
           Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
-          Backend.place_order state now order;
+          Backend.place_order state order;
           (* let stop_loss : Order.t = *)
           (*   { *)
           (*     order with *)
@@ -256,7 +256,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       | None -> DT_Status.Placed (time_held + 1, order)
       | Some order ->
           Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
-          Backend.place_order state now order;
+          Backend.place_order state order;
           Waiting
     in
     Result.return

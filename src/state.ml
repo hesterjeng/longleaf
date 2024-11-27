@@ -17,5 +17,4 @@ type 'a t = {
   content : 'a;
 }
 
-let record_order state time order =
-  Hashtbl.replace state.order_history time order
+let record_order state order = Order_history.add state.order_history order
