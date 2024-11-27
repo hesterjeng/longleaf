@@ -280,7 +280,8 @@ module Alpaca
               let order_type = OrderType.Market in
               let qty = Int.abs qty in
               let price = Bars.Bar_item.last latest_info in
-              Order.make ~symbol ~side ~tif ~order_type ~qty ~price
+              let timestamp = Bars.Bar_item.timestamp latest_info in
+              Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
             in
             Eio.traceln "%a" Order.pp order;
             let _json_resp = place_order state timestamp order in
