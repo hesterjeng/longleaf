@@ -56,10 +56,14 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       let orders = Pmutex.get mutices.orders_mutex in
       let body = Order_history.yojson_of_t orders |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
+  | { Request.meth = `GET; target = "/graphs_json"; _ } ->
+      let bars = Pmutex.get mutices.data_mutex in
+      let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
+      Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
       let orders = Pmutex.get mutices.orders_mutex in
-      Hashtbl.iter (fun time order -> Bars.add_order time order bars) orders;
+      Vector.iter (fun order -> Bars.add_order order bars) orders;
       let body = Bars.Plotly.of_bars bars "NVDA" |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | _ ->

@@ -38,7 +38,6 @@ module Strategy_utils (Backend : Backend.S) = struct
              Ticker.OneSecond.tick Backend.env
            done;
            Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
-           Pmutex.set Backend.LongleafMutex.data_mutex bars;
            `Shutdown_signal);
        ]
 
@@ -104,7 +103,10 @@ module Strategy_utils (Backend : Backend.S) = struct
         @@ { state with current = `Finished "Liquidation finished" }
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
-        Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
+        let bars = state.bars in
+        Vector.iter (fun order -> Bars.add_order order bars)
+        @@ Pmutex.get Backend.LongleafMutex.orders_mutex;
+        Pmutex.set Backend.LongleafMutex.data_mutex bars;
         let filename = get_filename () in
         output_data state filename;
         output_order_history state filename;
@@ -125,7 +127,7 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
       bars = Bars.empty;
       latest_bars = Bars.empty;
       content = ();
-      order_history = Hashtbl.create 20;
+      order_history = Vector.create ();
     }
 
   module SU = Strategy_utils (Backend)
@@ -160,10 +162,10 @@ module SimpleStateMachine (Backend : Backend.S) : S = struct
               let tif = TimeInForce.Day in
               let order_type = OrderType.Market in
               let price = nvda_last in
-              Order.make ~symbol ~side ~tif ~order_type ~price ~qty
+              let timestamp = Bars.Bar_item.timestamp msft in
+              Order.make ~symbol ~side ~tif ~order_type ~price ~qty ~timestamp
             in
-            let timestamp = Bars.Bar_item.timestamp msft in
-            let _json_resp = Backend.place_order state timestamp order in
+            let _json_resp = Backend.place_order state order in
             ()
         in
         Result.return @@ { state with current = `Listening }

@@ -22,6 +22,7 @@ module Bar_item : sig
   val low : t -> float
   val close : t -> float
   val volume : t -> int
+  val order : t -> Order.t option
   val add_order : Order.t -> t -> t
 end = struct
   type t = {
@@ -51,12 +52,15 @@ end = struct
         (Yojson.Safe.to_string j);
       exit 1
 
+  let order x = x.order
+
   let add_order (order : Order.t) (x : t) =
     match x.order with
     | None -> { x with order = Some order }
     | Some _ ->
-        invalid_arg
-          "@[Multiple orders placed for same symbol in one bar item?@]@."
+        (* Eio.traceln "@[Warning: trying to replace: %a with %a@]@." Order.pp *)
+        (* prev_order Order.pp order; *)
+        x
 
   let timestamp (x : t) = x.timestamp
   let close x = x.close
@@ -99,7 +103,7 @@ module Data = struct
       Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
       res
 
-  let add_order (time : Time.t) (order : Order.t) (data : t) =
+  let add_order (order : Order.t) (data : t) =
     let symbol_history : symbol_history =
       List.Assoc.get ~eq:String.equal order.symbol data |> function
       | Some x -> x
@@ -108,12 +112,21 @@ module Data = struct
           @@ Format.asprintf "Unable to find symbol in order history: %s"
                order.symbol
     in
-    Vector.map_in_place
-      (fun bar_item ->
-        if Ptime.equal (Bar_item.timestamp bar_item) time then
-          Bar_item.add_order order bar_item
-        else bar_item)
-      symbol_history
+    let found = ref false in
+    let time = Order.timestamp order in
+    let res =
+      Vector.map_in_place
+        (fun bar_item ->
+          if Ptime.equal (Bar_item.timestamp bar_item) time then (
+            found := true;
+            Bar_item.add_order order bar_item)
+          else bar_item)
+        symbol_history
+    in
+    if not @@ !found then
+      Eio.traceln "@[[ERROR] Unplaceable order! %a@]@.@[%a@]@." Time.pp time
+        Order.pp order;
+    res
 
   let t_of_yojson json : t =
     let received = received_of_yojson json in
@@ -146,9 +159,7 @@ type bars = t [@@deriving show { with_path = false }, yojson]
 
 let empty : t = { data = Data.empty; next_page_token = None; currency = None }
 let tickers (x : t) = List.map fst x.data
-
-let add_order (time : Time.t) (order : Order.t) (x : t) =
-  Data.add_order time order x.data
+let add_order (order : Order.t) (x : t) = Data.add_order order x.data
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
@@ -192,20 +203,35 @@ module Plotly = struct
       | None ->
           invalid_arg
             "Cannot create plotly diagram, unable to find datapoints for ticker"
-      | Some data -> data
+      | Some data -> Vector.to_list data
     in
     let x_axis =
-      (* FIXME:  This doesn't seem to be working! Maybe it's in the JS? *)
       let mk_plotly_x x =
         let time = timestamp x in
         let res = Ptime.to_rfc3339 time in
         `String res
-        (* let res = Ptime.to_float_s time |> Int.of_float in *)
-        (* `Int res *)
       in
-      Vector.to_list @@ Vector.map mk_plotly_x data
+      List.map mk_plotly_x data
     in
-    let y_axis = List.map (fun x -> `Float (last x)) @@ Vector.to_list data in
+    let buy_axis =
+      List.map
+        (fun (x : Bar_item.t) ->
+          match order x with
+          | None -> `Null
+          | Some order -> (
+              match order.side with Buy -> `String "buy" | Sell -> `Null))
+        data
+    in
+    let sell_axis =
+      List.map
+        (fun (x : Bar_item.t) ->
+          match order x with
+          | None -> `Null
+          | Some order -> (
+              match order.side with Buy -> `Null | Sell -> `String "sell"))
+        data
+    in
+    let y_axis = List.map (fun x -> `Float (last x)) data in
     `Assoc
       [
         ( "data",
@@ -215,6 +241,8 @@ module Plotly = struct
                 [
                   ("x", `List x_axis);
                   ("y", `List y_axis);
+                  ("buy", `List buy_axis);
+                  ("sell", `List sell_axis);
                   ("mode", `String "lines+markers");
                   ("name", `String symbol);
                 ];

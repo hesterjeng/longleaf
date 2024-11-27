@@ -3,7 +3,7 @@ module Order = Trading_types.Order
 type pos = (string, int) Hashtbl.t [@@deriving show]
 
 module type S = sig
-  val execute_order : _ State.t -> Time.t -> Order.t -> unit
+  val execute_order : _ State.t -> Order.t -> unit
   val liquidate : _ State.t -> Bars.t -> unit
   val get_cash : unit -> float
   val symbols : unit -> string list
@@ -29,8 +29,8 @@ module Generative () : S = struct
   let symbols () = Hashtbl.keys_list pos.position
   let qty symbol = Hashtbl.get_or pos.position ~default:0 symbol
 
-  let execute_order state time (order : Order.t) =
-    State.record_order state time order;
+  let execute_order state (order : Order.t) =
+    State.record_order state order;
     let symbol = order.symbol in
     let qty = order.qty in
     let price = order.price in
@@ -61,10 +61,10 @@ module Generative () : S = struct
             let order_type = OrderType.Market in
             let qty = Int.abs qty in
             let price = Bars.Bar_item.last latest in
-            Order.make ~symbol ~side ~tif ~order_type ~qty ~price
+            let timestamp = Bars.Bar_item.timestamp latest in
+            Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
           in
-          let time = Bars.Bar_item.timestamp latest in
           Eio.traceln "@[%a@]@." Order.pp order;
-          execute_order state time order)
+          execute_order state order)
       pos.position
 end
