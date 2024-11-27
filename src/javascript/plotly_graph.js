@@ -81,4 +81,4 @@ async function fetchAndRender() {
 fetchAndRender();
 
 // Refresh data every 5 seconds
-setInterval(fetchAndRender, 5000);
+// setInterval(fetchAndRender, 5000);
