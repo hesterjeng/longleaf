@@ -9,6 +9,14 @@ open Eio.Std
 
 let prom, resolver = Promise.create ()
 
+let plotly_response_of_json bars_json_opt =
+  match bars_json_opt with
+  | Some bars -> Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
+  | None ->
+      let headers = Headers.of_list [ ("connection", "close") ] in
+      Response.of_string ~headers `Not_found
+        ~body:"Could not find bars for symbol"
+
 let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
     =
   match params.request with
@@ -31,8 +39,12 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       let bars = Pmutex.get mutices.data_mutex in
       let orders = Pmutex.get mutices.orders_mutex in
       Vector.iter (fun order -> Bars.add_order order bars) orders;
-      let body = Bars.Plotly.of_bars bars "NVDA" |> Yojson.Safe.to_string in
-      Response.of_string ~body `OK
+      plotly_response_of_json @@ Bars.Plotly.of_bars bars "NVDA"
+  | { Request.meth = `GET; target; _ } ->
+      let bars = Pmutex.get mutices.data_mutex in
+      let orders = Pmutex.get mutices.orders_mutex in
+      Vector.iter (fun order -> Bars.add_order order bars) orders;
+      plotly_response_of_json @@ Bars.Plotly.of_bars bars target
   | _ ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Method_not_allowed ~body:""
