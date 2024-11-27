@@ -61,7 +61,10 @@ module DoubleTop = struct
   module Data : RUN_DATA = struct
     let bars =
       (* Yojson.Safe.from_file "data/download_Elegance_Fleeting.json" *)
-      Yojson.Safe.from_file "data/download_Calculated_Meddler.json"
+      (* Calculated meddler is a good backtest *)
+      (* Yojson.Safe.from_file "data/download_Calculated_Meddler.json" *)
+      (* Conundrum Idea is live data from a day on the VPS *)
+      Yojson.Safe.from_file "data/live_Conundrum_Idea.json"
       |> Bars.t_of_yojson
 
     let symbols =

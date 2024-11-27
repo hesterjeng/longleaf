@@ -83,6 +83,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   module Conditions = struct
     type t = Pass of Bar_item.t | Fail of string
 
+    (* 1) There must be a point less than 80% of the critical point before the first max *)
+    (* 2) There must be a local minimum 80% of the first local max between it and now *)
+    (* 3) The current price must be within 5% of that previous maximum *)
+
     let is_pass = function Pass x -> Some x | _ -> None
     let find_pass (l : t list) = List.find_map is_pass l
     let init l = List.map (fun x -> Pass x) l
@@ -144,9 +148,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let consider_shorting ~(history : Bars.t) ~now ~(qty : string -> int) symbol :
       (Order.t * Bar_item.t) option =
-    (* 1) There must be a point less than 80% of the critical point before the first max *)
-    (* 2) There must be a local minimum 80% of the first local max between it and now *)
-    (* 3) The current price must be within 5% of that previous maximum *)
     let open Option.Infix in
     let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.price now symbol in
