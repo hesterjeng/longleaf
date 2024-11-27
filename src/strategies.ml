@@ -103,7 +103,10 @@ module Strategy_utils (Backend : Backend.S) = struct
         @@ { state with current = `Finished "Liquidation finished" }
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
-        Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
+        let bars = state.bars in
+        Hashtbl.iter (fun time order -> Bars.add_order time order bars)
+        @@ Pmutex.get Backend.LongleafMutex.orders_mutex;
+        Pmutex.set Backend.LongleafMutex.data_mutex bars;
         let filename = get_filename () in
         output_data state filename;
         output_order_history state filename;
