@@ -168,7 +168,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           let order_type = OrderType.Market in
           let qty = qty symbol in
           let price = Bar_item.last most_recent_price in
-          Order.make ~symbol ~side ~tif ~order_type ~qty ~price
+          let timestamp = Bar_item.timestamp most_recent_price in
+          Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
         in
         Some (order, previous_maximum)
     | _ -> None
@@ -228,12 +229,13 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       @@ Bars.price state.latest_bars (List.hd Backend.symbols)
     in
     let cover_order =
-      let current_price =
-        Bar_item.last @@ Bars.price state.latest_bars order.symbol
-      in
+      let current_bar = Bars.price state.latest_bars order.symbol in
+      let current_price = Bar_item.last current_bar in
+      let timestamp = Bar_item.timestamp current_bar in
       let cover_order =
         Order.make ~symbol:order.symbol ~side:Side.Buy ~tif:order.tif
           ~order_type:order.order_type ~qty:order.qty ~price:current_price
+          ~timestamp
       in
       let target_price = min_dip *. order.price in
       let cover_reason =

@@ -61,7 +61,8 @@ module Generative () : S = struct
             let order_type = OrderType.Market in
             let qty = Int.abs qty in
             let price = Bars.Bar_item.last latest in
-            Order.make ~symbol ~side ~tif ~order_type ~qty ~price
+            let timestamp = Bars.Bar_item.timestamp latest in
+            Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
           in
           let time = Bars.Bar_item.timestamp latest in
           Eio.traceln "@[%a@]@." Order.pp order;
