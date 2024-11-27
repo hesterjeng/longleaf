@@ -196,15 +196,11 @@ let price x ticker =
 
 module Plotly = struct
   open Bar_item
+  open Option.Infix
 
-  let of_bars (x : bars) (symbol : string) : Yojson.Safe.t =
-    let data =
-      match get x symbol with
-      | None ->
-          invalid_arg
-            "Cannot create plotly diagram, unable to find datapoints for ticker"
-      | Some data -> Vector.to_list data
-    in
+  let of_bars (x : bars) (symbol : string) : Yojson.Safe.t option =
+    let+ data_vec = get x symbol in
+    let data = Vector.to_list data_vec in
     let x_axis =
       let mk_plotly_x x =
         let time = timestamp x in
