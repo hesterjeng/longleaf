@@ -115,6 +115,7 @@ module Order : sig
     order_type : OrderType.t;
     qty : int;
     price : float;
+    timestamp : Time.t;
     id : string Pmutex.t;
     status : Status.t Pmutex.t;
   }
@@ -127,6 +128,7 @@ module Order : sig
     order_type:OrderType.t ->
     qty:int ->
     price:float ->
+    timestamp:Time.t ->
     t
 end = struct
   type t = {
@@ -136,12 +138,13 @@ end = struct
     order_type : OrderType.t;
     qty : int;
     price : float;
+    timestamp : Time.t;
     id : string Pmutex.t;
     status : Status.t Pmutex.t;
   }
   [@@deriving show, yojson]
 
-  let make ~symbol ~side ~tif ~order_type ~qty ~price =
+  let make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp =
     {
       symbol;
       side;
@@ -149,6 +152,7 @@ end = struct
       order_type;
       qty;
       price;
+      timestamp;
       id = Pmutex.make "id_not_set";
       status = Pmutex.make Status.New;
     }
