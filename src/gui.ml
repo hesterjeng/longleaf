@@ -9,13 +9,21 @@ open Eio.Std
 
 let prom, resolver = Promise.create ()
 
-let plotly_response_of_json bars_json_opt =
+let plotly_response_of_symbol ~mutices target =
+  let bars = Pmutex.get mutices.data_mutex in
+  let orders = Pmutex.get mutices.orders_mutex in
+  Vector.iter (fun order -> Bars.add_order order bars) orders;
+  let bars_json_opt =
+    ( Bars.Plotly.of_bars bars target,
+      Bars.Plotly.of_bars bars @@ String.uppercase_ascii target )
+  in
   match bars_json_opt with
-  | Some bars -> Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
-  | None ->
+  | Some bars, None | None, Some bars | Some bars, _ ->
+      Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
+  | None, None ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Not_found
-        ~body:"Could not find bars for symbol"
+        ~body:(Format.asprintf "Could not find bars for symbol: %S" target)
 
 let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
     =
@@ -36,15 +44,10 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs"; _ } ->
-      let bars = Pmutex.get mutices.data_mutex in
-      let orders = Pmutex.get mutices.orders_mutex in
-      Vector.iter (fun order -> Bars.add_order order bars) orders;
-      plotly_response_of_json @@ Bars.Plotly.of_bars bars "NVDA"
+      plotly_response_of_symbol ~mutices "NVDA"
   | { Request.meth = `GET; target; _ } ->
-      let bars = Pmutex.get mutices.data_mutex in
-      let orders = Pmutex.get mutices.orders_mutex in
-      Vector.iter (fun order -> Bars.add_order order bars) orders;
-      plotly_response_of_json @@ Bars.Plotly.of_bars bars target
+      let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
+      plotly_response_of_symbol ~mutices target
   | _ ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Method_not_allowed ~body:""
