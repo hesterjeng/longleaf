@@ -201,10 +201,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       match choice with
       | None -> state.content
       | Some (order, trigger) ->
-          Log.app (fun k ->
-              k "@[Short triggered by previous local max at %a@]@." Time.pp
-                (Bar_item.timestamp trigger));
-          Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
+          Eio.traceln "@[Short triggered by previous local max at %a@]@."
+            Time.pp
+            (Bar_item.timestamp trigger);
+          Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
           Backend.place_order state order;
           (* let stop_loss : Order.t = *)
           (*   { *)
