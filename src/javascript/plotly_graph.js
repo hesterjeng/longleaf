@@ -83,12 +83,17 @@ export async function fetchAndRenderAll(symbols) {
   const container = document.getElementById("graph");
   for (let i = 0; i < length; i++) {
     const symbol = symbols_array[i];
+    if (symbol) {
+    console.log("Fetching data for:", symbol);
     const result = fetchAndRender(symbol);
     const newDiv = document.createElement("div");
     newDiv.id = symbol;
     container.appendChild(newDiv);
+    }
 }
 
 
+  } catch (error) {
+    console.error("Error in fetchAndRenderAll:", error);
   }
 }
