@@ -29,7 +29,7 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
     =
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
-      let html = Template.render () in
+      let html = Template.render "nvda" in
       Response.of_string ~body:html `OK
   | { Request.meth = `GET; target = "/shutdown"; _ } ->
       Promise.resolve resolver true;
