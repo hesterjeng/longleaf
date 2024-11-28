@@ -42,6 +42,7 @@ module type BACKEND_INPUT = sig
   val eio_env : Eio_unix.Stdenv.base
   val bars : Bars.t
   val symbols : string list
+  val tick : float
 end
 
 (* Backtesting *)
