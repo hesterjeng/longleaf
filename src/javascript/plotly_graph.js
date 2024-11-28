@@ -1,8 +1,8 @@
-const endpointUrl = "http://localhost:8080/graphs";
 
 // Function to fetch data and update the graph
-async function fetchAndRender() {
+async function fetchAndRender(endPoint) {
                 try {
+    const endpointUrl = "http://localhost:8080/" + endPoint;
     const response = await fetch(endpointUrl);
     const data = await response.json();
 
@@ -76,9 +76,3 @@ async function fetchAndRender() {
     console.error("Error AFTER fetching:", error);
   }
 }
-
-// Initial render
-fetchAndRender();
-
-// Refresh data every 5 seconds
-// setInterval(fetchAndRender, 5000);

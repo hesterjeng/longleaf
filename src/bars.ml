@@ -79,6 +79,7 @@ module Data = struct
 
   type t = (string * symbol_history) list [@@deriving show]
 
+  let sort = List.iter (fun (_, v) -> Vector.sort' Bar_item.compare v)
   let empty : t = []
   let original_received_of_yojson = received_of_yojson
 
@@ -154,6 +155,8 @@ type t = {
   currency : string option; [@default None]
 }
 [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
+
+let sort (x : t) = Data.sort x.data
 
 type bars = t [@@deriving show { with_path = false }, yojson]
 

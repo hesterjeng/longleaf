@@ -11,7 +11,7 @@ module Bars = Bars
 module Options = Options
 module LongleafMutex = Backend.LongleafMutex ()
 
-let top ~runtype ~preload ~stacktrace eio_env =
+let top ~runtype ~preload ~stacktrace ~no_gui eio_env =
   if stacktrace then Printexc.record_backtrace true;
   let longleaf_env = Environment.make () in
   if Options.Runtype.is_manual runtype then (
@@ -41,7 +41,10 @@ let top ~runtype ~preload ~stacktrace eio_env =
     Run.top runtype
   in
   let run_server () =
-    Eio.Domain_manager.run domain_manager @@ fun () -> Gui.top ~mutices eio_env
+    if no_gui then ()
+    else
+      Eio.Domain_manager.run domain_manager @@ fun () ->
+      Gui.top ~mutices eio_env
   in
   let _ = Eio.Fiber.both run_strategy run_server in
   ()

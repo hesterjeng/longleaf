@@ -28,7 +28,10 @@ module Make
       match Context.preload with
       | None -> Bars.empty
       | Download -> invalid_arg "Downloading data for preload NYI"
-      | File file -> Yojson.Safe.from_file file |> Bars.t_of_yojson
+      | File file ->
+          let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
+          Bars.sort res;
+          res
   end
 
   module Backtesting () : Backend.S =
