@@ -1,5 +1,5 @@
 module type RUN_DATA = sig
-  val bars : Bars.t
+  (* val bars : Bars.t *)
   val symbols : string list
   val tick : float
 end
@@ -20,9 +20,15 @@ module Make
     (StrategyBuilder : Strategies.STRAT_BUILDER)
     (LongleafMutex : Backend.LONGLEAF_MUTEX)
     (Context : RUN_CONTEXT) : S = struct
-  module Input = struct
+  module Input : Backend.BACKEND_INPUT = struct
     include Data
     include Context
+
+    let bars =
+      match Context.preload with
+      | None -> Bars.empty
+      | Download -> invalid_arg "Downloading data for preload NYI"
+      | File file -> Yojson.Safe.from_file file |> Bars.t_of_yojson
   end
 
   module Backtesting () : Backend.S =
