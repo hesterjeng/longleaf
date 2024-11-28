@@ -1,6 +1,5 @@
-
 // Function to fetch data and update the graph
-async function fetchAndRender(endPoint) {
+export async function fetchAndRender(endPoint) {
                 try {
     const endpointUrl = "http://localhost:8080/" + endPoint;
     const response = await fetch(endpointUrl);
