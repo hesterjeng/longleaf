@@ -101,6 +101,13 @@ let handle_output output =
       Unix.dup2 fd Unix.stderr;
       Unix.close fd
 
+let read_file_as_string filename =
+  let in_channel = open_in filename in
+  let len = in_channel_length in_channel in
+  let content = really_input_string in_channel len in
+  close_in in_channel;
+  content
+
 module type CLIENT = sig
   val longleaf_env : Environment.t
   val client : Piaf.Client.t

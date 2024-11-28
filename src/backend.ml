@@ -21,9 +21,10 @@ module type S = sig
   val get_data_client : unit -> Piaf.Client.t
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
-  val loaded_bars : Bars.t
+  (* val loaded_bars : Bars.t *)
 
   (* val get_position : unit -> Backend_position.t *)
+  val init_state : 'a -> 'a State.t
   val get_cash : unit -> float
   val symbols : string list
   val shutdown : unit -> unit
@@ -58,6 +59,15 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
 
   let get_data_client _ =
     invalid_arg "Backtesting does not have a trading client"
+
+  let init_state content =
+    {
+      State.current = `Initialize;
+      bars = Bars.empty;
+      latest_bars = Bars.empty;
+      content;
+      order_history = Vector.create ();
+    }
 
   let next_market_open _ = None
   let env = Input.eio_env
@@ -109,7 +119,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     Backend_position.execute_order state order
 
   let data_remaining = ref Input.bars.data
-  let loaded_bars = Input.bars
+  (* let loaded_bars = Input.bars *)
 
   let latest_bars _ =
     let bars = !data_remaining in
@@ -187,7 +197,16 @@ module Alpaca
 
   let get_cash = Backend_position.get_cash
   let env = Input.eio_env
-  let loaded_bars = Input.bars
+  (* let loaded_bars = Input.bars *)
+
+  let init_state content =
+    {
+      State.current = `Initialize;
+      bars = Input.bars;
+      latest_bars = Bars.empty;
+      content;
+      order_history = Vector.create ();
+    }
 
   let trading_client =
     let res =
