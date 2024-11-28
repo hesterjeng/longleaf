@@ -7,8 +7,8 @@
   (into ..))
  (libraries
   fmt
-  logs
-  logs.fmt
+  ; logs
+  ; logs.fmt
   fmt.tty
   longleaf
   containers

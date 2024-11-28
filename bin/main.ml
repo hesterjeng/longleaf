@@ -30,9 +30,9 @@ module Cmd = struct
   let run runtype preload stacktrace output =
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output output;
-    let reporter = Logs_fmt.reporter () in
-    Logs.set_reporter reporter;
-    Logs.set_level ~all:true (Some Logs.Info);
+    (* let reporter = Logs_fmt.reporter () in *)
+    (* Logs.set_reporter reporter; *)
+    (* Logs.set_level ~all:true (Some Logs.Info); *)
     Eio_main.run @@ fun eio_env ->
     Longleaf.top ~stacktrace ~preload ~runtype eio_env
 
