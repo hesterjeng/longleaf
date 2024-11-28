@@ -39,3 +39,9 @@
  (deps template.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+ (targets multitemplate.ml)
+ (deps multitemplate.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
