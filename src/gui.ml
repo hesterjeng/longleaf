@@ -35,6 +35,14 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       Promise.resolve resolver true;
       Pmutex.set mutices.shutdown_mutex true;
       Response.of_string ~body:"Shutdown command sent" `OK
+  | { Request.meth = `GET; target = "/src/javascript/plotly_graph.js"; _ } ->
+      Eio.traceln "GET request for my javascript";
+      let file_path = "./src/javascript/plotly_graph.js" in
+      let body = Util.read_file_as_string file_path in
+      let headers =
+        Headers.of_list [ ("Content-Type", "application/javascript") ]
+      in
+      Response.of_string ~headers ~body `OK
   | { Request.meth = `GET; target = "/orders"; _ } ->
       let orders = Pmutex.get mutices.orders_mutex in
       let body = Order_history.yojson_of_t orders |> Yojson.Safe.to_string in
@@ -50,7 +58,7 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       plotly_response_of_symbol ~mutices target
   | _ ->
       let headers = Headers.of_list [ ("connection", "close") ] in
-      Response.of_string ~headers `Method_not_allowed ~body:""
+      Response.of_string ~headers `Method_not_allowed ~body:"Unknown endpoint!"
 
 let run ~sw ~host ~port env handler =
   let config =
