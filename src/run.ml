@@ -66,7 +66,7 @@ end
 
 module DoubleTop = struct
   module Data : RUN_DATA = struct
-    let bars =
+    let bars_old_unused () =
       (* Yojson.Safe.from_file "data/download_Elegance_Fleeting.json" *)
       (* Calculated meddler is a good backtest *)
       (* Yojson.Safe.from_file "data/download_Calculated_Meddler.json" *)
