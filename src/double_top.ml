@@ -155,8 +155,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let most_recent_price = Bars.price now symbol in
     let minima = Math.find_local_minima ~window_size:100 price_history in
     let maxima = Math.find_local_maxima ~window_size:100 price_history in
-    Eio.traceln "@[Found %d minima and %d maxima@]@." (List.length minima)
-      (List.length maxima);
+    (* Eio.traceln "@[Found %d minima and %d maxima@]@." (List.length minima) *)
+    (*   (List.length maxima); *)
     let selected =
       Conditions.init maxima
       |> Conditions.map (Conditions.check1 ~price_history)

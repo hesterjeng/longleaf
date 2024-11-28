@@ -9,6 +9,13 @@ module Promise = Eio.Std.Promise
 
 let prom, resolver = Promise.create ()
 
+let serve_favicon () =
+  let favicon_path = "./src/static/favicon.ico" in
+  let body = Util.read_file_as_string favicon_path in
+  Eio.traceln "@[favicon has length %d@]@." (String.length body);
+  let headers = Headers.of_list [ ("Content-Type", "image/x-icon") ] in
+  Response.of_string ~headers ~body `OK
+
 let plotly_response_of_symbol ~mutices target =
   let bars = Pmutex.get mutices.data_mutex in
   let orders = Pmutex.get mutices.orders_mutex in
@@ -31,6 +38,9 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
   | { Request.meth = `GET; target = "/"; _ } ->
       let html = Template.render "nvda" in
       Response.of_string ~body:html `OK
+  | { Request.meth = `GET; target = "/favicon.ico"; _ } ->
+      Eio.traceln "@[Serving favicon.@]@.";
+      serve_favicon ()
   | { Request.meth = `GET; target = "/shutdown"; _ } ->
       Promise.resolve resolver true;
       Pmutex.set mutices.shutdown_mutex true;
@@ -56,7 +66,8 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
   | { Request.meth = `GET; target; _ } ->
       let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
       plotly_response_of_symbol ~mutices target
-  | _ ->
+  | r ->
+      Eio.traceln "@[Unknown request: %a@]@." Request.pp_hum r;
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Method_not_allowed ~body:"Unknown endpoint!"
 
