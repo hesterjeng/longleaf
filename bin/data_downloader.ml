@@ -55,9 +55,9 @@ end
 
 let _ =
   Fmt_tty.setup_std_outputs ();
-  let reporter = Logs_fmt.reporter () in
-  Logs.set_reporter reporter;
-  Logs.set_level ~all:true (Some Logs.Info);
+  (* let reporter = Logs_fmt.reporter () in *)
+  (* Logs.set_reporter reporter; *)
+  (* Logs.set_level ~all:true (Some Logs.Info); *)
   let request : Longleaf.Market_data_api.Historical_bars_request.t =
     {
       timeframe = Trading_types.Timeframe.min 10;

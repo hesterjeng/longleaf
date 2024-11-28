@@ -37,13 +37,13 @@ module Math = struct
     in
     aux l []
 
-  let find_local_maxima window_size (l : _ Vector.t) =
+  let find_local_maxima ~window_size (l : _ Vector.t) =
     window_map ~window_size ~choose:max_close l
 
-  let find_local_minima window_size l =
-    window_map ~window_size ~choose:max_close l
+  let find_local_minima ~window_size l =
+    window_map ~window_size ~choose:min_close l
 
-  let most_recent_maxima window_size l =
+  let most_recent_maxima ~window_size l =
     max_close @@ List.rev @@ List.take window_size l
 end
 
@@ -151,8 +151,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let open Option.Infix in
     let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.price now symbol in
-    let minima = Math.find_local_minima 10 price_history in
-    let maxima = Math.find_local_maxima 10 price_history in
+    let minima = Math.find_local_minima ~window_size:100 price_history in
+    let maxima = Math.find_local_maxima ~window_size:100 price_history in
+    Eio.traceln "@[Found %d minima and %d maxima@]@." (List.length minima)
+      (List.length maxima);
     let selected =
       Conditions.init maxima
       |> Conditions.map (Conditions.check1 ~price_history)
@@ -201,10 +203,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       match choice with
       | None -> state.content
       | Some (order, trigger) ->
-          Log.app (fun k ->
-              k "@[Short triggered by previous local max at %a@]@." Time.pp
-                (Bar_item.timestamp trigger));
-          Log.app (fun k -> k "@[%a@]@.@[%a@]@." Time.pp now Order.pp order);
+          Eio.traceln "@[Short triggered by previous local max at %a@]@."
+            Time.pp
+            (Bar_item.timestamp trigger);
+          Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
           Backend.place_order state order;
           (* let stop_loss : Order.t = *)
           (*   { *)
