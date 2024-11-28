@@ -2,6 +2,7 @@ type mutices = {
   shutdown_mutex : bool Pmutex.t;
   data_mutex : Bars.t Pmutex.t;
   orders_mutex : Order_history.t Pmutex.t;
+  symbols_mutex : string option Pmutex.t;
 }
 
 open Piaf
@@ -36,8 +37,12 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
     =
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
-      let html = Template.render "nvda" in
-      Response.of_string ~body:html `OK
+      let body =
+        match Pmutex.get mutices.symbols_mutex with
+        | None -> "No symbols found"
+        | Some symbols -> Multitemplate.render symbols
+      in
+      Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/favicon.ico"; _ } ->
       Eio.traceln "@[Serving favicon.@]@.";
       serve_favicon ()
