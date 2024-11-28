@@ -1,5 +1,5 @@
 module type RUN_DATA = sig
-  val bars : Bars.t
+  (* val bars : Bars.t *)
   val symbols : string list
   val tick : float
 end
@@ -8,6 +8,7 @@ module type RUN_CONTEXT = sig
   val eio_env : Eio_unix.Stdenv.base
   val longleaf_env : Environment.t
   val switch : Eio.Switch.t
+  val preload : Options.Preload.t
 end
 
 module type S = sig
@@ -19,9 +20,15 @@ module Make
     (StrategyBuilder : Strategies.STRAT_BUILDER)
     (LongleafMutex : Backend.LONGLEAF_MUTEX)
     (Context : RUN_CONTEXT) : S = struct
-  module Input = struct
+  module Input : Backend.BACKEND_INPUT = struct
     include Data
     include Context
+
+    let bars =
+      match Context.preload with
+      | None -> Bars.empty
+      | Download -> invalid_arg "Downloading data for preload NYI"
+      | File file -> Yojson.Safe.from_file file |> Bars.t_of_yojson
   end
 
   module Backtesting () : Backend.S =
@@ -59,7 +66,7 @@ end
 
 module DoubleTop = struct
   module Data : RUN_DATA = struct
-    let bars =
+    let bars_old_unused () =
       (* Yojson.Safe.from_file "data/download_Elegance_Fleeting.json" *)
       (* Calculated meddler is a good backtest *)
       (* Yojson.Safe.from_file "data/download_Calculated_Meddler.json" *)
