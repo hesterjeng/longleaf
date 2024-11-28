@@ -21,10 +21,9 @@ module Preload = struct
     match x with
     | "None" | "none" -> Ok None
     | "Download" | "download" -> Ok Download
-    | _ when String.starts_with ~prefix:"file:" x ->
-        let path = String.sub x 5 (String.length x - 5) in
-        Ok (File path)
-    | _ -> Error (`Msg "Expected a valid runtype")
+    | s when Sys.file_exists s -> Ok (File s)
+    | _ ->
+        Error (`Msg "Expected a valid preload selection, or file doesn't exist")
 
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
 end
