@@ -22,25 +22,29 @@ module Args = struct
     Cmdliner.Arg.(value & opt (some string) None & info [ "o"; "output" ] ~doc)
 
   let stacktrace_arg =
-    let doc = "Print a stacktrace if an exception occurs" in
+    let doc = "Print a stacktrace if an exception occurs." in
     Cmdliner.Arg.(value & flag & info [ "g" ] ~doc)
+
+  let no_gui_arg =
+    let doc = "Disable the gui process." in
+    Cmdliner.Arg.(value & flag & info [ "nogui" ] ~doc)
 end
 
 module Cmd = struct
-  let run runtype preload stacktrace output =
+  let run runtype preload stacktrace output no_gui =
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output output;
     (* let reporter = Logs_fmt.reporter () in *)
     (* Logs.set_reporter reporter; *)
     (* Logs.set_level ~all:true (Some Logs.Info); *)
     Eio_main.run @@ fun eio_env ->
-    Longleaf.top ~stacktrace ~preload ~runtype eio_env
+    Longleaf.top ~stacktrace ~preload ~runtype ~no_gui eio_env
 
   let top =
     let term =
       Cmdliner.Term.(
         const run $ Args.runtype_arg $ Args.preload_arg $ Args.stacktrace_arg
-        $ Args.output_file_arg)
+        $ Args.output_file_arg $ Args.no_gui_arg)
     in
     let doc =
       "This is the OCaml algorithmic trading platform longleaf.  It relies on \
