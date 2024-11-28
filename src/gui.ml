@@ -5,7 +5,7 @@ type mutices = {
 }
 
 open Piaf
-open Eio.Std
+module Promise = Eio.Std.Promise
 
 let prom, resolver = Promise.create ()
 
@@ -74,7 +74,7 @@ let start ~sw ~(mutices : mutices) env =
 
 let top ~(mutices : mutices) env =
   (* setup_log (Some Info); *)
-  Switch.run (fun sw ->
+  Eio.Std.Switch.run (fun sw ->
       (* let openai_response = *)
       (*   Llm.Anthropic.chat ~sw ~env "What is your favorite color?" *)
       (* in *)
