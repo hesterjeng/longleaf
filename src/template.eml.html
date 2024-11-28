@@ -15,7 +15,7 @@ let render endpoint =
     </div>
     <script type="module">
       import { fetchAndRender } from "./src/javascript/plotly_graph.js";
-      fetchAndRender(<%s endpoint %>);
+      fetchAndRender(<%S endpoint %>);
     </script>
     <div id='backtest_button' style="display: grid; place-items: center">
       <h1 class = "text-3xl font-bold text-center mt-5">Run a backtest</h1>
