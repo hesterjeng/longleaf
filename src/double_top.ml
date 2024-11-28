@@ -65,7 +65,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let init_state =
     {
       State.current = `Initialize;
-      bars = Bars.empty;
+      bars = Backend.loaded_bars;
       latest_bars = Bars.empty;
       content = DT_Status.Waiting;
       order_history = Vector.create ();

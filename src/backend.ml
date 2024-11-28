@@ -21,6 +21,7 @@ module type S = sig
   val get_data_client : unit -> Piaf.Client.t
   val env : Eio_unix.Stdenv.base
   val is_backtest : bool
+  val loaded_bars : Bars.t
 
   (* val get_position : unit -> Backend_position.t *)
   val get_cash : unit -> float
@@ -107,6 +108,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     Backend_position.execute_order state order
 
   let data_remaining = ref Input.bars.data
+  let loaded_bars = Input.bars
 
   let latest_bars _ =
     let bars = !data_remaining in
@@ -184,6 +186,7 @@ module Alpaca
 
   let get_cash = Backend_position.get_cash
   let env = Input.eio_env
+  let loaded_bars = Input.bars
 
   let trading_client =
     let res =
