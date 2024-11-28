@@ -62,14 +62,16 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   type state = DT_Status.t State.t
 
-  let init_state =
-    {
-      State.current = `Initialize;
-      bars = Backend.loaded_bars;
-      latest_bars = Bars.empty;
-      content = DT_Status.Waiting;
-      order_history = Vector.create ();
-    }
+  (* let init_state = *)
+  (*   { *)
+  (*     State.current = `Initialize; *)
+  (*     bars = Backend.loaded_bars; *)
+  (*     latest_bars = Bars.empty; *)
+  (*     content = DT_Status.Waiting; *)
+  (*     order_history = Vector.create (); *)
+  (*   } *)
+
+  let init_state = Backend.init_state DT_Status.Waiting
 
   module SU = Strategies.Strategy_utils (Backend)
 
