@@ -8,6 +8,7 @@ module type RUN_CONTEXT = sig
   val eio_env : Eio_unix.Stdenv.base
   val longleaf_env : Environment.t
   val switch : Eio.Switch.t
+  val preload : Options.Preload.t
 end
 
 module type S = sig
