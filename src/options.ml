@@ -8,10 +8,29 @@ module Runtype = struct
     | "Backtest" | "backtest" -> Ok Backtest
     | "Manual" | "manual" -> Ok Manual
     | _ -> Error (`Msg "Expected a valid runtype")
-  [@@deriving eq]
 
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
   let is_manual = function Manual -> true | _ -> false
 end
 
-type t = { runtype : Runtype.t; output_file : string option } [@@deriving show]
+module Preload = struct
+  (* Start with empty bars, load bars from a file, or download data *)
+  type t = None | File of string | Download [@@deriving show]
+
+  let of_string_res x =
+    match x with
+    | "None" | "none" -> Ok None
+    | "Download" | "download" -> Ok Download
+    | s when Sys.file_exists s -> Ok (File s)
+    | _ ->
+        Error (`Msg "Expected a valid preload selection, or file doesn't exist")
+
+  let conv = Cmdliner.Arg.conv (of_string_res, pp)
+end
+
+type t = {
+  runtype : Runtype.t;
+  preload : Preload.t;
+  output_file : string option;
+}
+[@@deriving show]

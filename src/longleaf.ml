@@ -11,7 +11,7 @@ module Bars = Bars
 module Options = Options
 module LongleafMutex = Backend.LongleafMutex ()
 
-let top ~runtype ~stacktrace ~output eio_env =
+let top ~runtype ~preload ~stacktrace eio_env =
   if stacktrace then Printexc.record_backtrace true;
   let longleaf_env = Environment.make () in
   if Options.Runtype.is_manual runtype then (
@@ -35,6 +35,7 @@ let top ~runtype ~stacktrace ~output eio_env =
       let eio_env = eio_env
       let longleaf_env = longleaf_env
       let switch = switch
+      let preload = preload
     end in
     let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
     Run.top runtype
