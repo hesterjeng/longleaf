@@ -87,6 +87,20 @@ let yojson_safe stacktrace (f : unit -> 'a) : 'a =
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
 
+let handle_output output =
+  (* Redirect stdout and stderr to the selected file *)
+  match output with
+  | None -> ()
+  | Some file_path ->
+      let fd =
+        Unix.openfile file_path
+          [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC ]
+          0o644
+      in
+      Unix.dup2 fd Unix.stdout;
+      Unix.dup2 fd Unix.stderr;
+      Unix.close fd
+
 module type CLIENT = sig
   val longleaf_env : Environment.t
   val client : Piaf.Client.t
