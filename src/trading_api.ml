@@ -137,10 +137,9 @@ module Make (Alpaca : Util.CLIENT) = struct
           Response.body response |> Piaf.Body.to_string |> function
           | Ok x ->
               let json = Yojson.Safe.from_string x in
-              Eio.traceln "@[response from create_market_order:@[%a@]@.@]@." Yojson.Safe.pp json;
-              let response_t =
-                response_of_yojson json
-              in
+              Eio.traceln "@[response from create_market_order:@[%a@]@.@]@."
+                Yojson.Safe.pp json;
+              let response_t = response_of_yojson json in
               Pmutex.set order.id response_t.id;
               Pmutex.set order.status response_t.status;
               ()
