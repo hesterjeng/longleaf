@@ -80,7 +80,7 @@ module Make (Alpaca : Util.CLIENT) = struct
 
     let get_account () =
       let endpoint = "/v2/account" in
-      get ~headers ~endpoint
+      get ~headers ~endpoint |> t_of_yojson
   end
 
   module Assets = struct
