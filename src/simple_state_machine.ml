@@ -49,6 +49,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
               let price = nvda_last in
               let timestamp = Bars.Bar_item.timestamp msft in
               Order.make ~symbol ~side ~tif ~order_type ~price ~qty ~timestamp
+                ~reason:"SimpleStateMachine"
             in
             let _json_resp = Backend.place_order state order in
             ()

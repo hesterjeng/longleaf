@@ -157,6 +157,7 @@ module Order : sig
     qty : int;
     price : float;
     timestamp : Time.t;
+    reason : string;
     id : string Pmutex.t;
     status : Status.t Pmutex.t;
   }
@@ -170,6 +171,7 @@ module Order : sig
     qty:int ->
     price:float ->
     timestamp:Time.t ->
+    reason:string ->
     t
 
   val timestamp : t -> Time.t
@@ -182,6 +184,7 @@ end = struct
     qty : int;
     price : float;
     timestamp : Time.t;
+    reason : string;
     id : string Pmutex.t;
     status : Status.t Pmutex.t;
   }
@@ -189,7 +192,7 @@ end = struct
 
   let timestamp x = x.timestamp
 
-  let make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp =
+  let make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason =
     {
       symbol;
       side;
@@ -198,6 +201,7 @@ end = struct
       qty;
       price;
       timestamp;
+      reason;
       id = Pmutex.make "id_not_set";
       status = Pmutex.make Status.New;
     }
