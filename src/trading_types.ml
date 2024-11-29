@@ -104,12 +104,48 @@ module Status = struct
     | Rejected [@name "rejected"]
     | Suspended [@name "suspended"]
     | Calculated [@name "calculated"]
-  [@@deriving yojson, show]
+  [@@deriving show]
 
-    (* try t_of_yojson x *)
-    (* with _ -> *)
-    (*   Eio.traceln "@[[ERROR] Unknown status? %a@]" Yojson.Safe.pp x; *)
-    (*   Pending_new *)
+  let yojson_of_t (x : t) : Yojson.Safe.t =
+    match x with
+    | New -> `String "new"
+    | Partially_filled -> `String "partially_filled"
+    | Filled -> `String "filled"
+    | Done_for_day -> `String "done_for_day"
+    | Canceled -> `String "canceled"
+    | Expired -> `String "expired"
+    | Replaced -> `String "replaced"
+    | Pending_cancel -> `String "pending_cancel"
+    | Pending_replace -> `String "pending_replace"
+    | Accepted -> `String "accepted"
+    | Pending_new -> `String "pending_new"
+    | Accepted_for_bidding -> `String "accepted_for_bidding"
+    | Stopped -> `String "stopped"
+    | Rejected -> `String "rejected"
+    | Suspended -> `String "suspended"
+    | Calculated -> `String "calculated"
+
+  let t_of_yojson (x : Yojson.Safe.t) =
+    match x with
+    | `String "new" -> New
+    | `String "partially_filled" -> Partially_filled
+    | `String "filled" -> Filled
+    | `String "done_for_day" -> Done_for_day
+    | `String "canceled" -> Canceled
+    | `String "expired" -> Expired
+    | `String "replaced" -> Replaced
+    | `String "pending_cancel" -> Pending_cancel
+    | `String "pending_replace" -> Pending_replace
+    | `String "accepted" -> Accepted
+    | `String "pending_new" -> Pending_new
+    | `String "accepted_for_bidding" -> Accepted_for_bidding
+    | `String "stopped" -> Stopped
+    | `String "rejected" -> Rejected
+    | `String "suspended" -> Suspended
+    | `String "calculated" -> Calculated
+    | `String s ->
+        invalid_arg @@ Format.asprintf "Unknown Status.t constructor %s" s
+    | _ -> invalid_arg "Expected a string inside json for Status.t"
 end
 
 module Order : sig
