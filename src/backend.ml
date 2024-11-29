@@ -201,15 +201,6 @@ module Alpaca
   let env = Input.eio_env
   (* let loaded_bars = Input.bars *)
 
-  let init_state content =
-    {
-      State.current = `Initialize;
-      bars = Input.bars;
-      latest_bars = Bars.empty;
-      content;
-      order_history = Vector.create ();
-    }
-
   let trading_client =
     let res =
       Piaf.Client.create ~sw:Input.switch Input.eio_env
@@ -249,6 +240,20 @@ module Alpaca
     let client = data_client
     let longleaf_env = Input.longleaf_env
   end)
+
+  let init_state content =
+    let account_status = Trading_api.Accounts.get_account () in
+    Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
+      account_status;
+    let account_cash = account_status.cash in
+    Backend_position.set_cash account_cash;
+    {
+      State.current = `Initialize;
+      bars = Input.bars;
+      latest_bars = Bars.empty;
+      content;
+      order_history = Vector.create ();
+    }
 
   let next_market_open () =
     let clock = Trading_api.Clock.get () in
