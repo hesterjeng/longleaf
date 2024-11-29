@@ -6,6 +6,7 @@ module type S = sig
   val execute_order : _ State.t -> Order.t -> unit
   val liquidate : _ State.t -> Bars.t -> unit
   val get_cash : unit -> float
+  val set_cash : float -> unit
   val symbols : unit -> string list
   val qty : string -> int
 end
@@ -23,7 +24,7 @@ module Generative () : S = struct
 
   let make () = { position = Hashtbl.create 0; cash = 100000.0 }
   let pos = make ()
-  let set_cash x amt = x.cash <- amt
+  let set_cash amt = pos.cash <- amt
   let get_cash () = pos.cash
   let get_position () = pos.position
   let symbols () = Hashtbl.keys_list pos.position
@@ -40,10 +41,10 @@ module Generative () : S = struct
     match (order.side, order.order_type) with
     | Buy, Market ->
         Hashtbl.replace pos.position symbol (current_amt + qty);
-        set_cash pos @@ (pos.cash -. (price *. Float.of_int qty))
+        set_cash @@ (pos.cash -. (price *. Float.of_int qty))
     | Sell, Market ->
         Hashtbl.replace pos.position symbol (current_amt - qty);
-        set_cash pos @@ (pos.cash +. (price *. Float.of_int qty))
+        set_cash @@ (pos.cash +. (price *. Float.of_int qty))
     | _ ->
         invalid_arg
         @@ Format.asprintf "@[Unsupported order: %a@]@." Order.pp order
