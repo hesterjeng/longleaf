@@ -37,7 +37,7 @@ let place_order_test eio_env longleaf_env =
     Trading_types.Order.make ~symbol:"NVDA" ~side:Buy
       ~tif:Trading_types.TimeInForce.Day
       ~order_type:Trading_types.OrderType.Market ~qty:1 ~price:(-1.0)
-      ~timestamp:(Time.of_int 0)
+      ~timestamp:(Time.of_int 0) ~reason:"Order test"
   in
   Alpaca.place_order state order;
   Alpaca.shutdown ();
