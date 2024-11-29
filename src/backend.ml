@@ -312,5 +312,8 @@ module Alpaca
             ())
         symbols
     in
+    let account_status = Trading_api.Accounts.get_account () in
+    Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
+      account_status;
     ()
 end
