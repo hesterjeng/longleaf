@@ -86,7 +86,10 @@ module Strategy_utils (Backend : Backend.S) = struct
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
     match current with
-    | `Initialize -> Result.return @@ { state with current = `Listening }
+    | `Initialize ->
+        let symbols_str = String.concat "," Backend.symbols in
+        Pmutex.set Backend.LongleafMutex.symbols_mutex (Some symbols_str);
+        Result.return @@ { state with current = `Listening }
     | `Listening -> (
         match listen_tick state.order_history state.bars with
         | `Continue ->
