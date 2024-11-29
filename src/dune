@@ -1,6 +1,5 @@
 (library
  (name longleaf)
- (modes native)
  (public_name longleaf)
  (libraries
   ; pyml

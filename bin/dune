@@ -1,6 +1,5 @@
 (executables
  (names main data_downloader shutdown)
- (modes native)
  (public_names main data_downloader shutdown)
  (promote
   (until-clean)
