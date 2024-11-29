@@ -1,6 +1,6 @@
 (* Nonsense file for some one-off testing *)
 
-let top eio_env longleaf_env =
+let tiingo_test eio_env longleaf_env =
   Eio.Switch.run @@ fun switch ->
   Util.yojson_safe false @@ fun () ->
   let client = Tiingo_api.tiingo_client eio_env switch in
@@ -16,3 +16,30 @@ let top eio_env longleaf_env =
   Eio.traceln "@[%a@]@." Bars.pp resp;
   Piaf.Client.shutdown client;
   ()
+
+let place_order_test eio_env longleaf_env =
+  Eio.Switch.run @@ fun switch ->
+  let module Input : Backend.BACKEND_INPUT = struct
+    let switch = switch
+    let longleaf_env = longleaf_env
+    let eio_env = eio_env
+    let bars = Bars.empty
+    let symbols = []
+    let tick = 0.0
+  end in
+  let module Ticker = Ticker.Make (struct
+    let tick = Input.tick
+  end) in
+  let module LLMutex = Backend.LongleafMutex () in
+  let module Alpaca = Backend.Alpaca (Input) (Ticker) (LLMutex) in
+  let state = Alpaca.init_state () in
+  let order : Trading_types.Order.t =
+    Trading_types.Order.make ~symbol:"NVDA" ~side:Buy
+      ~tif:Trading_types.TimeInForce.Day
+      ~order_type:Trading_types.OrderType.Market ~qty:1 ~price:(-1.0)
+      ~timestamp:(Time.of_int 0)
+  in
+  Alpaca.place_order state order;
+  ()
+
+let top = place_order_test

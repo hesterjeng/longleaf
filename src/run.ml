@@ -41,7 +41,7 @@ module Make
     Backend.Alpaca
       (Input)
       (Ticker.Make (struct
-        let time = Input.tick
+        let tick = Input.tick
       end))
       (LongleafMutex)
 
