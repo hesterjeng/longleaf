@@ -1,6 +1,7 @@
 // Function to fetch data and update the graph
 export async function fetchAndRender(div, endPoint) {
                 try {
+    console.log("endpoint:", endPoint);
     const endpointUrl = "http://localhost:8080/" + endPoint;
     const response = await fetch(endpointUrl);
     const data = await response.json();
@@ -43,6 +44,7 @@ export async function fetchAndRender(div, endPoint) {
       y: yValues,
       text: text,
       type: "scatter",
+      name: endPoint,
     };
 
     const buyTrace = {
@@ -64,6 +66,8 @@ export async function fetchAndRender(div, endPoint) {
     };
 
     const layout = {
+      width: 1000,
+      height: 700,
       title: endPoint,
       xaxis: { title: "X-axis", type: "category", tickmode: "linear", dtick: 20, showticklabels: false,},
       yaxis: { title: "Y-axis" },
@@ -78,17 +82,25 @@ export async function fetchAndRender(div, endPoint) {
 
 export async function fetchAndRenderAll(symbols) {
   try {
+    console.log("fetchandrenderal:", symbols);
   const symbols_array = symbols.split(',');
   const length = symbols.length;
+  console.log("symbols before call:", symbols_array);
   const container = document.getElementById("graph");
   for (let i = 0; i < length; i++) {
     const symbol = symbols_array[i];
     if (symbol) {
-    console.log("Fetching data for:", symbol);
-    const result = fetchAndRender(symbol);
-    const newDiv = document.createElement("div");
-    newDiv.id = symbol;
-    container.appendChild(newDiv);
+      console.log("Fetching data for:", symbol);
+      const newDiv = document.createElement("div");
+      newDiv.style.marginBottom = "20px";
+      newDiv.style.width = "1000px";
+      newDiv.style.height = "700px";
+      newDiv.style.marginLeft = "auto";
+      newDiv.style.marginRight = "auto";
+      newDiv.style.display = "block"; // Ensure it's treated as a block element
+      newDiv.id = symbol;
+      const result = await fetchAndRender(newDiv,symbol);
+      container.appendChild(newDiv);
     }
 }
 
