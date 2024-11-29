@@ -1,10 +1,6 @@
 @format:
-    dune build @fmt --display=quiet --auto-promote
-
-@server:
-	@dune exec bin/server.exe;
-	@prettier --write "src/javascript/**/*.js";
-
+	@dune build @fmt --display=quiet --auto-promote;
+	@prettier --write src/javascript/*;
 
 @watch:
 	dune exec bin/server.exe --watch

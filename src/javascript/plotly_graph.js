@@ -1,6 +1,6 @@
 // Function to fetch data and update the graph
 export async function fetchAndRender(div, endPoint) {
-                try {
+  try {
     console.log("endpoint:", endPoint);
     const endpointUrl = "http://localhost:8080/" + endPoint;
     const response = await fetch(endpointUrl);
@@ -69,7 +69,13 @@ export async function fetchAndRender(div, endPoint) {
       width: 1000,
       height: 700,
       title: endPoint,
-      xaxis: { title: "X-axis", type: "category", tickmode: "linear", dtick: 20, showticklabels: false,},
+      xaxis: {
+        title: "X-axis",
+        type: "category",
+        tickmode: "linear",
+        dtick: 20,
+        showticklabels: false,
+      },
       yaxis: { title: "Y-axis" },
     };
 
@@ -83,28 +89,26 @@ export async function fetchAndRender(div, endPoint) {
 export async function fetchAndRenderAll(symbols) {
   try {
     console.log("fetchandrenderal:", symbols);
-  const symbols_array = symbols.split(',');
-  const length = symbols.length;
-  console.log("symbols before call:", symbols_array);
-  const container = document.getElementById("graph");
-  for (let i = 0; i < length; i++) {
-    const symbol = symbols_array[i];
-    if (symbol) {
-      console.log("Fetching data for:", symbol);
-      const newDiv = document.createElement("div");
-      newDiv.style.marginBottom = "20px";
-      newDiv.style.width = "1000px";
-      newDiv.style.height = "700px";
-      newDiv.style.marginLeft = "auto";
-      newDiv.style.marginRight = "auto";
-      newDiv.style.display = "block"; // Ensure it's treated as a block element
-      newDiv.id = symbol;
-      const result = await fetchAndRender(newDiv,symbol);
-      container.appendChild(newDiv);
+    const symbols_array = symbols.split(",");
+    const length = symbols.length;
+    console.log("symbols before call:", symbols_array);
+    const container = document.getElementById("graph");
+    for (let i = 0; i < length; i++) {
+      const symbol = symbols_array[i];
+      if (symbol) {
+        console.log("Fetching data for:", symbol);
+        const newDiv = document.createElement("div");
+        newDiv.style.marginBottom = "20px";
+        newDiv.style.width = "1000px";
+        newDiv.style.height = "700px";
+        newDiv.style.marginLeft = "auto";
+        newDiv.style.marginRight = "auto";
+        newDiv.style.display = "block"; // Ensure it's treated as a block element
+        newDiv.id = symbol;
+        const result = await fetchAndRender(newDiv, symbol);
+        container.appendChild(newDiv);
+      }
     }
-}
-
-
   } catch (error) {
     console.error("Error in fetchAndRenderAll:", error);
   }
