@@ -40,6 +40,7 @@ let place_order_test eio_env longleaf_env =
       ~timestamp:(Time.of_int 0)
   in
   Alpaca.place_order state order;
+  Alpaca.shutdown ();
   ()
 
 let top = place_order_test

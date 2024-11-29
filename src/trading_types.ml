@@ -104,13 +104,12 @@ module Status = struct
     | Rejected [@name "rejected"]
     | Suspended [@name "suspended"]
     | Calculated [@name "calculated"]
-  [@@deriving show, yojson]
+  [@@deriving yojson, show]
 
-  let t_of_yojson x =
-    try t_of_yojson x
-    with _ ->
-      Eio.traceln "@[[ERROR] Unknown status? %a@]" Yojson.Safe.pp x;
-      Pending_new
+    (* try t_of_yojson x *)
+    (* with _ -> *)
+    (*   Eio.traceln "@[[ERROR] Unknown status? %a@]" Yojson.Safe.pp x; *)
+    (*   Pending_new *)
 end
 
 module Order : sig
