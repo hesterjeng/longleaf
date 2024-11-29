@@ -175,6 +175,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           let price = Bar_item.last most_recent_price in
           let timestamp = Bar_item.timestamp most_recent_price in
           Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
+            ~reason:"Attempt Shorting"
         in
         Some (order, previous_maximum)
     | _ -> None
@@ -225,47 +226,55 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     Result.return
     @@ { state with State.current = `Listening; content = new_status }
 
-  type cover_reason = Profited | HoldingPeriod | StopLoss | None
+  type cover_reason =
+    | Profited of float
+    | HoldingPeriod of float
+    | StopLoss of float
+    | Hold
   [@@deriving show { with_path = false }]
 
-  let cover_position ~(state : state) time_held (order : Order.t) =
+  let cover_position ~(state : state) time_held (shorting_order : Order.t) =
     let now =
       Bar_item.timestamp
       @@ Bars.price state.latest_bars (List.hd Backend.symbols)
     in
     let cover_order =
-      let current_bar = Bars.price state.latest_bars order.symbol in
+      let current_bar = Bars.price state.latest_bars shorting_order.symbol in
       let current_price = Bar_item.last current_bar in
       let timestamp = Bar_item.timestamp current_bar in
-      let cover_order =
-        Order.make ~symbol:order.symbol ~side:Side.Buy ~tif:order.tif
-          ~order_type:order.order_type ~qty:order.qty ~price:current_price
-          ~timestamp
-      in
-      let target_price = min_dip *. order.price in
+      let target_price = min_dip *. shorting_order.price in
+      let price_difference = current_price -. shorting_order.price in
       let cover_reason =
-        if current_price <. profit_multiplier *. target_price then Profited
-        else if time_held > max_holding_period then HoldingPeriod
-        else if current_price >. stop_loss_multiplier *. order.price then
-          StopLoss
-        else None
+        if current_price <. profit_multiplier *. target_price then
+          Profited price_difference
+        else if time_held > max_holding_period then
+          HoldingPeriod price_difference
+        else if current_price >. stop_loss_multiplier *. shorting_order.price
+        then StopLoss price_difference
+        else Hold
       in
       match cover_reason with
-      | Profited | HoldingPeriod | StopLoss ->
-          Eio.traceln "Covering because of %a" pp_cover_reason cover_reason;
-          Some cover_order
-      | None -> None
+      | Profited _ | HoldingPeriod _ | StopLoss _ ->
+          let reason =
+            Format.asprintf "Covering because of %a" pp_cover_reason
+              cover_reason
+          in
+          Option.return
+          @@ Order.make ~symbol:shorting_order.symbol ~side:Side.Buy
+               ~tif:shorting_order.tif ~order_type:shorting_order.order_type
+               ~qty:shorting_order.qty ~price:current_price ~timestamp ~reason
+      | Hold ->
+        None
     in
-    let new_status =
+    let content =
       match cover_order with
-      | None -> DT_Status.Placed (time_held + 1, order)
+      | None -> DT_Status.Placed (time_held + 1, shorting_order)
       | Some order ->
           Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
           Backend.place_order state order;
           Waiting
     in
-    Result.return
-    @@ { state with State.current = `Listening; content = new_status }
+    Result.return @@ { state with State.current = `Listening; content }
 
   let step (state : state) =
     match state.current with
