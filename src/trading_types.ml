@@ -105,6 +105,12 @@ module Status = struct
     | Suspended [@name "suspended"]
     | Calculated [@name "calculated"]
   [@@deriving show, yojson]
+
+  let t_of_yojson x =
+    try t_of_yojson x
+    with _ ->
+      Eio.traceln "@[[ERROR] Unknown status? %a@]" Yojson.Safe.pp x;
+      Pending_new
 end
 
 module Order : sig
