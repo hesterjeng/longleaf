@@ -13,7 +13,7 @@ module Make (Alpaca : Util.CLIENT) = struct
   let delete = Util.delete_piaf ~client
   let post = Util.post_piaf ~client
 
-  let headers () =
+  let headers =
     Headers.of_list
       [
         ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
@@ -31,7 +31,6 @@ module Make (Alpaca : Util.CLIENT) = struct
 
     let get () =
       let endpoint = "/v2/clock" in
-      let headers = headers () in
       get ~headers ~endpoint |> t_of_yojson
   end
 
@@ -81,7 +80,6 @@ module Make (Alpaca : Util.CLIENT) = struct
 
     let get_account () =
       let endpoint = "/v2/account" in
-      let headers = headers () in
       get ~headers ~endpoint
   end
 
@@ -93,14 +91,12 @@ module Make (Alpaca : Util.CLIENT) = struct
 
     let get_assets () =
       let endpoint = "/v2/assets" in
-      let headers = headers () in
       get ~headers ~endpoint
   end
 
   module Positions = struct
     let get_all_open_positions () =
       let endpoint = "/v2/positions" in
-      let headers = headers () in
       get ~headers ~endpoint
 
     let close_all_positions (cancel_orders : bool) =
@@ -109,7 +105,6 @@ module Make (Alpaca : Util.CLIENT) = struct
         Uri.of_string "/v2/positions" |> fun u ->
         Uri.add_query_param' u ("cancel_orders", cancel_orders) |> Uri.to_string
       in
-      let headers = headers () in
       delete ~headers ~endpoint
   end
 
@@ -120,7 +115,6 @@ module Make (Alpaca : Util.CLIENT) = struct
 
     let create_market_order (order : Order.t) =
       let endpoint = "/v2/orders" in
-      let headers = headers () in
       let body =
         `Assoc
           [
@@ -151,27 +145,23 @@ module Make (Alpaca : Util.CLIENT) = struct
               invalid_arg
                 "Error converting create_market_order response body to string")
       | x ->
-          Eio.traceln "@[create_market_order: %a@]@." Status.pp_hum x;
+          Eio.traceln "@[Response: %a@]@." Status.pp_hum x;
           invalid_arg "Bad response in create_market_order"
 
     let get_all_orders () =
       let endpoint = "/v2/orders" in
-      let headers = headers () in
       get ~headers ~endpoint
 
     let delete_all_orders () =
       let endpoint = "/v2/orders" in
-      let headers = headers () in
       delete ~headers ~endpoint
 
     let get_order_by_id (id : OrderId.t) =
       let endpoint = Format.asprintf "/v2/orders/%s" (OrderId.to_string id) in
-      let headers = headers () in
       get ~headers ~endpoint
 
     let delete_order_by_id (id : OrderId.t) =
       let endpoint = Format.asprintf "/v2/orders/%s" (OrderId.to_string id) in
-      let headers = headers () in
       delete ~headers ~endpoint
   end
 end
