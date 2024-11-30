@@ -183,10 +183,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let open Option.Infix in
     let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.price now symbol in
-    let minima = Math.find_local_minima ~window_size:100 price_history in
-    let maxima = Math.find_local_maxima ~window_size:100 price_history |> List.to_iter
-    in
     let+ previous_maximum : Bar_item.t =
+      let minima = Math.find_local_minima ~window_size:100 price_history in
+      let maxima = Math.find_local_maxima ~window_size:100 price_history |> List.to_iter in
       let init = Conditions.init maxima in
       let c1 = Conditions.map (Conditions.check1 ~price_history) init in
       let c2 = Conditions.map (Conditions.check2 ~most_recent_price ~minima) c1 in
