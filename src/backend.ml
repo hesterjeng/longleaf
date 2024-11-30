@@ -33,7 +33,7 @@ module type S = sig
 
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
-  val next_market_close : unit -> Time.t option
+  val next_market_close : unit -> Time.t
   val place_order : _ State.t -> Order.t -> unit
   val latest_bars : string list -> (Bars.t, string) result
   val last_data_bar : Bars.t option
@@ -73,7 +73,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     }
 
   let next_market_open _ = None
-  let next_market_close _ = None
+  let next_market_close _ = Ptime.max
   let env = Input.eio_env
   let symbols = Input.symbols
   let is_backtest = true
@@ -263,9 +263,8 @@ module Alpaca
 
   let next_market_close () =
     let clock = Trading_api.Clock.get () in
-    if clock.is_open then Some clock.next_close else None
+    clock.next_close
 
-  (* let shutdown = *)
   let shutdown () =
     Eio.traceln "Alpaca backend shutdown";
     Piaf.Client.shutdown trading_client;

@@ -41,6 +41,25 @@ module Strategy_utils (Backend : Backend.S) = struct
            done;
            Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
            Shutdown);
+         (fun () ->
+           let close_time = Backend.next_market_close () in
+           let now =
+             Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
+             | Some t -> t
+             | None ->
+                 invalid_arg
+                   "Unable to get clock time in listen_tick for market close"
+           in
+           let time_until_close =
+             Ptime.diff close_time now |> Ptime.Span.to_float_s
+           in
+           while time_until_close >=. 900.0 do
+             Ticker.OneSecond.tick Backend.env
+           done;
+           Eio.traceln
+             "@[Liquidating because we are within 15 minutes to market \
+              close.@]@.";
+           Shutdown);
        ]
 
   let run ~init_state step =
