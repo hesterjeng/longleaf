@@ -75,12 +75,40 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   module SU = Strategies.Strategy_utils (Backend)
 
-  let min_dip = 0.99
-  let lower_now_band = 0.999
-  let upper_now_band = 1.001
-  let stop_loss_multiplier = 1.02
-  let profit_multiplier = 1.04
-  let max_holding_period = 24
+  module Old_params = struct
+    (* Profits, but for bad reasons *)
+    let min_dip = 0.99
+    let lower_now_band = 0.999
+    let upper_now_band = 1.001
+    let stop_loss_multiplier = 1.02
+    let profit_multiplier = 1.04
+    let max_holding_period = 24
+  end
+
+  (* Profitable? *)
+  module Parameters1 = struct
+    let min_dip = 0.98
+    let lower_now_band = 0.99
+    let upper_now_band = 1.01
+    let stop_loss_multiplier = 1.02
+    (* This should be less than one to indicate *)
+    (* that the short was successful, but seems to provide profits at > 1? *)
+    let profit_multiplier = 1.04
+    let max_holding_period = 180
+  end
+
+  module Parameters = struct
+    let min_dip = 0.98
+    let lower_now_band = 0.99
+    let upper_now_band = 1.01
+    let stop_loss_multiplier = 1.02
+    (* This should be less than one to indicate *)
+    (* that the short was successful, but seems to provide profits at > 1? *)
+    let profit_multiplier = 1.04
+    let max_holding_period = 180
+  end
+
+  open Parameters
 
   module Conditions = struct
     type t = Pass of Bar_item.t | Fail of string
@@ -221,10 +249,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let current_bar = Bars.price state.latest_bars shorting_order.symbol in
     let current_price = Bar_item.last current_bar in
     let timestamp = Bar_item.timestamp current_bar in
-    let target_price = min_dip *. shorting_order.price in
     let price_difference = current_price -. shorting_order.price in
     let cover_reason =
-      if current_price <. profit_multiplier *. target_price then
+      if current_price <. profit_multiplier *. shorting_order.price then
         Profited price_difference
       else if time_held > max_holding_period then HoldingPeriod price_difference
       else if current_price >. stop_loss_multiplier *. shorting_order.price then
