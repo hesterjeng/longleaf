@@ -53,7 +53,7 @@ module Strategy_utils (Backend : Backend.S) = struct
            let time_until_close =
              Ptime.diff close_time now |> Ptime.Span.to_float_s
            in
-           while time_until_close >=. 600.0 do
+           while Backend.overnight || time_until_close >=. 600.0 do
              Ticker.Forever.tick Backend.env
            done;
            Eio.traceln
