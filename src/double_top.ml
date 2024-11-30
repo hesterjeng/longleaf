@@ -62,15 +62,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   type state = DT_Status.t State.t
 
-  (* let init_state = *)
-  (*   { *)
-  (*     State.current = `Initialize; *)
-  (*     bars = Backend.loaded_bars; *)
-  (*     latest_bars = Bars.empty; *)
-  (*     content = DT_Status.Waiting; *)
-  (*     order_history = Vector.create (); *)
-  (*   } *)
-
   let init_state = Backend.init_state DT_Status.Waiting
 
   module SU = Strategies.Strategy_utils (Backend)
@@ -91,6 +82,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let lower_now_band = 0.99
     let upper_now_band = 1.01
     let stop_loss_multiplier = 1.02
+
     (* This should be less than one to indicate *)
     (* that the short was successful, but seems to provide profits at > 1? *)
     let profit_multiplier = 1.04
@@ -102,6 +94,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let lower_now_band = 0.99
     let upper_now_band = 1.01
     let stop_loss_multiplier = 1.02
+
     (* This should be less than one to indicate *)
     (* that the short was successful, but seems to provide profits at > 1? *)
     let profit_multiplier = 1.04
@@ -111,7 +104,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   open Parameters
 
   module Conditions = struct
-
     type t = Pass of Bar_item.t | Fail of string
 
     (* 1) There must be a point less than 80% of the critical point before the first max *)
@@ -119,8 +111,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     (* 3) The current price must be within 5% of that previous maximum *)
 
     let is_pass = function Pass x -> Some x | _ -> None
-    let find_pass (l : t Iter.t) =
-      Iter.find_map is_pass l
+    let find_pass (l : t Iter.t) = Iter.find_map is_pass l
     let init l = Iter.map (fun x -> Pass x) l
 
     let map (f : Bar_item.t -> t) (l : t Iter.t) =
@@ -183,50 +174,58 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let open Option.Infix in
     let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.price now symbol in
-    let+ previous_maximum : Bar_item.t =
+    let+ (previous_maximum : Bar_item.t) =
       let minima = Math.find_local_minima ~window_size:100 price_history in
-      let maxima = Math.find_local_maxima ~window_size:100 price_history |> List.to_iter in
+      let maxima =
+        Math.find_local_maxima ~window_size:100 price_history |> List.to_iter
+      in
       let init = Conditions.init maxima in
       let c1 = Conditions.map (Conditions.check1 ~price_history) init in
-      let c2 = Conditions.map (Conditions.check2 ~most_recent_price ~minima) c1 in
+      let c2 =
+        Conditions.map (Conditions.check2 ~most_recent_price ~minima) c1
+      in
       let c3 = Conditions.map (Conditions.check3 ~most_recent_price) c2 in
       let c4 = Conditions.map (Conditions.check4 ~most_recent_price) c3 in
       Conditions.find_pass c4
     in
-    let prev_max_timestamp = Bar_item.timestamp previous_maximum in
-    let side = Side.Sell in
-    let tif = TimeInForce.GoodTillCanceled in
-    let order_type = OrderType.Market in
-    let qty = qty symbol in
-    let price = Bar_item.last most_recent_price in
-    let timestamp = Bar_item.timestamp most_recent_price in
-    let reason =
-      Format.asprintf "Attempt Shorting: Caused by previous maximum %a" Time.pp
-        (Bar_item.timestamp previous_maximum)
-    in
     let order =
+      let prev_max_timestamp = Bar_item.timestamp previous_maximum in
+      let side = Side.Sell in
+      let tif = TimeInForce.GoodTillCanceled in
+      let order_type = OrderType.Market in
+      let qty = qty symbol in
+      let price = Bar_item.last most_recent_price in
+      let timestamp = Bar_item.timestamp most_recent_price in
+      Eio.traceln "@[Short triggered by previous local max at %a@]@." Time.pp
+        prev_max_timestamp;
+      let reason =
+        Format.asprintf "Attempt Shorting: Caused by previous maximum %a"
+          Time.pp
+          (Bar_item.timestamp previous_maximum)
+      in
       Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
     in
-    Eio.traceln "@[Short triggered by previous local max at %a@]@." Time.pp
-      prev_max_timestamp;
     Eio.traceln "@[%a@]@." Order.pp order;
     order
 
-  let place_short ~(state : state) =
+  (* The maximum amount of a share that can be purchased at the current price with *)
+  (*  pct of cash available *)
+  let qty (state : state) pct symbol =
     let cash_available = Backend.get_cash () in
-    let qty symbol =
-      match cash_available >=. 0.0 with
-      | true ->
-          let tenp = cash_available *. 0.5 in
-          let current_price =
-            Bar_item.last @@ Bars.price state.latest_bars symbol
-          in
-          let max_amt = tenp /. current_price in
-          if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
-      | false -> 0
-    in
+    match cash_available >=. 0.0 with
+    | true ->
+        let tenp = cash_available *. pct in
+        let current_price =
+          Bar_item.last @@ Bars.price state.latest_bars symbol
+        in
+        let max_amt = tenp /. current_price in
+        if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+    | false -> 0
+
+  let place_short ~(state : state) =
     let short_opt =
-      consider_shorting ~history:state.bars ~now:state.latest_bars ~qty
+      consider_shorting ~history:state.bars ~now:state.latest_bars
+        ~qty:(qty state 0.5)
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
