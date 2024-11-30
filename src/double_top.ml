@@ -222,6 +222,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
     | false -> 0
 
+  (* Check if we meet the conditions for placing a short for one of our symbols. *)
+  (* If not, return the state unchanged, except we are now listening. *)
   let place_short ~(state : state) =
     let short_opt =
       consider_shorting ~history:state.bars ~now:state.latest_bars
@@ -261,9 +263,15 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     in
     match cover_reason with
     | Profited _ | HoldingPeriod _ | StopLoss _ ->
-        let reason =
-          Format.asprintf "Covering because of %a" pp_cover_reason cover_reason
+        let profit =
+          Float.of_int shorting_order.qty
+          *. (shorting_order.price -. current_price)
         in
+        let reason =
+          Format.asprintf "Covering because of %a. Profit: %f" pp_cover_reason
+            cover_reason profit
+        in
+        Eio.traceln "@[Profit from covering: %f@]@." profit;
         Backend.place_order state
         @@ Order.make ~symbol:shorting_order.symbol ~side:Side.Buy
              ~tif:shorting_order.tif ~order_type:shorting_order.order_type
