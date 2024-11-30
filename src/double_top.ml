@@ -149,15 +149,13 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   end
 
   let consider_shorting ~(history : Bars.t) ~now ~(qty : string -> int) symbol :
-      (Order.t * Bar_item.t) option =
+      Order.t option =
     let open Option.Infix in
     let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.price now symbol in
     let minima = Math.find_local_minima ~window_size:100 price_history in
     let maxima = Math.find_local_maxima ~window_size:100 price_history in
-    (* Eio.traceln "@[Found %d minima and %d maxima@]@." (List.length minima) *)
-    (*   (List.length maxima); *)
-    let selected =
+    let+ previous_maximum =
       Conditions.init maxima
       |> Conditions.map (Conditions.check1 ~price_history)
       |> Conditions.map (Conditions.check2 ~most_recent_price ~minima)
@@ -165,26 +163,26 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       |> Conditions.map (Conditions.check4 ~most_recent_price)
       |> Conditions.find_pass
     in
-    match selected with
-    | Some previous_maximum ->
-        let order : Order.t =
-          let side = Side.Sell in
-          let tif = TimeInForce.GoodTillCanceled in
-          let order_type = OrderType.Market in
-          let qty = qty symbol in
-          let price = Bar_item.last most_recent_price in
-          let timestamp = Bar_item.timestamp most_recent_price in
-          Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-            ~reason:"Attempt Shorting"
-        in
-        Some (order, previous_maximum)
-    | _ -> None
+    let prev_max_timestamp = Bar_item.timestamp previous_maximum in
+    let side = Side.Sell in
+    let tif = TimeInForce.GoodTillCanceled in
+    let order_type = OrderType.Market in
+    let qty = qty symbol in
+    let price = Bar_item.last most_recent_price in
+    let timestamp = Bar_item.timestamp most_recent_price in
+    let reason =
+      Format.asprintf "Attempt Shorting: Caused by previous maximum %a" Time.pp
+        (Bar_item.timestamp previous_maximum)
+    in
+    let order =
+      Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
+    in
+    Eio.traceln "@[Short triggered by previous local max at %a@]@." Time.pp
+      prev_max_timestamp;
+    Eio.traceln "@[%a@]@." Order.pp order;
+    order
 
   let place_short ~(state : state) =
-    let now =
-      Bar_item.timestamp
-      @@ Bars.price state.latest_bars (List.hd Backend.symbols)
-    in
     let cash_available = Backend.get_cash () in
     let qty symbol =
       match cash_available >=. 0.0 with
@@ -205,22 +203,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let new_status =
       match choice with
       | None -> state.content
-      | Some (order, trigger) ->
-          Eio.traceln "@[Short triggered by previous local max at %a@]@."
-            Time.pp
-            (Bar_item.timestamp trigger);
-          Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
+      | Some order ->
           Backend.place_order state order;
-          (* let stop_loss : Order.t = *)
-          (*   { *)
-          (*     order with *)
-          (*     side = Buy; *)
-          (*     tif = TimeInForce.GoodTillCanceled; *)
-          (*     order_type = OrderType.StopLimit; *)
-          (*     price = 1.03 *. order.price; *)
-          (*   } *)
-          (* in *)
-          (* let _ = Backend.create_order stop_loss in *)
           Placed (0, order)
     in
     Result.return
@@ -234,47 +218,41 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   [@@deriving show { with_path = false }]
 
   let cover_position ~(state : state) time_held (shorting_order : Order.t) =
-    let now =
-      Bar_item.timestamp
-      @@ Bars.price state.latest_bars (List.hd Backend.symbols)
+    let current_bar = Bars.price state.latest_bars shorting_order.symbol in
+    let current_price = Bar_item.last current_bar in
+    let timestamp = Bar_item.timestamp current_bar in
+    let target_price = min_dip *. shorting_order.price in
+    let price_difference = current_price -. shorting_order.price in
+    let cover_reason =
+      if current_price <. profit_multiplier *. target_price then
+        Profited price_difference
+      else if time_held > max_holding_period then HoldingPeriod price_difference
+      else if current_price >. stop_loss_multiplier *. shorting_order.price then
+        StopLoss price_difference
+      else Hold
     in
-    let cover_order =
-      let current_bar = Bars.price state.latest_bars shorting_order.symbol in
-      let current_price = Bar_item.last current_bar in
-      let timestamp = Bar_item.timestamp current_bar in
-      let target_price = min_dip *. shorting_order.price in
-      let price_difference = current_price -. shorting_order.price in
-      let cover_reason =
-        if current_price <. profit_multiplier *. target_price then
-          Profited price_difference
-        else if time_held > max_holding_period then
-          HoldingPeriod price_difference
-        else if current_price >. stop_loss_multiplier *. shorting_order.price
-        then StopLoss price_difference
-        else Hold
-      in
-      match cover_reason with
-      | Profited _ | HoldingPeriod _ | StopLoss _ ->
-          let reason =
-            Format.asprintf "Covering because of %a" pp_cover_reason
-              cover_reason
-          in
-          Option.return
-          @@ Order.make ~symbol:shorting_order.symbol ~side:Side.Buy
-               ~tif:shorting_order.tif ~order_type:shorting_order.order_type
-               ~qty:shorting_order.qty ~price:current_price ~timestamp ~reason
-      | Hold ->
-        None
-    in
-    let content =
-      match cover_order with
-      | None -> DT_Status.Placed (time_held + 1, shorting_order)
-      | Some order ->
-          Eio.traceln "@[%a@]@.@[%a@]@." Time.pp now Order.pp order;
-          Backend.place_order state order;
-          Waiting
-    in
-    Result.return @@ { state with State.current = `Listening; content }
+    match cover_reason with
+    | Profited _ | HoldingPeriod _ | StopLoss _ ->
+        let reason =
+          Format.asprintf "Covering because of %a" pp_cover_reason cover_reason
+        in
+        Backend.place_order state
+        @@ Order.make ~symbol:shorting_order.symbol ~side:Side.Buy
+             ~tif:shorting_order.tif ~order_type:shorting_order.order_type
+             ~qty:shorting_order.qty ~price:current_price ~timestamp ~reason;
+        Result.return
+        @@ {
+             state with
+             State.current = `Listening;
+             content = DT_Status.Waiting;
+           }
+    | Hold ->
+        Result.return
+        @@ {
+             state with
+             State.current = `Listening;
+             content = DT_Status.Placed (time_held + 1, shorting_order);
+           }
 
   let step (state : state) =
     match state.current with
