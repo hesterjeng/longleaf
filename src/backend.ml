@@ -273,7 +273,9 @@ module Alpaca
 
   let latest_bars symbols =
     match symbols with
-    | [] -> Ok Bars.empty
+    | [] ->
+        invalid_arg
+          "Backend.latest_bars: Cannot get latest bars for no symbols."
     | _ ->
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
@@ -293,7 +295,8 @@ module Alpaca
       | Ok x -> x
       | Error _ ->
           invalid_arg
-            "Unable to get price information for symbol while liquidating"
+            "[Error] Unable to get price information for symbol while \
+             liquidating."
     in
     let _ =
       (* Hashtbl.map_list *)
