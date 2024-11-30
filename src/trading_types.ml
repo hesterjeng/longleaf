@@ -158,6 +158,7 @@ module Order : sig
     price : float;
     timestamp : Time.t;
     reason : string;
+    profit : float option;
     id : string Pmutex.t;
     status : Status.t Pmutex.t;
   }
@@ -172,6 +173,7 @@ module Order : sig
     price:float ->
     timestamp:Time.t ->
     reason:string ->
+    profit:float option ->
     t
 
   val timestamp : t -> Time.t
@@ -185,6 +187,8 @@ end = struct
     price : float;
     timestamp : Time.t;
     reason : string;
+    (* This is the expected profit of this trade, if it is closing a known position *)
+    profit : float option;
     id : string Pmutex.t;
     status : Status.t Pmutex.t;
   }
@@ -192,7 +196,8 @@ end = struct
 
   let timestamp x = x.timestamp
 
-  let make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason =
+  let make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason ~profit
+      =
     {
       symbol;
       side;
@@ -202,6 +207,7 @@ end = struct
       price;
       timestamp;
       reason;
+      profit;
       id = Pmutex.make "id_not_set";
       status = Pmutex.make Status.New;
     }
