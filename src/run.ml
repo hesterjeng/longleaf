@@ -2,6 +2,7 @@ module type RUN_DATA = sig
   (* val bars : Bars.t *)
   val symbols : string list
   val tick : float
+  val overnight : bool
 end
 
 module type RUN_CONTEXT = sig
@@ -99,6 +100,7 @@ module DoubleTop = struct
       ]
 
     let tick = 600.0
+    let overnight = false
   end
 
   module Make = Make (Data) (Double_top.DoubleTop)
