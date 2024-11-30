@@ -30,6 +30,7 @@ module type S = sig
   val get_cash : unit -> float
   val symbols : string list
   val shutdown : unit -> unit
+  val overnight : bool
 
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
@@ -47,6 +48,7 @@ module type BACKEND_INPUT = sig
   val bars : Bars.t
   val symbols : string list
   val tick : float
+  val overnight : bool
 end
 
 (* Backtesting *)
@@ -79,45 +81,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let is_backtest = true
   let shutdown () = ()
   let get_cash = Backend_position.get_cash
-
-  (* module OrderQueue = struct *)
-  (*   let queue : Order.t list ref = ref [] *)
-  (*   let add x = queue := [ x ] *)
-
-  (*   let work latest_bars = *)
-  (*     Eio.traceln "@[Remaining in queue: %d@]@.@[%a@]@." (List.length !queue) *)
-  (*       (List.pp Order.pp) !queue; *)
-  (*     let res = *)
-  (*       List.filter_map *)
-  (*         (fun (order : Order.t) -> *)
-  (*           let symbol = order.symbol in *)
-  (*           let price = order.price in *)
-  (*           let current_price = Bars.price latest_bars symbol in *)
-  (*           match (order.side, order.order_type) with *)
-  (*           | Buy, StopLimit -> *)
-  (*               Eio.traceln *)
-  (* "@[StopLimit orders execution is probably really buggy!! \ *)
-     (*                  Warning!!!@]@."; *)
-  (*               let current_amt = *)
-  (*                 Hashtbl.get position symbol |> Option.get_or ~default:0 *)
-  (*               in *)
-  (*               if current_price.close >. price then ( *)
-  (*                 Eio.traceln *)
-  (* "Executing a Buy StopLimit order because it has been \ *)
-     (*                    triggered"; *)
-  (*                 Hashtbl.replace position symbol (current_amt + order.qty); *)
-  (*                 cash := *)
-  (*                   !cash -. (current_price.close *. Float.of_int order.qty); *)
-  (*                 None) *)
-  (*               else Some order *)
-  (*           | Sell, StopLimit -> *)
-  (*               invalid_arg "Can't do sell stoplimit orders yet" *)
-  (*           | _, _ -> invalid_arg "Don't know how to handle this order in queue") *)
-  (*         !queue *)
-  (*     in *)
-  (*     Eio.traceln "@[Reminaing after work: %d@]@." (List.length res); *)
-  (*     queue := res *)
-  (* end *)
+  let overnight = Input.overnight
 
   let place_order state (order : Order.t) =
     Backend_position.execute_order state order
@@ -202,6 +166,8 @@ module Alpaca
   let get_cash = Backend_position.get_cash
   let env = Input.eio_env
   (* let loaded_bars = Input.bars *)
+
+  let overnight = Input.overnight
 
   let trading_client =
     let res =
