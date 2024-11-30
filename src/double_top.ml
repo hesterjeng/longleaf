@@ -111,6 +111,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   open Parameters
 
   module Conditions = struct
+
     type t = Pass of Bar_item.t | Fail of string
 
     (* 1) There must be a point less than 80% of the critical point before the first max *)
@@ -118,11 +119,12 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     (* 3) The current price must be within 5% of that previous maximum *)
 
     let is_pass = function Pass x -> Some x | _ -> None
-    let find_pass (l : t list) = List.find_map is_pass l
-    let init l = List.map (fun x -> Pass x) l
+    let find_pass (l : t Iter.t) =
+      Iter.find_map is_pass l
+    let init l = Iter.map (fun x -> Pass x) l
 
-    let map (f : Bar_item.t -> t) (l : t list) =
-      List.map (function Pass x -> f x | fail -> fail) l
+    let map (f : Bar_item.t -> t) (l : t Iter.t) =
+      Iter.map (function Pass x -> f x | fail -> fail) l
 
     let check1 ~price_history (current_max : Bar_item.t) : t =
       Vector.find
@@ -182,14 +184,15 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.price now symbol in
     let minima = Math.find_local_minima ~window_size:100 price_history in
-    let maxima = Math.find_local_maxima ~window_size:100 price_history in
-    let+ previous_maximum =
-      Conditions.init maxima
-      |> Conditions.map (Conditions.check1 ~price_history)
-      |> Conditions.map (Conditions.check2 ~most_recent_price ~minima)
-      |> Conditions.map (Conditions.check3 ~most_recent_price)
-      |> Conditions.map (Conditions.check4 ~most_recent_price)
-      |> Conditions.find_pass
+    let maxima = Math.find_local_maxima ~window_size:100 price_history |> List.to_iter
+    in
+    let+ previous_maximum : Bar_item.t =
+      let init = Conditions.init maxima in
+      let c1 = Conditions.map (Conditions.check1 ~price_history) init in
+      let c2 = Conditions.map (Conditions.check2 ~most_recent_price ~minima) c1 in
+      let c3 = Conditions.map (Conditions.check3 ~most_recent_price) c2 in
+      let c4 = Conditions.map (Conditions.check4 ~most_recent_price) c3 in
+      Conditions.find_pass c4
     in
     let prev_max_timestamp = Bar_item.timestamp previous_maximum in
     let side = Side.Sell in
