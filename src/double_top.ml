@@ -221,11 +221,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let current_bar = Bars.price state.latest_bars shorting_order.symbol in
     let current_price = Bar_item.last current_bar in
     let timestamp = Bar_item.timestamp current_bar in
-    let target_price = min_dip *. shorting_order.price in
     let price_difference = current_price -. shorting_order.price in
     let cover_reason =
-      if current_price <. profit_multiplier *. target_price then
-        Profited price_difference
+      if current_price <. profit_multiplier *. shorting_order.price then (
+        Profited price_difference)
       else if time_held > max_holding_period then HoldingPeriod price_difference
       else if current_price >. stop_loss_multiplier *. shorting_order.price then
         StopLoss price_difference
