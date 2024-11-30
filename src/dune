@@ -12,6 +12,7 @@
   dream
   angstrom
   eio_main
+  iter
   cmdliner
   tyxml
   piaf)
