@@ -33,6 +33,11 @@ module Instant : S = struct
   let length = 0.0
 end
 
+module Forever : S = struct
+  let tick env = Eio.Time.sleep env#clock @@ Float.max_finite_value
+  let length = Float.max_finite_value
+end
+
 module Make (Inp : sig
   val tick : float
 end) : S = struct
