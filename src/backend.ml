@@ -33,6 +33,7 @@ module type S = sig
 
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
+  val next_market_close : unit -> Time.t option
   val place_order : _ State.t -> Order.t -> unit
   val latest_bars : string list -> (Bars.t, string) result
   val last_data_bar : Bars.t option
@@ -72,6 +73,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     }
 
   let next_market_open _ = None
+  let next_market_close _ = None
   let env = Input.eio_env
   let symbols = Input.symbols
   let is_backtest = true
@@ -258,6 +260,10 @@ module Alpaca
   let next_market_open () =
     let clock = Trading_api.Clock.get () in
     if clock.is_open then None else Some clock.next_open
+
+  let next_market_close () =
+    let clock = Trading_api.Clock.get () in
+    if clock.is_open then Some clock.next_close else None
 
   (* let shutdown = *)
   let shutdown () =
