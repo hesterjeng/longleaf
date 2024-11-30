@@ -53,11 +53,11 @@ module Strategy_utils (Backend : Backend.S) = struct
            let time_until_close =
              Ptime.diff close_time now |> Ptime.Span.to_float_s
            in
-           while time_until_close >=. 900.0 do
-             Ticker.OneSecond.tick Backend.env
+           while time_until_close >=. 600.0 do
+             Ticker.Forever.tick Backend.env
            done;
            Eio.traceln
-             "@[Liquidating because we are within 15 minutes to market \
+             "@[Liquidating because we are within 10 minutes to market \
               close.@]@.";
            Shutdown);
        ]
