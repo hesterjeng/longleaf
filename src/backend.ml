@@ -86,8 +86,6 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let place_order state (order : Order.t) =
     Backend_position.execute_order state order
 
-  (* FIXME:  This should be distinct from the preloaded data. *)
-  (* e.g. we could run a backtest identically to it running for a day *)
   let data_remaining = ref Input.bars.data
 
   let latest_bars _ =

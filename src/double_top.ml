@@ -27,7 +27,6 @@ module Math = struct
     | None -> invalid_arg "Cannot find maximum of empty list"
 
   (* This should have fewer datapoints with larger window size. *)
-  (* FIXME:  I feel like this could probably be improved. *)
   let window_map ~window_size ~(choose : 'a list -> 'a) (l : _ Vector.t) =
     let l = Vector.to_list l in
     let rec aux acc (l : _ list) =
@@ -112,9 +111,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     (* 1) There must be a point less than 80% of the critical point before the first max *)
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
     (* 3) The current price must be within 5% of that previous maximum *)
-
-    (* FIXME: Add a check to make sure that there is no peak above us between *)
-    (* the previous and now? *)
 
     let is_pass = function Pass x -> Some x | _ -> None
     let find_pass (l : t Iter.t) = Iter.find_map is_pass l
