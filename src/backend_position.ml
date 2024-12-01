@@ -64,7 +64,7 @@ module Generative () : S = struct
             let price = Bars.Bar_item.last latest in
             let timestamp = Bars.Bar_item.timestamp latest in
             Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-              ~reason:"Liquidating"
+              ~profit:None ~reason:"Liquidating"
           in
           Eio.traceln "@[%a@]@." Order.pp order;
           execute_order state order)

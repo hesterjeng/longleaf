@@ -125,7 +125,7 @@ module Data = struct
         symbol_history
     in
     if not @@ !found then
-      Eio.traceln "@[[ERROR] Unplaceable order! %a@]@.@[%a@]@." Time.pp time
+      Eio.traceln "@[[ERROR] Could not place order in data! %a@]@.@[%a@]@." Time.pp time
         Order.pp order;
     res
 

@@ -87,7 +87,6 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     Backend_position.execute_order state order
 
   let data_remaining = ref Input.bars.data
-  (* let loaded_bars = Input.bars *)
 
   let latest_bars _ =
     let bars = !data_remaining in
@@ -285,7 +284,7 @@ module Alpaca
               let price = Bars.Bar_item.last latest_info in
               let timestamp = Bars.Bar_item.timestamp latest_info in
               Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-                ~reason:"Liquidate"
+                ~profit:None ~reason:"Liquidate"
             in
             Eio.traceln "%a" Order.pp order;
             let _json_resp = place_order state order in
