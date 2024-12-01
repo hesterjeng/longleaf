@@ -26,6 +26,8 @@ module Math = struct
     | Some max -> max
     | None -> invalid_arg "Cannot find maximum of empty list"
 
+  (* This should have fewer datapoints with larger window size. *)
+  (* FIXME:  I feel like this could probably be improved. *)
   let window_map ~window_size ~(choose : 'a list -> 'a) (l : _ Vector.t) =
     let l = Vector.to_list l in
     let rec aux acc (l : _ list) =
@@ -85,6 +87,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
     (* This should be less than one to indicate *)
     (* that the short was successful, but seems to provide profits at > 1? *)
+    (* FIXME: Further investigate why this is profitable??? *)
+    (* Maybe it makes us exit shorts that are bad, or there is a problem with *)
+    (* how backtesting? *)
     let profit_multiplier = 1.04
     let max_holding_period = 180
   end
@@ -94,11 +99,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let lower_now_band = 0.99
     let upper_now_band = 1.01
     let stop_loss_multiplier = 1.02
-
-    (* This should be less than one to indicate *)
-    (* that the short was successful, but seems to provide profits at > 1? *)
-    let profit_multiplier = 1.04
-    let max_holding_period = 180
+    let profit_multiplier = 0.96
+    let max_holding_period = 30
+    let window_size = 100
   end
 
   open Parameters
@@ -109,6 +112,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     (* 1) There must be a point less than 80% of the critical point before the first max *)
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
     (* 3) The current price must be within 5% of that previous maximum *)
+
+    (* FIXME: Add a check to make sure that there is no peak above us between *)
+    (* the previous and now? *)
 
     let is_pass = function Pass x -> Some x | _ -> None
     let find_pass (l : t Iter.t) = Iter.find_map is_pass l
@@ -175,9 +181,11 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.price now symbol in
     let+ (previous_maximum : Bar_item.t) =
-      let minima = Math.find_local_minima ~window_size:100 price_history in
+      (* FIXME:  We look back for candidates in ALL the historical data! *)
+      (* There should be a lookback parameter. *)
+      let minima = Math.find_local_minima ~window_size price_history in
       let maxima =
-        Math.find_local_maxima ~window_size:100 price_history |> List.to_iter
+        Math.find_local_maxima ~window_size price_history |> List.to_iter
       in
       let init = Conditions.init maxima in
       let c1 = Conditions.map (Conditions.check1 ~price_history) init in
