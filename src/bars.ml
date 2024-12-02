@@ -102,10 +102,12 @@ end
 module Latest = struct
   type t = Item.t Hashtbl.t
 
-  let price x symbol =
+  let get x symbol =
     match Hashtbl.find_opt x symbol with
-    | Some x -> Item.last x
+    | Some x -> x
     | None -> invalid_arg "Unable to find price of symbol (Bars.Latest)"
+
+  let empty : t = Hashtbl.create 0
 end
 
 type symbol_history = Item.t Vector.vector

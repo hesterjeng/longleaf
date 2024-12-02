@@ -28,7 +28,7 @@ let item_to_bar_item (x : item) : Bars.Item.t =
   let order = None in
   Bars.Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume ~order ()
 
-let to_latest (l : t) : Bars.latest =
+let to_latest (l : t) : Bars.Latest.t =
   List.map (fun (x : item) -> (x.ticker, item_to_bar_item x)) l
   |> Seq.of_list |> Hashtbl.of_seq
 
@@ -62,7 +62,7 @@ module Make (Tiingo : Util.CLIENT) = struct
     let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
     get ~headers ~endpoint
 
-  let latest tickers : Bars.latest =
+  let latest tickers : Bars.Latest.t =
     let endpoint =
       Uri.add_query_params' endpoint [ ("tickers", String.concat "," tickers) ]
       |> Uri.to_string
