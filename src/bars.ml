@@ -17,6 +17,7 @@ module Bar_item : sig
 
   val compare : t Ord.t
   val timestamp : t -> Time.t
+  val open_ : t -> float
   val last : t -> float
   val high : t -> float
   val low : t -> float
@@ -52,6 +53,7 @@ end = struct
         (Yojson.Safe.to_string j);
       exit 1
 
+  let open_ x = x.open_
   let order x = x.order
 
   let add_order (order : Order.t) (x : t) =
@@ -125,8 +127,8 @@ module DataIO = struct
         symbol_history
     in
     if not @@ !found then
-      Eio.traceln "@[[ERROR] Could not place order in data! %a@]@.@[%a@]@." Time.pp time
-        Order.pp order;
+      Eio.traceln "@[[ERROR] Could not place order in data! %a@]@.@[%a@]@."
+        Time.pp time Order.pp order;
     res
 
   let t_of_yojson json : t =
@@ -150,9 +152,58 @@ module DataIO = struct
 end
 
 module DataOwl = struct
+  module Dataframe = Owl.Dataframe
 
-  include Owl.Dataframe
+  type t = (string, Dataframe.t) Hashtbl.t
 
+  let get (x : t) symbol =
+    match Hashtbl.get x symbol with
+    | Some res -> res
+    | None -> invalid_arg "Unable to get price information for symbol (Owl)"
+
+  let data_of_vector (vector : Bar_item.t Vector.vector) =
+    let arr = Vector.to_array vector in
+    let timestamps =
+      Dataframe.pack_string_series
+      @@ Array.map (fun x -> Bar_item.timestamp x |> Time.to_string) arr
+    in
+    let opens = Dataframe.pack_float_series @@ Array.map Bar_item.open_ arr in
+    let lasts = Dataframe.pack_float_series @@ Array.map Bar_item.last arr in
+    let highs = Dataframe.pack_float_series @@ Array.map Bar_item.high arr in
+    let lows = Dataframe.pack_float_series @@ Array.map Bar_item.low arr in
+    let closes = Dataframe.pack_float_series @@ Array.map Bar_item.close arr in
+    let volumes = Dataframe.pack_int_series @@ Array.map Bar_item.volume arr in
+    Dataframe.make
+      ~data:[| timestamps; lasts; opens; highs; lows; closes; volumes |]
+      [| "Timestamp"; "Last"; "Open"; "High"; "Low"; "Close"; "Volume" |]
+
+  let data_to_vector (x : Dataframe.t) : DataIO.symbol_history =
+    let length = Dataframe.row_num x in
+    let arr = Vector.make length None in
+    let get_col = Dataframe.get_col x in
+    let timestamps = get_col 0 |> Dataframe.unpack_string_series in
+    let lasts = get_col 1 |> Dataframe.unpack_float_series in
+    let opens = get_col 2 |> Dataframe.unpack_float_series in
+    let highs = get_col 3 |> Dataframe.unpack_float_series in
+    let lows = get_col 4 |> Dataframe.unpack_float_series in
+    let closes = get_col 5 |> Dataframe.unpack_float_series in
+    let volumes = get_col 6 |> Dataframe.unpack_int_series in
+    Vector.mapi
+      (fun i _ ->
+        Bar_item.make
+          ~timestamp:(timestamps.(i) |> Time.of_string)
+          ~open_:opens.(i) ~last:lasts.(i) ~high:highs.(i) ~low:lows.(i)
+          ~close:closes.(i) ~volume:volumes.(i) ~order:None ())
+      arr
+
+  let to_io (x : t) : DataIO.t =
+    Hashtbl.to_list x |> List.Assoc.map_values data_to_vector
+
+  let of_io (x : DataIO.t) : t =
+    List.Assoc.map_values data_of_vector x |> Hashtbl.of_list
+
+  let t_of_yojson (x : Yojson.Safe.t) = DataIO.t_of_yojson x |> of_io
+  let yojson_of_t (x : t) = DataIO.yojson_of_t @@ to_io x
 end
 
 module Data = DataIO
