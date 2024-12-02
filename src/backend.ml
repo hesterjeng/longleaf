@@ -69,7 +69,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     {
       State.current = `Initialize;
       bars = Bars.empty;
-      latest_bars = Bars.empty;
+      latest = Bars.Latest.empty;
       content;
       order_history = Vector.create ();
     }
@@ -86,7 +86,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let place_order state (order : Order.t) =
     Backend_position.execute_order state order
 
-  let data_remaining = ref Input.bars.data
+  let data_remaining = ref Input.bars
 
   let latest_bars _ =
     let bars = !data_remaining in

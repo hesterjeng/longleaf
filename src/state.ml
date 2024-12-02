@@ -12,7 +12,7 @@ type state = [ nonlogical_state | logical_state ]
 type 'a t = {
   current : state;
   bars : Bars.t;
-  latest : Bars.latest;
+  latest : Bars.Latest.t;
   order_history : Order_history.t;
   content : 'a;
 }
