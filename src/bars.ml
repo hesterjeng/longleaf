@@ -80,7 +80,7 @@ let pp_symbol_history : symbol_history Vector.printer = Vector.pp Bar_item.pp
 
 type t = (string * symbol_history) list [@@deriving show]
 
-let sort = List.iter (fun (_, v) -> Vector.sort' Bar_item.compare v)
+let sort = List.iter (fun ((_ : string), v) -> Vector.sort' Bar_item.compare v)
 let empty : t = []
 let original_received_of_yojson = received_of_yojson
 
