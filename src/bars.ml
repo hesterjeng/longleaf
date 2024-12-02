@@ -149,61 +149,36 @@ module DataIO = struct
       List.map (fun (symbol, history) -> (symbol, Vector.to_list history)) x
     in
     yojson_of_received listified
-end
 
-module DataOwl = struct
-  module Dataframe = Owl.Dataframe
-
-  type t = (string, Dataframe.t) Hashtbl.t
-
-  let get (x : t) symbol =
-    match Hashtbl.get x symbol with
-    | Some res -> res
-    | None -> invalid_arg "Unable to get price information for symbol (Owl)"
-
-  let data_of_vector (vector : Bar_item.t Vector.vector) =
-    let arr = Vector.to_array vector in
-    let timestamps =
-      Dataframe.pack_string_series
-      @@ Array.map (fun x -> Bar_item.timestamp x |> Time.to_string) arr
+(* FIXME: This function does a lot of work to ensure that things are in the correct order *)
+let combine (l : t list) : t =
+  let keys =
+    List.flat_map (fun x -> List.Assoc.keys x) l
+    |> List.uniq ~eq:String.equal
+  in
+  let get_data key =
+    let data =
+      Vector.flat_map
+        (fun (x : t) ->
+          match List.Assoc.get ~eq:String.equal key x.data with
+          | Some found -> found
+          | None -> Vector.of_array [||]
+          (* Vector.make 0 *))
+        (Vector.of_list l)
     in
-    let opens = Dataframe.pack_float_series @@ Array.map Bar_item.open_ arr in
-    let lasts = Dataframe.pack_float_series @@ Array.map Bar_item.last arr in
-    let highs = Dataframe.pack_float_series @@ Array.map Bar_item.high arr in
-    let lows = Dataframe.pack_float_series @@ Array.map Bar_item.low arr in
-    let closes = Dataframe.pack_float_series @@ Array.map Bar_item.close arr in
-    let volumes = Dataframe.pack_int_series @@ Array.map Bar_item.volume arr in
-    Dataframe.make
-      ~data:[| timestamps; lasts; opens; highs; lows; closes; volumes |]
-      [| "Timestamp"; "Last"; "Open"; "High"; "Low"; "Close"; "Volume" |]
+    Vector.sort' Bar_item.compare data;
+    data
+  in
+  List.map (fun key -> (key, get_data key)) keys
 
-  let data_to_vector (x : Dataframe.t) : DataIO.symbol_history =
-    let length = Dataframe.row_num x in
-    let arr = Vector.make length None in
-    let get_col = Dataframe.get_col x in
-    let timestamps = get_col 0 |> Dataframe.unpack_string_series in
-    let lasts = get_col 1 |> Dataframe.unpack_float_series in
-    let opens = get_col 2 |> Dataframe.unpack_float_series in
-    let highs = get_col 3 |> Dataframe.unpack_float_series in
-    let lows = get_col 4 |> Dataframe.unpack_float_series in
-    let closes = get_col 5 |> Dataframe.unpack_float_series in
-    let volumes = get_col 6 |> Dataframe.unpack_int_series in
-    Vector.mapi
-      (fun i _ ->
-        Bar_item.make
-          ~timestamp:(timestamps.(i) |> Time.of_string)
-          ~open_:opens.(i) ~last:lasts.(i) ~high:highs.(i) ~low:lows.(i)
-          ~close:closes.(i) ~volume:volumes.(i) ~order:None ())
-      arr
 
-  let to_io (x : t) : DataIO.t =
-    Hashtbl.to_list x |> List.Assoc.map_values data_to_vector
-
-  let of_io (x : DataIO.t) : t =
-    List.Assoc.map_values data_of_vector x |> Hashtbl.of_list
-
-  let t_of_yojson (x : Yojson.Safe.t) = DataIO.t_of_yojson x |> of_io
-  let yojson_of_t (x : t) = DataIO.yojson_of_t @@ to_io x
+let price bars ticker =
+  match List.Assoc.get ~eq:String.equal ticker bars with
+  | Some vec when Vector.length vec = 1 -> Vector.get vec 0
+  | Some _ -> invalid_arg "Multiple bar items on latest bar?"
+  | None ->
+      invalid_arg
+      @@ Format.asprintf "Unable to get price info for ticker %s" ticker
 end
 
 module Data = DataIO
@@ -223,38 +198,8 @@ let empty : t = { data = Data.empty; next_page_token = None; currency = None }
 let tickers (x : t) = List.map fst x.data
 let add_order (order : Order.t) (x : t) = Data.add_order order x.data
 
-(* FIXME: This function does a lot of work to ensure that things are in the correct order *)
-let combine (l : t list) : t =
-  let keys =
-    List.flat_map (fun x -> List.Assoc.keys x.data) l
-    |> List.uniq ~eq:String.equal
-  in
-  let get_data key =
-    let data =
-      Vector.flat_map
-        (fun (x : t) ->
-          match List.Assoc.get ~eq:String.equal key x.data with
-          | Some found -> found
-          | None -> Vector.of_array [||]
-          (* Vector.make 0 *))
-        (Vector.of_list l)
-    in
-    Vector.sort' Bar_item.compare data;
-    data
-  in
-  let data = List.map (fun key -> (key, get_data key)) keys in
-  { data; next_page_token = None; currency = None }
 
 let get (bars : t) ticker = List.Assoc.get ~eq:String.equal ticker bars.data
-
-let price x ticker =
-  let bars = x.data in
-  match List.Assoc.get ~eq:String.equal ticker bars with
-  | Some vec when Vector.length vec = 1 -> Vector.get vec 0
-  | Some _ -> invalid_arg "Multiple bar items on latest bar?"
-  | None ->
-      invalid_arg
-      @@ Format.asprintf "Unable to get price info for ticker %s" ticker
 
 module Plotly = struct
   open Bar_item
