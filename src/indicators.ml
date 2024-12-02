@@ -1,14 +1,14 @@
 open Bars
 
-let accumulation_distribution_line (l : Bar_item.t list) =
+let accumulation_distribution_line (l : Item.t list) =
   Eio.traceln
     "@[accumulation_distribution_line was written with Alpaca bar items in \
      mind, not tiingo.@]@.";
   let _, res =
     List.fold_map
-      (fun previous_adl (x : Bar_item.t) ->
+      (fun previous_adl (x : Item.t) ->
         let open Float in
-        let open Bar_item in
+        let open Item in
         let close = close x in
         let low = low x in
         let high = high x in
@@ -23,12 +23,12 @@ let accumulation_distribution_line (l : Bar_item.t list) =
   in
   res
 
-let simple_moving_average (l : Bar_item.t list) =
+let simple_moving_average (l : Item.t list) =
   Eio.traceln
     "@[simple_moving_average was written with Alpaca bar items in mind, not \
      tiingo.@]@.";
   let n = List.length l in
-  let close = List.map (fun (x : Bar_item.t) -> Bar_item.close x) l in
+  let close = List.map (fun (x : Item.t) -> Item.close x) l in
   let sma_i i =
     let start = Int.max (i - n) 0 in
     let range = List.range start i in
