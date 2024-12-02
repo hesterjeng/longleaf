@@ -22,8 +22,8 @@ let plotly_response_of_symbol ~mutices target =
   let orders = Pmutex.get mutices.orders_mutex in
   Vector.iter (fun order -> Bars.add_order order bars) orders;
   let bars_json_opt =
-    ( Bars.Plotly.of_bars bars target,
-      Bars.Plotly.of_bars bars @@ String.uppercase_ascii target )
+    ( Plotly.of_bars bars target,
+      Plotly.of_bars bars @@ String.uppercase_ascii target )
   in
   match bars_json_opt with
   | Some bars, None | None, Some bars | Some bars, _ ->
