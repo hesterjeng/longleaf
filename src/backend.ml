@@ -36,8 +36,8 @@ module type S = sig
   val next_market_open : unit -> Time.t option
   val next_market_close : unit -> Time.t
   val place_order : _ State.t -> Order.t -> unit
-  val latest_bars : string list -> (Bars.t, string) result
-  val last_data_bar : Bars.t option
+  val latest_bars : string list -> (Bars.Latest.t, string) result
+  val last_data_bar : Bars.Latest.t option
   val liquidate : _ State.t -> unit
 end
 
@@ -89,66 +89,34 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let data_remaining = ref Input.bars
 
   let latest_bars _ =
-    let bars = !data_remaining in
-    let latest =
-      if List.exists (fun (_, l) -> Vector.is_empty l) bars then None
-      else
-        Some
-          (List.Assoc.map_values
-             (fun bar_items ->
-               assert (not @@ Vector.is_empty bar_items);
-               Vector.make 1 @@ Vector.get bar_items 0)
-             bars)
+    let module Hashtbl = Bars.Hashtbl in
+    let latest : Bars.Latest.t = Hashtbl.create 20 in
+    let found =
+      Hashtbl.to_seq !data_remaining
+      |> Seq.find_map @@ fun (symbol, vector) ->
+         Vector.top vector |> function
+         | None -> Some "Empty vector when trying to collect data"
+         | Some _ ->
+             Hashtbl.replace latest symbol @@ Vector.get vector 0;
+             Vector.remove_and_shift vector 0;
+             None
     in
-    let rest =
-      List.Assoc.map_values
-        (fun bar_items ->
-          if Vector.is_empty bar_items then bar_items
-          else (
-            Vector.remove_and_shift bar_items 0;
-            bar_items))
-        (* match bar_item_list with *)
-        (*   [] -> [] *)
-        (* | _ :: xs -> xs) *)
-        bars
-    in
-    data_remaining := rest;
-    match latest with
-    | Some data ->
-        let res = Bars.{ data; next_page_token = None; currency = None } in
-        (* OrderQueue.work res; *)
-        Result.return res
-    | None -> Error "Backtest complete.  There is no data remaining."
+    match found with Some err -> Error err | None -> Ok latest
 
   let last_data_bar =
-    Some
-      {
-        Bars.data =
-          (let res =
-             List.Assoc.map_values
-               (fun bar_items ->
-                 match Vector.pop bar_items with
-                 | Some z -> Vector.make 1 z
-                 | None -> invalid_arg "Empty dataset")
-               Input.bars.data
-           in
-           res);
-        currency = None;
-        next_page_token = None;
-      }
+    let module Hashtbl = Bars.Hashtbl in
+    let last : Bars.Latest.t = Hashtbl.create 20 in
+    (Hashtbl.to_seq Input.bars
+    |> Seq.iter @@ fun (symbol, vector) ->
+       match Vector.pop vector with
+       | None -> invalid_arg "Empty dataset"
+       | Some item -> Hashtbl.replace last symbol item);
+    Some last
 
   let liquidate state =
-    let final_bar =
-      match last_data_bar with
-      | Some b -> b
-      | None ->
-          invalid_arg "Expected to have last data bar in backtesting backend"
-    in
-    Backend_position.liquidate state final_bar;
-    (* Eio.traceln "@[Position:@]@.@[%a@]@." *)
-    (*   (Hashtbl.pp String.pp Int.pp) *)
-    (*   position.position; *)
-    ()
+    match last_data_bar with
+    | None -> invalid_arg "Expected last data bar in backtest"
+    | Some db -> Backend_position.liquidate state db
 end
 
 (* Live trading *)
@@ -217,7 +185,7 @@ module Alpaca
     {
       State.current = `Initialize;
       bars = Input.bars;
-      latest_bars = Bars.empty;
+      latest = Bars.Latest.empty;
       content;
       order_history = Vector.create ();
     }
@@ -269,20 +237,19 @@ module Alpaca
              liquidating."
     in
     let _ =
-      (* Hashtbl.map_list *)
       List.iter
         (fun symbol ->
           let qty = Backend_position.qty symbol in
           if qty = 0 then ()
           else
-            let latest_info = Bars.price last_data_bar symbol in
+            let latest_info = Bars.Latest.get last_data_bar symbol in
             let order : Order.t =
               let side = if qty >= 0 then Side.Sell else Side.Buy in
               let tif = TimeInForce.GoodTillCanceled in
               let order_type = OrderType.Market in
               let qty = Int.abs qty in
-              let price = Bars.Bar_item.last latest_info in
-              let timestamp = Bars.Bar_item.timestamp latest_info in
+              let price = Bars.Item.last latest_info in
+              let timestamp = Bars.Item.timestamp latest_info in
               Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
                 ~profit:None ~reason:"Liquidate"
             in
