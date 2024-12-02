@@ -1,4 +1,5 @@
 module Headers = Piaf.Headers
+module Hashtbl = Bars.Hashtbl
 
 type item = {
   ticker : string;
@@ -16,7 +17,7 @@ type item = {
 
 type t = item list [@@deriving show { with_path = false }, yojson]
 
-let item_to_bar_item (x : item) : Bars.Bar_item.t =
+let item_to_bar_item (x : item) : Bars.Item.t =
   let open_ = x.open_ in
   let timestamp = x.timestamp in
   let high = x.high in
@@ -25,15 +26,11 @@ let item_to_bar_item (x : item) : Bars.Bar_item.t =
   let last = x.last in
   let volume = x.volume in
   let order = None in
-  Bars.Bar_item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume ~order ()
+  Bars.Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume ~order ()
 
-let to_bars (l : t) : Bars.t =
-  let data : Bars.Data.t =
-    List.map
-      (fun (x : item) -> (x.ticker, Vector.return @@ item_to_bar_item x))
-      l
-  in
-  { data; next_page_token = None; currency = None }
+let to_latest (l : t) : Bars.latest =
+  List.map (fun (x : item) -> (x.ticker, item_to_bar_item x)) l
+  |> Seq.of_list |> Hashtbl.of_seq
 
 let tiingo_client eio_env sw =
   let res =
@@ -65,7 +62,7 @@ module Make (Tiingo : Util.CLIENT) = struct
     let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
     get ~headers ~endpoint
 
-  let latest tickers : Bars.t =
+  let latest tickers : Bars.latest =
     let endpoint =
       Uri.add_query_params' endpoint [ ("tickers", String.concat "," tickers) ]
       |> Uri.to_string
@@ -74,5 +71,5 @@ module Make (Tiingo : Util.CLIENT) = struct
     let resp = get ~headers ~endpoint in
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
     let tiingo = t_of_yojson resp in
-    to_bars tiingo
+    to_latest tiingo
 end
