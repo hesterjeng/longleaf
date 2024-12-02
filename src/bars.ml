@@ -122,7 +122,11 @@ let get (x : t) symbol =
   | None -> invalid_arg "Unable to find item for symbol (bars.ml)"
 
 let get_opt (x : t) symbol = Hashtbl.find_opt x symbol
-let sort = List.iter (fun ((_ : string), v) -> Vector.sort' Item.compare v)
+
+let sort (x : t) =
+  Hashtbl.to_seq_values x
+  |> Seq.iter @@ fun vector -> Vector.sort' Item.compare vector
+
 let empty : t = Hashtbl.create 100
 let original_received_of_yojson = Received.t_of_yojson
 
@@ -186,6 +190,10 @@ let combine (l : t list) : t =
   List.iter (fun key -> Hashtbl.replace new_table key (get_data key)) keys;
   new_table
 
+let append (latest : Latest.t) (x : t) =
+  Hashtbl.to_seq latest
+  |> Seq.iter @@ fun (symbol, item) -> Vector.push (get x symbol) item
+
 let price bars ticker =
   match List.Assoc.get ~eq:String.equal ticker bars with
   | Some vec when Vector.length vec = 1 -> Vector.get vec 0
@@ -193,3 +201,5 @@ let price bars ticker =
   | None ->
       invalid_arg
       @@ Format.asprintf "Unable to get price info for ticker %s" ticker
+
+let pp fmt _ = Format.fprintf fmt "@[Not printing bars hashtable.@]@."

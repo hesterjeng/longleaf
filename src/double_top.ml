@@ -1,5 +1,6 @@
+module Item = Bars.Item
+
 module Math = struct
-  module Bar_item = Bars.Bar_item
   open Option.Infix
 
   type critical_point = Min of float | Max of float
@@ -12,16 +13,16 @@ module Math = struct
         if c = 1 then x1 else x2)
       hd l
 
-  let max_close (l : Bar_item.t list) =
+  let max_close (l : Item.t list) =
     match
-      select ~ord:Float.compare ~get:(fun (x : Bar_item.t) -> Bar_item.last x) l
+      select ~ord:Float.compare ~get:(fun (x : Item.t) -> Item.last x) l
     with
     | Some max -> max
     | None -> invalid_arg "Cannot find maximum of empty list"
 
-  let min_close (l : Bar_item.t list) =
+  let min_close (l : Item.t list) =
     match
-      select ~ord:Float.compare ~get:(fun (x : Bar_item.t) -> Bar_item.last x) l
+      select ~ord:Float.compare ~get:(fun (x : Item.t) -> Item.last x) l
     with
     | Some max -> max
     | None -> invalid_arg "Cannot find maximum of empty list"
@@ -55,7 +56,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   open Trading_types
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
-  module Bar_item = Bars.Bar_item
 
   module DT_Status = struct
     type t = Placed of (int * Order.t) | Waiting
@@ -106,7 +106,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   open Parameters
 
   module Conditions = struct
-    type t = Pass of Bar_item.t | Fail of string
+    type t = Pass of Item.t | Fail of string
 
     (* 1) There must be a point less than 80% of the critical point before the first max *)
     (* 2) There must be a local minimum 80% of the first local max between it and now *)
@@ -116,17 +116,17 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let find_pass (l : t Iter.t) = Iter.find_map is_pass l
     let init l = Iter.map (fun x -> Pass x) l
 
-    let map (f : Bar_item.t -> t) (l : t Iter.t) =
+    let map (f : Item.t -> t) (l : t Iter.t) =
       Iter.map (function Pass x -> f x | fail -> fail) l
 
-    let check1 ~price_history (current_max : Bar_item.t) : t =
+    let check1 ~price_history (current_max : Item.t) : t =
       Vector.find
-        (fun (x : Bar_item.t) ->
+        (fun (x : Item.t) ->
           let current_max_last, x_last =
-            Pair.map_same Bar_item.last (current_max, x)
+            Pair.map_same Item.last (current_max, x)
           in
           let current_max_time, x_time =
-            Pair.map_same Bar_item.timestamp (current_max, x)
+            Pair.map_same Item.timestamp (current_max, x)
           in
           x_last <. min_dip *. current_max_last
           && Ptime.compare current_max_time x_time = 1)
@@ -135,17 +135,17 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       | Some _ -> Pass current_max
       | None -> Fail "check1"
 
-    let check2 ~minima ~(most_recent_price : Bar_item.t)
-        (current_max : Bar_item.t) : t =
+    let check2 ~minima ~(most_recent_price : Item.t) (current_max : Item.t) : t
+        =
       List.find_opt
-        (fun (x : Bar_item.t) ->
+        (fun (x : Item.t) ->
           let current_max_last, x_last =
-            Pair.map_same Bar_item.last (current_max, x)
+            Pair.map_same Item.last (current_max, x)
           in
           let current_max_time, x_time =
-            Pair.map_same Bar_item.timestamp (current_max, x)
+            Pair.map_same Item.timestamp (current_max, x)
           in
-          let most_recent_time = Bar_item.timestamp most_recent_price in
+          let most_recent_time = Item.timestamp most_recent_price in
           x_last <. min_dip *. current_max_last
           && Ptime.compare x_time current_max_time = 1
           && Ptime.compare most_recent_time x_time = 1)
@@ -154,29 +154,27 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       | Some _ -> Pass current_max
       | None -> Fail "check2"
 
-    let check3 ~(most_recent_price : Bar_item.t) (current_max : Bar_item.t) : t
-        =
-      let current_price = Bar_item.last most_recent_price in
-      let current_max_price = Bar_item.last current_max in
+    let check3 ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+      let current_price = Item.last most_recent_price in
+      let current_max_price = Item.last current_max in
       let lower = lower_now_band *. current_max_price in
       let upper = upper_now_band *. current_max_price in
       if lower <. current_price && current_price <. upper then Pass current_max
       else Fail "check3"
 
-    let check4 ~(most_recent_price : Bar_item.t) (current_max : Bar_item.t) : t
-        =
-      let prev_volume = Bar_item.volume current_max in
-      let most_recent_volume = Bar_item.volume most_recent_price in
+    let check4 ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+      let prev_volume = Item.volume current_max in
+      let most_recent_volume = Item.volume most_recent_price in
       if prev_volume > most_recent_volume then Pass current_max
       else Fail "check4"
   end
 
-  let consider_shorting ~(history : Bars.t) ~now ~(qty : string -> int) symbol :
-      Order.t option =
+  let consider_shorting ~(history : Bars.t) ~(state : state)
+      ~(qty : string -> int) symbol : Order.t option =
     let open Option.Infix in
-    let* price_history = Bars.get history symbol in
-    let most_recent_price = Bars.price now symbol in
-    let+ (previous_maximum : Bar_item.t) =
+    let price_history = Bars.get history symbol in
+    let most_recent_price = Bars.Latest.get state.latest symbol in
+    let+ (previous_maximum : Item.t) =
       (* FIXME:  We look back for candidates in ALL the historical data! *)
       (* There should be a lookback parameter. *)
       let minima = Math.find_local_minima ~window_size price_history in
@@ -193,19 +191,19 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       Conditions.find_pass c4
     in
     let order =
-      let prev_max_timestamp = Bar_item.timestamp previous_maximum in
+      let prev_max_timestamp = Item.timestamp previous_maximum in
       let side = Side.Sell in
       let tif = TimeInForce.GoodTillCanceled in
       let order_type = OrderType.Market in
       let qty = qty symbol in
-      let price = Bar_item.last most_recent_price in
-      let timestamp = Bar_item.timestamp most_recent_price in
+      let price = Item.last most_recent_price in
+      let timestamp = Item.timestamp most_recent_price in
       Eio.traceln "@[Short triggered by previous local max at %a@]@." Time.pp
         prev_max_timestamp;
       let reason =
         Format.asprintf "Attempt Shorting: Caused by previous maximum %a"
           Time.pp
-          (Bar_item.timestamp previous_maximum)
+          (Item.timestamp previous_maximum)
       in
       Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
         ~profit:None
@@ -220,9 +218,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     match cash_available >=. 0.0 with
     | true ->
         let tenp = cash_available *. pct in
-        let current_price =
-          Bar_item.last @@ Bars.price state.latest_bars symbol
-        in
+        let current_price = Item.last @@ Bars.Latest.get state.latest symbol in
         let max_amt = tenp /. current_price in
         if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
     | false -> 0
@@ -231,8 +227,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   (* If not, return the state unchanged, except we are now listening. *)
   let place_short ~(state : state) =
     let short_opt =
-      consider_shorting ~history:state.bars ~now:state.latest_bars
-        ~qty:(qty state 0.5)
+      consider_shorting ~history:state.bars ~state ~qty:(qty state 0.5)
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
@@ -254,9 +249,9 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   [@@deriving show { with_path = false }]
 
   let cover_position ~(state : state) time_held (shorting_order : Order.t) =
-    let current_bar = Bars.price state.latest_bars shorting_order.symbol in
-    let current_price = Bar_item.last current_bar in
-    let timestamp = Bar_item.timestamp current_bar in
+    let current_bar = Bars.Latest.get state.latest shorting_order.symbol in
+    let current_price = Item.last current_bar in
+    let timestamp = Item.timestamp current_bar in
     let price_difference = current_price -. shorting_order.price in
     let cover_reason =
       if current_price <. profit_multiplier *. shorting_order.price then
