@@ -1,6 +1,6 @@
 module Order = Trading_types.Order
 
-module Bar_item : sig
+module Item : sig
   type t [@@deriving show, yojson]
 
   val make :
@@ -73,15 +73,20 @@ end = struct
   let compare x y = Ptime.compare x.timestamp y.timestamp
 end
 
-type received = (string * Bar_item.t list) list [@@deriving show, yojson]
-type symbol_history = Bar_item.t Vector.vector
+type received = (string * Item.t list) list [@@deriving show, yojson]
+type symbol_history = Item.t Vector.vector
 
-let pp_symbol_history : symbol_history Vector.printer = Vector.pp Bar_item.pp
+let pp_symbol_history : symbol_history Vector.printer = Vector.pp Item.pp
 
-type t = (string * symbol_history) list [@@deriving show]
+type t = (string, symbol_history) Hashtbl.t [@@deriving show]
 
-let sort = List.iter (fun ((_ : string), v) -> Vector.sort' Bar_item.compare v)
-let empty : t = []
+let get (x : t) symbol =
+  Hashtbl.get x symbol |> function
+  | Some res -> res
+  | None -> invalid_arg "Unable to find item for symbol (bars.ml)"
+
+let sort = List.iter (fun ((_ : string), v) -> Vector.sort' Item.compare v)
+let empty : t = Hashtbl.create 100
 let original_received_of_yojson = received_of_yojson
 
 let received_of_yojson (x : Yojson.Safe.t) : received =
@@ -92,8 +97,8 @@ let received_of_yojson (x : Yojson.Safe.t) : received =
           (fun ((ticker, data) : string * Yojson.Safe.t) ->
             ( ticker,
               match data with
-              | `List l -> List.map Bar_item.t_of_yojson l
-              | `Assoc _ -> [ Bar_item.t_of_yojson data ]
+              | `List l -> List.map Item.t_of_yojson l
+              | `Assoc _ -> [ Item.t_of_yojson data ]
               | a ->
                   Util.Util_log.err (fun k -> k "%a" Yojson.Safe.pp a);
                   invalid_arg "The data must be stored as a list" ))
@@ -106,22 +111,15 @@ let received_of_yojson (x : Yojson.Safe.t) : received =
     res
 
 let add_order (order : Order.t) (data : t) =
-  let symbol_history : symbol_history =
-    List.Assoc.get ~eq:String.equal order.symbol data |> function
-    | Some x -> x
-    | None ->
-        invalid_arg
-        @@ Format.asprintf "Unable to find symbol in order history: %s"
-             order.symbol
-  in
+  let symbol_history = get data order.symbol in
   let found = ref false in
   let time = Order.timestamp order in
   let res =
     Vector.map_in_place
       (fun bar_item ->
-        if Ptime.equal (Bar_item.timestamp bar_item) time then (
+        if Ptime.equal (Item.timestamp bar_item) time then (
           found := true;
-          Bar_item.add_order order bar_item)
+          Item.add_order order bar_item)
         else bar_item)
       symbol_history
   in
@@ -131,8 +129,9 @@ let add_order (order : Order.t) (data : t) =
   res
 
 let t_of_yojson json : t =
-  let received = received_of_yojson json in
-  List.map (fun (symbol, history) -> (symbol, Vector.of_list history)) received
+  received_of_yojson json
+  |> List.map (fun (symbol, history) -> (symbol, Vector.of_list history))
+  |> Hashtbl.of_list
 
 let t_of_yojson x =
   try t_of_yojson x
@@ -143,29 +142,31 @@ let t_of_yojson x =
 
 let yojson_of_t (x : t) =
   let listified : received =
-    List.map (fun (symbol, history) -> (symbol, Vector.to_list history)) x
+    Hashtbl.to_list x
+    |> List.map (fun (symbol, history) -> (symbol, Vector.to_list history))
   in
   yojson_of_received listified
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
   let keys =
-    List.flat_map (fun x -> List.Assoc.keys x) l |> List.uniq ~eq:String.equal
+    List.flat_map (fun x -> Hashtbl.keys_list x) l |> List.uniq ~eq:String.equal
   in
   let get_data key =
     let data =
       Vector.flat_map
         (fun (x : t) ->
-          match List.Assoc.get ~eq:String.equal key x with
+          match Hashtbl.get x key with
           | Some found -> found
-          | None -> Vector.of_array [||]
-          (* Vector.make 0 *))
+          | None -> Vector.of_array [||])
         (Vector.of_list l)
     in
-    Vector.sort' Bar_item.compare data;
+    Vector.sort' Item.compare data;
     data
   in
-  List.map (fun key -> (key, get_data key)) keys
+  let new_table = Hashtbl.create @@ List.length keys in
+  List.iter (fun key -> Hashtbl.replace new_table key (get_data key)) keys;
+  new_table
 
 let price bars ticker =
   match List.Assoc.get ~eq:String.equal ticker bars with
