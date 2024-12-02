@@ -52,7 +52,7 @@ module Make (Alpaca : Util.CLIENT) = struct
       maintenance_margin : float;
       daytrade_count : int;
       pattern_day_trader : bool;
-      margin_enabled : bool;
+      (* margin_enabled : bool; *)
       status : string;
     }
     [@@deriving show, yojson] [@@yojson.allow_extra_fields]
@@ -68,7 +68,7 @@ module Make (Alpaca : Util.CLIENT) = struct
         initial_margin = 0.0;
         daytrade_count = 0;
         pattern_day_trader = false;
-        margin_enabled = true;
+        (* margin_enabled = true; *)
         status = "Not sure what should go here";
       }
 
