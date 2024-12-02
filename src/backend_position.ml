@@ -1,10 +1,11 @@
 module Order = Trading_types.Order
+module Bars_hashtbl = Bars.Hashtbl
 
 type pos = (string, int) Hashtbl.t [@@deriving show]
 
 module type S = sig
   val execute_order : _ State.t -> Order.t -> unit
-  val liquidate : _ State.t -> Bars.t -> unit
+  val liquidate : _ State.t -> Bars.latest -> unit
   val get_cash : unit -> float
   val set_cash : float -> unit
   val symbols : unit -> string list
@@ -49,7 +50,7 @@ module Generative () : S = struct
         invalid_arg
         @@ Format.asprintf "@[Unsupported order: %a@]@." Order.pp order
 
-  let liquidate state bars =
+  let liquidate state (bars : Bars.latest) =
     let open Trading_types in
     Hashtbl.iter
       (fun symbol qty ->
@@ -61,8 +62,8 @@ module Generative () : S = struct
             let tif = TimeInForce.GoodTillCanceled in
             let order_type = OrderType.Market in
             let qty = Int.abs qty in
-            let price = Bars.Bar_item.last latest in
-            let timestamp = Bars.Bar_item.timestamp latest in
+            let price = Bars.Item.last latest in
+            let timestamp = Bars.Item.timestamp latest in
             Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
               ~profit:None ~reason:"Liquidating"
           in

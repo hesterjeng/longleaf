@@ -1,4 +1,5 @@
 module Order = Trading_types.Order
+module Hashtbl = Hashtbl.Make (String)
 
 module Item : sig
   type t [@@deriving show, yojson]
@@ -73,12 +74,43 @@ end = struct
   let compare x y = Ptime.compare x.timestamp y.timestamp
 end
 
-type received = (string * Item.t list) list [@@deriving show, yojson]
+module Received = struct
+  type t = (string * Item.t list) list [@@deriving show, yojson]
+
+  let t_of_yojson (x : Yojson.Safe.t) : t =
+    try
+      match x with
+      | `Assoc s ->
+          List.map
+            (fun ((ticker, data) : string * Yojson.Safe.t) ->
+              ( ticker,
+                match data with
+                | `List l -> List.map Item.t_of_yojson l
+                | `Assoc _ -> [ Item.t_of_yojson data ]
+                | a ->
+                    Util.Util_log.err (fun k -> k "%a" Yojson.Safe.pp a);
+                    invalid_arg "The data must be stored as a list" ))
+            s
+      | _ -> invalid_arg "Bars must be a toplevel Assoc"
+    with _ ->
+      Eio.traceln "@[Trying Data.original_t_of_yojson.@]@.";
+      let res = t_of_yojson x in
+      Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
+      res
+end
+
+module Latest = struct
+  type t = Item.t Hashtbl.t
+
+  let price x symbol =
+    match Hashtbl.find_opt x symbol with
+    | Some x -> Item.last x
+    | None -> invalid_arg "Unable to find price of symbol (Bars.Latest)"
+end
+
 type symbol_history = Item.t Vector.vector
 
 let pp_symbol_history : symbol_history Vector.printer = Vector.pp Item.pp
-
-module Hashtbl = Hashtbl.Make (String)
 
 type t = symbol_history Hashtbl.t
 
@@ -87,30 +119,10 @@ let get (x : t) symbol =
   | Some res -> res
   | None -> invalid_arg "Unable to find item for symbol (bars.ml)"
 
+let get_opt (x : t) symbol = Hashtbl.find_opt x symbol
 let sort = List.iter (fun ((_ : string), v) -> Vector.sort' Item.compare v)
 let empty : t = Hashtbl.create 100
-let original_received_of_yojson = received_of_yojson
-
-let received_of_yojson (x : Yojson.Safe.t) : received =
-  try
-    match x with
-    | `Assoc s ->
-        List.map
-          (fun ((ticker, data) : string * Yojson.Safe.t) ->
-            ( ticker,
-              match data with
-              | `List l -> List.map Item.t_of_yojson l
-              | `Assoc _ -> [ Item.t_of_yojson data ]
-              | a ->
-                  Util.Util_log.err (fun k -> k "%a" Yojson.Safe.pp a);
-                  invalid_arg "The data must be stored as a list" ))
-          s
-    | _ -> invalid_arg "Bars must be a toplevel Assoc"
-  with _ ->
-    Eio.traceln "@[Trying Data.original_t_of_yojson.@]@.";
-    let res = original_received_of_yojson x in
-    Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
-    res
+let original_received_of_yojson = Received.t_of_yojson
 
 let add_order (order : Order.t) (data : t) =
   let symbol_history = get data order.symbol in
@@ -131,7 +143,7 @@ let add_order (order : Order.t) (data : t) =
   res
 
 let t_of_yojson json : t =
-  received_of_yojson json
+  Received.t_of_yojson json
   |> List.map (fun (symbol, history) -> (symbol, Vector.of_list history))
   |> List.to_seq |> Hashtbl.of_seq
 
@@ -143,17 +155,18 @@ let t_of_yojson x =
     exit 1
 
 let yojson_of_t (x : t) =
-  let listified : received =
+  let listified : Received.t =
     Hashtbl.to_seq x
     |> Seq.map (fun (symbol, history) -> (symbol, Vector.to_list history))
     |> Seq.to_list
   in
-  yojson_of_received listified
+  Received.yojson_of_t listified
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
   let keys =
-    List.flat_map (fun x -> Hashtbl.to_seq_keys x |> Seq.to_list) l |> List.uniq ~eq:String.equal
+    List.flat_map (fun x -> Hashtbl.to_seq_keys x |> Seq.to_list) l
+    |> List.uniq ~eq:String.equal
   in
   let get_data key =
     let data =

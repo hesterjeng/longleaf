@@ -1,7 +1,8 @@
 module Item = Bars.Item
+open Option.Infix
 
-let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t =
-  let data_vec = Bars.get x symbol in
+let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t option =
+  let+ data_vec = Bars.get_opt x symbol in
   let data = Vector.to_list data_vec in
   let x_axis =
     let mk_plotly_x x =
