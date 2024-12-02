@@ -78,10 +78,12 @@ type symbol_history = Item.t Vector.vector
 
 let pp_symbol_history : symbol_history Vector.printer = Vector.pp Item.pp
 
-type t = (string, symbol_history) Hashtbl.t [@@deriving show]
+module Hashtbl = Hashtbl.Make (String)
+
+type t = symbol_history Hashtbl.t
 
 let get (x : t) symbol =
-  Hashtbl.get x symbol |> function
+  Hashtbl.find_opt x symbol |> function
   | Some res -> res
   | None -> invalid_arg "Unable to find item for symbol (bars.ml)"
 
@@ -131,7 +133,7 @@ let add_order (order : Order.t) (data : t) =
 let t_of_yojson json : t =
   received_of_yojson json
   |> List.map (fun (symbol, history) -> (symbol, Vector.of_list history))
-  |> Hashtbl.of_list
+  |> List.to_seq |> Hashtbl.of_seq
 
 let t_of_yojson x =
   try t_of_yojson x
@@ -142,21 +144,22 @@ let t_of_yojson x =
 
 let yojson_of_t (x : t) =
   let listified : received =
-    Hashtbl.to_list x
-    |> List.map (fun (symbol, history) -> (symbol, Vector.to_list history))
+    Hashtbl.to_seq x
+    |> Seq.map (fun (symbol, history) -> (symbol, Vector.to_list history))
+    |> Seq.to_list
   in
   yojson_of_received listified
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
   let keys =
-    List.flat_map (fun x -> Hashtbl.keys_list x) l |> List.uniq ~eq:String.equal
+    List.flat_map (fun x -> Hashtbl.to_seq_keys x |> Seq.to_list) l |> List.uniq ~eq:String.equal
   in
   let get_data key =
     let data =
       Vector.flat_map
         (fun (x : t) ->
-          match Hashtbl.get x key with
+          match Hashtbl.find_opt x key with
           | Some found -> found
           | None -> Vector.of_array [||])
         (Vector.of_list l)
