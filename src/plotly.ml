@@ -1,9 +1,11 @@
-let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t option =
-  let+ data_vec = get x symbol in
+module Item = Bars.Item
+
+let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t =
+  let data_vec = Bars.get x symbol in
   let data = Vector.to_list data_vec in
   let x_axis =
     let mk_plotly_x x =
-      let time = timestamp x in
+      let time = Item.timestamp x in
       let res = Ptime.to_rfc3339 time in
       `String res
     in
@@ -11,8 +13,8 @@ let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t option =
   in
   let buy_axis =
     List.map
-      (fun (x : Bar_item.t) ->
-        match order x with
+      (fun (x : Item.t) ->
+        match Item.order x with
         | None -> `Null
         | Some order -> (
             match order.side with Buy -> `String "buy" | Sell -> `Null))
@@ -20,14 +22,14 @@ let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t option =
   in
   let sell_axis =
     List.map
-      (fun (x : Bar_item.t) ->
-        match order x with
+      (fun (x : Item.t) ->
+        match Item.order x with
         | None -> `Null
         | Some order -> (
             match order.side with Buy -> `Null | Sell -> `String "sell"))
       data
   in
-  let y_axis = List.map (fun x -> `Float (last x)) data in
+  let y_axis = List.map (fun x -> `Float (Item.last x)) data in
   `Assoc
     [
       ( "data",
