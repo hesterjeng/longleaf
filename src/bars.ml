@@ -71,7 +71,7 @@ end = struct
   let compare x y = Ptime.compare x.timestamp y.timestamp
 end
 
-module Data = struct
+module DataIO = struct
   type received = (string * Bar_item.t list) list [@@deriving show, yojson]
   type symbol_history = Bar_item.t Vector.vector
 
@@ -148,6 +148,14 @@ module Data = struct
     in
     yojson_of_received listified
 end
+
+module DataOwl = struct
+
+  include Owl.Dataframe
+
+end
+
+module Data = DataIO
 
 type t = {
   data : Data.t; [@key "bars"]
