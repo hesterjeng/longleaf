@@ -68,7 +68,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let init_state content =
     {
       State.current = `Initialize;
-      bars = Bars.empty;
+      bars = Input.bars;
       latest = Bars.Latest.empty;
       content;
       order_history = Vector.create ();
