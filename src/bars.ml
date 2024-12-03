@@ -107,7 +107,6 @@ let get (x : t) symbol =
   Hashtbl.find_opt x symbol |> function
   | Some res -> res
   | None ->
-      Eio.traceln "@[%a@]@." pp x;
       invalid_arg
       @@ Format.asprintf "Unable to find item for symbol %s (bars.ml)" symbol
 
@@ -140,18 +139,18 @@ let add_order (order : Order.t) (data : t) =
 
 let t_of_yojson (json : Yojson.Safe.t) : t =
   let bars = Yojson.Safe.Util.member "bars" json in
-  match bars with
-  | `Assoc l ->
-      List.Assoc.map_values
-        (function
-          | `List datapoints ->
-              List.map Item.t_of_yojson datapoints |> Vector.of_list
-          | _ -> invalid_arg "Expected a list of datapoints")
-        l
-      |> Seq.of_list |> Hashtbl.of_seq
-  | _ ->
-      Eio.traceln "@[%a@]@." Yojson.Safe.pp bars;
-      invalid_arg "Need assoc data at inner data list"
+  let assoc = Yojson.Safe.Util.to_assoc bars in
+  let res =
+    List.Assoc.map_values
+      (function
+        | `List datapoints ->
+            (* Eio.traceln "@[%a@]@." (List.pp Yojson.Safe.pp) datapoints; *)
+            List.map Item.t_of_yojson datapoints |> Vector.of_list
+        | _ -> invalid_arg "Expected a list of datapoints")
+      assoc
+    |> Seq.of_list |> Hashtbl.of_seq
+  in
+  res
 
 let yojson_of_t (x : t) : Yojson.Safe.t =
   `Assoc
