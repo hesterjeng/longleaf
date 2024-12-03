@@ -97,10 +97,19 @@ let pp_symbol_history : symbol_history Vector.printer = Vector.pp Item.pp
 
 type t = symbol_history Hashtbl.t
 
+let pp : t Format.printer =
+ fun fmt x ->
+  let seq = Hashtbl.to_seq x in
+  let pp = Seq.pp @@ Pair.pp String.pp pp_symbol_history in
+  Format.fprintf fmt "@[%a@]@." pp seq
+
 let get (x : t) symbol =
   Hashtbl.find_opt x symbol |> function
   | Some res -> res
-  | None -> invalid_arg "Unable to find item for symbol (bars.ml)"
+  | None ->
+      Eio.traceln "@[%a@]@." pp x;
+      invalid_arg
+      @@ Format.asprintf "Unable to find item for symbol %s (bars.ml)" symbol
 
 let get_opt (x : t) symbol = Hashtbl.find_opt x symbol
 
@@ -143,13 +152,6 @@ let t_of_yojson (json : Yojson.Safe.t) : t =
   | _ ->
       Eio.traceln "@[%a@]@." Yojson.Safe.pp bars;
       invalid_arg "Need assoc data at inner data list"
-
-let t_of_yojson x =
-  try t_of_yojson x
-  with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) ->
-    let exc = Printexc.to_string e in
-    Eio.traceln "data:@[%s@]@.@[%s@]@." exc (Yojson.Safe.to_string j);
-    exit 1
 
 let yojson_of_t (x : t) : Yojson.Safe.t =
   `Assoc
@@ -195,5 +197,3 @@ let price bars ticker =
   | None ->
       invalid_arg
       @@ Format.asprintf "Unable to get price info for ticker %s" ticker
-
-let pp fmt _ = Format.fprintf fmt "@[Not printing bars hashtable.@]@."
