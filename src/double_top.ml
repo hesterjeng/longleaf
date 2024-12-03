@@ -27,17 +27,22 @@ module Math = struct
     | Some max -> max
     | None -> invalid_arg "Cannot find maximum of empty list"
 
+let cut_into_ranges ~length ~size =
+  let rec aux start acc =
+    if start >= length then List.rev acc
+    else
+      let next_start = min (start + size) length in
+      aux next_start ((start, next_start) :: acc)
+  in
+  aux 0 [] |> Iter.of_list
+
   (* This should have fewer datapoints with larger window size. *)
-  let window_map ~window_size ~(choose : 'a list -> 'a) (l : _ Vector.t) =
-    let l = Vector.to_list l in
-    let rec aux acc (l : _ list) =
-      match List.length l with
-      | 0 -> List.rev acc
-      | _ ->
-          let window, rest = List.take_drop window_size l in
-          aux (choose window :: acc) rest
+  let window_map ~window_size ~(choose : 'a Iter.t -> 'a) (l : _ Vector.t) =
+    let length = Vector.length l in
+    let slices =
+      cut_into_ranges ~length ~size:window_size
     in
-    aux l []
+    Iter.map ( fun (x,y) -> Vector.slice_iter l x y |> choose) slices
 
   let find_local_maxima ~window_size (l : _ Vector.t) =
     window_map ~window_size ~choose:max_close l
