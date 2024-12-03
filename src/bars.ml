@@ -42,17 +42,17 @@ end = struct
   [@@deriving show { with_path = false }, yojson, make]
   [@@yojson.allow_extra_fields]
 
-  let t_of_yojson x =
-    try
-      t_of_yojson x |> fun (x : t) ->
-      if Float.equal x.last Float.max_finite_value then
-        { x with last = x.close }
-      else x
-    with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) ->
-      let exc = Printexc.to_string e in
-      Eio.traceln "@[bar_item:@]@.@[%s@]@.@[%s@]@." exc
-        (Yojson.Safe.to_string j);
-      exit 1
+  (* let t_of_yojson x = *)
+  (*   try *)
+  (*     t_of_yojson x |> fun (x : t) -> *)
+  (*     if Float.equal x.last Float.max_finite_value then *)
+  (*       { x with last = x.close } *)
+  (*     else x *)
+  (*   with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) -> *)
+  (*     let exc = Printexc.to_string e in *)
+  (*     Eio.traceln "@[bar_item:@]@.@[%s@]@.@[%s@]@." exc *)
+  (*       (Yojson.Safe.to_string j); *)
+  (*     exit 1 *)
 
   let open_ x = x.open_
   let order x = x.order
@@ -75,28 +75,9 @@ end = struct
 end
 
 module Received = struct
-  type t = (string * Item.t list) list [@@deriving show, yojson]
+  type t = { bars : (string * Item.t list) list } [@@deriving show, yojson]
 
-  let t_of_yojson (x : Yojson.Safe.t) : t =
-    try
-      match x with
-      | `Assoc s ->
-          List.map
-            (fun ((ticker, data) : string * Yojson.Safe.t) ->
-              ( ticker,
-                match data with
-                | `List l -> List.map Item.t_of_yojson l
-                | `Assoc _ -> [ Item.t_of_yojson data ]
-                | a ->
-                    Util.Util_log.err (fun k -> k "%a" Yojson.Safe.pp a);
-                    invalid_arg "The data must be stored as a list" ))
-            s
-      | _ -> invalid_arg "Bars must be a toplevel Assoc"
-    with _ ->
-      Eio.traceln "@[Trying Data.original_t_of_yojson.@]@.";
-      let res = t_of_yojson x in
-      Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
-      res
+  let unbox x = x.bars
 end
 
 module Latest = struct
@@ -148,16 +129,24 @@ let add_order (order : Order.t) (data : t) =
       Time.pp time Order.pp order;
   res
 
-let t_of_yojson json : t =
-  Received.t_of_yojson json
-  |> List.map (fun (symbol, history) -> (symbol, Vector.of_list history))
-  |> List.to_seq |> Hashtbl.of_seq
+let t_of_yojson (json : Yojson.Safe.t) : t =
+  let bars = Yojson.Safe.Util.member "bars" json in
+  match bars with
+  | `Assoc l ->
+      List.Assoc.map_values
+        (function
+          | `List datapoints ->
+              List.map Item.t_of_yojson datapoints |> Vector.of_list
+          | _ -> invalid_arg "Expected a list of datapoints")
+        l
+      |> Seq.of_list |> Hashtbl.of_seq
+  | _ -> invalid_arg "Need data at inner data list"
 
 let t_of_yojson x =
   try t_of_yojson x
   with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) ->
     let exc = Printexc.to_string e in
-    Eio.traceln "data: %s: %s" exc (Yojson.Safe.to_string j);
+    Eio.traceln "data:@[%s@]@.@[%s@]@." exc (Yojson.Safe.to_string j);
     exit 1
 
 let yojson_of_t (x : t) =
@@ -165,6 +154,7 @@ let yojson_of_t (x : t) =
     Hashtbl.to_seq x
     |> Seq.map (fun (symbol, history) -> (symbol, Vector.to_list history))
     |> Seq.to_list
+    |> fun bars -> { Received.bars }
   in
   Received.yojson_of_t listified
 
