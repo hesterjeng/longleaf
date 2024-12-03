@@ -16,9 +16,10 @@
   zarith
   ptime
   yojson
+  landmarks
   eio_main)
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv)))
+  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
 
 (env
  (dev

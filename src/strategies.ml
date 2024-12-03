@@ -8,59 +8,65 @@ module type STRAT_BUILDER = functor (_ : Backend.S) -> S
 module Log = (val Logs.src_log Logs.(Src.create "strategies"))
 
 module Strategy_utils (Backend : Backend.S) = struct
-  type signal = Shutdown | Continue
+  type signal = Shutdown | Continue [@@deriving show]
 
   let listen_tick orders bars : signal =
-    Eio.Fiber.any
-    @@ [
-         (fun () ->
-           Pmutex.set Backend.LongleafMutex.data_mutex bars;
-           Pmutex.set Backend.LongleafMutex.orders_mutex orders;
-           match Backend.next_market_open () with
-           | None ->
-               Backend.Ticker.tick Backend.env;
-               Continue
-           | Some open_time -> (
-               let open_time = Ptime.to_float_s open_time in
-               Eio.traceln "@[Waiting until market open...@]@.";
-               Eio.Time.sleep_until Backend.env#clock open_time;
-               Eio.traceln "@[Market is open, resuming.@]@.";
-               Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
-               | Some t ->
-                   Eio.traceln "@[Current time: %a@]@." Time.pp t;
-                   Continue
-               | None ->
-                   Eio.traceln "@[Detected an illegal time!  Shutting down.@]@.";
-                   Shutdown));
-         (fun () ->
-           while
-             let shutdown = Pmutex.get Backend.LongleafMutex.shutdown_mutex in
-             not shutdown
-           do
-             Ticker.OneSecond.tick Backend.env
-           done;
-           Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
-           Shutdown);
-         (fun () ->
-           let close_time = Backend.next_market_close () in
-           let now =
-             Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
-             | Some t -> t
+    let res =
+      Eio.Fiber.any
+      @@ [
+           (fun () ->
+             Pmutex.set Backend.LongleafMutex.data_mutex bars;
+             Pmutex.set Backend.LongleafMutex.orders_mutex orders;
+             match Backend.next_market_open () with
              | None ->
-                 invalid_arg
-                   "Unable to get clock time in listen_tick for market close"
-           in
-           let time_until_close =
-             Ptime.diff close_time now |> Ptime.Span.to_float_s
-           in
-           while Backend.overnight || time_until_close >=. 600.0 do
-             Ticker.Forever.tick Backend.env
-           done;
-           Eio.traceln
-             "@[Liquidating because we are within 10 minutes to market \
-              close.@]@.";
-           Shutdown);
-       ]
+                 Backend.Ticker.tick Backend.env;
+                 Continue
+             | Some open_time -> (
+                 let open_time = Ptime.to_float_s open_time in
+                 Eio.traceln "@[Waiting until market open...@]@.";
+                 Eio.Time.sleep_until Backend.env#clock open_time;
+                 Eio.traceln "@[Market is open, resuming.@]@.";
+                 Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
+                 | Some t ->
+                     Eio.traceln "@[Current time: %a@]@." Time.pp t;
+                     Continue
+                 | None ->
+                     Eio.traceln
+                       "@[Detected an illegal time!  Shutting down.@]@.";
+                     Shutdown));
+           (fun () ->
+             while
+               let shutdown = Pmutex.get Backend.LongleafMutex.shutdown_mutex in
+               not shutdown
+             do
+               Ticker.OneSecond.tick Backend.env
+             done;
+             Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
+             exit 1;
+             Shutdown);
+           (fun () ->
+             let close_time = Backend.next_market_close () in
+             let now =
+               Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
+               | Some t -> t
+               | None ->
+                   invalid_arg
+                     "Unable to get clock time in listen_tick for market close"
+             in
+             let time_until_close =
+               Ptime.diff close_time now |> Ptime.Span.to_float_s
+             in
+             while Backend.overnight || time_until_close >=. 600.0 do
+               Ticker.Forever.tick Backend.env
+             done;
+             Eio.traceln
+               "@[Liquidating because we are within 10 minutes to market \
+                close.@]@.";
+             Shutdown);
+         ]
+    in
+    Eio.traceln "@[%a@]@." pp_signal res;
+    res
 
   let run ~init_state step =
     let rec go prev =
