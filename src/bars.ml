@@ -74,11 +74,11 @@ end = struct
   let compare x y = Ptime.compare x.timestamp y.timestamp
 end
 
-module Received = struct
-  type t = { bars : (string * Item.t list) list } [@@deriving show, yojson]
+(* module Received = struct *)
+(*   type t = { bars : (string * Item.t list) list } [@@deriving show, yojson] *)
 
-  let unbox x = x.bars
-end
+(*   let unbox x = x.bars *)
+(* end *)
 
 module Latest = struct
   type t = Item.t Hashtbl.t
@@ -109,7 +109,7 @@ let sort (x : t) =
   |> Seq.iter @@ fun vector -> Vector.sort' Item.compare vector
 
 let empty : t = Hashtbl.create 100
-let original_received_of_yojson = Received.t_of_yojson
+(* let original_received_of_yojson = Received.t_of_yojson *)
 
 let add_order (order : Order.t) (data : t) =
   let symbol_history = get data order.symbol in
@@ -140,7 +140,9 @@ let t_of_yojson (json : Yojson.Safe.t) : t =
           | _ -> invalid_arg "Expected a list of datapoints")
         l
       |> Seq.of_list |> Hashtbl.of_seq
-  | _ -> invalid_arg "Need data at inner data list"
+  | _ ->
+      Eio.traceln "@[%a@]@." Yojson.Safe.pp bars;
+      invalid_arg "Need assoc data at inner data list"
 
 let t_of_yojson x =
   try t_of_yojson x
@@ -149,14 +151,16 @@ let t_of_yojson x =
     Eio.traceln "data:@[%s@]@.@[%s@]@." exc (Yojson.Safe.to_string j);
     exit 1
 
-let yojson_of_t (x : t) =
-  let listified : Received.t =
-    Hashtbl.to_seq x
-    |> Seq.map (fun (symbol, history) -> (symbol, Vector.to_list history))
-    |> Seq.to_list
-    |> fun bars -> { Received.bars }
-  in
-  Received.yojson_of_t listified
+let yojson_of_t (x : t) : Yojson.Safe.t =
+  `Assoc
+    [
+      ( "bars",
+        `Assoc
+          (Hashtbl.to_seq x |> Seq.to_list
+          |> List.Assoc.map_values (fun data ->
+                 Vector.to_list data |> List.map Item.yojson_of_t |> fun l ->
+                 `List l)) );
+    ]
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
