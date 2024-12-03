@@ -5,22 +5,22 @@ module Math = struct
 
   type critical_point = Min of float | Max of float
 
-  let select ~(ord : 'b Ord.t) ~(get : 'a -> 'b) (l : 'a list) =
-    let+ hd = List.head_opt l in
-    List.fold_left
+  let select ~(ord : 'b Ord.t) ~(get : 'a -> 'b) (l : 'a Iter.t) =
+    let+ hd = Iter.head l in
+    Iter.fold
       (fun x1 x2 ->
         let c = ord (get x1) (get x2) in
         if c = 1 then x1 else x2)
       hd l
 
-  let max_close (l : Item.t list) =
+  let max_close (l : Item.t Iter.t) =
     match
       select ~ord:Float.compare ~get:(fun (x : Item.t) -> Item.last x) l
     with
     | Some max -> max
     | None -> invalid_arg "Cannot find maximum of empty list"
 
-  let min_close (l : Item.t list) =
+  let min_close (l : Item.t Iter.t) =
     match
       select ~ord:Float.compare ~get:(fun (x : Item.t) -> Item.last x) l
     with
@@ -51,7 +51,7 @@ let cut_into_ranges ~length ~size =
     window_map ~window_size ~choose:min_close l
 
   let most_recent_maxima ~window_size l =
-    max_close @@ List.rev @@ List.take window_size l
+    max_close @@ Iter.rev @@ Iter.take window_size l
 end
 
 module DoubleTop (Backend : Backend.S) : Strategies.S = struct
@@ -142,7 +142,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
     let check2 ~minima ~(most_recent_price : Item.t) (current_max : Item.t) : t
         =
-      List.find_opt
+      (* List.find_opt *)
+        Iter.find_pred
         (fun (x : Item.t) ->
           let current_max_last, x_last =
             Pair.map_same Item.last (current_max, x)
@@ -184,7 +185,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       (* There should be a lookback parameter. *)
       let minima = Math.find_local_minima ~window_size price_history in
       let maxima =
-        Math.find_local_maxima ~window_size price_history |> List.to_iter
+        Math.find_local_maxima ~window_size price_history
       in
       let init = Conditions.init maxima in
       let c1 = Conditions.map (Conditions.check1 ~price_history) init in
