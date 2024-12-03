@@ -58,7 +58,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
 
   module DT_Status = struct
-    type t = Placed of (int * Order.t) | Waiting
+    type t = Placed of (int * Order.t) | Waiting [@@deriving show]
   end
 
   type state = DT_Status.t State.t
@@ -292,10 +292,13 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
            }
 
   let step (state : state) =
-    match state.current with
+    let current = state.current in
+    Eio.traceln "@[%a@]@." State.pp_state current;
+    match current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering -> (
+        Eio.traceln "@[%a@]@." DT_Status.pp state.content;
         match state.content with
         | Waiting -> place_short ~state
         | Placed (time_held, order) -> cover_position ~state time_held order)
