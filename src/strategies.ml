@@ -10,8 +10,12 @@ module Log = (val Logs.src_log Logs.(Src.create "strategies"))
 module Strategy_utils (Backend : Backend.S) = struct
   type signal = Shutdown | Continue [@@deriving show]
 
+  let num_iterations = ref 0
+
   let listen_tick orders bars : signal =
+    if !num_iterations > 3 then exit 1;
     let res =
+      num_iterations := !num_iterations + 1;
       Eio.Fiber.any
       @@ [
            (fun () ->
@@ -42,7 +46,6 @@ module Strategy_utils (Backend : Backend.S) = struct
                Ticker.OneSecond.tick Backend.env
              done;
              Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
-             exit 1;
              Shutdown);
            (fun () ->
              let close_time = Backend.next_market_close () in
