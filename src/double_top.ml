@@ -27,22 +27,25 @@ module Math = struct
     | Some max -> max
     | None -> invalid_arg "Cannot find maximum of empty list"
 
-let cut_into_ranges ~length ~size =
-  let rec aux start acc =
-    if start >= length then List.rev acc
-    else
-      let next_start = min (start + size) length in
-      aux next_start ((start, next_start) :: acc)
-  in
-  aux 0 [] |> Iter.of_list
+  (* Create a list of indices of size, for length *)
+  (* Creates slices *)
+  let cut_into_ranges ~length ~size =
+    let rec aux start acc =
+      if start >= length then List.rev acc
+      else
+        let next_start = min (start + size) length in
+        let current_size =
+          if start + size > length then length - start else size
+        in
+        aux next_start ((start, current_size) :: acc)
+    in
+    aux 0 [] |> Iter.of_list
 
   (* This should have fewer datapoints with larger window size. *)
   let window_map ~window_size ~(choose : 'a Iter.t -> 'a) (l : _ Vector.t) =
     let length = Vector.length l in
-    let slices =
-      cut_into_ranges ~length ~size:window_size
-    in
-    Iter.map ( fun (x,y) -> Vector.slice_iter l x y |> choose) slices
+    let slices = cut_into_ranges ~length ~size:window_size in
+    Iter.map (fun (x, y) -> Vector.slice_iter l x y |> choose) slices
 
   let find_local_maxima ~window_size (l : _ Vector.t) =
     window_map ~window_size ~choose:max_close l
@@ -143,7 +146,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let check2 ~minima ~(most_recent_price : Item.t) (current_max : Item.t) : t
         =
       (* List.find_opt *)
-        Iter.find_pred
+      Iter.find_pred
         (fun (x : Item.t) ->
           let current_max_last, x_last =
             Pair.map_same Item.last (current_max, x)
@@ -184,9 +187,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       (* FIXME:  We look back for candidates in ALL the historical data! *)
       (* There should be a lookback parameter. *)
       let minima = Math.find_local_minima ~window_size price_history in
-      let maxima =
-        Math.find_local_maxima ~window_size price_history
-      in
+      let maxima = Math.find_local_maxima ~window_size price_history in
       let init = Conditions.init maxima in
       let c1 = Conditions.map (Conditions.check1 ~price_history) init in
       let c2 =
