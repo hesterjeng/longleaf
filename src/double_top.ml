@@ -179,7 +179,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let consider_shorting ~(history : Bars.t) ~(state : state)
       ~(qty : string -> int) symbol : Order.t option =
     let open Option.Infix in
-    let price_history = Bars.get history symbol in
+    let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.Latest.get state.latest symbol in
     let+ (previous_maximum : Item.t) =
       (* FIXME:  We look back for candidates in ALL the historical data! *)
