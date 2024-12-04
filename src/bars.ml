@@ -214,3 +214,28 @@ let price bars ticker =
   | None ->
       invalid_arg
       @@ Format.asprintf "Unable to get price info for ticker %s" ticker
+
+module Infill = struct
+  (* Alpaca market data api can have missing data. *)
+  (* Try to fill it in with the most recent bar indicating no change if it happens. *)
+
+  let top (x : t) =
+    let most_used_symbol, most_used_vector =
+      let fold f = Seq.fold f ("Bars.Infill.init",Vector.create ()) @@ Hashtbl.to_seq x
+      in
+      fold @@ fun (best_symbol, best_vector) (current_symbol, current_vector) ->
+      if Vector.length current_vector >= Vector.length best_vector then current_symbol, current_vector
+      else best_symbol, best_vector
+    in
+    let time_tables =
+      let key_seq = Hashtbl.to_seq_keys x in
+      Seq.map ( fun symbol ->
+          let tbl = Hashtbl.create 20 in
+          let vec =
+      );
+      tbl
+    in
+    ()
+
+
+end
