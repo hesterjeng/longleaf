@@ -115,7 +115,7 @@ let pp_stats : t Format.printer =
   let pp = Pair.pp String.pp Int.pp in
   Seq.iter
     (fun (symbol, v) ->
-      Format.fprintf fmt "@[%a@]" pp (symbol, Vector.length v))
+      Format.fprintf fmt "@[%a@]@." pp (symbol, Vector.length v))
     seq
 
 let get (x : t) symbol = Hashtbl.find_opt x symbol

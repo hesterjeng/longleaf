@@ -43,8 +43,10 @@ module Downloader = struct
     let module MDA = Market_data_api.Make (Conn) in
     Eio.traceln "Making request %a..."
       Market_data_api.Historical_bars_request.pp request;
-    let bars = MDA.Stock.historical_bars request |> Bars.yojson_of_t in
-    let str = Yojson.Safe.to_string bars in
+    let bars = MDA.Stock.historical_bars request in
+    Eio.traceln "%a" Bars.pp_stats bars;
+    let bars_json = Bars.yojson_of_t bars in
+    let str = Yojson.Safe.to_string bars_json in
     let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
     let filename = Format.sprintf "data/download_%s.json" tail in
     let oc = open_out filename in
