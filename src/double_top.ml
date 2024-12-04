@@ -130,12 +130,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let check1 ~price_history (current_max : Item.t) : t =
       Vector.find
         (fun (x : Item.t) ->
-          let current_max_last, x_last =
-            Pair.map_same Item.last (current_max, x)
-          in
-          let current_max_time, x_time =
-            Pair.map_same Item.timestamp (current_max, x)
-          in
+          let current_max_last = Item.last current_max in
+          let x_last = Item.last x in
+          let current_max_time = Item.timestamp current_max in
+          let x_time = Item.timestamp x in
           x_last <. min_dip *. current_max_last
           && Ptime.compare current_max_time x_time = 1)
         price_history
@@ -300,12 +298,12 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let step (state : state) =
     let current = state.current in
-    Eio.traceln "@[%a@]@." State.pp_state current;
+    (* Eio.traceln "@[%a@]@." State.pp_state current; *)
     match current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering -> (
-        Eio.traceln "@[%a@]@." DT_Status.pp state.content;
+        (* Eio.traceln "@[%a@]@." DT_Status.pp state.content; *)
         match state.content with
         | Waiting -> place_short ~state
         | Placed (time_held, order) -> cover_position ~state time_held order)
