@@ -109,6 +109,15 @@ let pp : t Format.printer =
   let pp = Seq.pp @@ Pair.pp String.pp pp_symbol_history in
   Format.fprintf fmt "@[%a@]@." pp seq
 
+let pp_stats : t Format.printer =
+ fun fmt x ->
+  let seq = Hashtbl.to_seq x in
+  let pp = Pair.pp String.pp Int.pp in
+  Seq.iter
+    (fun (symbol, v) ->
+      Format.fprintf fmt "@[%a@]" pp (symbol, Vector.length v))
+    seq
+
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
 let sort (x : t) =
