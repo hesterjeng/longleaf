@@ -115,6 +115,8 @@ module Strategy_utils (Backend : Backend.S) = struct
 
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
+    (* Eio.traceln "There are %d bindings in state.bars" *)
+    (*   (Bars.Hashtbl.length state.bars); *)
     match current with
     | `Initialize ->
         let symbols_str = String.concat "," Backend.symbols in
