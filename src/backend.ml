@@ -86,17 +86,21 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let place_order state (order : Order.t) =
     Backend_position.execute_order state order
 
-  let data_remaining = ref Input.bars
+  let data_remaining = Bars.Hashtbl.copy Input.bars
 
   let latest_bars _ =
     let module Hashtbl = Bars.Hashtbl in
-    let latest : Bars.Latest.t = Hashtbl.create 20 in
+    let latest : Bars.Latest.t =
+      Hashtbl.create (Hashtbl.length data_remaining)
+    in
     let found =
-      Hashtbl.to_seq !data_remaining
+      Hashtbl.to_seq data_remaining
       |> Seq.find_map @@ fun (symbol, vector) ->
          Vector.top vector |> function
          | None -> Some "Empty vector when trying to collect data"
          | Some _ ->
+             Eio.traceln "There are %d members remaining in bar %s."
+               (Vector.length vector) symbol;
              Hashtbl.replace latest symbol @@ Vector.get vector 0;
              Vector.remove_and_shift vector 0;
              None
@@ -132,8 +136,6 @@ module Alpaca
 
   let get_cash = Backend_position.get_cash
   let env = Input.eio_env
-  (* let loaded_bars = Input.bars *)
-
   let overnight = Input.overnight
 
   let trading_client =

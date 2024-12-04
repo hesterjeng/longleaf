@@ -89,6 +89,12 @@ module Latest = struct
     | None -> invalid_arg "Unable to find price of symbol (Bars.Latest)"
 
   let empty : t = Hashtbl.create 0
+
+  let pp : t Format.printer =
+   fun fmt x ->
+    let seq = Hashtbl.to_seq x in
+    let pp = Seq.pp @@ Pair.pp String.pp Item.pp in
+    Format.fprintf fmt "@[%a@]@." pp seq
 end
 
 type symbol_history = Item.t Vector.vector
@@ -103,14 +109,7 @@ let pp : t Format.printer =
   let pp = Seq.pp @@ Pair.pp String.pp pp_symbol_history in
   Format.fprintf fmt "@[%a@]@." pp seq
 
-let get (x : t) symbol =
-  Hashtbl.find_opt x symbol |> function
-  | Some res -> res
-  | None ->
-      invalid_arg
-      @@ Format.asprintf "Unable to find item for symbol %s (bars.ml)" symbol
-
-let get_opt (x : t) symbol = Hashtbl.find_opt x symbol
+let get (x : t) symbol = Hashtbl.find_opt x symbol
 
 let sort (x : t) =
   Hashtbl.to_seq_values x
@@ -120,7 +119,10 @@ let empty : t = Hashtbl.create 100
 (* let original_received_of_yojson = Received.t_of_yojson *)
 
 let add_order (order : Order.t) (data : t) =
-  let symbol_history = get data order.symbol in
+  let symbol_history =
+    get data order.symbol
+    |> Option.get_exn_or "Expected to find symbol history in Bars.add_order"
+  in
   let found = ref false in
   let time = Order.timestamp order in
   let res =
@@ -186,8 +188,15 @@ let combine (l : t list) : t =
   new_table
 
 let append (latest : Latest.t) (x : t) =
+  (* Eio.traceln "Bars.append: %a" Latest.pp latest; *)
+  (* Eio.traceln "Bars.append: There are %d bindings" (Hashtbl.length x); *)
   Hashtbl.to_seq latest
-  |> Seq.iter @@ fun (symbol, item) -> Vector.push (get x symbol) item
+  |> Seq.iter @@ fun (symbol, item) ->
+     match get x symbol with
+     | None ->
+         (* Eio.traceln "Creating symbol_history for %s" symbol; *)
+         Hashtbl.replace x symbol @@ Vector.create ()
+     | Some h -> Vector.push h item
 
 let price bars ticker =
   match List.Assoc.get ~eq:String.equal ticker bars with
