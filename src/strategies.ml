@@ -13,7 +13,7 @@ module Strategy_utils (Backend : Backend.S) = struct
   let num_iterations = ref 0
 
   let listen_tick orders bars : signal =
-    if !num_iterations > 3 then exit 1;
+    (* if !num_iterations > 3 then exit 1; *)
     let res =
       num_iterations := !num_iterations + 1;
       Eio.Fiber.any
@@ -68,7 +68,7 @@ module Strategy_utils (Backend : Backend.S) = struct
              Shutdown);
          ]
     in
-    Eio.traceln "@[%a@]@." pp_signal res;
+    (* Eio.traceln "@[%a@]@." pp_signal res; *)
     res
 
   let run ~init_state step =
