@@ -44,6 +44,8 @@ module Downloader = struct
     Eio.traceln "Making request %a..."
       Market_data_api.Historical_bars_request.pp request;
     let bars = MDA.Stock.historical_bars request in
+    Eio.traceln "Trying infill";
+    Bars.Infill.top bars;
     Eio.traceln "%a" Bars.pp_stats bars;
     let bars_json = Bars.yojson_of_t bars in
     let str = Yojson.Safe.to_string bars_json in
