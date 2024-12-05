@@ -13,9 +13,15 @@ module Args = struct
     let preload_conv = Longleaf.Options.Preload.conv in
     let doc =
       "The type of preloading.  Valid choices are \"none\", \"download\", or \
-       \"%s\" where %s is the file you want preloaded as bars."
+       \"%s\" where %s is the file you want preloaded as bars.  This data will be in the background, as historical information."
     in
     Cmdliner.Arg.(value & opt preload_conv None & info [ "p"; "preload" ] ~doc)
+
+  let target_arg =
+    let doc =
+      "The data file to actually backtest on.  This is only for use with backtesting.  The algorithm will process this information as if it is being received over the wire."
+    in
+    Cmdliner.Arg.(value & opt (some string) None & info [ "t"; "target" ] ~doc)
 
   let output_file_arg =
     let doc = "Output file for a log." in
@@ -31,20 +37,20 @@ module Args = struct
 end
 
 module Cmd = struct
-  let run runtype preload stacktrace output no_gui =
+  let run runtype preload stacktrace output no_gui target =
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output output;
     (* let reporter = Logs_fmt.reporter () in *)
     (* Logs.set_reporter reporter; *)
     (* Logs.set_level ~all:true (Some Logs.Info); *)
     Eio_main.run @@ fun eio_env ->
-    Longleaf.top ~stacktrace ~preload ~runtype ~no_gui eio_env
+    Longleaf.top ~stacktrace ~preload ~runtype ~no_gui ~target eio_env
 
   let top =
     let term =
       Cmdliner.Term.(
         const run $ Args.runtype_arg $ Args.preload_arg $ Args.stacktrace_arg
-        $ Args.output_file_arg $ Args.no_gui_arg)
+        $ Args.output_file_arg $ Args.no_gui_arg $ Args.target_arg)
     in
     let doc =
       "This is the OCaml algorithmic trading platform longleaf.  It relies on \
