@@ -89,7 +89,10 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let place_order state (order : Order.t) =
     Backend_position.execute_order state order
 
-  let data_remaining = Bars.Hashtbl.copy Input.bars
+  let data_remaining =
+    match Input.target with
+    | Some b -> b
+    | None -> invalid_arg "Must have a target specified for backtest"
 
   let latest_bars _ =
     let module Hashtbl = Bars.Hashtbl in
@@ -189,7 +192,7 @@ module Alpaca
     Backend_position.set_cash account_cash;
     {
       State.current = `Initialize;
-      bars = Input.bars;
+      bars = Bars.empty;
       latest = Bars.Latest.empty;
       content;
       order_history = Vector.create ();
