@@ -289,6 +289,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
              content = DT_Status.Waiting;
            }
     | Hold ->
+        Eio.traceln "@[Holding...@]@.";
         Result.return
         @@ {
              state with
