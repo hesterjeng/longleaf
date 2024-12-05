@@ -72,7 +72,8 @@ let read_file_as_string filename =
   let content = really_input_string ic len in
   close_in ic;
   (* Close the input channel *)
-  content (* Return the content *)
+  content
+(* Return the content *)
 
 let yojson_safe stacktrace (f : unit -> 'a) : 'a =
   try f ()
