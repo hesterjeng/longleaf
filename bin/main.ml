@@ -13,13 +13,16 @@ module Args = struct
     let preload_conv = Longleaf.Options.Preload.conv in
     let doc =
       "The type of preloading.  Valid choices are \"none\", \"download\", or \
-       \"%s\" where %s is the file you want preloaded as bars.  This data will be in the background, as historical information."
+       \"%s\" where %s is the file you want preloaded as bars.  This data will \
+       be in the background, as historical information."
     in
     Cmdliner.Arg.(value & opt preload_conv None & info [ "p"; "preload" ] ~doc)
 
   let target_arg =
     let doc =
-      "The data file to actually backtest on.  This is only for use with backtesting.  The algorithm will process this information as if it is being received over the wire."
+      "The data file to actually backtest on.  This is only for use with \
+       backtesting.  The algorithm will process this information as if it is \
+       being received over the wire."
     in
     Cmdliner.Arg.(value & opt (some string) None & info [ "t"; "target" ] ~doc)
 
