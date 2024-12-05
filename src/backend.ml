@@ -49,6 +49,9 @@ module type BACKEND_INPUT = sig
   val symbols : string list
   val tick : float
   val overnight : bool
+
+  (* The target is the bars that will be iterated over in a backtest *)
+  val target : Bars.t option
 end
 
 (* Backtesting *)
