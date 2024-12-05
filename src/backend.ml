@@ -99,8 +99,8 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
          Vector.top vector |> function
          | None -> Some "Empty vector when trying to collect data"
          | Some _ ->
-             Eio.traceln "There are %d members remaining in bar %s."
-               (Vector.length vector) symbol;
+             (* Eio.traceln "There are %d members remaining in bar %s." *)
+             (*   (Vector.length vector) symbol; *)
              Hashtbl.replace latest symbol @@ Vector.get vector 0;
              Vector.remove_and_shift vector 0;
              None
