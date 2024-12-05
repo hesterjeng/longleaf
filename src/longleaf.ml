@@ -13,7 +13,11 @@ module LongleafMutex = Backend.LongleafMutex ()
 
 let runtype_target_check ~runtype ~target : unit =
   match target with
-  | Some _ -> if Options.Runtype.equal runtype Backtest then () else exit 1
+  | Some _ ->
+      if Options.Runtype.equal runtype Backtest then ()
+      else (
+        Eio.traceln "Must be in a backtest if we have a specified target";
+        exit 1)
   | None -> ()
 
 let top ~runtype ~preload ~stacktrace ~no_gui ~target eio_env =
