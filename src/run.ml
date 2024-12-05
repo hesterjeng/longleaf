@@ -27,8 +27,13 @@ module Make
     include Context
 
     let target =
-      Context.target
-      |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
+      let ( let+ ) = Option.( let+ ) in
+      let+ res =
+        Context.target
+        |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
+      in
+      Bars.sort (Ord.opp Bars.Item.compare) res;
+      res
 
     let bars =
       match Context.preload with
@@ -36,7 +41,7 @@ module Make
       | Download -> invalid_arg "Downloading data for preload NYI"
       | File file ->
           let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
-          Bars.sort res;
+          Bars.sort Bars.Item.compare res;
           res
   end
 
