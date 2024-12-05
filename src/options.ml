@@ -1,5 +1,5 @@
 module Runtype = struct
-  type t = Live | Paper | Backtest | Manual [@@deriving show]
+  type t = Live | Paper | Backtest | Manual [@@deriving show, eq]
 
   let of_string_res x =
     match x with
