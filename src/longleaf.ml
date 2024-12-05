@@ -47,6 +47,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target eio_env =
       let longleaf_env = longleaf_env
       let switch = switch
       let preload = preload
+      let target = target
     end in
     let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
     Run.top runtype
