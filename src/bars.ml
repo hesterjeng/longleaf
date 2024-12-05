@@ -1,6 +1,7 @@
 module Order = Trading_types.Order
+module Hashtbl = Hashtbl.Make (String)
 
-module Bar_item : sig
+module Item : sig
   type t [@@deriving show, yojson]
 
   val make :
@@ -42,16 +43,21 @@ end = struct
   [@@yojson.allow_extra_fields]
 
   let t_of_yojson x =
-    try
-      t_of_yojson x |> fun (x : t) ->
-      if Float.equal x.last Float.max_finite_value then
-        { x with last = x.close }
-      else x
-    with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) ->
-      let exc = Printexc.to_string e in
-      Eio.traceln "@[bar_item:@]@.@[%s@]@.@[%s@]@." exc
-        (Yojson.Safe.to_string j);
-      exit 1
+    let p1 = t_of_yojson x in
+    if p1.last =. Float.max_finite_value then { p1 with last = p1.close }
+    else p1
+
+  (* let t_of_yojson x = *)
+  (*   try *)
+  (*     t_of_yojson x |> fun (x : t) -> *)
+  (*     if Float.equal x.last Float.max_finite_value then *)
+  (*       { x with last = x.close } *)
+  (*     else x *)
+  (*   with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) -> *)
+  (*     let exc = Printexc.to_string e in *)
+  (*     Eio.traceln "@[bar_item:@]@.@[%s@]@.@[%s@]@." exc *)
+  (*       (Yojson.Safe.to_string j); *)
+  (*     exit 1 *)
 
   let open_ x = x.open_
   let order x = x.order
@@ -73,182 +79,140 @@ end = struct
   let compare x y = Ptime.compare x.timestamp y.timestamp
 end
 
-module DataIO = struct
-  type received = (string * Bar_item.t list) list [@@deriving show, yojson]
-  type symbol_history = Bar_item.t Vector.vector
+(* module Received = struct *)
+(*   type t = { bars : (string * Item.t list) list } [@@deriving show, yojson] *)
 
-  let pp_symbol_history : symbol_history Vector.printer = Vector.pp Bar_item.pp
+(*   let unbox x = x.bars *)
+(* end *)
 
-  type t = (string * symbol_history) list [@@deriving show]
+module Latest = struct
+  type t = Item.t Hashtbl.t
 
-  let sort = List.iter (fun (_, v) -> Vector.sort' Bar_item.compare v)
-  let empty : t = []
-  let original_received_of_yojson = received_of_yojson
+  let get x symbol =
+    match Hashtbl.find_opt x symbol with
+    | Some x -> x
+    | None -> invalid_arg "Unable to find price of symbol (Bars.Latest)"
 
-  let received_of_yojson (x : Yojson.Safe.t) : received =
-    try
-      match x with
-      | `Assoc s ->
-          List.map
-            (fun ((ticker, data) : string * Yojson.Safe.t) ->
-              ( ticker,
-                match data with
-                | `List l -> List.map Bar_item.t_of_yojson l
-                | `Assoc _ -> [ Bar_item.t_of_yojson data ]
-                | a ->
-                    Util.Util_log.err (fun k -> k "%a" Yojson.Safe.pp a);
-                    invalid_arg "The data must be stored as a list" ))
-            s
-      | _ -> invalid_arg "Bars must be a toplevel Assoc"
-    with _ ->
-      Eio.traceln "@[Trying Data.original_t_of_yojson.@]@.";
-      let res = original_received_of_yojson x in
-      Eio.traceln "@[Data.original_t_of_yojson succeeded.@]@.";
-      res
+  let empty : t = Hashtbl.create 0
 
-  let add_order (order : Order.t) (data : t) =
-    let symbol_history : symbol_history =
-      List.Assoc.get ~eq:String.equal order.symbol data |> function
-      | Some x -> x
-      | None ->
-          invalid_arg
-          @@ Format.asprintf "Unable to find symbol in order history: %s"
-               order.symbol
-    in
-    let found = ref false in
-    let time = Order.timestamp order in
-    let res =
-      Vector.map_in_place
-        (fun bar_item ->
-          if Ptime.equal (Bar_item.timestamp bar_item) time then (
-            found := true;
-            Bar_item.add_order order bar_item)
-          else bar_item)
-        symbol_history
-    in
-    if not @@ !found then
-      Eio.traceln "@[[ERROR] Could not place order in data! %a@]@.@[%a@]@."
-        Time.pp time Order.pp order;
-    res
-
-  let t_of_yojson json : t =
-    let received = received_of_yojson json in
-    List.map
-      (fun (symbol, history) -> (symbol, Vector.of_list history))
-      received
-
-  let t_of_yojson x =
-    try t_of_yojson x
-    with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error (e, j) ->
-      let exc = Printexc.to_string e in
-      Eio.traceln "data: %s: %s" exc (Yojson.Safe.to_string j);
-      exit 1
-
-  let yojson_of_t (x : t) =
-    let listified : received =
-      List.map (fun (symbol, history) -> (symbol, Vector.to_list history)) x
-    in
-    yojson_of_received listified
+  let pp : t Format.printer =
+   fun fmt x ->
+    let seq = Hashtbl.to_seq x in
+    let pp = Seq.pp @@ Pair.pp String.pp Item.pp in
+    Format.fprintf fmt "@[%a@]@." pp seq
 end
 
-module DataOwl = struct
-  module Dataframe = Owl.Dataframe
+type symbol_history = Item.t Vector.vector
 
-  type t = (string, Dataframe.t) Hashtbl.t
+let pp_symbol_history : symbol_history Vector.printer = Vector.pp Item.pp
 
-  let get (x : t) symbol =
-    match Hashtbl.get x symbol with
-    | Some res -> res
-    | None -> invalid_arg "Unable to get price information for symbol (Owl)"
+type t = symbol_history Hashtbl.t
 
-  let data_of_vector (vector : Bar_item.t Vector.vector) =
-    let arr = Vector.to_array vector in
-    let timestamps =
-      Dataframe.pack_string_series
-      @@ Array.map (fun x -> Bar_item.timestamp x |> Time.to_string) arr
-    in
-    let opens = Dataframe.pack_float_series @@ Array.map Bar_item.open_ arr in
-    let lasts = Dataframe.pack_float_series @@ Array.map Bar_item.last arr in
-    let highs = Dataframe.pack_float_series @@ Array.map Bar_item.high arr in
-    let lows = Dataframe.pack_float_series @@ Array.map Bar_item.low arr in
-    let closes = Dataframe.pack_float_series @@ Array.map Bar_item.close arr in
-    let volumes = Dataframe.pack_int_series @@ Array.map Bar_item.volume arr in
-    Dataframe.make
-      ~data:[| timestamps; lasts; opens; highs; lows; closes; volumes |]
-      [| "Timestamp"; "Last"; "Open"; "High"; "Low"; "Close"; "Volume" |]
+let pp : t Format.printer =
+ fun fmt x ->
+  let seq = Hashtbl.to_seq x in
+  let pp = Seq.pp @@ Pair.pp String.pp pp_symbol_history in
+  Format.fprintf fmt "@[%a@]@." pp seq
 
-  let data_to_vector (x : Dataframe.t) : DataIO.symbol_history =
-    let length = Dataframe.row_num x in
-    let arr = Vector.make length None in
-    let get_col = Dataframe.get_col x in
-    let timestamps = get_col 0 |> Dataframe.unpack_string_series in
-    let lasts = get_col 1 |> Dataframe.unpack_float_series in
-    let opens = get_col 2 |> Dataframe.unpack_float_series in
-    let highs = get_col 3 |> Dataframe.unpack_float_series in
-    let lows = get_col 4 |> Dataframe.unpack_float_series in
-    let closes = get_col 5 |> Dataframe.unpack_float_series in
-    let volumes = get_col 6 |> Dataframe.unpack_int_series in
-    Vector.mapi
-      (fun i _ ->
-        Bar_item.make
-          ~timestamp:(timestamps.(i) |> Time.of_string)
-          ~open_:opens.(i) ~last:lasts.(i) ~high:highs.(i) ~low:lows.(i)
-          ~close:closes.(i) ~volume:volumes.(i) ~order:None ())
-      arr
+let pp_stats : t Format.printer =
+ fun fmt x ->
+  let seq = Hashtbl.to_seq x in
+  let pp = Pair.pp String.pp Int.pp in
+  Seq.iter
+    (fun (symbol, v) ->
+      Format.fprintf fmt "@[%a@]@." pp (symbol, Vector.length v))
+    seq
 
-  let to_io (x : t) : DataIO.t =
-    Hashtbl.to_list x |> List.Assoc.map_values data_to_vector
+let get (x : t) symbol = Hashtbl.find_opt x symbol
 
-  let of_io (x : DataIO.t) : t =
-    List.Assoc.map_values data_of_vector x |> Hashtbl.of_list
+let sort (x : t) =
+  Hashtbl.to_seq_values x
+  |> Seq.iter @@ fun vector -> Vector.sort' Item.compare vector
 
-  let t_of_yojson (x : Yojson.Safe.t) = DataIO.t_of_yojson x |> of_io
-  let yojson_of_t (x : t) = DataIO.yojson_of_t @@ to_io x
-end
+let empty : t = Hashtbl.create 100
+(* let original_received_of_yojson = Received.t_of_yojson *)
 
-module Data = DataIO
+let add_order (order : Order.t) (data : t) =
+  let symbol_history =
+    get data order.symbol
+    |> Option.get_exn_or "Expected to find symbol history in Bars.add_order"
+  in
+  let found = ref false in
+  let time = Order.timestamp order in
+  let res =
+    Vector.map_in_place
+      (fun bar_item ->
+        if Ptime.equal (Item.timestamp bar_item) time then (
+          found := true;
+          Item.add_order order bar_item)
+        else bar_item)
+      symbol_history
+  in
+  if not @@ !found then
+    Eio.traceln "@[[ERROR] Could not place order in data! %a@]@.@[%a@]@."
+      Time.pp time Order.pp order;
+  res
 
-type t = {
-  data : Data.t; [@key "bars"]
-  next_page_token : string option; [@default None]
-  currency : string option; [@default None]
-}
-[@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
+let t_of_yojson (json : Yojson.Safe.t) : t =
+  let bars = Yojson.Safe.Util.member "bars" json in
+  let assoc = Yojson.Safe.Util.to_assoc bars in
+  let res =
+    List.Assoc.map_values
+      (function
+        | `List datapoints ->
+            (* Eio.traceln "@[%a@]@." (List.pp Yojson.Safe.pp) datapoints; *)
+            List.map Item.t_of_yojson datapoints |> Vector.of_list
+        | _ -> invalid_arg "Expected a list of datapoints")
+      assoc
+    |> Seq.of_list |> Hashtbl.of_seq
+  in
+  res
 
-let sort (x : t) = Data.sort x.data
-
-type bars = t [@@deriving show { with_path = false }, yojson]
-
-let empty : t = { data = Data.empty; next_page_token = None; currency = None }
-let tickers (x : t) = List.map fst x.data
-let add_order (order : Order.t) (x : t) = Data.add_order order x.data
+let yojson_of_t (x : t) : Yojson.Safe.t =
+  `Assoc
+    [
+      ( "bars",
+        `Assoc
+          (Hashtbl.to_seq x |> Seq.to_list
+          |> List.Assoc.map_values (fun data ->
+                 Vector.to_list data |> List.map Item.yojson_of_t |> fun l ->
+                 `List l)) );
+    ]
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
   let keys =
-    List.flat_map (fun x -> List.Assoc.keys x.data) l
+    List.flat_map (fun x -> Hashtbl.to_seq_keys x |> Seq.to_list) l
     |> List.uniq ~eq:String.equal
   in
   let get_data key =
     let data =
       Vector.flat_map
         (fun (x : t) ->
-          match List.Assoc.get ~eq:String.equal key x.data with
+          match Hashtbl.find_opt x key with
           | Some found -> found
-          | None -> Vector.of_array [||]
-          (* Vector.make 0 *))
+          | None -> Vector.of_array [||])
         (Vector.of_list l)
     in
-    Vector.sort' Bar_item.compare data;
+    Vector.sort' Item.compare data;
     data
   in
-  let data = List.map (fun key -> (key, get_data key)) keys in
-  { data; next_page_token = None; currency = None }
+  let new_table = Hashtbl.create @@ List.length keys in
+  List.iter (fun key -> Hashtbl.replace new_table key (get_data key)) keys;
+  new_table
 
-let get (bars : t) ticker = List.Assoc.get ~eq:String.equal ticker bars.data
+let append (latest : Latest.t) (x : t) =
+  (* Eio.traceln "Bars.append: %a" Latest.pp latest; *)
+  (* Eio.traceln "Bars.append: There are %d bindings" (Hashtbl.length x); *)
+  Hashtbl.to_seq latest
+  |> Seq.iter @@ fun (symbol, item) ->
+     match get x symbol with
+     | None ->
+         (* Eio.traceln "Creating symbol_history for %s" symbol; *)
+         Hashtbl.replace x symbol @@ Vector.create ()
+     | Some h -> Vector.push h item
 
-let price x ticker =
-  let bars = x.data in
+let price bars ticker =
   match List.Assoc.get ~eq:String.equal ticker bars with
   | Some vec when Vector.length vec = 1 -> Vector.get vec 0
   | Some _ -> invalid_arg "Multiple bar items on latest bar?"
@@ -256,63 +220,67 @@ let price x ticker =
       invalid_arg
       @@ Format.asprintf "Unable to get price info for ticker %s" ticker
 
-module Plotly = struct
-  open Bar_item
-  open Option.Infix
+module Infill = struct
+  (* Alpaca market data api can have missing data. *)
+  (* Try to fill it in with the most recent bar indicating no change if it happens. *)
+  (* FIXME:  This is too big for a single function. *)
 
-  let of_bars (x : bars) (symbol : string) : Yojson.Safe.t option =
-    let+ data_vec = get x symbol in
-    let data = Vector.to_list data_vec in
-    let x_axis =
-      let mk_plotly_x x =
-        let time = timestamp x in
-        let res = Ptime.to_rfc3339 time in
-        `String res
+  let top (x : t) =
+    Eio.traceln "Infill.top";
+    let _, most_used_vector =
+      let fold f =
+        Seq.fold f ("Bars.Infill.init", Vector.create ()) @@ Hashtbl.to_seq x
       in
-      List.map mk_plotly_x data
+      fold @@ fun (best_symbol, best_vector) (current_symbol, current_vector) ->
+      if Vector.length current_vector >= Vector.length best_vector then
+        (current_symbol, current_vector)
+      else (best_symbol, best_vector)
     in
-    let buy_axis =
-      List.map
-        (fun (x : Bar_item.t) ->
-          match order x with
-          | None -> `Null
-          | Some order -> (
-              match order.side with Buy -> `String "buy" | Sell -> `Null))
-        data
+    Eio.traceln "Creating time tables";
+    let () =
+      Seq.iter (fun symbol ->
+          Eio.traceln "Iterating over %s" symbol;
+          let vec = Hashtbl.find x symbol in
+          let tbl = Hashtbl.create @@ Vector.length vec in
+          Vector.iter
+            (fun item ->
+              let timestamp = Item.timestamp item |> Time.to_string in
+              Hashtbl.replace tbl timestamp item)
+            vec;
+          (* At this point, we have a hashtable of times to items *)
+          (* We need to iterate over the longest vector.  If its time is present in the table, *)
+          (* great, else we will look BACKWARDS in the longest vector for a time where a value is *)
+          (* present.  The first found value will fill in the missing one. *)
+          Vector.iteri
+            (fun i item ->
+              let current_time = Item.timestamp item |> Time.to_string in
+              match Hashtbl.find_opt tbl current_time with
+              | Some _ -> ()
+              | None ->
+                  let previous_time =
+                    if i > 0 then
+                      Vector.get most_used_vector (i - 1)
+                      |> Item.timestamp |> Time.to_string
+                    else (
+                      Eio.traceln "Lacking initial value, using first value.";
+                      Vector.get (Hashtbl.find x symbol) 0
+                      |> Item.timestamp |> Time.to_string)
+                  in
+                  Eio.traceln "Creating value for %d: %s" i current_time;
+                  let previous_value =
+                    Hashtbl.find_opt tbl previous_time
+                    |> Option.get_exn_or "Expected to find previous time"
+                  in
+                  Hashtbl.replace tbl current_time @@ previous_value)
+            most_used_vector;
+          (* Now, we should have good tables whose lengths are appropriate. *)
+          (* We need to convert the current table back to a vector. *)
+          let new_vector = Hashtbl.to_seq_values tbl |> Vector.of_seq in
+          Vector.sort' Item.compare new_vector;
+          (* Replace the old, sparse, vector with the new sorted and infilled one. *)
+          Hashtbl.replace x symbol new_vector;
+          ())
+      @@ Hashtbl.to_seq_keys x
     in
-    let sell_axis =
-      List.map
-        (fun (x : Bar_item.t) ->
-          match order x with
-          | None -> `Null
-          | Some order -> (
-              match order.side with Buy -> `Null | Sell -> `String "sell"))
-        data
-    in
-    let y_axis = List.map (fun x -> `Float (last x)) data in
-    `Assoc
-      [
-        ( "data",
-          `List
-            [
-              `Assoc
-                [
-                  ("x", `List x_axis);
-                  ("y", `List y_axis);
-                  ("buy", `List buy_axis);
-                  ("sell", `List sell_axis);
-                  ("mode", `String "lines+markers");
-                  ("name", `String symbol);
-                ];
-            ] );
-        ( "layout",
-          `Assoc
-            [
-              ("title", `String "Sample Plotly Graph");
-              ( "xaxis",
-                `Assoc [ ("title", `String "X Axis"); ("type", `String "date") ]
-              );
-              ("yaxis", `Assoc [ ("title", `String "Y Axis") ]);
-            ] );
-      ]
+    ()
 end

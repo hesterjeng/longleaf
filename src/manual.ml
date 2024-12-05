@@ -12,8 +12,8 @@ let tiingo_test eio_env longleaf_env =
   let tickers = [ "AAPL"; "MSFT" ] in
   let test_resp = Tiingo.test () in
   Eio.traceln "@[%a@]@." Yojson.Safe.pp test_resp;
-  let resp = Tiingo.latest tickers in
-  Eio.traceln "@[%a@]@." Bars.pp resp;
+  let _ = Tiingo.latest tickers in
+  (* Eio.traceln "@[%a@]@." Bars.pp resp; *)
   Piaf.Client.shutdown client;
   ()
 
