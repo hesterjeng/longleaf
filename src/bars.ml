@@ -218,6 +218,7 @@ let price bars ticker =
 module Infill = struct
   (* Alpaca market data api can have missing data. *)
   (* Try to fill it in with the most recent bar indicating no change if it happens. *)
+  (* FIXME:  This is too big for a single function. *)
 
   let top (x : t) =
     Eio.traceln "Infill.top";
@@ -233,6 +234,7 @@ module Infill = struct
     Eio.traceln "Creating time tables";
     let () =
       Seq.iter (fun symbol ->
+          Eio.traceln "Iterating over %s" symbol;
           let vec = Hashtbl.find x symbol in
           let tbl = Hashtbl.create @@ Vector.length vec in
           Vector.iter
@@ -250,11 +252,16 @@ module Infill = struct
               match Hashtbl.find_opt tbl current_time with
               | Some _ -> ()
               | None ->
-                  assert (i > 0);
                   let previous_time =
-                    Vector.get most_used_vector (i - 1)
-                    |> Item.timestamp |> Time.to_string
+                    if i > 0 then
+                      Vector.get most_used_vector (i - 1)
+                      |> Item.timestamp |> Time.to_string
+                    else (
+                      Eio.traceln "Lacking initial value, using first value.";
+                      Vector.get (Hashtbl.find x symbol) 0
+                      |> Item.timestamp |> Time.to_string)
                   in
+                  Eio.traceln "Creating value for %d: %s" i current_time;
                   let previous_value =
                     Hashtbl.find_opt tbl previous_time
                     |> Option.get_exn_or "Expected to find previous time"
