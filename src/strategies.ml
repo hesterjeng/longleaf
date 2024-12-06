@@ -96,13 +96,7 @@ module Strategy_utils (Backend : Backend.S) = struct
   let output_data (state : _ State.t) filename =
     Eio.traceln "cash: %f" (Backend.get_cash ());
     if Backend.is_backtest then ()
-    else
-      let json = Bars.yojson_of_t state.bars |> Yojson.Safe.to_string in
-      (* let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in *)
-      let filename = Format.sprintf "data/live_%s.json" filename in
-      let oc = open_out filename in
-      output_string oc json;
-      close_out oc
+    else Bars.print_to_file ~filename state.bars "live"
 
   let output_order_history (state : _ State.t) filename =
     let json_str =
