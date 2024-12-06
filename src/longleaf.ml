@@ -11,7 +11,17 @@ module Bars = Bars
 module Options = Options
 module LongleafMutex = Backend.LongleafMutex ()
 
-let top ~runtype ~preload ~stacktrace ~no_gui eio_env =
+let runtype_target_check ~runtype ~target : unit =
+  match target with
+  | Some _ ->
+      if Options.Runtype.equal runtype Backtest then ()
+      else (
+        Eio.traceln "Must be in a backtest if we have a specified target";
+        exit 1)
+  | None -> ()
+
+let top ~runtype ~preload ~stacktrace ~no_gui ~target eio_env =
+  runtype_target_check ~runtype ~target;
   if stacktrace then Printexc.record_backtrace true;
   let longleaf_env = Environment.make () in
   if Options.Runtype.is_manual runtype then (
@@ -37,6 +47,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui eio_env =
       let longleaf_env = longleaf_env
       let switch = switch
       let preload = preload
+      let target = target
     end in
     let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
     Run.top runtype

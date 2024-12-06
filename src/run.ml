@@ -10,6 +10,7 @@ module type RUN_CONTEXT = sig
   val longleaf_env : Environment.t
   val switch : Eio.Switch.t
   val preload : Options.Preload.t
+  val target : string option
 end
 
 module type S = sig
@@ -25,13 +26,24 @@ module Make
     include Data
     include Context
 
+    (* Target *)
+    let target =
+      let ( let+ ) = Option.( let+ ) in
+      let+ res =
+        Context.target
+        |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
+      in
+      Bars.sort (Ord.opp Bars.Item.compare) res;
+      res
+
+    (* Preload *)
     let bars =
       match Context.preload with
       | None -> Bars.empty
       | Download -> invalid_arg "Downloading data for preload NYI"
       | File file ->
           let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
-          Bars.sort res;
+          Bars.sort Bars.Item.compare res;
           res
   end
 
@@ -70,13 +82,6 @@ end
 
 module DoubleTop = struct
   module Data : RUN_DATA = struct
-    let bars_old_unused () =
-      (* Yojson.Safe.from_file "data/download_Elegance_Fleeting.json" *)
-      (* Calculated meddler is a good backtest *)
-      (* Yojson.Safe.from_file "data/download_Calculated_Meddler.json" *)
-      (* Conundrum Idea is live data from a day on the VPS *)
-      Yojson.Safe.from_file "data/live_Wish_Grace.json" |> Bars.t_of_yojson
-
     let symbols =
       [
         "NVDA";

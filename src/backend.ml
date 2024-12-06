@@ -45,10 +45,16 @@ module type BACKEND_INPUT = sig
   val switch : Eio.Switch.t
   val longleaf_env : Environment.t
   val eio_env : Eio_unix.Stdenv.base
+
+  (* Historical information, ordered with in time order *)
   val bars : Bars.t
   val symbols : string list
   val tick : float
   val overnight : bool
+
+  (* The target is the bars that will be iterated over in a backtest *)
+  (* Ordered in reverse time order, so that we can pop off next values easily *)
+  val target : Bars.t option
 end
 
 (* Backtesting *)
@@ -68,7 +74,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let init_state content =
     {
       State.current = `Initialize;
-      bars = Bars.empty;
+      bars = Input.bars;
       latest = Bars.Latest.empty;
       content;
       order_history = Vector.create ();
@@ -86,7 +92,11 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let place_order state (order : Order.t) =
     Backend_position.execute_order state order
 
-  let data_remaining = Bars.Hashtbl.copy Input.bars
+  (* Ordered in reverse time order when INPUT is created *)
+  let data_remaining =
+    match Input.target with
+    | Some b -> b
+    | None -> invalid_arg "Must have a target specified for backtest"
 
   let latest_bars _ =
     let module Hashtbl = Bars.Hashtbl in
@@ -96,13 +106,12 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     let found =
       Hashtbl.to_seq data_remaining
       |> Seq.find_map @@ fun (symbol, vector) ->
-         Vector.top vector |> function
+         Vector.pop vector |> function
          | None -> Some "Empty vector when trying to collect data"
-         | Some _ ->
+         | Some value ->
              (* Eio.traceln "There are %d members remaining in bar %s." *)
              (*   (Vector.length vector) symbol; *)
-             Hashtbl.replace latest symbol @@ Vector.get vector 0;
-             Vector.remove_and_shift vector 0;
+             Hashtbl.replace latest symbol value;
              None
     in
     match found with Some err -> Error err | None -> Ok latest
@@ -186,7 +195,7 @@ module Alpaca
     Backend_position.set_cash account_cash;
     {
       State.current = `Initialize;
-      bars = Input.bars;
+      bars = Bars.empty;
       latest = Bars.Latest.empty;
       content;
       order_history = Vector.create ();
