@@ -58,6 +58,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received eio_env =
       let switch = switch
       let preload = preload
       let target = target
+      let save_received = save_received
     end in
     let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
     Run.top runtype
