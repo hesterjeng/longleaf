@@ -40,7 +40,7 @@ module Make
     (* Preload *)
     let bars =
       match Context.preload with
-      | None -> Bars.empty
+      | None -> Bars.empty ()
       | Download -> invalid_arg "Downloading data for preload NYI"
       | File file ->
           let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in

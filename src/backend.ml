@@ -9,7 +9,7 @@ end
 
 module LongleafMutex () : LONGLEAF_MUTEX = struct
   let shutdown_mutex = Pmutex.make false
-  let data_mutex = Pmutex.make Bars.empty
+  let data_mutex = Pmutex.make @@ Bars.empty ()
   let orders_mutex = Pmutex.make @@ Vector.create ()
   let symbols_mutex = Pmutex.make None
 end
@@ -19,8 +19,15 @@ module type S = sig
   module LongleafMutex : LONGLEAF_MUTEX
   module Backend_position : Backend_position.S
 
+  (* Is this backend a backtest? *)
   val is_backtest : bool
+
+  (* TODO: Do something with this? *)
   val overnight : bool
+
+  (* Save data that is received in a live/paper run *)
+  val save_received : bool
+  val received_data : Bars.t
   val get_trading_client : unit -> Piaf.Client.t
   val get_data_client : unit -> Piaf.Client.t
   val env : Eio_unix.Stdenv.base
@@ -97,6 +104,8 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     | Some b -> b
     | None -> invalid_arg "Must have a target specified for backtest"
 
+  let received_data = Bars.empty ()
+
   let latest_bars _ =
     let module Hashtbl = Bars.Hashtbl in
     let latest : Bars.Latest.t =
@@ -146,6 +155,7 @@ module Alpaca
   let env = Input.eio_env
   let overnight = Input.overnight
   let save_received = Input.save_received
+  let received_data = Bars.empty ()
 
   let trading_client =
     let res =
@@ -195,7 +205,7 @@ module Alpaca
     Backend_position.set_cash account_cash;
     {
       State.current = `Initialize;
-      bars = Bars.empty;
+      bars = Bars.empty ();
       latest = Bars.Latest.empty;
       content;
       order_history = Vector.create ();
@@ -229,6 +239,7 @@ module Alpaca
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
         let res = Tiingo.latest symbols in
+        if save_received then Bars.append res received_data;
         Ok res
 
   let get_clock = Trading_api.Clock.get
