@@ -37,23 +37,29 @@ module Args = struct
   let no_gui_arg =
     let doc = "Disable the gui process." in
     Cmdliner.Arg.(value & flag & info [ "nogui" ] ~doc)
+
+  let save_received_arg =
+    let doc = "Save received data." in
+    Cmdliner.Arg.(value & flag & info [ "s"; "save" ] ~doc)
 end
 
 module Cmd = struct
-  let run runtype preload stacktrace output no_gui target =
+  let run runtype preload stacktrace output no_gui target save_received =
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output output;
     (* let reporter = Logs_fmt.reporter () in *)
     (* Logs.set_reporter reporter; *)
     (* Logs.set_level ~all:true (Some Logs.Info); *)
     Eio_main.run @@ fun eio_env ->
-    Longleaf.top ~stacktrace ~preload ~runtype ~no_gui ~target eio_env
+    Longleaf.top ~stacktrace ~preload ~runtype ~no_gui ~target ~save_received
+      eio_env
 
   let top =
     let term =
       Cmdliner.Term.(
         const run $ Args.runtype_arg $ Args.preload_arg $ Args.stacktrace_arg
-        $ Args.output_file_arg $ Args.no_gui_arg $ Args.target_arg)
+        $ Args.output_file_arg $ Args.no_gui_arg $ Args.target_arg
+        $ Args.save_received_arg)
     in
     let doc =
       "This is the OCaml algorithmic trading platform longleaf.  It relies on \
