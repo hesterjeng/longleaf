@@ -11,6 +11,7 @@ module type RUN_CONTEXT = sig
   val switch : Eio.Switch.t
   val preload : Options.Preload.t
   val target : string option
+  val save_received : bool
 end
 
 module type S = sig
