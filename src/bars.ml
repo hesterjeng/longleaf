@@ -219,10 +219,14 @@ let price bars ticker =
       invalid_arg
       @@ Format.asprintf "Unable to get price info for ticker %s" ticker
 
-let print_to_file bars prefix =
+let print_to_file ?(filename : string option) bars prefix =
   let bars_json = yojson_of_t bars in
   let str = Yojson.Safe.to_string bars_json in
-  let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
+  let tail =
+    match filename with
+    | Some n -> n
+    | None -> Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
+  in
   let filename = Format.sprintf "data/%s_%s.json" prefix tail in
   let oc = open_out filename in
   output_string oc str;
