@@ -30,10 +30,6 @@ module Args = struct
     let doc = "Output file for a log." in
     Cmdliner.Arg.(value & opt (some string) None & info [ "o"; "output" ] ~doc)
 
-  let output_file_arg =
-    let doc = "Output file for a log." in
-    Cmdliner.Arg.(value & opt (some string) None & info [ "o"; "output" ] ~doc)
-
   let stacktrace_arg =
     let doc = "Print a stacktrace if an exception occurs." in
     Cmdliner.Arg.(value & flag & info [ "g" ] ~doc)

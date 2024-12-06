@@ -19,18 +19,16 @@ module type S = sig
   module LongleafMutex : LONGLEAF_MUTEX
   module Backend_position : Backend_position.S
 
+  val is_backtest : bool
+  val save_received : bool
+  val overnight : bool
   val get_trading_client : unit -> Piaf.Client.t
   val get_data_client : unit -> Piaf.Client.t
   val env : Eio_unix.Stdenv.base
-  val is_backtest : bool
-  (* val loaded_bars : Bars.t *)
-
-  (* val get_position : unit -> Backend_position.t *)
   val init_state : 'a -> 'a State.t
   val get_cash : unit -> float
   val symbols : string list
   val shutdown : unit -> unit
-  val overnight : bool
 
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
@@ -51,6 +49,7 @@ module type BACKEND_INPUT = sig
   val symbols : string list
   val tick : float
   val overnight : bool
+  val save_received : bool
 
   (* The target is the bars that will be iterated over in a backtest *)
   (* Ordered in reverse time order, so that we can pop off next values easily *)
@@ -88,6 +87,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let shutdown () = ()
   let get_cash = Backend_position.get_cash
   let overnight = Input.overnight
+  let save_received = Input.overnight
 
   let place_order state (order : Order.t) =
     Backend_position.execute_order state order
@@ -146,6 +146,7 @@ module Alpaca
   let get_cash = Backend_position.get_cash
   let env = Input.eio_env
   let overnight = Input.overnight
+  let save_received = Input.save_received
 
   let trading_client =
     let res =
