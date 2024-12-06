@@ -9,7 +9,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
   let init_state : state =
     {
       State.current = `Initialize;
-      bars = Bars.empty;
+      bars = Bars.empty ();
       latest = Bars.Latest.empty;
       content = ();
       order_history = Vector.create ();
