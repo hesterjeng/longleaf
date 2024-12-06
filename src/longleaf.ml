@@ -13,15 +13,25 @@ module LongleafMutex = Backend.LongleafMutex ()
 
 let runtype_target_check ~runtype ~target : unit =
   match target with
-  | Some _ ->
-      if Options.Runtype.equal runtype Backtest then ()
-      else (
-        Eio.traceln "Must be in a backtest if we have a specified target";
-        exit 1)
+  | Some _ -> (
+      match runtype with
+      | Options.Runtype.Backtest -> ()
+      | _ ->
+          Eio.traceln "Must be in a backtest if we have a specified target.";
+          exit 1)
   | None -> ()
 
-let top ~runtype ~preload ~stacktrace ~no_gui ~target eio_env =
+let save_received_check ~runtype ~save_received : unit =
+  if save_received then
+    match runtype with
+    | Options.Runtype.Live | Options.Runtype.Paper -> ()
+    | _ ->
+        Eio.traceln "Must be live or paper to save received data.";
+        exit 1
+
+let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received eio_env =
   runtype_target_check ~runtype ~target;
+  save_received_check ~runtype ~save_received;
   if stacktrace then Printexc.record_backtrace true;
   let longleaf_env = Environment.make () in
   if Options.Runtype.is_manual runtype then (
