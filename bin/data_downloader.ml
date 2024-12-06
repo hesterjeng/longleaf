@@ -62,14 +62,7 @@ module Downloader = struct
     Eio.traceln "Trying infill";
     Bars.Infill.top bars;
     Eio.traceln "%a" Bars.pp_stats bars;
-    let bars_json = Bars.yojson_of_t bars in
-    let str = Yojson.Safe.to_string bars_json in
-    let tail = Lots_of_words.select () ^ "_" ^ Lots_of_words.select () in
-    let filename = Format.sprintf "data/download_%s.json" tail in
-    Eio.traceln "@[%s@]@." filename;
-    let oc = open_out filename in
-    output_string oc str;
-    close_out oc;
+    Bars.print_to_file bars "download";
     Piaf.Client.shutdown data_client
 end
 
