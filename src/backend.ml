@@ -102,7 +102,9 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let data_remaining =
     match Input.target with
     | Some b -> b
-    | None -> invalid_arg "Must have a target specified for backtest"
+    | None ->
+        Eio.traceln "Creating empty data_remaining for backtesting backend.";
+        Bars.empty ()
 
   let received_data = Bars.empty ()
 
