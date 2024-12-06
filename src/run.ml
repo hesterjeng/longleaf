@@ -26,6 +26,7 @@ module Make
     include Data
     include Context
 
+    (* Target *)
     let target =
       let ( let+ ) = Option.( let+ ) in
       let+ res =
@@ -35,6 +36,7 @@ module Make
       Bars.sort (Ord.opp Bars.Item.compare) res;
       res
 
+    (* Preload *)
     let bars =
       match Context.preload with
       | None -> Bars.empty
