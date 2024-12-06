@@ -20,7 +20,6 @@ module type S = sig
   module Backend_position : Backend_position.S
 
   val is_backtest : bool
-  val save_received : bool
   val overnight : bool
   val get_trading_client : unit -> Piaf.Client.t
   val get_data_client : unit -> Piaf.Client.t
@@ -271,6 +270,8 @@ module Alpaca
         symbols
     in
     let account_status = Trading_api.Accounts.get_account () in
+    (* if (save_received) then Bars.prin *)
+    (* ; *)
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     ()
