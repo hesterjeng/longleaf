@@ -9,7 +9,7 @@ end
 
 module LongleafMutex () : LONGLEAF_MUTEX = struct
   let shutdown_mutex = Pmutex.make false
-  let data_mutex = Pmutex.make Bars.empty
+  let data_mutex = Pmutex.make @@ Bars.empty ()
   let orders_mutex = Pmutex.make @@ Vector.create ()
   let symbols_mutex = Pmutex.make None
 end
@@ -19,18 +19,22 @@ module type S = sig
   module LongleafMutex : LONGLEAF_MUTEX
   module Backend_position : Backend_position.S
 
+  (* Is this backend a backtest? *)
+  val is_backtest : bool
+
+  (* TODO: Do something with this? *)
+  val overnight : bool
+
+  (* Save data that is received in a live/paper run *)
+  val save_received : bool
+  val received_data : Bars.t
   val get_trading_client : unit -> Piaf.Client.t
   val get_data_client : unit -> Piaf.Client.t
   val env : Eio_unix.Stdenv.base
-  val is_backtest : bool
-  (* val loaded_bars : Bars.t *)
-
-  (* val get_position : unit -> Backend_position.t *)
   val init_state : 'a -> 'a State.t
   val get_cash : unit -> float
   val symbols : string list
   val shutdown : unit -> unit
-  val overnight : bool
 
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
@@ -51,6 +55,7 @@ module type BACKEND_INPUT = sig
   val symbols : string list
   val tick : float
   val overnight : bool
+  val save_received : bool
 
   (* The target is the bars that will be iterated over in a backtest *)
   (* Ordered in reverse time order, so that we can pop off next values easily *)
@@ -88,6 +93,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let shutdown () = ()
   let get_cash = Backend_position.get_cash
   let overnight = Input.overnight
+  let save_received = Input.overnight
 
   let place_order state (order : Order.t) =
     Backend_position.execute_order state order
@@ -97,6 +103,8 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     match Input.target with
     | Some b -> b
     | None -> invalid_arg "Must have a target specified for backtest"
+
+  let received_data = Bars.empty ()
 
   let latest_bars _ =
     let module Hashtbl = Bars.Hashtbl in
@@ -146,6 +154,8 @@ module Alpaca
   let get_cash = Backend_position.get_cash
   let env = Input.eio_env
   let overnight = Input.overnight
+  let save_received = Input.save_received
+  let received_data = Bars.empty ()
 
   let trading_client =
     let res =
@@ -195,7 +205,7 @@ module Alpaca
     Backend_position.set_cash account_cash;
     {
       State.current = `Initialize;
-      bars = Bars.empty;
+      bars = Bars.empty ();
       latest = Bars.Latest.empty;
       content;
       order_history = Vector.create ();
@@ -229,6 +239,7 @@ module Alpaca
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
         let res = Tiingo.latest symbols in
+        if save_received then Bars.append res received_data;
         Ok res
 
   let get_clock = Trading_api.Clock.get
@@ -270,6 +281,8 @@ module Alpaca
         symbols
     in
     let account_status = Trading_api.Accounts.get_account () in
+    (* if (save_received) then Bars.prin *)
+    (* ; *)
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     ()

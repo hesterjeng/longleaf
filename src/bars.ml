@@ -128,7 +128,7 @@ let get (x : t) symbol = Hashtbl.find_opt x symbol
 let sort cmp (x : t) =
   Hashtbl.to_seq_values x |> Seq.iter @@ fun vector -> Vector.sort' cmp vector
 
-let empty : t = Hashtbl.create 100
+let empty () : t = Hashtbl.create 100
 (* let original_received_of_yojson = Received.t_of_yojson *)
 
 let add_order (order : Order.t) (data : t) =
@@ -218,6 +218,19 @@ let price bars ticker =
   | None ->
       invalid_arg
       @@ Format.asprintf "Unable to get price info for ticker %s" ticker
+
+let print_to_file ?(filename : string option) bars prefix =
+  let bars_json = yojson_of_t bars in
+  let str = Yojson.Safe.to_string bars_json in
+  let tail =
+    match filename with
+    | Some n -> n
+    | None -> Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
+  in
+  let filename = Format.sprintf "data/%s_%s.json" prefix tail in
+  let oc = open_out filename in
+  output_string oc str;
+  close_out oc
 
 module Infill = struct
   (* Alpaca market data api can have missing data. *)

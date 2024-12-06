@@ -23,11 +23,12 @@ let place_order_test eio_env longleaf_env =
     let switch = switch
     let longleaf_env = longleaf_env
     let eio_env = eio_env
-    let bars = Bars.empty
+    let bars = Bars.empty ()
     let symbols = []
     let tick = 0.0
     let overnight = true
     let target = None
+    let save_received = false
   end in
   let module Ticker = Ticker.Make (struct
     let tick = Input.tick
