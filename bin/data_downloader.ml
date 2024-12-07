@@ -5,6 +5,23 @@ module Args = struct
   let today_arg =
     let doc = "Download data only for today." in
     Cmdliner.Arg.(value & flag & info [ "t" ] ~doc)
+
+  let begin_arg =
+    let doc = "Begin date." in
+    Cmdliner.Arg.(value & opt (some string) None & info [ "begin" ] ~doc)
+
+  let end_arg =
+    let doc = "End date." in
+    Cmdliner.Arg.(value & opt (some string) None & info [ "end" ] ~doc)
+
+  let timeframe_arg =
+    let doc = "Timeframe. 0 is minute, 1 is hour, 2 is day, 3 is week, 4 is month." in
+    Cmdliner.Arg.(value & opt (some int) None & info [ "timeframe"] ~doc)
+
+  let interval_arg =
+    let doc = "Interval for the timeframe. 10 means every ten minutes." in
+    Cmdliner.Arg.(value & opt (some int) None & info [ "interval"] ~doc)
+
 end
 
 let some_symbols =
