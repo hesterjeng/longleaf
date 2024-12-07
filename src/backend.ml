@@ -235,8 +235,9 @@ module Alpaca
   let latest_bars symbols =
     match symbols with
     | [] ->
-        invalid_arg
-          "Backend.Alpaca.latest_bars: Cannot get latest bars for no symbols."
+      Eio.traceln "No symbols in latest bars request.";
+      Result.return @@
+      Bars.Latest.empty ()
     | _ ->
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
