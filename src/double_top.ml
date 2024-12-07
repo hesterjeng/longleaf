@@ -231,17 +231,18 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   (* Check if we meet the conditions for placing a short for one of our symbols. *)
   (* If not, return the state unchanged, except we are now listening. *)
   let place_short ~(state : state) =
+    let ( let* ) = Result.( let* ) in
     let short_opt =
       consider_shorting ~history:state.bars ~state ~qty:(qty state 0.5)
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
-    let new_status =
+    let* new_status =
       match choice with
-      | None -> state.content
+      | None -> Ok state.content
       | Some order ->
-          Backend.place_order state order;
-          Placed (0, order)
+          let* () = Backend.place_order state order in
+          Result.return @@ DT_Status.Placed (0, order)
     in
     Result.return
     @@ { state with State.current = `Listening; content = new_status }
@@ -254,6 +255,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   [@@deriving show { with_path = false }]
 
   let cover_position ~(state : state) time_held (shorting_order : Order.t) =
+    let ( let* ) = Result.( let* ) in
     let current_bar = Bars.Latest.get state.latest shorting_order.symbol in
     let current_price = Item.last current_bar in
     let timestamp = Item.timestamp current_bar in
@@ -277,11 +279,13 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
             cover_reason profit
         in
         Eio.traceln "@[Profit from covering: %f@]@." profit;
-        Backend.place_order state
-        @@ Order.make ~symbol:shorting_order.symbol ~side:Side.Buy
-             ~tif:shorting_order.tif ~order_type:shorting_order.order_type
-             ~qty:shorting_order.qty ~price:current_price ~timestamp ~reason
-             ~profit:(Some profit);
+        let* () =
+          Backend.place_order state
+          @@ Order.make ~symbol:shorting_order.symbol ~side:Side.Buy
+               ~tif:shorting_order.tif ~order_type:shorting_order.order_type
+               ~qty:shorting_order.qty ~price:current_price ~timestamp ~reason
+               ~profit:(Some profit)
+        in
         Result.return
         @@ {
              state with

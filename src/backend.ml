@@ -28,8 +28,8 @@ module type S = sig
   (* Save data that is received in a live/paper run *)
   val save_received : bool
   val received_data : Bars.t
-  val get_trading_client : unit -> Piaf.Client.t
-  val get_data_client : unit -> Piaf.Client.t
+  val get_trading_client : unit -> (Piaf.Client.t, string) result
+  val get_data_client : unit -> (Piaf.Client.t, string) result
   val env : Eio_unix.Stdenv.base
   val init_state : 'a -> 'a State.t
   val get_cash : unit -> float
@@ -39,10 +39,10 @@ module type S = sig
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
   val next_market_close : unit -> Time.t
-  val place_order : _ State.t -> Order.t -> unit
+  val place_order : _ State.t -> Order.t -> (unit, string) result
   val latest_bars : string list -> (Bars.Latest.t, string) result
-  val last_data_bar : Bars.Latest.t option
-  val liquidate : _ State.t -> unit
+  val last_data_bar : (Bars.Latest.t, string) result
+  val liquidate : _ State.t -> (unit, string) Result.t
 end
 
 module type BACKEND_INPUT = sig
@@ -70,17 +70,14 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   module LongleafMutex = LongleafMutex
   module Backend_position = Backend_position.Generative ()
 
-  let get_trading_client _ =
-    invalid_arg "Backtesting does not have a trading client"
-
-  let get_data_client _ =
-    invalid_arg "Backtesting does not have a trading client"
+  let get_trading_client _ = Error "Backtesting does not have a trading client"
+  let get_data_client _ = Error "Backtesting does not have a data client"
 
   let init_state content =
     {
       State.current = `Initialize;
       bars = Input.bars;
-      latest = Bars.Latest.empty;
+      latest = Bars.Latest.empty ();
       content;
       order_history = Vector.create ();
     }
@@ -128,18 +125,29 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
 
   let last_data_bar =
     let module Hashtbl = Bars.Hashtbl in
-    let last : Bars.Latest.t = Hashtbl.create 20 in
-    (Hashtbl.to_seq Input.bars
-    |> Seq.iter @@ fun (symbol, vector) ->
-       match Vector.pop vector with
-       | None -> invalid_arg "Empty dataset"
-       | Some item -> Hashtbl.replace last symbol item);
-    Some last
+    let ( let* ) = Result.( let* ) in
+    let tbl : Bars.Latest.t = Hashtbl.create 20 in
+    let* target = Option.to_result "No target for last data bar" Input.target in
+    Hashtbl.to_seq target
+    |>
+    let fold f = Seq.fold f (Ok tbl) in
+    fold @@ fun ok (symbol, vector) ->
+    let* _ = ok in
+    let l = Vector.length vector in
+    match l with
+    | 0 -> Error "No data for symbol in last_data_bar?"
+    | l ->
+        Result.return
+        @@
+        let item = Vector.get vector (l - 1) in
+        Hashtbl.replace tbl symbol item;
+        tbl
 
   let liquidate state =
-    match last_data_bar with
-    | None -> invalid_arg "Expected last data bar in backtest"
-    | Some db -> Backend_position.liquidate state db
+    let ( let* ) = Result.( let* ) in
+    let* last = last_data_bar in
+    let* () = Backend_position.liquidate state last in
+    Ok ()
 end
 
 (* Live trading *)
@@ -186,8 +194,8 @@ module Alpaca
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create data client"
 
-  let get_trading_client _ = trading_client
-  let get_data_client _ = data_client
+  let get_trading_client _ = Ok trading_client
+  let get_data_client _ = Ok data_client
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
@@ -208,7 +216,7 @@ module Alpaca
     {
       State.current = `Initialize;
       bars = Bars.empty ();
-      latest = Bars.Latest.empty;
+      latest = Bars.Latest.empty ();
       content;
       order_history = Vector.create ();
     }
@@ -230,13 +238,13 @@ module Alpaca
   let symbols = Input.symbols
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
-  let last_data_bar = None
+  let last_data_bar = Error "No last data bar in Alpaca backend"
 
   let latest_bars symbols =
     match symbols with
     | [] ->
-        invalid_arg
-          "Backend.latest_bars: Cannot get latest bars for no symbols."
+        Eio.traceln "No symbols in latest bars request.";
+        Result.return @@ Bars.Latest.empty ()
     | _ ->
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
@@ -247,19 +255,14 @@ module Alpaca
   let get_clock = Trading_api.Clock.get
 
   let place_order state order =
-    Backtesting.place_order state order;
+    let ( let* ) = Result.( let* ) in
+    let* () = Backtesting.place_order state order in
     Trading_api.Orders.create_market_order order
 
   let liquidate state =
+    let ( let* ) = Result.( let* ) in
     let symbols = Backend_position.symbols () in
-    let last_data_bar =
-      match latest_bars symbols with
-      | Ok x -> x
-      | Error _ ->
-          invalid_arg
-            "[Error] Unable to get price information for symbol while \
-             liquidating."
-    in
+    let* last_data_bar = latest_bars symbols in
     let _ =
       List.iter
         (fun symbol ->
@@ -287,5 +290,5 @@ module Alpaca
     (* ; *)
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
-    ()
+    Ok ()
 end

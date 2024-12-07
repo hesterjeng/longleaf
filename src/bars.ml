@@ -93,7 +93,7 @@ module Latest = struct
     | Some x -> x
     | None -> invalid_arg "Unable to find price of symbol (Bars.Latest)"
 
-  let empty : t = Hashtbl.create 0
+  let empty () : t = Hashtbl.create 0
 
   let pp : t Format.printer =
    fun fmt x ->

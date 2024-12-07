@@ -42,8 +42,10 @@ let place_order_test eio_env longleaf_env =
       ~order_type:Trading_types.OrderType.Market ~qty:1 ~price:(-1.0)
       ~timestamp:(Time.of_int 0) ~reason:"Order test" ~profit:None
   in
-  Alpaca.place_order state order;
-  Alpaca.shutdown ();
-  ()
+  match Alpaca.place_order state order with
+  | Ok () -> Alpaca.shutdown ()
+  | Error e ->
+      Eio.traceln "%s" e;
+      ()
 
 let top = place_order_test

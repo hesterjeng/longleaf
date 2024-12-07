@@ -1,4 +1,3 @@
-module Log = (val Logs.src_log Logs.(Src.create "trading-api"))
 open Trading_types
 module Headers = Piaf.Headers
 module Response = Piaf.Response
@@ -136,17 +135,17 @@ module Make (Alpaca : Util.CLIENT) = struct
               let response_t = response_of_yojson json in
               Pmutex.set order.id response_t.id;
               Pmutex.set order.status response_t.status;
-              ()
+              Ok ()
           | Error e ->
               Eio.traceln
                 "@[Error when converting create_market_order reponse body to \
                  string: %a@]@."
                 Piaf.Error.pp_hum e;
-              invalid_arg
-                "Error converting create_market_order response body to string")
+              Result.fail
+              @@ "Error converting create_market_order response body to string")
       | x ->
           Eio.traceln "@[Response: %a@]@." Status.pp_hum x;
-          invalid_arg "Bad response in create_market_order"
+          Result.fail @@ "Bad response in create_market_order"
 
     let get_all_orders () =
       let endpoint = "/v2/orders" in
