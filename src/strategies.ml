@@ -113,6 +113,7 @@ module Strategy_utils (Backend : Backend.S) = struct
 
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
+    let ( let* ) = Result.( let* ) in
     (* Eio.traceln "There are %d bindings in state.bars" *)
     (*   (Bars.Hashtbl.length state.bars); *)
     match current with
@@ -131,7 +132,7 @@ module Strategy_utils (Backend : Backend.S) = struct
             Eio.traceln "Attempting to liquidate positions before shutting down";
             Result.return { state with current = `Liquidate })
     | `Liquidate ->
-        Backend.liquidate state;
+        let* () = Backend.liquidate state in
         Result.return
         @@ { state with current = `Finished "Liquidation finished" }
     | `Finished code ->
