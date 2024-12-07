@@ -87,17 +87,24 @@ end
 module Cmd = struct
   let run today begin_arg end_arg timeframe_arg interval_arg =
     Fmt_tty.setup_std_outputs ();
-    let start =
-      if today then Time.of_ymd @@ get_todays_date ()
-      else Time.of_ymd "2024-11-01"
-    in
     let prefix = if today then "download_today" else "download" in
-    let request : Longleaf.Market_data_api.Historical_bars_request.t =
-      {
-        timeframe = Trading_types.Timeframe.min 10;
-        start;
-        symbols = some_symbols;
-      }
+    let request =
+      match
+        Longleaf.Market_data_api.Historical_bars_request.of_data_downloader
+          some_symbols begin_arg end_arg timeframe_arg interval_arg
+      with
+      | Some r -> r
+      | None ->
+          let start =
+            if today then Time.of_ymd @@ get_todays_date ()
+            else Time.of_ymd "2024-11-01"
+          in
+          {
+            timeframe = Trading_types.Timeframe.min 10;
+            start;
+            symbols = some_symbols;
+            end_ = None;
+          }
     in
     let _ =
       Eio_main.run @@ fun eio_env -> Downloader.top eio_env request prefix
