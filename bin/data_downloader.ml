@@ -15,13 +15,14 @@ module Args = struct
     Cmdliner.Arg.(value & opt (some string) None & info [ "end" ] ~doc)
 
   let timeframe_arg =
-    let doc = "Timeframe. 0 is minute, 1 is hour, 2 is day, 3 is week, 4 is month." in
-    Cmdliner.Arg.(value & opt (some int) None & info [ "timeframe"] ~doc)
+    let doc =
+      "Timeframe. 0 is minute, 1 is hour, 2 is day, 3 is week, 4 is month."
+    in
+    Cmdliner.Arg.(value & opt (some int) None & info [ "timeframe" ] ~doc)
 
   let interval_arg =
     let doc = "Interval for the timeframe. 10 means every ten minutes." in
-    Cmdliner.Arg.(value & opt (some int) None & info [ "interval"] ~doc)
-
+    Cmdliner.Arg.(value & opt (some int) None & info [ "interval" ] ~doc)
 end
 
 let some_symbols =
@@ -84,7 +85,7 @@ module Downloader = struct
 end
 
 module Cmd = struct
-  let run today =
+  let run today begin_arg end_arg timeframe_arg interval_arg =
     Fmt_tty.setup_std_outputs ();
     let start =
       if today then Time.of_ymd @@ get_todays_date ()
@@ -104,7 +105,11 @@ module Cmd = struct
     ()
 
   let top =
-    let term = Cmdliner.Term.(const run $ Args.today_arg) in
+    let term =
+      Cmdliner.Term.(
+        const run $ Args.today_arg $ Args.begin_arg $ Args.end_arg
+        $ Args.timeframe_arg $ Args.interval_arg)
+    in
     let doc = "Simple data downloader." in
     let info = Cmdliner.Cmd.info ~doc "./main.exe" in
     Cmdliner.Cmd.v info term
