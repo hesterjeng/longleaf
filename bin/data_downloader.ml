@@ -5,6 +5,24 @@ module Args = struct
   let today_arg =
     let doc = "Download data only for today." in
     Cmdliner.Arg.(value & flag & info [ "t" ] ~doc)
+
+  let begin_arg =
+    let doc = "Begin date." in
+    Cmdliner.Arg.(value & opt (some string) None & info [ "begin" ] ~doc)
+
+  let end_arg =
+    let doc = "End date." in
+    Cmdliner.Arg.(value & opt (some string) None & info [ "end" ] ~doc)
+
+  let timeframe_arg =
+    let doc =
+      "Timeframe. 0 is minute, 1 is hour, 2 is day, 3 is week, 4 is month."
+    in
+    Cmdliner.Arg.(value & opt (some int) None & info [ "timeframe" ] ~doc)
+
+  let interval_arg =
+    let doc = "Interval for the timeframe. 10 means every ten minutes." in
+    Cmdliner.Arg.(value & opt (some int) None & info [ "interval" ] ~doc)
 end
 
 let some_symbols =
@@ -67,19 +85,26 @@ module Downloader = struct
 end
 
 module Cmd = struct
-  let run today =
+  let run today begin_arg end_arg timeframe_arg interval_arg =
     Fmt_tty.setup_std_outputs ();
-    let start =
-      if today then Time.of_ymd @@ get_todays_date ()
-      else Time.of_ymd "2024-11-01"
-    in
     let prefix = if today then "download_today" else "download" in
-    let request : Longleaf.Market_data_api.Historical_bars_request.t =
-      {
-        timeframe = Trading_types.Timeframe.min 10;
-        start;
-        symbols = some_symbols;
-      }
+    let request =
+      match
+        Longleaf.Market_data_api.Historical_bars_request.of_data_downloader
+          some_symbols begin_arg end_arg timeframe_arg interval_arg
+      with
+      | Some r -> r
+      | None ->
+          let start =
+            if today then Time.of_ymd @@ get_todays_date ()
+            else Time.of_ymd "2024-11-01"
+          in
+          {
+            timeframe = Trading_types.Timeframe.min 10;
+            start;
+            symbols = some_symbols;
+            end_ = None;
+          }
     in
     let _ =
       Eio_main.run @@ fun eio_env -> Downloader.top eio_env request prefix
@@ -87,7 +112,11 @@ module Cmd = struct
     ()
 
   let top =
-    let term = Cmdliner.Term.(const run $ Args.today_arg) in
+    let term =
+      Cmdliner.Term.(
+        const run $ Args.today_arg $ Args.begin_arg $ Args.end_arg
+        $ Args.timeframe_arg $ Args.interval_arg)
+    in
     let doc = "Simple data downloader." in
     let info = Cmdliner.Cmd.info ~doc "./main.exe" in
     Cmdliner.Cmd.v info term
