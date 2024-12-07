@@ -80,7 +80,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     {
       State.current = `Initialize;
       bars = Input.bars;
-      latest = Bars.Latest.empty;
+      latest = Bars.Latest.empty ();
       content;
       order_history = Vector.create ();
     }
@@ -208,7 +208,7 @@ module Alpaca
     {
       State.current = `Initialize;
       bars = Bars.empty ();
-      latest = Bars.Latest.empty;
+      latest = Bars.Latest.empty ();
       content;
       order_history = Vector.create ();
     }
@@ -236,7 +236,7 @@ module Alpaca
     match symbols with
     | [] ->
         invalid_arg
-          "Backend.latest_bars: Cannot get latest bars for no symbols."
+          "Backend.Alpaca.latest_bars: Cannot get latest bars for no symbols."
     | _ ->
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
