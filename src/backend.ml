@@ -235,9 +235,8 @@ module Alpaca
   let latest_bars symbols =
     match symbols with
     | [] ->
-      Eio.traceln "No symbols in latest bars request.";
-      Result.return @@
-      Bars.Latest.empty ()
+        Eio.traceln "No symbols in latest bars request.";
+        Result.return @@ Bars.Latest.empty ()
     | _ ->
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
