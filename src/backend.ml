@@ -39,7 +39,7 @@ module type S = sig
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
   val next_market_close : unit -> Time.t
-  val place_order : _ State.t -> Order.t -> unit
+  val place_order : _ State.t -> Order.t -> (unit, string) result
   val latest_bars : string list -> (Bars.Latest.t, string) result
   val last_data_bar : (Bars.Latest.t, string) result
   val liquidate : _ State.t -> (unit, string) Result.t
@@ -146,7 +146,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let liquidate state =
     let ( let* ) = Result.( let* ) in
     let* last = last_data_bar in
-    Backend_position.liquidate state last;
+    let* () = Backend_position.liquidate state last in
     Ok ()
 end
 
@@ -255,19 +255,14 @@ module Alpaca
   let get_clock = Trading_api.Clock.get
 
   let place_order state order =
-    Backtesting.place_order state order;
+    let ( let* ) = Result.( let* ) in
+    let* () = Backtesting.place_order state order in
     Trading_api.Orders.create_market_order order
 
   let liquidate state =
+    let ( let* ) = Result.( let* ) in
     let symbols = Backend_position.symbols () in
-    let last_data_bar =
-      match latest_bars symbols with
-      | Ok x -> x
-      | Error _ ->
-          invalid_arg
-            "[Error] Unable to get price information for symbol while \
-             liquidating."
-    in
+    let* last_data_bar = latest_bars symbols in
     let _ =
       List.iter
         (fun symbol ->
