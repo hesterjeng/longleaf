@@ -46,7 +46,7 @@ module Downloader = struct
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create data client"
 
-  let top eio_env request =
+  let top eio_env request prefix =
     Eio.Switch.run @@ fun switch ->
     Util.yojson_safe true @@ fun () ->
     let longleaf_env = Environment.make () in
@@ -62,7 +62,7 @@ module Downloader = struct
     Eio.traceln "Trying infill";
     Bars.Infill.top bars;
     Eio.traceln "%a" Bars.pp_stats bars;
-    Bars.print_to_file bars "download";
+    Bars.print_to_file bars prefix;
     Piaf.Client.shutdown data_client
 end
 
@@ -73,6 +73,7 @@ module Cmd = struct
       if today then Time.of_ymd @@ get_todays_date ()
       else Time.of_ymd "2024-11-01"
     in
+    let prefix = if today then "download_today" else "download" in
     let request : Longleaf.Market_data_api.Historical_bars_request.t =
       {
         timeframe = Trading_types.Timeframe.min 10;
@@ -80,7 +81,9 @@ module Cmd = struct
         symbols = some_symbols;
       }
     in
-    let _ = Eio_main.run @@ fun eio_env -> Downloader.top eio_env request in
+    let _ =
+      Eio_main.run @@ fun eio_env -> Downloader.top eio_env request prefix
+    in
     ()
 
   let top =
