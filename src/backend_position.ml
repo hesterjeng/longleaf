@@ -3,8 +3,8 @@ module Order = Trading_types.Order
 type pos = (string, int) Hashtbl.t [@@deriving show]
 
 module type S = sig
-  val execute_order : _ State.t -> Order.t -> unit
-  val liquidate : _ State.t -> Bars.Latest.t -> unit
+  val execute_order : _ State.t -> Order.t -> (unit, string) Result.t
+  val liquidate : _ State.t -> Bars.Latest.t -> (unit, string) Result.t
   val get_cash : unit -> float
   val set_cash : float -> unit
   val symbols : unit -> string list
@@ -41,32 +41,37 @@ module Generative () : S = struct
     match (order.side, order.order_type) with
     | Buy, Market ->
         Hashtbl.replace pos.position symbol (current_amt + qty);
-        set_cash @@ (pos.cash -. (price *. Float.of_int qty))
+        set_cash @@ (pos.cash -. (price *. Float.of_int qty));
+        Ok ()
     | Sell, Market ->
         Hashtbl.replace pos.position symbol (current_amt - qty);
-        set_cash @@ (pos.cash +. (price *. Float.of_int qty))
-    | _ ->
-        invalid_arg
-        @@ Format.asprintf "@[Unsupported order: %a@]@." Order.pp order
+        set_cash @@ (pos.cash +. (price *. Float.of_int qty));
+        Ok ()
+    | _ -> Result.fail @@ Format.asprintf "Unsupported order: %a" Order.pp order
+
+  exception Unsupported_order
 
   let liquidate state (bars : Bars.Latest.t) =
     let open Trading_types in
-    Hashtbl.iter
-      (fun symbol qty ->
-        if qty = 0 then ()
-        else
-          let side = if qty >= 0 then Side.Sell else Side.Buy in
-          let latest = Bars.Latest.get bars symbol in
-          let order : Order.t =
-            let tif = TimeInForce.GoodTillCanceled in
-            let order_type = OrderType.Market in
-            let qty = Int.abs qty in
-            let price = Bars.Item.last latest in
-            let timestamp = Bars.Item.timestamp latest in
-            Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-              ~profit:None ~reason:"Liquidating"
-          in
-          Eio.traceln "@[%a@]@." Order.pp order;
-          execute_order state order)
-      pos.position
+    let ( let* ) = Result.( let* ) in
+    let fold f = Hashtbl.fold f pos.position (Ok ()) in
+    fold @@ fun symbol qty ok ->
+    let* () = ok in
+    match qty with
+    | 0 -> Ok ()
+    | qty ->
+        let side = if qty >= 0 then Side.Sell else Side.Buy in
+        let latest = Bars.Latest.get bars symbol in
+        let order : Order.t =
+          let tif = TimeInForce.GoodTillCanceled in
+          let order_type = OrderType.Market in
+          let qty = Int.abs qty in
+          let price = Bars.Item.last latest in
+          let timestamp = Bars.Item.timestamp latest in
+          Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
+            ~profit:None ~reason:"Liquidating"
+        in
+        Eio.traceln "@[%a@]@." Order.pp order;
+        let* () = execute_order state order in
+        Ok ()
 end
