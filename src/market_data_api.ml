@@ -2,7 +2,12 @@ open Trading_types
 module Headers = Piaf.Headers
 
 module Historical_bars_request = struct
-  type t = { symbols : string list; timeframe : Timeframe.t; start : Time.t }
+  type t = {
+    symbols : string list;
+    timeframe : Timeframe.t;
+    start : Time.t;
+    end_ : Time.t option; [@key "end"]
+  }
   [@@deriving show, yojson]
 
   let of_data_downloader symbols begin_arg end_arg timeframe_arg interval_arg =
@@ -23,6 +28,7 @@ module Historical_bars_request = struct
            | 4 -> Timeframe.month interval_arg
            | _ -> invalid_arg "Invalid timeframe integer specifier");
          start = Time.of_ymd begin_arg;
+         end_ = Option.return @@ Time.of_ymd end_arg;
        }
 end
 
