@@ -232,6 +232,13 @@ let print_to_file ?(filename : string option) bars prefix =
   output_string oc str;
   close_out oc
 
+let print_to_file_direct bars filename =
+  let bars_json = yojson_of_t bars in
+  let str = Yojson.Safe.to_string bars_json in
+  let oc = open_out filename in
+  output_string oc str;
+  close_out oc
+
 module Infill = struct
   (* Alpaca market data api can have missing data. *)
   (* Try to fill it in with the most recent bar indicating no change if it happens. *)
