@@ -203,8 +203,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let qty = qty symbol in
       let price = Item.last most_recent_price in
       let timestamp = Item.timestamp most_recent_price in
-      Eio.traceln "@[Short triggered by previous local max at %a@]@." Time.pp
-        prev_max_timestamp;
+      (* Eio.traceln "@[Short triggered by previous local max at %a@]@." Time.pp *)
+      (*   prev_max_timestamp; *)
       let reason =
         Format.asprintf "Attempt Shorting: Caused by previous maximum %a"
           Time.pp
@@ -213,7 +213,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
         ~profit:None
     in
-    Eio.traceln "@[%a@]@." Order.pp order;
+    (* Eio.traceln "@[%a@]@." Order.pp order; *)
     order
 
   (* The maximum amount of a share that can be purchased at the current price with *)
@@ -278,7 +278,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           Format.asprintf "Covering because of %a. Profit: %f" pp_cover_reason
             cover_reason profit
         in
-        Eio.traceln "@[Profit from covering: %f@]@." profit;
+        (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
         let* () =
           Backend.place_order state
           @@ Order.make ~symbol:shorting_order.symbol ~side:Side.Buy
@@ -293,7 +293,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
              content = DT_Status.Waiting;
            }
     | Hold ->
-        Eio.traceln "@[Holding...@]@.";
+        (* Eio.traceln "@[Holding...@]@."; *)
         Result.return
         @@ {
              state with
