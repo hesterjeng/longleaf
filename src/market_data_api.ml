@@ -19,14 +19,7 @@ module Historical_bars_request = struct
     Option.return
     @@ {
          symbols;
-         timeframe =
-           (match timeframe_arg with
-           | 0 -> Timeframe.min interval_arg
-           | 1 -> Timeframe.hour interval_arg
-           | 2 -> Timeframe.day
-           | 3 -> Timeframe.week
-           | 4 -> Timeframe.month interval_arg
-           | _ -> invalid_arg "Invalid timeframe integer specifier");
+         timeframe = timeframe_arg interval_arg;
          start = Time.of_ymd begin_arg;
          end_ = Option.return @@ Time.of_ymd end_arg;
        }
