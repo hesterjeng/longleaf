@@ -7,11 +7,11 @@ module Args = struct
     Cmdliner.Arg.(value & flag & info [ "t" ] ~doc)
 
   let begin_arg =
-    let doc = "Begin date." in
+    let doc = "Begin date as YYYY-MM-DD." in
     Cmdliner.Arg.(value & opt (some string) None & info [ "begin" ] ~doc)
 
   let end_arg =
-    let doc = "End date." in
+    let doc = "End date as YYYY-MM-DD." in
     Cmdliner.Arg.(value & opt (some string) None & info [ "end" ] ~doc)
 
   let timeframe_arg =
@@ -118,7 +118,7 @@ module Cmd = struct
         $ Args.timeframe_arg $ Args.interval_arg)
     in
     let doc = "Simple data downloader." in
-    let info = Cmdliner.Cmd.info ~doc "./main.exe" in
+    let info = Cmdliner.Cmd.info ~doc "data_downloader.exe" in
     Cmdliner.Cmd.v info term
 end
 
