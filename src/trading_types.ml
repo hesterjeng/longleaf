@@ -49,7 +49,9 @@ end
 
 module Timeframe : sig
   type t
+  type conv = int -> t
 
+  val conv : conv Cmdliner.Arg.conv
   val t_of_yojson : Yojson.Safe.t -> t
   val yojson_of_t : t -> Yojson.Safe.t
   val pp : t Format.printer
@@ -69,6 +71,18 @@ end = struct
     | Day -> "1Day"
     | Week -> "1Week"
     | Month i -> Format.asprintf "%dMonth" i
+
+  type conv = int -> t [@@deriving show]
+
+  let conv_of_string : string -> (conv, _) result = function
+    | "minute" | "min" | "Minute" | "Min" -> Result.return @@ fun i -> Min i
+    | "hour" | "Hour" -> Result.return @@ fun i -> Hour i
+    | "day" | "Day" -> Result.return @@ fun _ -> Day
+    | "week" | "Week" -> Result.return @@ fun _ -> Week
+    | "month" | "Month" -> Result.return @@ fun i -> Month i
+    | _ -> Result.fail @@ `Msg "Invalid timeframe selection"
+
+  let conv = Cmdliner.Arg.conv (conv_of_string, pp_conv)
 
   let min i =
     assert (1 <= i && i <= 59);
