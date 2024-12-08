@@ -38,9 +38,13 @@ module Args = struct
 
   let timeframe_arg =
     let doc =
-      "Timeframe. 0 is minute, 1 is hour, 2 is day, 3 is week, 4 is month."
+      "Choose a timeframe.  Valid values are minute, hours, day, week, or \
+       month."
     in
-    Cmdliner.Arg.(value & opt (some int) None & info [ "timeframe" ] ~doc)
+    Cmdliner.Arg.(
+      value
+      & opt (some Trading_types.Timeframe.conv) None
+      & info [ "timeframe" ] ~doc)
 
   let interval_arg =
     let doc = "Interval for the timeframe. 10 means every ten minutes." in
