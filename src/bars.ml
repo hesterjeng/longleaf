@@ -232,6 +232,13 @@ let print_to_file ?(filename : string option) bars prefix =
   output_string oc str;
   close_out oc
 
+let print_to_file_direct bars filename =
+  let bars_json = yojson_of_t bars in
+  let str = Yojson.Safe.to_string bars_json in
+  let oc = open_out filename in
+  output_string oc str;
+  close_out oc
+
 module Infill = struct
   (* Alpaca market data api can have missing data. *)
   (* Try to fill it in with the most recent bar indicating no change if it happens. *)
@@ -251,7 +258,7 @@ module Infill = struct
     Eio.traceln "Creating time tables";
     let () =
       Seq.iter (fun symbol ->
-          Eio.traceln "Iterating over %s" symbol;
+          (* Eio.traceln "Iterating over %s" symbol; *)
           let vec = Hashtbl.find x symbol in
           let tbl = Hashtbl.create @@ Vector.length vec in
           Vector.iter
@@ -278,7 +285,7 @@ module Infill = struct
                       Vector.get (Hashtbl.find x symbol) 0
                       |> Item.timestamp |> Time.to_string)
                   in
-                  Eio.traceln "Creating value for %d: %s" i current_time;
+                  (* Eio.traceln "Creating value for %d: %s" i current_time; *)
                   let previous_value =
                     Hashtbl.find_opt tbl previous_time
                     |> Option.get_exn_or "Expected to find previous time"

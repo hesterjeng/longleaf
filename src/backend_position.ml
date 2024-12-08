@@ -49,8 +49,6 @@ module Generative () : S = struct
         Ok ()
     | _ -> Result.fail @@ Format.asprintf "Unsupported order: %a" Order.pp order
 
-  exception Unsupported_order
-
   let liquidate state (bars : Bars.Latest.t) =
     let open Trading_types in
     let ( let* ) = Result.( let* ) in

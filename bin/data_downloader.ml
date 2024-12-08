@@ -1,30 +1,5 @@
 open Longleaf
 
-module Args = struct
-  (* Define the CLI arguments *)
-  let today_arg =
-    let doc = "Download data only for today." in
-    Cmdliner.Arg.(value & flag & info [ "t" ] ~doc)
-
-  let begin_arg =
-    let doc = "Begin date." in
-    Cmdliner.Arg.(value & opt (some string) None & info [ "begin" ] ~doc)
-
-  let end_arg =
-    let doc = "End date." in
-    Cmdliner.Arg.(value & opt (some string) None & info [ "end" ] ~doc)
-
-  let timeframe_arg =
-    let doc =
-      "Timeframe. 0 is minute, 1 is hour, 2 is day, 3 is week, 4 is month."
-    in
-    Cmdliner.Arg.(value & opt (some int) None & info [ "timeframe" ] ~doc)
-
-  let interval_arg =
-    let doc = "Interval for the timeframe. 10 means every ten minutes." in
-    Cmdliner.Arg.(value & opt (some int) None & info [ "interval" ] ~doc)
-end
-
 let some_symbols =
   [
     "NVDA";
@@ -47,6 +22,36 @@ let some_symbols =
     "LLY";
   ]
 
+module Args = struct
+  (* Define the CLI arguments *)
+  let today_arg =
+    let doc = "Download data only for today." in
+    Cmdliner.Arg.(value & flag & info [ "t" ] ~doc)
+
+  let begin_arg =
+    let doc = "Begin date as YYYY-MM-DD." in
+    Cmdliner.Arg.(value & opt (some string) None & info [ "begin" ] ~doc)
+
+  let end_arg =
+    let doc = "End date as YYYY-MM-DD." in
+    Cmdliner.Arg.(value & opt (some string) None & info [ "end" ] ~doc)
+
+  let timeframe_arg =
+    let doc =
+      "Timeframe. 0 is minute, 1 is hour, 2 is day, 3 is week, 4 is month."
+    in
+    Cmdliner.Arg.(value & opt (some int) None & info [ "timeframe" ] ~doc)
+
+  let interval_arg =
+    let doc = "Interval for the timeframe. 10 means every ten minutes." in
+    Cmdliner.Arg.(value & opt (some int) None & info [ "interval" ] ~doc)
+
+  let output_file_arg =
+    let doc = "Output file for the downloaded data." in
+    Cmdliner.Arg.(
+      value & pos 0 (some string) None & info [] ~docv:"output file" ~doc)
+end
+
 let get_todays_date () =
   let time = Unix.time () in
   let local_time = Unix.localtime time in
@@ -64,7 +69,7 @@ module Downloader = struct
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create data client"
 
-  let top eio_env request prefix =
+  let top eio_env request prefix output_file =
     Eio.Switch.run @@ fun switch ->
     Util.yojson_safe true @@ fun () ->
     let longleaf_env = Environment.make () in
@@ -80,12 +85,14 @@ module Downloader = struct
     Eio.traceln "Trying infill";
     Bars.Infill.top bars;
     Eio.traceln "%a" Bars.pp_stats bars;
-    Bars.print_to_file bars prefix;
+    (match output_file with
+    | Some filename -> Bars.print_to_file_direct bars filename
+    | None -> Bars.print_to_file bars prefix);
     Piaf.Client.shutdown data_client
 end
 
 module Cmd = struct
-  let run today begin_arg end_arg timeframe_arg interval_arg =
+  let run today begin_arg end_arg timeframe_arg interval_arg output_file_arg =
     Fmt_tty.setup_std_outputs ();
     let prefix = if today then "download_today" else "download" in
     let request =
@@ -107,7 +114,8 @@ module Cmd = struct
           }
     in
     let _ =
-      Eio_main.run @@ fun eio_env -> Downloader.top eio_env request prefix
+      Eio_main.run @@ fun eio_env ->
+      Downloader.top eio_env request prefix output_file_arg
     in
     ()
 
@@ -115,10 +123,10 @@ module Cmd = struct
     let term =
       Cmdliner.Term.(
         const run $ Args.today_arg $ Args.begin_arg $ Args.end_arg
-        $ Args.timeframe_arg $ Args.interval_arg)
+        $ Args.timeframe_arg $ Args.interval_arg $ Args.output_file_arg)
     in
     let doc = "Simple data downloader." in
-    let info = Cmdliner.Cmd.info ~doc "./main.exe" in
+    let info = Cmdliner.Cmd.info ~doc "data_downloader.exe" in
     Cmdliner.Cmd.v info term
 end
 
