@@ -93,6 +93,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   let save_received = Input.overnight
 
   let place_order state (order : Order.t) =
+    Eio.traceln "@[%a@]@." Order.pp order;
     Backend_position.execute_order state order
 
   (* Ordered in reverse time order when INPUT is created *)
@@ -280,14 +281,12 @@ module Alpaca
               Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
                 ~profit:None ~reason:"Liquidate"
             in
-            Eio.traceln "%a" Order.pp order;
+            (* Eio.traceln "%a" Order.pp order; *)
             let _json_resp = place_order state order in
             ())
         symbols
     in
     let account_status = Trading_api.Accounts.get_account () in
-    (* if (save_received) then Bars.prin *)
-    (* ; *)
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     Ok ()

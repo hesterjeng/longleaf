@@ -51,6 +51,10 @@ module Make (Alpaca : Util.CLIENT) = struct
              ("timeframe", Timeframe.to_string request.timeframe);
              ("start", Ptime.to_rfc3339 request.start);
            ]
+        |> (fun uri ->
+        match request.end_ with
+        | Some end_t -> Uri.add_query_param' uri ("end", Ptime.to_rfc3339 end_t)
+        | None -> uri)
         |> Uri.to_string
       in
       let rec collect_data ~endpoint ~headers acc =
