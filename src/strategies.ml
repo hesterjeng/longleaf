@@ -95,12 +95,12 @@ module Strategy_utils (Backend : Backend.S) = struct
 
   let output_data (state : _ State.t) filename =
     Eio.traceln "cash: %f" (Backend.get_cash ());
-    match Backend.is_backtest with
-    | false -> ()
-    | true ->
-        Eio.traceln "Saving all bars...";
-        Bars.print_to_file ~filename state.bars "live";
-        Bars.print_to_file ~filename Backend.received_data "received"
+    let prefix =
+      match Backend.is_backtest with true -> "backtest" | false -> "live"
+    in
+    Eio.traceln "Saving all bars...";
+    Bars.print_to_file ~filename state.bars prefix;
+    Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received")
 
   let output_order_history (state : _ State.t) filename =
     let json_str =
