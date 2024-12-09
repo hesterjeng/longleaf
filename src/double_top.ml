@@ -111,7 +111,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let window_size = 100
   end
 
-  open Parameters
+  module P = Parameters
 
   module Conditions = struct
     type t = Pass of Item.t | Fail of string
@@ -134,7 +134,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           let x_last = Item.last x in
           let current_max_time = Item.timestamp current_max in
           let x_time = Item.timestamp x in
-          x_last <. min_dip *. current_max_last
+          x_last <. P.min_dip *. current_max_last
           && Ptime.compare current_max_time x_time = 1)
         price_history
       |> function
@@ -153,7 +153,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
             Pair.map_same Item.timestamp (current_max, x)
           in
           let most_recent_time = Item.timestamp most_recent_price in
-          x_last <. min_dip *. current_max_last
+          x_last <. P.min_dip *. current_max_last
           && Ptime.compare x_time current_max_time = 1
           && Ptime.compare most_recent_time x_time = 1)
         minima
@@ -164,8 +164,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let check3 ~(most_recent_price : Item.t) (current_max : Item.t) : t =
       let current_price = Item.last most_recent_price in
       let current_max_price = Item.last current_max in
-      let lower = lower_now_band *. current_max_price in
-      let upper = upper_now_band *. current_max_price in
+      let lower = P.lower_now_band *. current_max_price in
+      let upper = P.upper_now_band *. current_max_price in
       if lower <. current_price && current_price <. upper then Pass current_max
       else Fail "check3"
 
@@ -174,6 +174,25 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let most_recent_volume = Item.volume most_recent_price in
       if prev_volume > most_recent_volume then Pass current_max
       else Fail "check4"
+
+    module Cover_reason = struct
+      type t =
+        | Profited of float
+        | HoldingPeriod of float
+        | StopLoss of float
+        | Hold
+      [@@deriving show { with_path = false }]
+
+      let make ~time_held ~current_price ~(shorting_order : Order.t)
+          ~price_difference =
+        if current_price <. P.profit_multiplier *. shorting_order.price then
+          Profited price_difference
+        else if time_held > P.max_holding_period then
+          HoldingPeriod price_difference
+        else if current_price >. P.stop_loss_multiplier *. shorting_order.price
+        then StopLoss price_difference
+        else Hold
+    end
   end
 
   let consider_shorting ~(history : Bars.t) ~(state : state)
@@ -184,8 +203,12 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let+ (previous_maximum : Item.t) =
       (* FIXME:  We look back for candidates in ALL the historical data! *)
       (* There should be a lookback parameter. *)
-      let minima = Math.find_local_minima ~window_size price_history in
-      let maxima = Math.find_local_maxima ~window_size price_history in
+      let minima =
+        Math.find_local_minima ~window_size:P.window_size price_history
+      in
+      let maxima =
+        Math.find_local_maxima ~window_size:P.window_size price_history
+      in
       let init = Conditions.init maxima in
       let c1 = Conditions.map (Conditions.check1 ~price_history) init in
       let c2 =
@@ -247,13 +270,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     Result.return
     @@ { state with State.current = `Listening; content = new_status }
 
-  type cover_reason =
-    | Profited of float
-    | HoldingPeriod of float
-    | StopLoss of float
-    | Hold
-  [@@deriving show { with_path = false }]
-
   let cover_position ~(state : state) time_held (shorting_order : Order.t) =
     let ( let* ) = Result.( let* ) in
     let current_bar = Bars.Latest.get state.latest shorting_order.symbol in
@@ -261,12 +277,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let timestamp = Item.timestamp current_bar in
     let price_difference = current_price -. shorting_order.price in
     let cover_reason =
-      if current_price <. profit_multiplier *. shorting_order.price then
-        Profited price_difference
-      else if time_held > max_holding_period then HoldingPeriod price_difference
-      else if current_price >. stop_loss_multiplier *. shorting_order.price then
-        StopLoss price_difference
-      else Hold
+      Conditions.Cover_reason.make ~time_held ~current_price ~shorting_order
+        ~price_difference
     in
     match cover_reason with
     | Profited _ | HoldingPeriod _ | StopLoss _ ->
@@ -275,8 +287,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
           *. (shorting_order.price -. current_price)
         in
         let reason =
-          Format.asprintf "Covering because of %a. Profit: %f" pp_cover_reason
-            cover_reason profit
+          Format.asprintf "Covering because of %a. Profit: %f"
+            Conditions.Cover_reason.pp cover_reason profit
         in
         (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
         let* () =
