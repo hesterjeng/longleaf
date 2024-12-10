@@ -64,9 +64,9 @@ module Make
       match runtype with
       | Live -> invalid_arg "Live trading is not implemented yet."
       | Manual -> invalid_arg "Cannot create a strategy with manual runtype."
-      | Paper ->
+      | Paper | Listener ->
           Eio.traceln
-            "@[Creating Alpaca paper backend with:@.tick: %f@.symbols: %a@]@."
+            "@[Creating Alpaca backend with:@.tick: %f@.symbols: %a@]@."
             Input.tick
             List.(pp String.pp)
             Input.symbols;
@@ -110,4 +110,35 @@ module DoubleTop = struct
   end
 
   module Make = Make (Data) (Double_top.DoubleTop)
+end
+
+module Listener = struct
+  module Data : RUN_DATA = struct
+    let symbols =
+      [
+        "NVDA";
+        "TSLA";
+        "AAPL";
+        "MSFT";
+        "NFLX";
+        "META";
+        "AMZN";
+        "AMD";
+        "AVGO";
+        "ELV";
+        "UNH";
+        "MU";
+        "V";
+        "GOOG";
+        "SMCI";
+        "MSTR";
+        "UBER";
+        "LLY";
+      ]
+
+    let tick = 600.0
+    let overnight = true
+  end
+
+  module Make = Make (Data) (Listener.Make)
 end

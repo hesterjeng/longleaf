@@ -26,7 +26,7 @@ module type S = sig
   val overnight : bool
 
   (* Save data that is received in a live/paper run *)
-  val save_received : bool
+  (* val save_received : bool *)
   val received_data : Bars.t
   val get_trading_client : unit -> (Piaf.Client.t, string) result
   val get_data_client : unit -> (Piaf.Client.t, string) result
@@ -234,6 +234,7 @@ module Alpaca
     Eio.traceln "Alpaca backend shutdown";
     Piaf.Client.shutdown trading_client;
     Piaf.Client.shutdown data_client;
+    Piaf.Client.shutdown tiingo_client;
     ()
 
   let symbols = Input.symbols
