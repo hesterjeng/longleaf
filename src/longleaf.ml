@@ -60,8 +60,13 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received eio_env =
       let target = target
       let save_received = save_received
     end in
-    let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
-    Run.top runtype
+    match runtype with
+    | Listener ->
+        let module Run = Run.Listener.Make (LongleafMutex) (Context) in
+        Run.top runtype
+    | _ ->
+        let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
+        Run.top runtype
   in
   let run_server () =
     if no_gui then ()
