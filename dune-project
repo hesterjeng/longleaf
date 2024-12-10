@@ -32,7 +32,6 @@
   tsort
   uuidm
   ptime
-  owl
   (yojson
    (>= "1.6"))
   ppx_yojson_conv
