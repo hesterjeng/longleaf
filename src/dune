@@ -1,5 +1,6 @@
 (library
  (name longleaf)
+ (modules :standard)
  (public_name longleaf)
  (libraries
   ; pyml
@@ -14,7 +15,6 @@
   eio_main
   iter
   cmdliner
-  tyxml
   landmarks
   piaf)
  (preprocess
