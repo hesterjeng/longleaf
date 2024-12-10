@@ -43,6 +43,7 @@ module Make
       | None -> Bars.empty ()
       | Download -> invalid_arg "Downloading data for preload NYI"
       | File file ->
+          Eio.traceln "Preloading bars from %s" file;
           let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
           Bars.sort Bars.Item.compare res;
           res
