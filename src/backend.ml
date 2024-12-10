@@ -234,6 +234,7 @@ module Alpaca
     Eio.traceln "Alpaca backend shutdown";
     Piaf.Client.shutdown trading_client;
     Piaf.Client.shutdown data_client;
+    Piaf.Client.shutdown tiingo_client;
     ()
 
   let symbols = Input.symbols
