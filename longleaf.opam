@@ -5,7 +5,7 @@ maintainer: [""]
 authors: [""]
 license: "none"
 depends: [
-  "dune" {>= "3.9"}
+  "dune" {>= "3.17"}
   "ocaml" {>= "5.2"}
   "containers" {>= "3.4"}
   "containers-data" {>= "3.4"}
