@@ -77,49 +77,19 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   module SU = Strategies.Strategy_utils (Backend)
 
-  module Old_params = struct
-    [@@@warning "-32"]
-
-    (* Profits, but for bad reasons *)
-    let min_dip = 0.99
-    let lower_now_band = 0.999
-    let upper_now_band = 1.001
-    let stop_loss_multiplier = 1.02
-    let profit_multiplier = 1.04
-    let max_holding_period = 24
-  end
-
-  (* Profitable? *)
-  module Parameters1 = struct
-    [@@@warning "-32"]
-
-    let min_dip = 0.98
-    let lower_now_band = 0.99
-    let upper_now_band = 1.01
-    let stop_loss_multiplier = 1.02
-
-    (* This should be less than one to indicate *)
-    (* that the short was successful, but seems to provide profits at > 1? *)
-    (* FIXME: Further investigate why this is profitable??? *)
-    (* Maybe it makes us exit shorts that are bad, or there is a problem with *)
-    (* how backtesting? *)
-    let profit_multiplier = 1.04
-    let max_holding_period = 180
-  end
-
-  module Parameters = struct
-    let min_dip = 0.98
-    let lower_now_band = 0.99
-    let upper_now_band = 1.01
-    let stop_loss_multiplier = 1.02
-    let profit_multiplier = 0.96
-    let max_holding_period = 30
-    let window_size = 100
-  end
-
-  module P = Parameters
-
   module Conditions = struct
+    module Parameters = struct
+      let min_dip = 0.98
+      let lower_now_band = 0.99
+      let upper_now_band = 1.01
+      let stop_loss_multiplier = 1.02
+      let profit_multiplier = 0.96
+      let max_holding_period = 30
+      let window_size = 100
+    end
+
+    module P = Parameters
+
     type t = Pass of Item.t | Fail of string
 
     (* 1) There must be a point less than 80% of the critical point before the first max *)
@@ -219,6 +189,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         else Hold
     end
   end
+
+  module P = Conditions.P
 
   let consider_shorting ~(history : Bars.t) ~(state : state)
       ~(qty : string -> int) symbol : Order.t option =
