@@ -216,7 +216,7 @@ module Alpaca
     Backend_position.set_cash account_cash;
     {
       State.current = `Initialize;
-      bars = Bars.empty ();
+      bars = Input.bars;
       latest = Bars.Latest.empty ();
       content;
       order_history = Vector.create ();
