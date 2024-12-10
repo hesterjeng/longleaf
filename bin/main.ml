@@ -3,8 +3,8 @@ module Args = struct
   let runtype_arg =
     let runtype_conv = Longleaf.Options.Runtype.conv in
     let doc =
-      "The type of run.  Valid choices are \"live\", \"paper\", or \
-       \"backtest\"."
+      "The type of run.  Valid choices are \"live\", \"paper\", \"listener\" \
+       or \"backtest\"."
     in
     Cmdliner.Arg.(
       required & pos 0 (some runtype_conv) None & info [] ~docv:"runtype" ~doc)

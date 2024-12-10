@@ -1,5 +1,5 @@
 module Runtype = struct
-  type t = Live | Paper | Backtest | Manual [@@deriving show, eq]
+  type t = Live | Paper | Backtest | Manual | Listener [@@deriving show, eq]
 
   let of_string_res x =
     match x with
@@ -7,6 +7,7 @@ module Runtype = struct
     | "Paper" | "paper" -> Ok Paper
     | "Backtest" | "backtest" -> Ok Backtest
     | "Manual" | "manual" -> Ok Manual
+    | "Listener" | "listener" -> Ok Listener
     | _ -> Error (`Msg "Expected a valid runtype")
 
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
