@@ -3,15 +3,11 @@
  (modules :standard)
  (public_name longleaf)
  (libraries
-  ; pyml
-  ; logs
   fmt
   containers
   containers-data
   ptime
-  owl
   dream
-  angstrom
   eio_main
   iter
   cmdliner
