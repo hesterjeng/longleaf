@@ -59,6 +59,117 @@ module Math = struct
     max_close @@ Iter.rev @@ Iter.take window_size l
 end
 
+module Conditions = struct
+  module Parameters = struct
+    let min_dip = 0.98
+    let lower_now_band = 0.99
+    let upper_now_band = 1.01
+    let stop_loss_multiplier = 1.02
+    let profit_multiplier = 0.96
+    let max_holding_period = 30
+    let window_size = 100
+  end
+
+  module P = Parameters
+
+  type t = Pass of Item.t | Fail of string
+
+  (* 1) There must be a point less than 80% of the critical point before the first max *)
+  (* 2) There must be a local minimum 80% of the first local max between it and now *)
+  (* 3) The current price must be within 5% of that previous maximum *)
+
+  let is_pass = function Pass x -> Some x | _ -> None
+  let find_pass (l : t Iter.t) = Iter.find_map is_pass l
+  let init l = Iter.map (fun x -> Pass x) l
+
+  let map (f : Item.t -> t) (l : t Iter.t) =
+    Iter.map (function Pass x -> f x | Fail s -> Fail s) l
+
+  (* There must have been a rise *)
+  let check1 ~price_history (current_max : Item.t) : t =
+    Vector.find
+      (fun (x : Item.t) ->
+        let current_max_last = Item.last current_max in
+        let x_last = Item.last x in
+        let current_max_time = Item.timestamp current_max in
+        let x_time = Item.timestamp x in
+        x_last <. P.min_dip *. current_max_last
+        && Ptime.compare current_max_time x_time = 1)
+      price_history
+    |> function
+    | Some _ -> Pass current_max
+    | None -> Fail "check1"
+
+  (* There must be a sufficient dip *)
+  let check2 ~minima ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+    Iter.find_pred
+      (fun (x : Item.t) ->
+        let current_max_last, x_last =
+          Pair.map_same Item.last (current_max, x)
+        in
+        let current_max_time, x_time =
+          Pair.map_same Item.timestamp (current_max, x)
+        in
+        let most_recent_time = Item.timestamp most_recent_price in
+        x_last <. P.min_dip *. current_max_last
+        && Ptime.compare x_time current_max_time = 1
+        && Ptime.compare most_recent_time x_time = 1)
+      minima
+    |> function
+    | Some _ -> Pass current_max
+    | None -> Fail "check2"
+
+  (* The current price should be within bands *)
+  let check3 ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+    let current_price = Item.last most_recent_price in
+    let current_max_price = Item.last current_max in
+    let lower = P.lower_now_band *. current_max_price in
+    let upper = P.upper_now_band *. current_max_price in
+    if lower <. current_price && current_price <. upper then Pass current_max
+    else Fail "check3"
+
+  (* The current volume should be less than the previous *)
+  let check4 ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+    let prev_volume = Item.volume current_max in
+    let most_recent_volume = Item.volume most_recent_price in
+    if prev_volume > most_recent_volume then Pass current_max else Fail "check4"
+
+  (* There should not be a higher peak between the previous max and the current price *)
+  let check5 ~price_history ~most_recent_price current_max : t =
+    let trigger_time = Item.timestamp current_max in
+    let current_price = Item.last most_recent_price in
+    let in_bounds (x : Item.t) =
+      let peak_time = Item.timestamp x in
+      Ptime.compare peak_time trigger_time = 1
+    in
+    let is_peak (x : Item.t) =
+      let peak_price = Item.last x in
+      peak_price >. P.upper_now_band *. current_price
+    in
+    Vector.find (fun i -> in_bounds i && is_peak i) price_history |> function
+    | Some _ -> Fail "check5"
+    | None -> Pass current_max
+
+  module Cover_reason = struct
+    type t =
+      | Profited of float
+      | HoldingPeriod of float
+      | StopLoss of float
+      | Hold
+    [@@deriving show { with_path = false }]
+
+    let make ~time_held ~current_price ~(shorting_order : Trading_types.Order.t)
+        ~price_difference =
+      if current_price <. P.profit_multiplier *. shorting_order.price then
+        Profited price_difference
+      else if time_held > P.max_holding_period then
+        HoldingPeriod price_difference
+      else if current_price >. P.stop_loss_multiplier *. shorting_order.price
+      then StopLoss price_difference
+      else Hold
+  end
+end
+
 module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let shutdown () =
     Eio.traceln "Shutdown command NYI";
@@ -76,120 +187,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
   let init_state = Backend.init_state DT_Status.Waiting
 
   module SU = Strategies.Strategy_utils (Backend)
-
-  module Conditions = struct
-    module Parameters = struct
-      let min_dip = 0.98
-      let lower_now_band = 0.99
-      let upper_now_band = 1.01
-      let stop_loss_multiplier = 1.02
-      let profit_multiplier = 0.96
-      let max_holding_period = 30
-      let window_size = 100
-    end
-
-    module P = Parameters
-
-    type t = Pass of Item.t | Fail of string
-
-    (* 1) There must be a point less than 80% of the critical point before the first max *)
-    (* 2) There must be a local minimum 80% of the first local max between it and now *)
-    (* 3) The current price must be within 5% of that previous maximum *)
-
-    let is_pass = function Pass x -> Some x | _ -> None
-    let find_pass (l : t Iter.t) = Iter.find_map is_pass l
-    let init l = Iter.map (fun x -> Pass x) l
-
-    let map (f : Item.t -> t) (l : t Iter.t) =
-      Iter.map (function Pass x -> f x | Fail s -> Fail s) l
-
-    (* There must have been a rise *)
-    let check1 ~price_history (current_max : Item.t) : t =
-      Vector.find
-        (fun (x : Item.t) ->
-          let current_max_last = Item.last current_max in
-          let x_last = Item.last x in
-          let current_max_time = Item.timestamp current_max in
-          let x_time = Item.timestamp x in
-          x_last <. P.min_dip *. current_max_last
-          && Ptime.compare current_max_time x_time = 1)
-        price_history
-      |> function
-      | Some _ -> Pass current_max
-      | None -> Fail "check1"
-
-    (* There must be a sufficient dip *)
-    let check2 ~minima ~(most_recent_price : Item.t) (current_max : Item.t) : t
-        =
-      Iter.find_pred
-        (fun (x : Item.t) ->
-          let current_max_last, x_last =
-            Pair.map_same Item.last (current_max, x)
-          in
-          let current_max_time, x_time =
-            Pair.map_same Item.timestamp (current_max, x)
-          in
-          let most_recent_time = Item.timestamp most_recent_price in
-          x_last <. P.min_dip *. current_max_last
-          && Ptime.compare x_time current_max_time = 1
-          && Ptime.compare most_recent_time x_time = 1)
-        minima
-      |> function
-      | Some _ -> Pass current_max
-      | None -> Fail "check2"
-
-    (* The current price should be within bands *)
-    let check3 ~(most_recent_price : Item.t) (current_max : Item.t) : t =
-      let current_price = Item.last most_recent_price in
-      let current_max_price = Item.last current_max in
-      let lower = P.lower_now_band *. current_max_price in
-      let upper = P.upper_now_band *. current_max_price in
-      if lower <. current_price && current_price <. upper then Pass current_max
-      else Fail "check3"
-
-    (* The current volume should be less than the previous *)
-    let check4 ~(most_recent_price : Item.t) (current_max : Item.t) : t =
-      let prev_volume = Item.volume current_max in
-      let most_recent_volume = Item.volume most_recent_price in
-      if prev_volume > most_recent_volume then Pass current_max
-      else Fail "check4"
-
-    (* There should not be a higher peak between the previous max and the current price *)
-    let check5 ~price_history ~most_recent_price current_max : t =
-      let trigger_time = Item.timestamp current_max in
-      let current_price = Item.last most_recent_price in
-      let in_bounds (x : Item.t) =
-        let peak_time = Item.timestamp x in
-        Ptime.compare peak_time trigger_time = 1
-      in
-      let is_peak (x : Item.t) =
-        let peak_price = Item.last x in
-        peak_price >. P.upper_now_band *. current_price
-      in
-      Vector.find (fun i -> in_bounds i && is_peak i) price_history |> function
-      | Some _ -> Fail "check5"
-      | None -> Pass current_max
-
-    module Cover_reason = struct
-      type t =
-        | Profited of float
-        | HoldingPeriod of float
-        | StopLoss of float
-        | Hold
-      [@@deriving show { with_path = false }]
-
-      let make ~time_held ~current_price ~(shorting_order : Order.t)
-          ~price_difference =
-        if current_price <. P.profit_multiplier *. shorting_order.price then
-          Profited price_difference
-        else if time_held > P.max_holding_period then
-          HoldingPeriod price_difference
-        else if current_price >. P.stop_loss_multiplier *. shorting_order.price
-        then StopLoss price_difference
-        else Hold
-    end
-  end
-
   module P = Conditions.P
 
   let consider_shorting ~(history : Bars.t) ~(state : state)
