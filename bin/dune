@@ -17,6 +17,8 @@
   longleaf-strategies
   landmarks
   eio_main)
+ ; (preprocess
+ ;  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv)))
 
