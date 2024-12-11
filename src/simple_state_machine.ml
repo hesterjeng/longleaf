@@ -27,7 +27,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
         let qty =
           match cash_available >=. 0.0 with
           | true ->
-              let last = Bars.Item.last nvda in
+              let last = Item.last nvda in
               let tenp = cash_available *. 0.5 in
               let max_amt = tenp /. last in
               if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
@@ -35,9 +35,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
         in
         (* Actually do the trade *)
         let () =
-          let msft_last, nvda_last =
-            Pair.map_same Bars.Item.last (msft, nvda)
-          in
+          let msft_last, nvda_last = Pair.map_same Item.last (msft, nvda) in
           if msft_last <. nvda_last then ()
           else
             let order : Order.t =
@@ -46,7 +44,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
               let tif = TimeInForce.Day in
               let order_type = OrderType.Market in
               let price = nvda_last in
-              let timestamp = Bars.Item.timestamp msft in
+              let timestamp = Item.timestamp msft in
               Order.make ~symbol ~side ~tif ~order_type ~price ~qty ~timestamp
                 ~profit:None ~reason:"SimpleStateMachine"
             in

@@ -277,8 +277,8 @@ module Alpaca
               let tif = TimeInForce.GoodTillCanceled in
               let order_type = OrderType.Market in
               let qty = Int.abs qty in
-              let price = Bars.Item.last latest_info in
-              let timestamp = Bars.Item.timestamp latest_info in
+              let price = Item.last latest_info in
+              let timestamp = Item.timestamp latest_info in
               Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
                 ~profit:None ~reason:"Liquidate"
             in

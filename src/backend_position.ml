@@ -64,8 +64,8 @@ module Generative () : S = struct
           let tif = TimeInForce.GoodTillCanceled in
           let order_type = OrderType.Market in
           let qty = Int.abs qty in
-          let price = Bars.Item.last latest in
-          let timestamp = Bars.Item.timestamp latest in
+          let price = Item.last latest in
+          let timestamp = Item.timestamp latest in
           Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
             ~profit:None ~reason:"Liquidating"
         in
