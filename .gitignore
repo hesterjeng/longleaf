@@ -4,3 +4,5 @@ server.exe
 main.exe
 data_downloader.exe
 shutdown.exe
+src/template.ml
+src/multitemplate.ml
