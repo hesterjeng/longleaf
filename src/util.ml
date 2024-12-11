@@ -6,8 +6,6 @@
 (*   () *)
 
 include Ppx_yojson_conv_lib.Yojson_conv
-module Get_log = (val Logs.src_log Logs.(Src.create "get-log"))
-module Util_log = (val Logs.src_log Logs.(Src.create "util-log"))
 
 let get_piaf ~client ~headers ~endpoint =
   let open Piaf in
