@@ -5,7 +5,6 @@ end
 
 module type STRAT_BUILDER = functor (_ : Backend.S) -> S
 
-
 module Strategy_utils (Backend : Backend.S) = struct
   type signal = Shutdown | Continue [@@deriving show]
 
