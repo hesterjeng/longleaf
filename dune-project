@@ -4,17 +4,14 @@
 
 (generate_opam_files true)
 
-; (source
-;  (github john/longleaf))
+(authors "John Hester")
 
-(authors "")
-
-(maintainers "")
+(maintainers "John Hester")
 
 (package
  (name longleaf)
  (synopsis "longleaf")
- (license "none")
+ (license "GPLv3")
  (depends
   dune
   (ocaml
@@ -25,11 +22,8 @@
    (>= "3.4"))
   (iter
    (>= "1.0"))
-  zarith
   ezcurl-lwt
-  logs
   ptime
-  tsort
   uuidm
   ptime
   (yojson
@@ -41,10 +35,7 @@
   ppx_fields_conv
   cmdliner
   ocamlgraph
-  alcotest
-  lwt
   eio_main
   piaf
   fileutils
-  ocamlformat
-  alcotest))
+  ocamlformat))
