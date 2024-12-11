@@ -176,7 +176,6 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     ()
 
   open Trading_types
-  module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
 
   module DT_Status = struct
     type t = Placed of (int * Order.t) | Waiting [@@deriving show]

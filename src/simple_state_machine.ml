@@ -1,6 +1,5 @@
 module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
   open Trading_types
-  module Log = (val Logs.src_log Logs.(Src.create "simple-state-machine"))
 
   let shutdown = Backend.shutdown
 
