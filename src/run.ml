@@ -34,7 +34,7 @@ module Make
         Context.target
         |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
       in
-      Bars.sort (Ord.opp Bars.Item.compare) res;
+      Bars.sort (Ord.opp Item.compare) res;
       res
 
     (* Preload *)
@@ -45,14 +45,13 @@ module Make
       | File file ->
           Eio.traceln "Preloading bars from %s" file;
           let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
-          Bars.sort Bars.Item.compare res;
+          Bars.sort Item.compare res;
           res
   end
 
-  module Backtesting () : Backend.S =
-    Backend.Backtesting (Input) (LongleafMutex)
+  module Backtesting : Backend.S = Backend.Backtesting (Input) (LongleafMutex)
 
-  module Alpaca () : Backend.S =
+  module Alpaca : Backend.S =
     Backend.Alpaca
       (Input)
       (Ticker.Make (struct
@@ -60,24 +59,34 @@ module Make
       end))
       (LongleafMutex)
 
+  let live () = invalid_arg "Live trading is not implemented yet"
+  let manual () = invalid_arg "Cannot create a strategy with manual runtype"
+
+  let paper () =
+    Eio.traceln "@[Creating Alpaca backend with:@.tick: %f@.symbols: %a@]@."
+      Input.tick
+      List.(pp String.pp)
+      Input.symbols;
+    let module Strategy = StrategyBuilder (Alpaca) in
+    Strategy.run ()
+
+  let listener = paper
+
+  let backtest () =
+    let module Strategy = StrategyBuilder (Backtesting) in
+    Strategy.run ()
+
   let top (runtype : Options.Runtype.t) =
-    let backend =
+    let res =
       match runtype with
-      | Live -> invalid_arg "Live trading is not implemented yet."
-      | Manual -> invalid_arg "Cannot create a strategy with manual runtype."
-      | Paper | Listener ->
-          Eio.traceln
-            "@[Creating Alpaca backend with:@.tick: %f@.symbols: %a@]@."
-            Input.tick
-            List.(pp String.pp)
-            Input.symbols;
-          (module Alpaca () : Backend.S)
-      | Backtest -> (module Backtesting () : Backend.S)
+      | Live -> live ()
+      | Manual -> manual ()
+      | Paper -> paper ()
+      | Listener -> listener ()
+      | Backtest -> backtest ()
     in
-    let module Backend = (val backend) in
-    let module Strategy = StrategyBuilder (Backend) in
-    let res = Strategy.run () in
-    Backend.shutdown ();
+    Alpaca.shutdown ();
+    Backtesting.shutdown ();
     Eio.traceln "Result: %s" res;
     ()
 end
