@@ -8,8 +8,6 @@ type t = {
   close : float; [@key "c"] (* We are using this as the latest price... *)
   last : float; [@yojson.default Float.max_finite_value]
   volume : int; [@key "v"]
-  (* trade_count : int; [@key "n"] *)
-  (* volume_weighted : float; [@key "vw"] *)
   order : Trading_types.Order.t option; [@default None]
 }
 [@@deriving show { with_path = false }, yojson, make]
@@ -17,7 +15,7 @@ type t = {
 
 let t_of_yojson x =
   let p1 = t_of_yojson x in
-  if p1.last =. Float.max_finite_value then { p1 with last = p1.close } else p1
+  if Float.equal p1.last Float.max_finite_value then { p1 with last = p1.close } else p1
 
 (* let t_of_yojson x = *)
 (*   try *)

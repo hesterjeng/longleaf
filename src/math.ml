@@ -1,7 +1,5 @@
 open Option.Infix
 
-type critical_point = Min of float | Max of float
-
 let select ~(ord : 'b Ord.t) ~(get : 'a -> 'b) (l : 'a Iter.t) =
   let+ hd = Iter.head l in
   Iter.fold
