@@ -1,5 +1,3 @@
-open Bars
-
 let accumulation_distribution_line (l : Item.t list) =
   Eio.traceln
     "@[accumulation_distribution_line was written with Alpaca bar items in \
