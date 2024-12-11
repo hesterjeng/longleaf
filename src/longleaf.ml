@@ -1,4 +1,3 @@
-module Log = (val Logs.src_log Logs.(Src.create "longleaf"))
 module Util = Util
 module Backend = Backend
 module Environment = Environment
