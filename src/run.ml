@@ -34,7 +34,7 @@ module Make
         Context.target
         |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
       in
-      Bars.sort (Ord.opp Bars.Item.compare) res;
+      Bars.sort (Ord.opp Item.compare) res;
       res
 
     (* Preload *)
@@ -45,7 +45,7 @@ module Make
       | File file ->
           Eio.traceln "Preloading bars from %s" file;
           let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
-          Bars.sort Bars.Item.compare res;
+          Bars.sort Item.compare res;
           res
   end
 
