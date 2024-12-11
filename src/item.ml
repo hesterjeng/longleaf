@@ -15,7 +15,8 @@ type t = {
 
 let t_of_yojson x =
   let p1 = t_of_yojson x in
-  if Float.equal p1.last Float.max_finite_value then { p1 with last = p1.close } else p1
+  if Float.equal p1.last Float.max_finite_value then { p1 with last = p1.close }
+  else p1
 
 (* let t_of_yojson x = *)
 (*   try *)
