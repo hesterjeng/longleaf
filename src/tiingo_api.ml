@@ -17,7 +17,7 @@ type item = {
 
 type t = item list [@@deriving show { with_path = false }, yojson]
 
-let item_to_bar_item (x : item) : Bars.Item.t =
+let item_to_bar_item (x : item) : Item.t =
   let open_ = x.open_ in
   let timestamp = x.timestamp in
   let high = x.high in
@@ -26,7 +26,7 @@ let item_to_bar_item (x : item) : Bars.Item.t =
   let last = x.last in
   let volume = x.volume in
   let order = None in
-  Bars.Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume ~order ()
+  Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume ~order ()
 
 let to_latest (l : t) : Bars.Latest.t =
   List.map (fun (x : item) -> (x.ticker, item_to_bar_item x)) l

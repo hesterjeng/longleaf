@@ -1,4 +1,3 @@
-module Item = Bars.Item
 open Option.Infix
 
 let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t option =
