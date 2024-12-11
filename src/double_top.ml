@@ -101,7 +101,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let init l = Iter.map (fun x -> Pass x) l
 
     let map (f : Item.t -> t) (l : t Iter.t) =
-      Iter.map (function Pass x -> f x | fail -> fail) l
+      Iter.map (function Pass x -> f x | Fail s -> Fail s) l
 
     (* There must have been a rise *)
     let check1 ~price_history (current_max : Item.t) : t =
