@@ -16,7 +16,9 @@ let max_close (l : Item.t Iter.t) =
   | None -> invalid_arg "Cannot find maximum of empty list"
 
 let min_close (l : Item.t Iter.t) =
-  match select ~ord:Float.compare ~get:(fun (x : Item.t) -> Item.last x) l with
+  match
+    select ~ord:(Ord.opp Float.compare) ~get:(fun (x : Item.t) -> Item.last x) l
+  with
   | Some max -> max
   | None -> invalid_arg "Cannot find maximum of empty list"
 
