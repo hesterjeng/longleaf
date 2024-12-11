@@ -18,8 +18,10 @@
   yojson
   landmarks
   eio_main)
+ ; (preprocess
+ ;  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
+  (pps ppx_deriving.std ppx_yojson_conv)))
 
 (env
  (dev
