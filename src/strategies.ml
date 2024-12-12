@@ -1,3 +1,5 @@
+module Order = Trading_types.Order
+
 module type S = sig
   val run : unit -> string
   val shutdown : unit -> unit
@@ -142,5 +144,18 @@ module Strategy_utils (Backend : Backend.S) = struct
         let filename = get_filename () in
         output_data state filename;
         output_order_history state filename;
+        let ordered_orders =
+          state.order_history
+          |> Vector.filter_map (fun (o : Order.t) ->
+                 match o.profit with Some _ -> Some o | None -> None)
+          |> Vector.sort Order.cmp_profit
+        in
+        let biggest_loser =
+          try Option.return @@ Vector.get ordered_orders 0
+          with Not_found -> None
+        in
+        let biggest_winner = Vector.pop ordered_orders in
+        Eio.traceln "Biggest winner: %a" (Option.pp Order.pp) biggest_winner;
+        Eio.traceln "Biggest loser: %a" (Option.pp Order.pp) biggest_loser;
         Result.fail code
 end

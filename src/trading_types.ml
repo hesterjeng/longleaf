@@ -191,6 +191,7 @@ module Order : sig
     t
 
   val timestamp : t -> Time.t
+  val cmp_profit : t Ord.t
 end = struct
   type t = {
     symbol : string;
@@ -225,4 +226,9 @@ end = struct
       id = Pmutex.make "id_not_set";
       status = Pmutex.make Status.New;
     }
+
+  let cmp_profit x y =
+    match (x.profit, y.profit) with
+    | Some x, Some y -> Float.compare x y
+    | _ -> 0
 end
