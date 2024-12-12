@@ -6,7 +6,8 @@ module Conditions = struct
     let stop_loss_multiplier = 1.02
     let profit_multiplier = 0.96
     let max_holding_period = 30
-    let window_size = 100
+    let window_size = 3
+    let lookback = 120
   end
 
   module P = Parameters
@@ -135,6 +136,17 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let+ (previous_maximum : Item.t) =
       (* FIXME:  We look back for candidates in ALL the historical data! *)
       (* There should be a lookback parameter. *)
+      let price_history =
+        let length = Vector.length price_history in
+        let start = length - Conditions.P.lookback in
+        assert (start >= 0);
+        let res =
+          Vector.slice_iter price_history start Conditions.P.lookback
+          |> Vector.of_iter
+        in
+        assert (not @@ Vector.is_empty res);
+        res
+      in
       let minima =
         Math.find_local_minima ~window_size:P.window_size price_history
       in
