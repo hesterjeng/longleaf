@@ -6,7 +6,7 @@ module Conditions = struct
     let stop_loss_multiplier = 1.02
     let profit_multiplier = 0.96
     let max_holding_period = 30
-    let window_size = 3
+    let window_size = 20
     let lookback = 120
   end
 
@@ -169,9 +169,11 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let price = Item.last most_recent_price in
       let timestamp = Item.timestamp most_recent_price in
       let reason =
-        Format.asprintf "Attempt Shorting: Caused by previous maximum %a"
-          Time.pp
-          (Item.timestamp previous_maximum)
+        [
+          Format.asprintf "Attempt Shorting: Caused by previous maximum %a"
+            Time.pp
+            (Item.timestamp previous_maximum);
+        ]
       in
       Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
         ~profit:None
@@ -229,6 +231,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         let reason =
           Format.asprintf "Covering because of %a. Profit: %f"
             Conditions.Cover_reason.pp cover_reason profit
+          :: shorting_order.reason
         in
         (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
         let* () =
