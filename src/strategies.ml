@@ -151,8 +151,7 @@ module Strategy_utils (Backend : Backend.S) = struct
           |> Vector.sort Order.cmp_profit
         in
         let biggest_loser =
-          try Option.return @@ Vector.get ordered_orders 0
-          with Not_found -> None
+          try Option.return @@ Vector.get ordered_orders 0 with _ -> None
         in
         let biggest_winner = Vector.pop ordered_orders in
         Eio.traceln "Biggest winner: %a" (Option.pp Order.pp) biggest_winner;
