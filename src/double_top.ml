@@ -170,8 +170,8 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
       let timestamp = Item.timestamp most_recent_price in
       let reason =
         [
-          Format.asprintf "Attempt Shorting: Caused by previous maximum %a"
-            Time.pp
+          Format.asprintf "Attempt Shorting (%a): Caused by previous maximum %a"
+            Time.pp timestamp Time.pp
             (Item.timestamp previous_maximum);
         ]
       in
