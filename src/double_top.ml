@@ -8,6 +8,8 @@ module Conditions = struct
     let max_holding_period = 30
     let window_size = 20
     let lookback = 120
+    (* The amount of periods necessary between now and the triggering peak *)
+    let min_time_gap = max_holding_period
   end
 
   module P = Parameters
@@ -26,7 +28,7 @@ module Conditions = struct
     Iter.map (function Pass x -> f x | Fail s -> Fail s) l
 
   (* There must have been a rise *)
-  let check1 ~price_history (current_max : Item.t) : t =
+  let check_for_previous_rise ~price_history (current_max : Item.t) : t =
     Vector.findi
       (fun (x : Item.t) ->
         let current_max_last = Item.last current_max in
@@ -41,7 +43,7 @@ module Conditions = struct
     | None -> Fail "check1"
 
   (* There must be a sufficient dip *)
-  let check2 ~minima ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+  let check_for_sufficient_dip ~minima ~(most_recent_price : Item.t) (current_max : Item.t) : t =
     Iter.find_pred
       (fun (x : Item.t) ->
         let current_max_last, x_last =
@@ -60,7 +62,7 @@ module Conditions = struct
     | None -> Fail "check2"
 
   (* The current price should be within bands *)
-  let check3 ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+  let check_price_bands ~(most_recent_price : Item.t) (current_max : Item.t) : t =
     let current_price = Item.last most_recent_price in
     let current_max_price = Item.last current_max in
     let lower = P.lower_now_band *. current_max_price in
@@ -69,13 +71,13 @@ module Conditions = struct
     else Fail "check3"
 
   (* The current volume should be less than the previous *)
-  let check4 ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+  let check_volume ~(most_recent_price : Item.t) (current_max : Item.t) : t =
     let prev_volume = Item.volume current_max in
     let most_recent_volume = Item.volume most_recent_price in
     if prev_volume > most_recent_volume then Pass current_max else Fail "check4"
 
   (* There should not be a higher peak between the previous max and the current price *)
-  let check5 ~price_history ~most_recent_price current_max : t =
+  let check_for_intermediate_peak ~price_history ~most_recent_price current_max : t =
     let trigger_time = Item.timestamp current_max in
     let current_price = Item.last most_recent_price in
     let in_bounds (x : Item.t) =
@@ -154,11 +156,11 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         Math.find_local_maxima ~window_size:P.window_size price_history
       in
       Conditions.init maxima
-      |> Conditions.map (Conditions.check1 ~price_history)
-      |> Conditions.map (Conditions.check2 ~most_recent_price ~minima)
-      |> Conditions.map (Conditions.check3 ~most_recent_price)
-      |> Conditions.map (Conditions.check4 ~most_recent_price)
-      |> Conditions.map (Conditions.check5 ~price_history ~most_recent_price)
+      |> Conditions.map (Conditions.check_for_previous_rise ~price_history)
+      |> Conditions.map (Conditions.check_for_sufficient_dip ~most_recent_price ~minima)
+      |> Conditions.map (Conditions.check_price_bands ~most_recent_price)
+      |> Conditions.map (Conditions.check_volume ~most_recent_price)
+      |> Conditions.map (Conditions.check_for_intermediate_peak ~price_history ~most_recent_price)
       |> Conditions.find_pass
     in
     let order =
