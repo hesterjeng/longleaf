@@ -171,7 +171,7 @@ module Order : sig
     qty : int;
     price : float;
     timestamp : Time.t;
-    reason : string;
+    reason : string list;
     profit : float option;
     id : string Pmutex.t;
     status : Status.t Pmutex.t;
@@ -186,7 +186,7 @@ module Order : sig
     qty:int ->
     price:float ->
     timestamp:Time.t ->
-    reason:string ->
+    reason:string list ->
     profit:float option ->
     t
 
@@ -201,7 +201,7 @@ end = struct
     qty : int;
     price : float;
     timestamp : Time.t;
-    reason : string;
+    reason : string list;
     (* This is the expected profit of this trade, if it is closing a known position *)
     profit : float option;
     id : string Pmutex.t;

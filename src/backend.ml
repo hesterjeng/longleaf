@@ -280,7 +280,7 @@ module Alpaca
               let price = Item.last latest_info in
               let timestamp = Item.timestamp latest_info in
               Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-                ~profit:None ~reason:"Liquidate"
+                ~profit:None ~reason:[ "Liquidate" ]
             in
             (* Eio.traceln "%a" Order.pp order; *)
             let _json_resp = place_order state order in
