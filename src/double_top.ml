@@ -8,6 +8,7 @@ module Conditions = struct
     let max_holding_period = 30
     let window_size = 20
     let lookback = 120
+
     (* The amount of periods necessary between now and the triggering peak *)
     let min_time_gap = max_holding_period
   end
@@ -43,7 +44,8 @@ module Conditions = struct
     | None -> Fail "check1"
 
   (* There must be a sufficient dip *)
-  let check_for_sufficient_dip ~minima ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+  let check_for_sufficient_dip ~minima ~(most_recent_price : Item.t)
+      (current_max : Item.t) : t =
     Iter.find_pred
       (fun (x : Item.t) ->
         let current_max_last, x_last =
@@ -62,7 +64,8 @@ module Conditions = struct
     | None -> Fail "check2"
 
   (* The current price should be within bands *)
-  let check_price_bands ~(most_recent_price : Item.t) (current_max : Item.t) : t =
+  let check_price_bands ~(most_recent_price : Item.t) (current_max : Item.t) : t
+      =
     let current_price = Item.last most_recent_price in
     let current_max_price = Item.last current_max in
     let lower = P.lower_now_band *. current_max_price in
@@ -77,7 +80,8 @@ module Conditions = struct
     if prev_volume > most_recent_volume then Pass current_max else Fail "check4"
 
   (* There should not be a higher peak between the previous max and the current price *)
-  let check_for_intermediate_peak ~price_history ~most_recent_price current_max : t =
+  let check_for_intermediate_peak ~price_history ~most_recent_price current_max
+      : t =
     let trigger_time = Item.timestamp current_max in
     let current_price = Item.last most_recent_price in
     let in_bounds (x : Item.t) =
@@ -136,31 +140,40 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.Latest.get state.latest symbol in
     let+ (previous_maximum : Item.t) =
-      (* FIXME:  We look back for candidates in ALL the historical data! *)
-      (* There should be a lookback parameter. *)
-      let price_history =
+      (* Both price_history and maxima_search take into account the lookback. *)
+      (* maxima_candidates takes into account the minimum time gap as well, *)
+      (* so we don't select minima and maxima based on very short time fluctuations*)
+      let price_history, maxima_candidates =
         let length = Vector.length price_history in
         let start = length - Conditions.P.lookback in
         assert (start >= 0);
-        let res =
-          Vector.slice_iter price_history start Conditions.P.lookback
-          |> Vector.of_iter
+        assert (Conditions.P.min_time_gap < Conditions.P.lookback);
+        let res, maxima_candidates =
+          ( Vector.slice_iter price_history start Conditions.P.lookback
+            |> Vector.of_iter,
+            Vector.slice_iter price_history start
+              (Conditions.P.lookback - Conditions.P.min_time_gap)
+            |> Vector.of_iter )
         in
         assert (not @@ Vector.is_empty res);
-        res
+        assert (not @@ Vector.is_empty maxima_candidates);
+        (res, maxima_candidates)
       in
       let minima =
-        Math.find_local_minima ~window_size:P.window_size price_history
+        Math.find_local_minima ~window_size:P.window_size maxima_candidates
       in
       let maxima =
         Math.find_local_maxima ~window_size:P.window_size price_history
       in
       Conditions.init maxima
       |> Conditions.map (Conditions.check_for_previous_rise ~price_history)
-      |> Conditions.map (Conditions.check_for_sufficient_dip ~most_recent_price ~minima)
+      |> Conditions.map
+           (Conditions.check_for_sufficient_dip ~most_recent_price ~minima)
       |> Conditions.map (Conditions.check_price_bands ~most_recent_price)
       |> Conditions.map (Conditions.check_volume ~most_recent_price)
-      |> Conditions.map (Conditions.check_for_intermediate_peak ~price_history ~most_recent_price)
+      |> Conditions.map
+           (Conditions.check_for_intermediate_peak ~price_history
+              ~most_recent_price)
       |> Conditions.find_pass
     in
     let order =
