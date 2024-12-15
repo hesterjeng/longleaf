@@ -29,6 +29,7 @@ let place_order_test eio_env longleaf_env =
     let overnight = true
     let target = None
     let save_received = false
+    let resume_after_liquidate = false
   end in
   let module Ticker = Ticker.Make (struct
     let tick = Input.tick
