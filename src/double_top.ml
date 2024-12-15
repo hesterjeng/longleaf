@@ -160,10 +160,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
         (res, maxima_candidates)
       in
       let minima =
-        Math.find_local_minima ~window_size:P.window_size maxima_candidates
+        Math.find_local_minima ~window_size:P.window_size price_history
       in
       let maxima =
-        Math.find_local_maxima ~window_size:P.window_size price_history
+        Math.find_local_maxima ~window_size:P.window_size maxima_candidates
       in
       Conditions.init maxima
       |> Conditions.map (Conditions.check_for_previous_rise ~price_history)
