@@ -52,10 +52,22 @@ module type BACKEND_INPUT = sig
 
   (* Historical information, ordered with in time order *)
   val bars : Bars.t
+
+  (* The symbols that will be traded on *)
   val symbols : string list
+
+  (* The interval of time that the strategy operates on. *)
+  (* i/e we will wait ten minutes then do something, etc. *)
   val tick : float
+
+  (* Allow holding positions overnight *)
   val overnight : bool
+
+  (* Save the received data *)
   val save_received : bool
+
+  (* Allow the strategy to resume after liquidating the position *)
+  val resume_after_liquidate : bool
 
   (* The target is the bars that will be iterated over in a backtest *)
   (* Ordered in reverse time order, so that we can pop off next values easily *)

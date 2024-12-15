@@ -3,6 +3,7 @@ module type RUN_DATA = sig
   val symbols : string list
   val tick : float
   val overnight : bool
+  val resume_after_liquidate : bool
 end
 
 module type RUN_CONTEXT = sig
@@ -117,6 +118,7 @@ module DoubleTop = struct
 
     let tick = 600.0
     let overnight = false
+    let resume_after_liquidate = true
   end
 
   module Make = Make (Data) (Double_top.DoubleTop)
@@ -148,6 +150,7 @@ module Listener = struct
 
     let tick = 600.0
     let overnight = true
+    let resume_after_liquidate = true
   end
 
   module Make = Make (Data) (Listener.Make)
