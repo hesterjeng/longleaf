@@ -14,37 +14,6 @@ module LongleafMutex () : LONGLEAF_MUTEX = struct
   let symbols_mutex = Pmutex.make None
 end
 
-module type S = sig
-  module Ticker : Ticker.S
-  module LongleafMutex : LONGLEAF_MUTEX
-  module Backend_position : Backend_position.S
-
-  (* Is this backend a backtest? *)
-  val is_backtest : bool
-
-  (* TODO: Do something with this? *)
-  val overnight : bool
-
-  (* Save data that is received in a live/paper run *)
-  (* val save_received : bool *)
-  val received_data : Bars.t
-  val get_trading_client : unit -> (Piaf.Client.t, string) result
-  val get_data_client : unit -> (Piaf.Client.t, string) result
-  val env : Eio_unix.Stdenv.base
-  val init_state : 'a -> 'a State.t
-  val get_cash : unit -> float
-  val symbols : string list
-  val shutdown : unit -> unit
-
-  (* Return the next open time if the market is closed *)
-  val next_market_open : unit -> Time.t option
-  val next_market_close : unit -> Time.t
-  val place_order : _ State.t -> Order.t -> (unit, string) result
-  val latest_bars : string list -> (Bars.Latest.t, string) result
-  val last_data_bar : (Bars.Latest.t, string) result
-  val liquidate : _ State.t -> (unit, string) Result.t
-end
-
 module type BACKEND_INPUT = sig
   val switch : Eio.Switch.t
   val longleaf_env : Environment.t
@@ -74,6 +43,38 @@ module type BACKEND_INPUT = sig
   val target : Bars.t option
 end
 
+module type S = sig
+  module Ticker : Ticker.S
+  module LongleafMutex : LONGLEAF_MUTEX
+  module Backend_position : Backend_position.S
+  module Input : BACKEND_INPUT
+
+  (* Is this backend a backtest? *)
+  val is_backtest : bool
+
+  (* TODO: Do something with this? *)
+  val overnight : bool
+
+  (* Save data that is received in a live/paper run *)
+  (* val save_received : bool *)
+  val received_data : Bars.t
+  val get_trading_client : unit -> (Piaf.Client.t, string) result
+  val get_data_client : unit -> (Piaf.Client.t, string) result
+  val env : Eio_unix.Stdenv.base
+  val init_state : 'a -> 'a State.t
+  val get_cash : unit -> float
+  val symbols : string list
+  val shutdown : unit -> unit
+
+  (* Return the next open time if the market is closed *)
+  val next_market_open : unit -> Time.t option
+  val next_market_close : unit -> Time.t
+  val place_order : _ State.t -> Order.t -> (unit, string) result
+  val latest_bars : string list -> (Bars.Latest.t, string) result
+  val last_data_bar : (Bars.Latest.t, string) result
+  val liquidate : _ State.t -> (unit, string) Result.t
+end
+
 (* Backtesting *)
 module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   S = struct
@@ -81,6 +82,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   module Ticker = Ticker.Instant
   module LongleafMutex = LongleafMutex
   module Backend_position = Backend_position.Generative ()
+  module Input = Input
 
   let get_trading_client _ = Error "Backtesting does not have a trading client"
   let get_data_client _ = Error "Backtesting does not have a data client"
@@ -173,6 +175,7 @@ module Alpaca
   module Backtesting = Backtesting (Input) (LongleafMutex)
   module LongleafMutex = Backtesting.LongleafMutex
   module Backend_position = Backtesting.Backend_position
+  module Input = Input
 
   let get_cash = Backend_position.get_cash
   let env = Input.eio_env
