@@ -14,10 +14,40 @@ module LongleafMutex () : LONGLEAF_MUTEX = struct
   let symbols_mutex = Pmutex.make None
 end
 
+module type BACKEND_INPUT = sig
+  val switch : Eio.Switch.t
+  val longleaf_env : Environment.t
+  val eio_env : Eio_unix.Stdenv.base
+
+  (* Historical information, ordered with in time order *)
+  val bars : Bars.t
+
+  (* The symbols that will be traded on *)
+  val symbols : string list
+
+  (* The interval of time that the strategy operates on. *)
+  (* i/e we will wait ten minutes then do something, etc. *)
+  val tick : float
+
+  (* Allow holding positions overnight *)
+  val overnight : bool
+
+  (* Save the received data *)
+  val save_received : bool
+
+  (* Allow the strategy to resume after liquidating the position *)
+  val resume_after_liquidate : bool
+
+  (* The target is the bars that will be iterated over in a backtest *)
+  (* Ordered in reverse time order, so that we can pop off next values easily *)
+  val target : Bars.t option
+end
+
 module type S = sig
   module Ticker : Ticker.S
   module LongleafMutex : LONGLEAF_MUTEX
   module Backend_position : Backend_position.S
+  module Input : BACKEND_INPUT
 
   (* Is this backend a backtest? *)
   val is_backtest : bool
@@ -45,23 +75,6 @@ module type S = sig
   val liquidate : _ State.t -> (unit, string) Result.t
 end
 
-module type BACKEND_INPUT = sig
-  val switch : Eio.Switch.t
-  val longleaf_env : Environment.t
-  val eio_env : Eio_unix.Stdenv.base
-
-  (* Historical information, ordered with in time order *)
-  val bars : Bars.t
-  val symbols : string list
-  val tick : float
-  val overnight : bool
-  val save_received : bool
-
-  (* The target is the bars that will be iterated over in a backtest *)
-  (* Ordered in reverse time order, so that we can pop off next values easily *)
-  val target : Bars.t option
-end
-
 (* Backtesting *)
 module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   S = struct
@@ -69,6 +82,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   module Ticker = Ticker.Instant
   module LongleafMutex = LongleafMutex
   module Backend_position = Backend_position.Generative ()
+  module Input = Input
 
   let get_trading_client _ = Error "Backtesting does not have a trading client"
   let get_data_client _ = Error "Backtesting does not have a data client"
@@ -161,6 +175,7 @@ module Alpaca
   module Backtesting = Backtesting (Input) (LongleafMutex)
   module LongleafMutex = Backtesting.LongleafMutex
   module Backend_position = Backtesting.Backend_position
+  module Input = Input
 
   let get_cash = Backend_position.get_cash
   let env = Input.eio_env
