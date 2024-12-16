@@ -1,7 +1,13 @@
 module Order = Trading_types.Order
 
 type nonlogical_state =
-  [ `Initialize | `Listening | `Liquidate | `Finished of string ]
+  [ `Initialize
+  | `Listening
+  | `Liquidate
+  | `LiquidateContinue
+  | `Continue
+  | `BeginShutdown
+  | `Finished of string ]
 [@@deriving show { with_path = false }]
 
 type logical_state = [ `Ordering ] [@@deriving show { with_path = false }]
