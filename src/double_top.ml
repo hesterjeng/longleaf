@@ -30,7 +30,7 @@ module Conditions = struct
 
   (* There must have been a rise *)
   let check_for_previous_rise ~price_history (current_max : Item.t) : t =
-    Vector.findi
+    Vector.find
       (fun (x : Item.t) ->
         let current_max_last = Item.last current_max in
         let x_last = Item.last x in
@@ -40,7 +40,7 @@ module Conditions = struct
         && Ptime.compare current_max_time x_time = 1)
       price_history
     |> function
-    | Some (_predip_location, _rise) -> Pass current_max
+    | Some _ -> Pass current_max
     | None -> Fail "check1"
 
   (* There must be a sufficient dip *)
@@ -92,8 +92,8 @@ module Conditions = struct
       let peak_price = Item.last x in
       peak_price >. P.upper_now_band *. current_price
     in
-    Vector.findi (fun i -> in_bounds i && is_peak i) price_history |> function
-    | Some (_excessive_mid_peak_i, _excessive_mid_peak) -> Fail "check5"
+    Vector.find (fun i -> in_bounds i && is_peak i) price_history |> function
+    | Some _ -> Fail "check5"
     | None -> Pass current_max
 
   module Cover_reason = struct
