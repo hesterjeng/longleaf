@@ -28,6 +28,11 @@ module OneSecond : S = struct
   let length = 1.0
 end
 
+module TenMinute : S = struct
+  let tick env = Eio.Time.sleep env#clock 600.0
+  let length = 1.0
+end
+
 module Instant : S = struct
   let tick _ = ()
   let length = 0.0
