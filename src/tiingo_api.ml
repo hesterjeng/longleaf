@@ -38,7 +38,7 @@ let tiingo_client eio_env sw =
   in
   match res with
   | Ok x -> x
-  | Error _ -> invalid_arg "Unable to create trading client"
+  | Error _ -> invalid_arg "Unable to create Tiingo client"
 
 module Make (Tiingo : Util.CLIENT) = struct
   let client = Tiingo.client

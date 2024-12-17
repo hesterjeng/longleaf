@@ -8,32 +8,27 @@
 
 (maintainers "John Hester")
 
+; (synopsis "Longleaf algorithmic trading platform.")
+
 (package
  (name longleaf)
- (synopsis "longleaf")
- (license "GPLv3")
+ (synopsis "Longleaf")
+ (license "GPL-3.0-or-later")
+ (homepage "https://github.com/hesterjeng/longleaf")
+ (bug_reports "Github Issue")
  (depends
   dune
-  (ocaml
-   (>= "5.2"))
-  (containers
-   (>= "3.4"))
-  (containers-data
-   (>= "3.4"))
-  (iter
-   (>= "1.0"))
-  ezcurl-lwt
+  ocaml
   ptime
-  uuidm
-  ptime
-  (yojson
-   (>= "1.6"))
   ppx_yojson_conv
   ppx_deriving
   dream
   ppx_variants_conv
   ppx_fields_conv
   cmdliner
+  landmarks
+  iter
+  containers-data
   ocamlgraph
   eio_main
   piaf
