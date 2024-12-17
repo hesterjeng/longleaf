@@ -4,53 +4,83 @@
 (defvar target-file nil)
 
 (defun longleaf-backtest ()
-  "Display a custom menu for selecting a file and running a command in vterm."
   (interactive)
-    (setq preload-file (read-file-name "Preload file: "))
-    (setq target-file (read-file-name "Target file: "))
+  (setq preload-file (read-file-name "Preload file: "))
+  (setq target-file (read-file-name "Target file: "))
+  (let* ((run-buffer-name "*longleaf-vterm*") ;; Custom buffer name
+         (run-buffer (get-buffer run-buffer-name)))
+    ;; If the buffer doesn't exist, create and initialize vterm
+    (unless run-buffer
+      (setq run-buffer (get-buffer-create run-buffer-name))
+      (with-current-buffer run-buffer
+        (vterm-mode)))
 
-    ;; Create or get an existing vterm buffer
-    (let ((vterm-buffer (get-buffer-create "*vterm*")))
-      (with-current-buffer vterm-buffer
-        ;; Start vterm if it's not already running
-        (unless (eq major-mode 'vterm-mode)
-          (vterm))  ;; Start vterm in the buffer if not already running
-        ;; Send the shell command to vterm
-        (vterm-send-string
-         (concat "cd ..;./main.exe backtest --preload " preload-file " --target " target-file))
-        (vterm-send-return))  ;; Simulate pressing Enter
+    ;; Switch to the vterm buffer
+    (switch-to-buffer run-buffer)
 
-      ;; Switch to the vterm buffer
-      (switch-to-buffer vterm-buffer)
-      (message "Running command in vterm: %s"
-               (concat "dune exec bin/main.exe backtest --preload " preload-file " --target " target-file))))
+    ;; Send the command to the vterm
+    (let ((command (concat "cd .. && ./main.exe backtest --preload "
+                           (shell-quote-argument preload-file)
+                           " --target "
+                           (shell-quote-argument target-file))))
+      (vterm-send-string command)
+      (vterm-send-return)
+      (message "Running command in *longleaf-vterm*: %s" command))))
 
 (defun longleaf-run-last ()
-    (interactive)
-    (let ((vterm-buffer (get-buffer-create "*vterm*")))
-      (with-current-buffer vterm-buffer
-        ;; Start vterm if it's not already running
-        (unless (eq major-mode 'vterm-mode)
-          (vterm))  ;; Start vterm in the buffer if not already running
-        ;; Send the shell command to vterm
-        (vterm-send-string
-         (concat "cd ..;./main.exe backtest --preload " preload-file " --target " target-file))
-        (vterm-send-return))  ;; Simulate pressing Enter
+  (interactive)
+  (let* ((run-buffer-name "*longleaf-vterm*") ;; Custom buffer name
+         (run-buffer (get-buffer run-buffer-name)))
+    ;; If the buffer doesn't exist, create and initialize vterm
+    (unless run-buffer
+      (setq run-buffer (get-buffer-create run-buffer-name))
+      (with-current-buffer run-buffer
+        (vterm-mode)))
 
-      ;; Switch to the vterm buffer
-      (switch-to-buffer vterm-buffer)
-      (message "Running command in vterm: %s"
-               (concat "dune exec bin/main.exe backtest --preload " preload-file " --target " target-file)))
-)
+    ;; Switch to the vterm buffer
+    (switch-to-buffer run-buffer)
+
+    ;; Send the command to the vterm
+    (let ((command (concat "cd .. && ./main.exe backtest --preload "
+                           (shell-quote-argument preload-file)
+                           " --target "
+                           (shell-quote-argument target-file))))
+      (vterm-send-string command)
+      (vterm-send-return)
+      (message "Running command in *longleaf-vterm*: %s" command))))
+
+
+(defun longleaf-shutdown ()
+  "Open or switch to *shutdown-vterm*, run shutdown command."
+  (interactive)
+  (let* ((shutdown-buffer-name "*shutdown-vterm*") ;; Custom buffer name
+         (shutdown-buffer (get-buffer shutdown-buffer-name)))
+    ;; If buffer doesn't exist, create and start vterm
+    (unless shutdown-buffer
+      (setq shutdown-buffer (get-buffer-create shutdown-buffer-name))
+      (with-current-buffer shutdown-buffer
+        (vterm-mode)))
+
+    ;; Switch to the vterm buffer
+    (switch-to-buffer shutdown-buffer)
+
+    ;; Send shutdown command
+    (vterm-send-string "cd .. && ./shutdown.exe")
+    (vterm-send-return)
+
+    (message "Sent shutdown command to *shutdown-vterm*")
+    ))
+
 
 (map! :leader
       :desc "Longleaf" "l" nil ; Parent menu under "l"
       (:prefix ("l" . "longleaf") ; Create a submenu
        :desc "Run on last inputs" "l" #'longleaf-run-last
-       (:prefix ("s" . "Options") ; Nested submenu under "l s"
+       :desc "Shutdown" "s" #'longleaf-shutdown
+       (:prefix ("o" . "Options") ; Nested submenu under "l s"
         :desc "Select new arguments" "n" #'longleaf-backtest
         :desc "Subtask 2" "2" #'my-subtask-2)
        (:prefix ("z" . "Another submenu")
         :desc "do something" "a" #'do-something
-                )
+        )
        ))
