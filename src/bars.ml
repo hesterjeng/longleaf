@@ -22,6 +22,15 @@ module Latest = struct
     let seq = Hashtbl.to_seq x in
     let pp = Seq.pp @@ Pair.pp String.pp Item.pp in
     Format.fprintf fmt "@[%a@]@." pp seq
+
+  let timestamp (x : t) =
+    let ( let* ) = Result.( let* ) in
+    (fun f -> Hashtbl.fold f x (Error "No values in Bars.Latest.t hash table"))
+    @@ fun _ item prev ->
+    let* prev_time = prev in
+    match Ptime.equal prev_time @@ Item.timestamp item with
+    | true -> prev
+    | false -> Error "Different timestamps within same Bars.Latest.t!"
 end
 
 type symbol_history = Item.t Vector.vector
