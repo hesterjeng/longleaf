@@ -4,5 +4,6 @@ server.exe
 main.exe
 data_downloader.exe
 shutdown.exe
+elisp/flycheck_top.el
 src/template.ml
 src/multitemplate.ml
