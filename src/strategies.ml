@@ -129,9 +129,12 @@ module Strategy_utils (Backend : Backend.S) = struct
         match listen_tick () with
         | `Continue ->
             let open Result.Infix in
-            let+ latest = Backend.latest_bars Backend.symbols in
+            let* latest = Backend.latest_bars Backend.symbols in
+            let* time = Bars.Latest.timestamp latest in
+            let value = Backend.Backend_position.value latest in
             Bars.append latest state.bars;
-            { state with current = `Ordering; latest }
+            Result.return @@
+            { state with current = `Ordering; latest; stats = Stats.append {time; value} state.stats }
         | `BeginShutdown ->
             Eio.traceln "Attempting to liquidate positions before shutting down";
             Result.return { state with current = `Liquidate }
