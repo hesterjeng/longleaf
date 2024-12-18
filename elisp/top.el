@@ -229,8 +229,48 @@
     (message "Sent shutdown command to *shutdown-vterm*")
     ))
 
+(defun my-insert-interactive-option (text callback)
+  "Insert TEXT with a clickable or selectable CALLBACK function."
+  (let ((start (point)))
+    (insert text)
+    (add-text-properties
+     start (point)
+     `(mouse-face highlight
+       face underline
+       help-echo "Click or press RET to select this option"
+       keymap ,(let ((map (make-sparse-keymap)))
+                 (define-key map [mouse-1] callback) ;; Clickable
+                 (define-key map (kbd "RET") callback) ;; Enter key
+                 map)))))
 
+(defun longleaf-status-buffer ()
+  "Open a custom status buffer."
+  (interactive)
+  (let ((buffer (get-buffer-create "*Longleaf Status*")))
+    (with-current-buffer buffer
+      (longleaf-mode) ;; Activate your custom mode
+      (read-only-mode -1)
+      (erase-buffer)
+      ;; Add content to your buffer
+      (insert (propertize "Longleaf Status Buffer\n\n" 'face 'bold))
+      (insert "Target: \n\n")
+      (insert "Preload: \n\n")
+      (insert "Commands:\n")
+      (my-insert-interactive-option "1. Repeat run" #'longleaf-run-last)
+      ;; (insert "1. Option 1\n")
+      ;; (insert "2. Option 2\n")
+      ;; Add interactive elements or buttons as needed
+      (read-only-mode 1))
+    (switch-to-buffer buffer)))
+
+(define-derived-mode longleaf-mode special-mode "longleaf"
+  "A custom major mode for displaying a status buffer."
+  ;; Keybindings for actions
+  (define-key longleaf-mode-map (kbd "q") #'kill-current-buffer))
+
+;; Bind your mode to a key sequence
 (map! :leader
+<<<<<<< HEAD
 <<<<<<< HEAD
       :desc "Longleaf Backtest" "l" #'longleaf-backtest)
 >>>>>>> 814de69 (feat: play with lisp)
@@ -247,3 +287,20 @@
         )
        ))
 >>>>>>> 34ce7ef (feat: lisp submenus)
+=======
+      :desc "Open My Status Buffer"
+      "l l" #'longleaf-status-buffer)
+
+;; (map! :leader
+;;       :desc "Longleaf" "l" nil ; Parent menu under "l"
+;;       (:prefix ("l" . "longleaf") ; Create a submenu
+;;        :desc "Run on last inputs" "l" #'longleaf-run-last
+;;        :desc "Shutdown" "s" #'longleaf-shutdown
+;;        (:prefix ("o" . "Options") ; Nested submenu under "l s"
+;;         :desc "Select new arguments" "n" #'longleaf-backtest
+;;         :desc "Subtask 2" "2" #'my-subtask-2)
+;;        (:prefix ("z" . "Another submenu")
+;;         :desc "do something" "a" #'do-something
+;;         )
+;;        ))
+>>>>>>> 3496c3b (wip: longleaf mode)
