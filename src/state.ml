@@ -20,6 +20,7 @@ type 'a t = {
   bars : Bars.t;
   latest : Bars.Latest.t;
   order_history : Order_history.t;
+  stats : Stats.t;
   content : 'a;
 }
 
