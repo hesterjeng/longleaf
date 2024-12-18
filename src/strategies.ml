@@ -133,8 +133,13 @@ module Strategy_utils (Backend : Backend.S) = struct
             let* time = Bars.Latest.timestamp latest in
             let value = Backend.Backend_position.value latest in
             Bars.append latest state.bars;
-            Result.return @@
-            { state with current = `Ordering; latest; stats = Stats.append {time; value} state.stats }
+            Result.return
+            @@ {
+                 state with
+                 current = `Ordering;
+                 latest;
+                 stats = Stats.append { time; value } state.stats;
+               }
         | `BeginShutdown ->
             Eio.traceln "Attempting to liquidate positions before shutting down";
             Result.return { state with current = `Liquidate }
