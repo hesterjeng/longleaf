@@ -24,13 +24,22 @@ module Latest = struct
     Format.fprintf fmt "@[%a@]@." pp seq
 
   let timestamp (x : t) =
-    let ( let* ) = Result.( let* ) in
-    (fun f -> Hashtbl.fold f x (Error "No values in Bars.Latest.t hash table"))
-    @@ fun _ item prev ->
-    let* prev_time = prev in
-    match Ptime.equal prev_time @@ Item.timestamp item with
-    | true -> prev
-    | false -> Error "Different timestamps within same Bars.Latest.t!"
+    ( (fun f -> Hashtbl.fold f x (Ok None)) @@ fun _ item prev ->
+      match prev with
+      | Ok None -> Result.return @@ Some (Item.timestamp item)
+      | Ok (Some prev_time) -> (
+          match Ptime.equal prev_time @@ Item.timestamp item with
+          | true -> prev
+          | false -> Error "Different timestamps within same Bars.Latest.t!")
+      | Error _ -> prev )
+    |> function
+    | Ok None ->
+        Eio.traceln "Current latest: %a" pp x;
+        Error "No values in Bars.Latest.t"
+    | Ok (Some res) -> Ok res
+    | Error e ->
+        Eio.traceln "%a" pp x;
+        Error e
 end
 
 type symbol_history = Item.t Vector.vector
