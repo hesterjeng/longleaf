@@ -4,23 +4,24 @@
 (setq preload-file "No preload selected")
 (defvar target-file "No target selected")
 (setq target-file "No target selected")
-(defvar longleaf-root "none")
-(setq longleaf-root projectile-project-root)
 (defvar longleaf-directory nil)
 (setq longleaf-directory
   (file-name-directory
    (directory-file-name
     (file-name-directory (or load-file-name buffer-file-name)))))
 
-
 (defun set-preload ()
   (interactive)
-  (setq preload-file (read-file-name "Preload file: "))
+  (setq preload-file
+        (expand-file-name
+         (read-file-name "Preload file: ")))
   )
 
 (defun set-target ()
   (interactive)
-  (setq target-file (read-file-name "Preload file: "))
+  (setq target-file
+        (expand-file-name
+         (read-file-name "Preload file: ")))
   )
 
 (defun longleaf-backtest ()
@@ -85,7 +86,7 @@
     (switch-to-buffer shutdown-buffer)
 
     ;; Send shutdown command
-    (vterm-send-string (concat projectile-project-root "/shutdown.exe"))
+    (vterm-send-string (concat longleaf-directory "shutdown.exe"))
     (vterm-send-return)
 
     (message "Sent shutdown command to *shutdown-vterm*")
