@@ -1,7 +1,27 @@
 (require 'general)
 
-(defvar preload-file nil)
-(defvar target-file nil)
+(defvar preload-file "No preload selected")
+(setq preload-file "No preload selected")
+(defvar target-file "No target selected")
+(setq target-file "No target selected")
+(defvar longleaf-root "none")
+(setq longleaf-root projectile-project-root)
+(defvar longleaf-directory nil)
+(setq longleaf-directory
+  (file-name-directory
+   (directory-file-name
+    (file-name-directory (or load-file-name buffer-file-name)))))
+
+
+(defun set-preload ()
+  (interactive)
+  (setq preload-file (read-file-name "Preload file: "))
+  )
+
+(defun set-target ()
+  (interactive)
+  (setq target-file (read-file-name "Preload file: "))
+  )
 
 (defun longleaf-backtest ()
   (interactive)
@@ -19,7 +39,7 @@
     (switch-to-buffer run-buffer)
 
     ;; Send the command to the vterm
-    (let ((command (concat "cd .. && ./main.exe backtest --preload "
+    (let ((command (concat longleaf-directory "main.exe backtest --preload "
                            (shell-quote-argument preload-file)
                            " --target "
                            (shell-quote-argument target-file))))
@@ -41,7 +61,7 @@
     (switch-to-buffer run-buffer)
 
     ;; Send the command to the vterm
-    (let ((command (concat "cd .. && ./main.exe backtest --preload "
+    (let ((command (concat longleaf-directory "main.exe backtest --preload "
                            (shell-quote-argument preload-file)
                            " --target "
                            (shell-quote-argument target-file))))
@@ -65,7 +85,7 @@
     (switch-to-buffer shutdown-buffer)
 
     ;; Send shutdown command
-    (vterm-send-string "cd .. && ./shutdown.exe")
+    (vterm-send-string (concat projectile-project-root "/shutdown.exe"))
     (vterm-send-return)
 
     (message "Sent shutdown command to *shutdown-vterm*")
@@ -95,8 +115,9 @@
       (erase-buffer)
       ;; Add content to your buffer
       (insert (propertize "Longleaf Status Buffer\n\n" 'face 'bold))
-      (insert "Target: \n\n")
-      (insert "Preload: \n\n")
+      (insert (concat "Project directory: " my-mode-directory "\n\n"))
+      (insert (concat "Preload: " preload-file "\n\n"))
+      (insert (concat "Target: " target-file "\n\n"))
       (insert "Commands:\n")
       (my-insert-interactive-option "1. Repeat run" #'longleaf-run-last)
       ;; (insert "1. Option 1\n")
@@ -111,19 +132,22 @@
   (define-key longleaf-mode-map (kbd "q") #'kill-current-buffer))
 
 ;; Bind your mode to a key sequence
-(map! :leader
-      :desc "Open My Status Buffer"
-      "l l" #'longleaf-status-buffer)
-
 ;; (map! :leader
-;;       :desc "Longleaf" "l" nil ; Parent menu under "l"
-;;       (:prefix ("l" . "longleaf") ; Create a submenu
-;;        :desc "Run on last inputs" "l" #'longleaf-run-last
-;;        :desc "Shutdown" "s" #'longleaf-shutdown
-;;        (:prefix ("o" . "Options") ; Nested submenu under "l s"
-;;         :desc "Select new arguments" "n" #'longleaf-backtest
-;;         :desc "Subtask 2" "2" #'my-subtask-2)
-;;        (:prefix ("z" . "Another submenu")
-;;         :desc "do something" "a" #'do-something
-;;         )
-;;        ))
+;;       :desc "Open My Status Buffer"
+;;       "l l" #'longleaf-status-buffer)
+
+(map! :leader
+      :desc "Longleaf" "l" nil ; Parent menu under "l"
+      (:prefix ("l" . "longleaf") ; Create a submenu
+       :desc "Longleaf status" "l" #'longleaf-status-buffer
+       :desc "Set preload" "p" #'set-preload
+       :desc "Set target" "t" #'set-target
+       :desc "Run on last inputs" "r" #'longleaf-run-last
+       :desc "Shutdown" "s" #'longleaf-shutdown
+       (:prefix ("o" . "Options") ; Nested submenu under "l s"
+        :desc "Select new arguments" "n" #'longleaf-backtest
+        :desc "Subtask 2" "2" #'my-subtask-2)
+       (:prefix ("z" . "Another submenu")
+        :desc "do something" "a" #'do-something
+        )
+       ))
