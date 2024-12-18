@@ -93,6 +93,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
       bars = Input.bars;
       latest = Bars.Latest.empty ();
       content;
+      stats = Stats.empty;
       order_history = Vector.create ();
     }
 
@@ -234,6 +235,7 @@ module Alpaca
       bars = Input.bars;
       latest = Bars.Latest.empty ();
       content;
+      stats = Stats.empty;
       order_history = Vector.create ();
     }
 

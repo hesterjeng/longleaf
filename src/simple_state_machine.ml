@@ -11,6 +11,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
       bars = Bars.empty ();
       latest = Bars.Latest.empty ();
       content = ();
+      stats = Stats.empty;
       order_history = Vector.create ();
     }
 
