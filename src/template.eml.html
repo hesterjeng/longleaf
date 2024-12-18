@@ -1,6 +1,26 @@
-let backtest_button_js = Util.read_file_as_string "src/javascript/backtest_button.js"
-let live_button_js = Util.read_file_as_string "src/javascript/live_button.js"
-let graceful_exit_js = Util.read_file_as_string "src/javascript/graceful_exit.js"
+let rec find_project_root current_dir =
+  let project_files = [".git"; "dune-project"] in
+  if List.exists (fun f -> Sys.file_exists (Filename.concat current_dir f)) project_files then
+    Some current_dir
+  else
+    let parent_dir = Filename.dirname current_dir in
+    if String.equal parent_dir current_dir then
+      (* Reached the root directory, no project root found *)
+      None
+    else
+      find_project_root parent_dir
+
+let project_root () =
+  match find_project_root (Sys.getcwd ()) with
+  | Some root -> root
+  | None -> invalid_arg "Unable to find project root"
+
+let backtest_button_js = Util.read_file_as_string @@
+  project_root () ^ "/src/javascript/backtest_button.js"
+let live_button_js = Util.read_file_as_string @@
+  project_root () ^ "/src/javascript/live_button.js"
+let graceful_exit_js = Util.read_file_as_string @@
+  project_root () ^ "/src/javascript/graceful_exit.js"
 
 let render endpoint =
 <html>
