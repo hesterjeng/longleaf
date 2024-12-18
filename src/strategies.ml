@@ -16,13 +16,11 @@ module Strategy_utils (Backend : Backend.S) = struct
   (* [@@deriving show] *)
   (* end *)
 
-  let listen_tick orders bars : State.nonlogical_state =
+  let listen_tick () : State.nonlogical_state =
     (* if !num_iterations > 3 then exit 1; *)
     Eio.Fiber.any
     @@ [
          (fun () ->
-           Pmutex.set Backend.LongleafMutex.data_mutex bars;
-           Pmutex.set Backend.LongleafMutex.orders_mutex orders;
            match Backend.next_market_open () with
            | None ->
                Backend.Ticker.tick Backend.env;
@@ -126,7 +124,9 @@ module Strategy_utils (Backend : Backend.S) = struct
         Pmutex.set Backend.LongleafMutex.symbols_mutex (Some symbols_str);
         Result.return @@ { state with current = `Listening }
     | `Listening -> (
-        match listen_tick state.order_history state.bars with
+        Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
+        Pmutex.set Backend.LongleafMutex.orders_mutex state.order_history;
+        match listen_tick () with
         | `Continue ->
             let open Result.Infix in
             let+ latest = Backend.latest_bars Backend.symbols in
@@ -136,7 +136,7 @@ module Strategy_utils (Backend : Backend.S) = struct
             Eio.traceln "Attempting to liquidate positions before shutting down";
             Result.return { state with current = `Liquidate }
         | `LiquidateContinue ->
-            Eio.traceln "listen_tick resturned LiquidateContinue";
+            Eio.traceln "Strategies.listen_tick resturned LiquidateContinue";
             Result.return { state with current = `LiquidateContinue }
         | _ ->
             invalid_arg
