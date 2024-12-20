@@ -39,6 +39,10 @@ module Args = struct
     let doc = "Download data only for today." in
     Cmdliner.Arg.(value & flag & info [ "t" ] ~doc)
 
+  let afterhours_arg =
+    let doc = "Download afterhours data." in
+    Cmdliner.Arg.(value & flag & info [ "afterhours" ] ~doc)
+
   let downloader_arg =
     let doc = "Choose downloader client.  Currently Tiingo or Alpaca." in
     Cmdliner.Arg.(value & pos 0 (some Downloader_ty.conv) None & info [] ~doc)
@@ -92,7 +96,7 @@ module Downloader = struct
   (*   let module Tiingo_client *)
 
   let top eio_env request prefix output_file
-      (downloader_arg : Downloader_ty.t option) =
+      (downloader_arg : Downloader_ty.t option) afterhours_arg =
     Eio.Switch.run @@ fun switch ->
     Util.yojson_safe true @@ fun () ->
     let longleaf_env = Environment.make () in
@@ -113,7 +117,7 @@ module Downloader = struct
             let client = Tiingo_api.tiingo_client eio_env switch
           end in
           let module Tiingo = Longleaf.Tiingo_api.Make (Param) in
-          let res = Tiingo.Data.historical_bars request in
+          let res = Tiingo.Data.historical_bars afterhours request in
           Piaf.Client.shutdown Param.client;
           res
       | None ->
@@ -130,7 +134,7 @@ end
 
 module Cmd = struct
   let run today begin_arg end_arg timeframe_arg interval_arg output_file_arg
-      downloader_arg =
+      downloader_arg afterhours_arg =
     Fmt_tty.setup_std_outputs ();
     let prefix = if today then "download_today" else "download" in
     let request =
@@ -154,6 +158,7 @@ module Cmd = struct
     let _ =
       Eio_main.run @@ fun eio_env ->
       Downloader.top eio_env request prefix output_file_arg downloader_arg
+        afterhours_arg
     in
     ()
 
@@ -162,7 +167,7 @@ module Cmd = struct
       Cmdliner.Term.(
         const run $ Args.today_arg $ Args.begin_arg $ Args.end_arg
         $ Args.timeframe_arg $ Args.interval_arg $ Args.output_file_arg
-        $ Args.downloader_arg)
+        $ Args.downloader_arg $ Args.afterhours_arg)
     in
     let doc = "Simple data downloader." in
     let info = Cmdliner.Cmd.info ~doc "data_downloader.exe" in
