@@ -3,6 +3,7 @@ module Backend = Backend
 module Environment = Environment
 module Trading_types = Trading_types
 module Market_data_api = Market_data_api
+module Tiingo_api = Tiingo_api
 module Ticker = Ticker
 module Time = Time
 module Lots_of_words = Lots_of_words
