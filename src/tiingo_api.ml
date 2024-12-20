@@ -72,4 +72,52 @@ module Make (Tiingo : Util.CLIENT) = struct
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
     let tiingo = t_of_yojson resp in
     to_latest tiingo
+
+  module Data = struct
+    module Historical_bars_request = Market_data_api.Historical_bars_request
+    module Timeframe = Trading_types.Timeframe
+    module Hashbtl = Bars.Hashtbl
+
+    type t = {
+      date : Time.t;
+      open_ : float; [@key "open"]
+      high : float;
+      low : float;
+      close : float;
+      volume : int;
+    }
+    [@@deriving show, yojson]
+
+    type resp = t list [@@deriving yojson]
+
+    let item_of (x : t) =
+      let { date; open_; high; low; close; volume } = x in
+      Item.make ~timestamp:date ~open_ ~high ~low ~close ~volume ~last:close
+        ~order:None ()
+
+    let historical_bars (request : Historical_bars_request.t) =
+      let get_data symbol =
+        let endpoint =
+          Uri.of_string "/v2/stocks/bars" |> fun e ->
+          Uri.add_query_params' e
+          @@ [
+               ("ticker", symbol);
+               ("resampleFreq", Timeframe.to_string_tiingo request.timeframe);
+               ("startDate", Ptime.to_rfc3339 request.start);
+               ("forceFill", "true");
+             ]
+          |> (fun uri ->
+          match request.end_ with
+          | Some end_t ->
+              Uri.add_query_param' uri ("endDate", Ptime.to_rfc3339 end_t)
+          | None -> uri)
+          |> Uri.to_string
+        in
+        get ~headers ~endpoint |> resp_of_yojson |> List.map item_of |> fun l ->
+        (symbol, Vector.of_list l)
+      in
+      let items_assoc = List.map get_data request.symbols |> Seq.of_list in
+      let hashtbl : Bars.t = Hashtbl.of_seq items_assoc in
+      hashtbl
+  end
 end

@@ -10,6 +10,7 @@ module Historical_bars_request = struct
   }
   [@@deriving show, yojson]
 
+  (* For use with the data_downloader binary *)
   let of_data_downloader symbols begin_arg end_arg timeframe_arg interval_arg =
     let ( let* ) = Option.( let* ) in
     let* begin_arg = begin_arg in
