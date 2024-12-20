@@ -56,6 +56,7 @@ module Timeframe : sig
   val yojson_of_t : t -> Yojson.Safe.t
   val pp : t Format.printer
   val to_string : t -> string
+  val to_string_tiingo : t -> string
   val min : int -> t
   val hour : int -> t
   val day : t
@@ -71,6 +72,12 @@ end = struct
     | Day -> "1Day"
     | Week -> "1Week"
     | Month i -> Format.asprintf "%dMonth" i
+
+  let to_string_tiingo = function
+    | Min i -> Format.asprintf "%d1in" i
+    | Hour i -> Format.asprintf "%dhour" i
+    | x ->
+        invalid_arg @@ Format.asprintf "Tiingo intraday doesn't support %a" pp x
 
   type conv = int -> t [@@deriving show]
 
