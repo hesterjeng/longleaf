@@ -22,6 +22,26 @@ module Latest = struct
     let seq = Hashtbl.to_seq x in
     let pp = Seq.pp @@ Pair.pp String.pp Item.pp in
     Format.fprintf fmt "@[%a@]@." pp seq
+
+  let timestamp (x : t) =
+    ( (fun f -> Hashtbl.fold f x (Ok None)) @@ fun _ item prev ->
+      match prev with
+      | Ok None -> Result.return @@ Some (Item.timestamp item)
+      | Ok (Some prev_time) -> (
+          match Ptime.equal prev_time @@ Item.timestamp item with
+          | true -> prev
+          | false -> Error "Different timestamps within same Bars.Latest.t!")
+      | Error _ -> prev )
+    |> function
+    | Ok None ->
+        Eio.traceln "Current latest: %a" pp x;
+        Error "No values in Bars.Latest.t"
+    | Ok (Some res) ->
+        Eio.traceln "Ok Bars.Latest.t";
+        Ok res
+    | Error e ->
+        Eio.traceln "%a" pp x;
+        Error e
 end
 
 type symbol_history = Item.t Vector.vector
@@ -179,7 +199,8 @@ module Infill = struct
     in
     Eio.traceln "Creating time tables";
     let () =
-      Seq.iter (fun symbol ->
+      let fold =
+        (fun symbol ->
           (* Eio.traceln "Iterating over %s" symbol; *)
           let vec = Hashtbl.find x symbol in
           let tbl = Hashtbl.create @@ Vector.length vec in
@@ -221,6 +242,8 @@ module Infill = struct
           (* Replace the old, sparse, vector with the new sorted and infilled one. *)
           Hashtbl.replace x symbol new_vector;
           ())
+      in
+      Seq.iter fold
       @@ Hashtbl.to_seq_keys x
     in
     ()
