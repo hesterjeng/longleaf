@@ -108,12 +108,14 @@ module Downloader = struct
       match downloader_arg with
       | Some Alpaca -> MDA.Stock.historical_bars request
       | Some Tiingo ->
-          let module Tiingo = Longleaf.Tiingo_api.Make (struct
+          let module Param = struct
             let longleaf_env = longleaf_env
             let client = Tiingo_api.tiingo_client eio_env switch
-          end) in
-          Tiingo.Data.historical_bars request
-      (* MDA.Stock.historical_bars request *)
+          end in
+          let module Tiingo = Longleaf.Tiingo_api.Make (Param) in
+          let res = Tiingo.Data.historical_bars request in
+          Piaf.Client.shutdown Param.client;
+          res
       | None ->
           invalid_arg "Need to specify downloader type for data_downloader."
     in

@@ -84,7 +84,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       high : float;
       low : float;
       close : float;
-      volume : int;
+      volume : float;
     }
     [@@deriving show, yojson]
 
@@ -92,28 +92,32 @@ module Make (Tiingo : Util.CLIENT) = struct
 
     let item_of (x : t) =
       let { date; open_; high; low; close; volume } = x in
-      Item.make ~timestamp:date ~open_ ~high ~low ~close ~volume ~last:close
-        ~order:None ()
+      Item.make ~timestamp:date ~open_ ~high ~low ~close
+        ~volume:(Int.of_float volume) ~last:close ~order:None ()
 
     let historical_bars (request : Historical_bars_request.t) =
       let get_data symbol =
         let endpoint =
-          Uri.of_string "/v2/stocks/bars" |> fun e ->
+          Uri.of_string ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices")
+          |> fun e ->
           Uri.add_query_params' e
           @@ [
                ("ticker", symbol);
                ("resampleFreq", Timeframe.to_string_tiingo request.timeframe);
-               ("startDate", Ptime.to_rfc3339 request.start);
+               ("startDate", Time.to_ymd request.start);
                ("forceFill", "true");
+               ("columns", "open,high,low,close,volume");
              ]
           |> (fun uri ->
           match request.end_ with
-          | Some end_t ->
-              Uri.add_query_param' uri ("endDate", Ptime.to_rfc3339 end_t)
+          | Some end_t -> Uri.add_query_param' uri ("endDate", Time.to_ymd end_t)
           | None -> uri)
           |> Uri.to_string
         in
-        get ~headers ~endpoint |> resp_of_yojson |> List.map item_of |> fun l ->
+        Eio.traceln "%s" endpoint;
+        let resp = get ~headers ~endpoint in
+        Eio.traceln "%a" Yojson.Safe.pp resp;
+        resp |> resp_of_yojson |> List.map item_of |> fun l ->
         (symbol, Vector.of_list l)
       in
       let items_assoc = List.map get_data request.symbols |> Seq.of_list in
