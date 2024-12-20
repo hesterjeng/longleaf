@@ -96,7 +96,7 @@ module Downloader = struct
   (*   let module Tiingo_client *)
 
   let top eio_env request prefix output_file
-      (downloader_arg : Downloader_ty.t option) afterhours_arg =
+      (downloader_arg : Downloader_ty.t option) afterhours =
     Eio.Switch.run @@ fun switch ->
     Util.yojson_safe true @@ fun () ->
     let longleaf_env = Environment.make () in
@@ -117,7 +117,7 @@ module Downloader = struct
             let client = Tiingo_api.tiingo_client eio_env switch
           end in
           let module Tiingo = Longleaf.Tiingo_api.Make (Param) in
-          let res = Tiingo.Data.historical_bars afterhours request in
+          let res = Tiingo.Data.historical_bars ~afterhours request in
           Piaf.Client.shutdown Param.client;
           res
       | None ->
