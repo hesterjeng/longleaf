@@ -74,7 +74,7 @@ end = struct
     | Month i -> Format.asprintf "%dMonth" i
 
   let to_string_tiingo = function
-    | Min i -> Format.asprintf "%d1in" i
+    | Min i -> Format.asprintf "%dmin" i
     | Hour i -> Format.asprintf "%dhour" i
     | x ->
         invalid_arg @@ Format.asprintf "Tiingo intraday doesn't support %a" pp x
