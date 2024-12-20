@@ -200,51 +200,50 @@ module Infill = struct
     Eio.traceln "Creating time tables";
     let () =
       let fold =
-        (fun symbol ->
-          (* Eio.traceln "Iterating over %s" symbol; *)
-          let vec = Hashtbl.find x symbol in
-          let tbl = Hashtbl.create @@ Vector.length vec in
-          Vector.iter
-            (fun item ->
-              let timestamp = Item.timestamp item |> Time.to_string in
-              Hashtbl.replace tbl timestamp item)
-            vec;
-          (* At this point, we have a hashtable of times to items *)
-          (* We need to iterate over the longest vector.  If its time is present in the table, *)
-          (* great, else we will look BACKWARDS in the longest vector for a time where a value is *)
-          (* present.  The first found value will fill in the missing one. *)
-          Vector.iteri
-            (fun i item ->
-              let current_time = Item.timestamp item |> Time.to_string in
-              match Hashtbl.find_opt tbl current_time with
-              | Some _ -> ()
-              | None ->
-                  let previous_time =
-                    if i > 0 then
-                      Vector.get most_used_vector (i - 1)
-                      |> Item.timestamp |> Time.to_string
-                    else (
-                      Eio.traceln "Lacking initial value, using first value.";
-                      Vector.get (Hashtbl.find x symbol) 0
-                      |> Item.timestamp |> Time.to_string)
-                  in
-                  (* Eio.traceln "Creating value for %d: %s" i current_time; *)
-                  let previous_value =
-                    Hashtbl.find_opt tbl previous_time
-                    |> Option.get_exn_or "Expected to find previous time"
-                  in
-                  Hashtbl.replace tbl current_time @@ previous_value)
-            most_used_vector;
-          (* Now, we should have good tables whose lengths are appropriate. *)
-          (* We need to convert the current table back to a vector. *)
-          let new_vector = Hashtbl.to_seq_values tbl |> Vector.of_seq in
-          Vector.sort' Item.compare new_vector;
-          (* Replace the old, sparse, vector with the new sorted and infilled one. *)
-          Hashtbl.replace x symbol new_vector;
-          ())
+       fun symbol ->
+        (* Eio.traceln "Iterating over %s" symbol; *)
+        let vec = Hashtbl.find x symbol in
+        let tbl = Hashtbl.create @@ Vector.length vec in
+        Vector.iter
+          (fun item ->
+            let timestamp = Item.timestamp item |> Time.to_string in
+            Hashtbl.replace tbl timestamp item)
+          vec;
+        (* At this point, we have a hashtable of times to items *)
+        (* We need to iterate over the longest vector.  If its time is present in the table, *)
+        (* great, else we will look BACKWARDS in the longest vector for a time where a value is *)
+        (* present.  The first found value will fill in the missing one. *)
+        Vector.iteri
+          (fun i item ->
+            let current_time = Item.timestamp item |> Time.to_string in
+            match Hashtbl.find_opt tbl current_time with
+            | Some _ -> ()
+            | None ->
+                let previous_time =
+                  if i > 0 then
+                    Vector.get most_used_vector (i - 1)
+                    |> Item.timestamp |> Time.to_string
+                  else (
+                    Eio.traceln "Lacking initial value, using first value.";
+                    Vector.get (Hashtbl.find x symbol) 0
+                    |> Item.timestamp |> Time.to_string)
+                in
+                (* Eio.traceln "Creating value for %d: %s" i current_time; *)
+                let previous_value =
+                  Hashtbl.find_opt tbl previous_time
+                  |> Option.get_exn_or "Expected to find previous time"
+                in
+                Hashtbl.replace tbl current_time @@ previous_value)
+          most_used_vector;
+        (* Now, we should have good tables whose lengths are appropriate. *)
+        (* We need to convert the current table back to a vector. *)
+        let new_vector = Hashtbl.to_seq_values tbl |> Vector.of_seq in
+        Vector.sort' Item.compare new_vector;
+        (* Replace the old, sparse, vector with the new sorted and infilled one. *)
+        Hashtbl.replace x symbol new_vector;
+        ()
       in
-      Seq.iter fold
-      @@ Hashtbl.to_seq_keys x
+      Seq.iter fold @@ Hashtbl.to_seq_keys x
     in
     ()
 end
