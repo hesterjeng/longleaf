@@ -36,7 +36,9 @@ module Latest = struct
     | Ok None ->
         Eio.traceln "Current latest: %a" pp x;
         Error "No values in Bars.Latest.t"
-    | Ok (Some res) -> Ok res
+    | Ok (Some res) ->
+        Eio.traceln "Ok Bars.Latest.t";
+        Ok res
     | Error e ->
         Eio.traceln "%a" pp x;
         Error e
@@ -197,7 +199,8 @@ module Infill = struct
     in
     Eio.traceln "Creating time tables";
     let () =
-      Seq.iter (fun symbol ->
+      let fold =
+        (fun symbol ->
           (* Eio.traceln "Iterating over %s" symbol; *)
           let vec = Hashtbl.find x symbol in
           let tbl = Hashtbl.create @@ Vector.length vec in
@@ -239,6 +242,8 @@ module Infill = struct
           (* Replace the old, sparse, vector with the new sorted and infilled one. *)
           Hashtbl.replace x symbol new_vector;
           ())
+      in
+      Seq.iter fold
       @@ Hashtbl.to_seq_keys x
     in
     ()
