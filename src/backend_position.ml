@@ -9,6 +9,7 @@ module type S = sig
   val set_cash : float -> unit
   val symbols : unit -> string list
   val qty : string -> int
+  val value : Bars.Latest.t -> float
 end
 
 module Generative () : S = struct
@@ -29,6 +30,13 @@ module Generative () : S = struct
   let get_position () = pos.position
   let symbols () = Hashtbl.keys_list pos.position
   let qty symbol = Hashtbl.get_or pos.position ~default:0 symbol
+
+  let value (latest : Bars.Latest.t) =
+    (fun f -> Hashtbl.fold f pos.position pos.cash)
+    @@ fun symbol qty previous_value ->
+    let symbol_price = Item.last @@ Bars.Latest.get latest symbol in
+    let symbol_value = Float.of_int qty *. symbol_price in
+    symbol_value +. previous_value
 
   let execute_order state (order : Order.t) =
     State.record_order state order;

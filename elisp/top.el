@@ -90,6 +90,7 @@
     (vterm-send-return)
 
     (message "Sent shutdown command to *shutdown-vterm*")
+    (kill-buffer shutdown-buffer)
     ))
 
 (defun my-insert-interactive-option (text callback)
@@ -116,7 +117,7 @@
       (erase-buffer)
       ;; Add content to your buffer
       (insert (propertize "Longleaf Status Buffer\n\n" 'face 'bold))
-      (insert (concat "Project directory: " my-mode-directory "\n\n"))
+      (insert (concat "Project directory: " longleaf-directory "\n\n"))
       (insert (concat "Preload: " preload-file "\n\n"))
       (insert (concat "Target: " target-file "\n\n"))
       (insert "Commands:\n")
