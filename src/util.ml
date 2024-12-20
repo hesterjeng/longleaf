@@ -25,10 +25,11 @@ let get_piaf ~client ~headers ~endpoint =
   try Yojson.Safe.from_string json
   with Yojson.Json_error s as e ->
     let resp_headers = Response.headers resp in
+    Eio.traceln "@[%s@]@." json;
     Eio.traceln
       "@[Error converting body of response to json in get_piaf.@]@.@[reason: \
-       %s@]@.@[headers: %a@]@."
-      s Headers.pp_hum resp_headers;
+       %s@]@.@[headers: %a@]@.@[endpoint: %s@]@."
+      s Headers.pp_hum resp_headers endpoint;
     raise e
 
 let delete_piaf ~client ~headers ~endpoint =
