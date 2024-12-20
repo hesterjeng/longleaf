@@ -1,5 +1,16 @@
 open Longleaf
 
+module Downloader_ty = struct
+  type t = Alpaca | Tiingo [@@deriving show]
+
+  let of_string = function
+    | "alpaca" -> Ok Alpaca
+    | "tiingo" -> Ok Tiingo
+    | _ -> invalid_arg "Unknown downloader service"
+
+  let conv = Cmdliner.Arg.conv (of_string, pp)
+end
+
 let some_symbols =
   [
     "NVDA";
@@ -28,6 +39,10 @@ module Args = struct
     let doc = "Download data only for today." in
     Cmdliner.Arg.(value & flag & info [ "t" ] ~doc)
 
+  let downloader_arg =
+    let doc = "Choose downloader client.  Currently Tiingo or Alpaca." in
+    Cmdliner.Arg.(value & pos 0 (some Downloader_ty.conv) None & info [] ~doc)
+
   let begin_arg =
     let doc = "Begin date as YYYY-MM-DD." in
     Cmdliner.Arg.(value & opt (some string) None & info [ "begin" ] ~doc)
@@ -53,7 +68,7 @@ module Args = struct
   let output_file_arg =
     let doc = "Output file for the downloaded data." in
     Cmdliner.Arg.(
-      value & pos 0 (some string) None & info [] ~docv:"output file" ~doc)
+      value & pos 1 (some string) None & info [] ~docv:"output file" ~doc)
 end
 
 let get_todays_date () =
@@ -73,7 +88,11 @@ module Downloader = struct
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create data client"
 
-  let top eio_env request prefix output_file =
+  (* let tiingo_client switch eio_env longleaf_env = *)
+  (*   let module Tiingo_client *)
+
+  let top eio_env request prefix output_file
+      (downloader_arg : Downloader_ty.t option) =
     Eio.Switch.run @@ fun switch ->
     Util.yojson_safe true @@ fun () ->
     let longleaf_env = Environment.make () in
@@ -85,7 +104,19 @@ module Downloader = struct
     let module MDA = Market_data_api.Make (Conn) in
     Eio.traceln "Making request %a..."
       Market_data_api.Historical_bars_request.pp request;
-    let bars = MDA.Stock.historical_bars request in
+    let bars =
+      match downloader_arg with
+      | Some Alpaca -> MDA.Stock.historical_bars request
+      | Some Tiingo ->
+          let module Tiingo = Longleaf.Tiingo_api.Make (struct
+            let longleaf_env = longleaf_env
+            let client = Tiingo_api.tiingo_client eio_env switch
+          end) in
+          Tiingo.Data.historical_bars request
+      (* MDA.Stock.historical_bars request *)
+      | None ->
+          invalid_arg "Need to specify downloader type for data_downloader."
+    in
     Eio.traceln "Trying infill";
     Bars.Infill.top bars;
     Eio.traceln "%a" Bars.pp_stats bars;
@@ -96,7 +127,8 @@ module Downloader = struct
 end
 
 module Cmd = struct
-  let run today begin_arg end_arg timeframe_arg interval_arg output_file_arg =
+  let run today begin_arg end_arg timeframe_arg interval_arg output_file_arg
+      downloader_arg =
     Fmt_tty.setup_std_outputs ();
     let prefix = if today then "download_today" else "download" in
     let request =
@@ -119,7 +151,7 @@ module Cmd = struct
     in
     let _ =
       Eio_main.run @@ fun eio_env ->
-      Downloader.top eio_env request prefix output_file_arg
+      Downloader.top eio_env request prefix output_file_arg downloader_arg
     in
     ()
 
@@ -127,7 +159,8 @@ module Cmd = struct
     let term =
       Cmdliner.Term.(
         const run $ Args.today_arg $ Args.begin_arg $ Args.end_arg
-        $ Args.timeframe_arg $ Args.interval_arg $ Args.output_file_arg)
+        $ Args.timeframe_arg $ Args.interval_arg $ Args.output_file_arg
+        $ Args.downloader_arg)
     in
     let doc = "Simple data downloader." in
     let info = Cmdliner.Cmd.info ~doc "data_downloader.exe" in
