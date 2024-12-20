@@ -49,7 +49,7 @@ end
 
 module Timeframe : sig
   type t
-  type conv = int -> t
+  type conv = int option -> t
 
   val conv : conv Cmdliner.Arg.conv
   val t_of_yojson : Yojson.Safe.t -> t
@@ -79,14 +79,20 @@ end = struct
     | x ->
         invalid_arg @@ Format.asprintf "Tiingo intraday doesn't support %a" pp x
 
-  type conv = int -> t [@@deriving show]
+  type conv = int option -> t [@@deriving show]
+
+  let get_interval (x : int option) =
+    match x with
+    | Some x -> x
+    | None -> invalid_arg "Expected interval argument"
 
   let conv_of_string : string -> (conv, _) result = function
-    | "minute" | "min" | "Minute" | "Min" -> Result.return @@ fun i -> Min i
-    | "hour" | "Hour" -> Result.return @@ fun i -> Hour i
+    | "minute" | "min" | "Minute" | "Min" ->
+        Result.return @@ fun i -> Min (get_interval i)
+    | "hour" | "Hour" -> Result.return @@ fun i -> Hour (get_interval i)
     | "day" | "Day" -> Result.return @@ fun _ -> Day
     | "week" | "Week" -> Result.return @@ fun _ -> Week
-    | "month" | "Month" -> Result.return @@ fun i -> Month i
+    | "month" | "Month" -> Result.return @@ fun i -> Month (get_interval i)
     | _ -> Result.fail @@ `Msg "Invalid timeframe selection"
 
   let conv = Cmdliner.Arg.conv (conv_of_string, pp_conv)

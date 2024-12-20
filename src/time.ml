@@ -25,6 +25,10 @@ let of_ymd x =
       invalid_arg
       @@ Format.asprintf "Invalid time in my time module (ymd)? %s" x
 
+let to_ymd (x : t) =
+  Ptime.to_date_time x |> fun (date, _) ->
+  date |> fun (y, m, d) -> Format.asprintf "%d-%d-%d" y m d
+
 let of_string x =
   match Ptime.of_rfc3339 x with
   | Ok (t, _, _) -> t
