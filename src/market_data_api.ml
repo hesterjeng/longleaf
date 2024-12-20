@@ -16,7 +16,6 @@ module Historical_bars_request = struct
     let* begin_arg = begin_arg in
     let* end_arg = end_arg in
     let* timeframe_arg = timeframe_arg in
-    let* interval_arg = interval_arg in
     Option.return
     @@ {
          symbols;
