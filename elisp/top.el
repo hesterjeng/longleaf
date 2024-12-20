@@ -90,6 +90,7 @@
     (vterm-send-return)
 
     (message "Sent shutdown command to *shutdown-vterm*")
+    (kill-buffer shutdown-buffer)
     ))
 
 (defun my-insert-interactive-option (text callback)
