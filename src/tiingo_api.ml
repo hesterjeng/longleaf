@@ -95,7 +95,8 @@ module Make (Tiingo : Util.CLIENT) = struct
       Item.make ~timestamp:date ~open_ ~high ~low ~close
         ~volume:(Int.of_float volume) ~last:close ~order:None ()
 
-    let historical_bars (request : Historical_bars_request.t) =
+    let historical_bars ?(afterhours = false)
+        (request : Historical_bars_request.t) =
       let get_data symbol =
         let endpoint =
           Uri.of_string ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices")
@@ -112,6 +113,9 @@ module Make (Tiingo : Util.CLIENT) = struct
           match request.end_ with
           | Some end_t -> Uri.add_query_param' uri ("endDate", Time.to_ymd end_t)
           | None -> uri)
+          |> (fun uri ->
+          if afterhours then Uri.add_query_param' uri ("afterHours", "true")
+          else uri)
           |> Uri.to_string
         in
         Eio.traceln "%s" endpoint;
