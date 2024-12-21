@@ -126,6 +126,7 @@ module Downloader = struct
     Eio.traceln "Trying infill";
     Bars.Infill.top bars;
     Eio.traceln "%a" Bars.pp_stats bars;
+    Bars.sort Longleaf__.Item.compare bars;
     (match output_file with
     | Some filename -> Bars.print_to_file_direct bars filename
     | None -> Bars.print_to_file bars prefix);
