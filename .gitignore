@@ -7,3 +7,5 @@ shutdown.exe
 elisp/flycheck_top.el
 src/template.ml
 src/multitemplate.ml
+src/javascript/css.css
+src/javascript/plotly_latest.css
