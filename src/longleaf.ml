@@ -9,6 +9,7 @@ module Time = Time
 module Lots_of_words = Lots_of_words
 module Bars = Bars
 module Options = Options
+module Item = Item
 module LongleafMutex = Backend.LongleafMutex ()
 
 let runtype_target_check ~runtype ~target : unit =
