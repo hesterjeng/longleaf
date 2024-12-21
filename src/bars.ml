@@ -37,7 +37,7 @@ module Latest = struct
         Eio.traceln "Current latest: %a" pp x;
         Error "No values in Bars.Latest.t"
     | Ok (Some res) ->
-        Eio.traceln "Ok Bars.Latest.t";
+        (* Eio.traceln "Ok Bars.Latest.t"; *)
         Ok res
     | Error e ->
         Eio.traceln "%a" pp x;
