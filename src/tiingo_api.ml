@@ -120,7 +120,7 @@ module Make (Tiingo : Util.CLIENT) = struct
         in
         Eio.traceln "%s" endpoint;
         let resp = get ~headers ~endpoint in
-        Eio.traceln "%a" Yojson.Safe.pp resp;
+        (* Eio.traceln "%a" Yojson.Safe.pp resp; *)
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
         (symbol, Vector.of_list l)
       in
