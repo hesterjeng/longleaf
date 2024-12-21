@@ -67,7 +67,6 @@ let pp_stats : t Format.printer =
 
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 let sort cmp (x : t) = Hashtbl.iter (fun _ vector -> Vector.sort' cmp vector) x
-
 let empty () : t = Hashtbl.create 100
 (* let original_received_of_yojson = Received.t_of_yojson *)
 
