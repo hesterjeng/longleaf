@@ -140,24 +140,32 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
     match found with Some err -> Error err | None -> Ok latest
 
   let last_data_bar =
+    Eio.traceln "@[Creating last data bar.@]";
     let module Hashtbl = Bars.Hashtbl in
     let ( let* ) = Result.( let* ) in
     let tbl : Bars.Latest.t = Hashtbl.create 20 in
     let* target = Option.to_result "No target for last data bar" Input.target in
-    Hashtbl.to_seq target
-    |>
-    let fold f = Seq.fold f (Ok tbl) in
-    fold @@ fun ok (symbol, vector) ->
-    let* _ = ok in
-    let l = Vector.length vector in
-    match l with
-    | 0 -> Error "No data for symbol in last_data_bar?"
-    | l ->
-        Result.return
-        @@
-        let item = Vector.get vector (l - 1) in
-        Hashtbl.replace tbl symbol item;
-        tbl
+    let res =
+      Hashtbl.to_seq target
+      |>
+      let fold f = Seq.fold f (Ok tbl) in
+      fold @@ fun ok (symbol, vector) ->
+      let* _ = ok in
+      let l = Vector.length vector in
+      match l with
+      | 0 -> Error "No data for symbol in last_data_bar?"
+      | _ ->
+          (* Eio.traceln "@[%a@]@." (Vector.pp Item.pp) vector; *)
+          Result.return
+          @@
+          let item = Vector.get vector 0 in
+          Hashtbl.replace tbl symbol item;
+          tbl
+    in
+    (* Eio.traceln "@[Result last data bar.@]"; *)
+    (* Eio.traceln "@[last: %a@]@." (Result.pp Bars.Latest.pp) res; *)
+    (* invalid_arg "debug" *)
+    res
 
   let liquidate state =
     let ( let* ) = Result.( let* ) in
