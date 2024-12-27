@@ -126,6 +126,7 @@ module Strategy_utils (Backend : Backend.S) = struct
     | `Listening -> (
         Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
         Pmutex.set Backend.LongleafMutex.orders_mutex state.order_history;
+        Pmutex.set Backend.LongleafMutex.stats_mutex state.stats;
         match listen_tick () with
         | `Continue ->
             let open Result.Infix in
@@ -160,10 +161,10 @@ module Strategy_utils (Backend : Backend.S) = struct
         Result.return { state with current = `Listening }
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
-        let bars = state.bars in
-        Vector.iter (fun order -> Bars.add_order order bars)
+        Vector.iter (fun order -> Bars.add_order order state.bars)
         @@ Pmutex.get Backend.LongleafMutex.orders_mutex;
-        Pmutex.set Backend.LongleafMutex.data_mutex bars;
+        Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
+        Pmutex.set Backend.LongleafMutex.stats_mutex state.stats;
         let filename = get_filename () in
         output_data state filename;
         output_order_history state filename;

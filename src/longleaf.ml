@@ -40,14 +40,13 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received eio_env =
     exit 0);
   Util.yojson_safe stacktrace @@ fun () ->
   let domain_manager = Eio.Stdenv.domain_mgr eio_env in
-  (* let shutdown_mutex = LongleafMutex.shutdown_mutex in *)
-  (* let data_mutex = LongleafMutex.data_mutex in *)
   let mutices : Gui.mutices =
     {
       shutdown_mutex = LongleafMutex.shutdown_mutex;
       data_mutex = LongleafMutex.data_mutex;
       orders_mutex = LongleafMutex.orders_mutex;
       symbols_mutex = LongleafMutex.symbols_mutex;
+      stats_mutex = LongleafMutex.stats_mutex;
     }
   in
   let run_strategy () =
