@@ -1,5 +1,5 @@
-type item = { time : Ptime.t; value : float }
-type t = item list
+type item = { time : Time.t; value : float } [@@deriving yojson]
+type t = item list [@@deriving yojson]
 
 let empty = []
 let append (x : item) (l : t) = x :: l
