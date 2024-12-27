@@ -1,3 +1,5 @@
+module Cmdliner = Cmdliner
+
 module Att1 = struct
   type signal = Buy | Sell | Fail [@@deriving eq]
   type 'a t = 'a -> signal
@@ -25,4 +27,29 @@ module Att1 = struct
     let* a = t1 in
     let* h = t2 in
     t2
+end
+
+module Att2 = struct
+
+  open CCFun.Monad(Int)
+
+  let f : float t =
+    fun x ->
+    Float.of_int x
+
+  let g : float t =
+    fun x -> Float.of_int x -. 1.0
+
+  let h (x : string) : float t =
+    fun (inp : int) -> (Float.of_int inp) +. Float.of_string_exn x
+
+  let bind f x =
+    x >>= f
+
+  let ( let* ) f x = bind f x
+
+  let h =
+    let* x = h in
+    "woah"
+
 end
