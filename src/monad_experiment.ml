@@ -1,3 +1,5 @@
+[@@@warning "-27"]
+
 module Cmdliner = Cmdliner
 
 module Att1 = struct
@@ -30,26 +32,18 @@ module Att1 = struct
 end
 
 module Att2 = struct
+  open CCFun.Monad (Int)
 
-  open CCFun.Monad(Int)
-
-  let f : float t =
-    fun x ->
-    Float.of_int x
-
-  let g : float t =
-    fun x -> Float.of_int x -. 1.0
+  let f : float t = fun x -> Float.of_int x
+  let g : float t = fun x -> Float.of_int x -. 1.0
 
   let h (x : string) : float t =
-    fun (inp : int) -> (Float.of_int inp) +. Float.of_string_exn x
+   fun (inp : int) -> Float.of_int inp +. Float.of_string_exn x
 
-  let bind f x =
-    x >>= f
-
+  let bind f x = x >>= f
   let ( let* ) f x = bind f x
 
   let h =
     let* x = h in
     "woah"
-
 end
