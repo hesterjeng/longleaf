@@ -63,6 +63,10 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       let orders = Pmutex.get mutices.orders_mutex in
       let body = Order_history.yojson_of_t orders |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
+  | { Request.meth = `GET; target = "/stats"; _ } ->
+      let stats = Pmutex.get mutices.stats_mutex in
+      let body = Stats.yojson_of_t stats |> Yojson.Safe.to_string in
+      Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
       let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
