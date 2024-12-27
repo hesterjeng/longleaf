@@ -5,6 +5,7 @@ module type LONGLEAF_MUTEX = sig
   val data_mutex : Bars.t Pmutex.t
   val orders_mutex : Order_history.t Pmutex.t
   val symbols_mutex : string option Pmutex.t
+  val stats_mutex : Stats.t Pmutex.t
 end
 
 module LongleafMutex () : LONGLEAF_MUTEX = struct
@@ -12,6 +13,7 @@ module LongleafMutex () : LONGLEAF_MUTEX = struct
   let data_mutex = Pmutex.make @@ Bars.empty ()
   let orders_mutex = Pmutex.make @@ Vector.create ()
   let symbols_mutex = Pmutex.make None
+  let stats_mutex = Pmutex.make []
 end
 
 module type BACKEND_INPUT = sig

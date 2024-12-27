@@ -3,6 +3,7 @@ type mutices = {
   data_mutex : Bars.t Pmutex.t;
   orders_mutex : Order_history.t Pmutex.t;
   symbols_mutex : string option Pmutex.t;
+  stats_mutex : Stats.t Pmutex.t;
 }
 
 open Piaf
@@ -61,6 +62,10 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
   | { Request.meth = `GET; target = "/orders"; _ } ->
       let orders = Pmutex.get mutices.orders_mutex in
       let body = Order_history.yojson_of_t orders |> Yojson.Safe.to_string in
+      Response.of_string ~body `OK
+  | { Request.meth = `GET; target = "/stats"; _ } ->
+      let stats = Pmutex.get mutices.stats_mutex in
+      let body = Stats.yojson_of_t stats |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
