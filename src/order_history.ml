@@ -17,3 +17,6 @@ let yojson_of_t (x : t) =
   yojson_of_order_history l
 
 let add (order_history : t) order = Vector.push order_history order
+
+let find (time : Time.t) (x : t) =
+  Vector.find (fun order -> Ptime.equal (Order.timestamp order) time) x
