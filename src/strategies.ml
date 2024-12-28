@@ -139,7 +139,7 @@ module Strategy_utils (Backend : Backend.S) = struct
                  state with
                  current = `Ordering;
                  latest;
-                 stats = Stats.append { time; value } state.stats;
+                 stats = Stats.append { time; value; order = None } state.stats;
                }
         | `BeginShutdown ->
             Eio.traceln "Attempting to liquidate positions before shutting down";
