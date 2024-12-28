@@ -1,4 +1,8 @@
-type item = { time : Time.t; value : float } [@@deriving yojson]
+module Order = Trading_types.Order
+
+type item = { time : Time.t; value : float; order : Order.t option }
+[@@deriving yojson]
+
 type t = item list [@@deriving yojson]
 
 let empty = []
