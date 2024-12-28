@@ -1,6 +1,11 @@
 module Order = Trading_types.Order
 
-type item = { time : Time.t; value : float; order : Order.t option }
+type item = {
+  time : Time.t;
+  value : float;
+  buy_order : Order.t option;
+  sell_order : Order.t option;
+}
 [@@deriving yojson]
 
 type t = item list [@@deriving yojson]
@@ -14,5 +19,11 @@ let add_orders (orders : Order_history.t) (x : t) =
   List.map
     (fun item ->
       let time = item.time in
-      { item with order = Order_history.find time orders })
+      let order = Order_history.find time orders in
+      match order with
+      | Some order -> (
+          match order.side with
+          | Buy -> { item with buy_order = Some order }
+          | Sell -> { item with sell_order = Some order })
+      | None -> item)
     x
