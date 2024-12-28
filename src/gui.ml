@@ -41,7 +41,7 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       let body =
         match Pmutex.get mutices.symbols_mutex with
         | None -> "No symbols found"
-        | Some symbols -> Multitemplate.render symbols
+        | Some symbols -> Html_template.render symbols
       in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/favicon.ico"; _ } ->
