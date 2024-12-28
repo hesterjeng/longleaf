@@ -139,7 +139,10 @@ module Strategy_utils (Backend : Backend.S) = struct
                  state with
                  current = `Ordering;
                  latest;
-                 stats = Stats.append { time; value } state.stats;
+                 stats =
+                   Stats.append
+                     { time; value; buy_order = None; sell_order = None }
+                     state.stats;
                }
         | `BeginShutdown ->
             Eio.traceln "Attempting to liquidate positions before shutting down";
@@ -163,8 +166,11 @@ module Strategy_utils (Backend : Backend.S) = struct
         Eio.traceln "@[Reached finished state.@]@.";
         Vector.iter (fun order -> Bars.add_order order state.bars)
         @@ Pmutex.get Backend.LongleafMutex.orders_mutex;
+        let stats_with_orders =
+          Stats.add_orders state.order_history state.stats
+        in
         Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
-        Pmutex.set Backend.LongleafMutex.stats_mutex state.stats;
+        Pmutex.set Backend.LongleafMutex.stats_mutex stats_with_orders;
         let filename = get_filename () in
         output_data state filename;
         output_order_history state filename;
