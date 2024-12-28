@@ -1,6 +1,6 @@
 @format:
 	@dune build @fmt --display=quiet --auto-promote;
-	# @prettier --write src/javascript/*;
+	@prettier --write src/javascript/plotly_graph.js;
 
 @watch:
 	dune exec bin/server.exe --watch
