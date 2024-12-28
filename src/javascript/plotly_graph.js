@@ -19,11 +19,11 @@ export async function fetchStats(div, endPoint) {
         yValues.push(data[i].value);
         if (data[i].buy_order) {
           buyX.push(data[i].time);
-          buyY.push(data[i].buy_order);
+          buyY.push(data[i].value);
         }
         if (data[i].sell_order) {
-          buyX.push(data[i].time);
-          buyY.push(data[i].sell_order);
+          sellX.push(data[i].time);
+          sellY.push(data[i].value);
         }
       }
     }
@@ -173,7 +173,7 @@ export async function fetchAndRenderAll(symbols) {
     newDiv.style.marginLeft = "auto";
     newDiv.style.marginRight = "auto";
     newDiv.style.display = "block"; // Ensure it's treated as a block element
-    newDiv.id = "stats";
+    newDiv.id = "Statistics";
     const stats = await fetchStats(newDiv, "stats");
     container.appendChild(newDiv);
     for (let i = 0; i < length; i++) {
