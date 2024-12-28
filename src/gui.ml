@@ -64,10 +64,9 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       let body = Order_history.yojson_of_t orders |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/stats"; _ } ->
-      let stats = Pmutex.get mutices.stats_mutex in
-      let body =
-        Stats.sort stats |> Stats.yojson_of_t |> Yojson.Safe.to_string
-      in
+      let stats = Pmutex.get mutices.stats_mutex |> Stats.sort in
+      (* Eio.traceln "GUI: %a" Stats.pp stats; *)
+      let body = Stats.yojson_of_t stats |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in

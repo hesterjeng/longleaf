@@ -6,9 +6,9 @@ type item = {
   buy_order : Order.t option;
   sell_order : Order.t option;
 }
-[@@deriving yojson]
+[@@deriving yojson, show]
 
-type t = item list [@@deriving yojson]
+type t = item list [@@deriving yojson, show]
 
 let empty = []
 let append (x : item) (l : t) = x :: l
