@@ -8,19 +8,48 @@ export async function fetchStats(div, endPoint) {
     console.log("Fetched data:", data);
     const xValues = [];
     const yValues = [];
+    const buyX = [];
+    const buyY = [];
+    const sellX = [];
+    const sellY = [];
     const text = "Portfolio Value";
     for (let i = 0; i < data.length; i++) {
       if (data[i] !== null) {
         xValues.push(data[i].time);
         yValues.push(data[i].value);
+        if (data[i].buy_order) {
+          buyX.push(data[i].time);
+          buyY.push(data[i].buy_order);
+        }
+        if (data[i].sell_order) {
+          buyX.push(data[i].time);
+          buyY.push(data[i].sell_order);
+        }
       }
-    };
+    }
     const trace = {
       x: xValues,
       y: yValues,
       text: text,
       type: "scatter",
       name: endPoint,
+    };
+    const buyTrace = {
+      x: buyX,
+      y: buyY,
+      type: "scatter",
+      mode: "markers", // Only markers for dots
+      marker: { color: "green", size: 10 },
+      name: "Buy",
+    };
+
+    const sellTrace = {
+      x: sellX,
+      y: sellY,
+      type: "scatter",
+      mode: "markers", // Only markers for dots
+      marker: { color: "red", size: 10 },
+      name: "Sell",
     };
     const layout = {
       width: 1000,
@@ -37,7 +66,7 @@ export async function fetchStats(div, endPoint) {
     };
 
     // Render the graph (use Plotly.react for updates)
-    Plotly.react(div, [trace], layout);
+    Plotly.react(div, [trace, buyTrace, sellTrace], layout);
   } catch (error) {
     console.error("Error fetching statistics:", error);
   }
