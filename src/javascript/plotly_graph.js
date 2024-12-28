@@ -10,8 +10,10 @@ export async function fetchStats(div, endPoint) {
     const yValues = [];
     const buyX = [];
     const buyY = [];
+    const buyHover = [];
     const sellX = [];
     const sellY = [];
+    const sellHover = [];
     const text = "Portfolio Value";
     for (let i = 0; i < data.length; i++) {
       if (data[i] !== null) {
@@ -20,10 +22,22 @@ export async function fetchStats(div, endPoint) {
         if (data[i].buy_order) {
           buyX.push(data[i].time);
           buyY.push(data[i].value);
+          const order = data[i].buy_order;
+          // buyHover.push(JSON.stringify(data[i].buy_order, null, 2));
+          buyHover.push(`
+  ${order.symbol}<br>
+  ${order.reason.join("<br>")}
+`);
         }
         if (data[i].sell_order) {
           sellX.push(data[i].time);
           sellY.push(data[i].value);
+          const order = data[i].sell_order;
+          // sellHover.push(JSON.stringify(data[i].sell_order, null, 2));
+          sellHover.push(`
+  ${order.symbol}<br>
+  ${order.reason.join("<br>")}
+`);
         }
       }
     }
@@ -32,12 +46,14 @@ export async function fetchStats(div, endPoint) {
       y: yValues,
       text: text,
       type: "scatter",
-      name: endPoint,
+      name: "Portfolio Value",
     };
     const buyTrace = {
       x: buyX,
       y: buyY,
       type: "scatter",
+      hovertext: buyHover,
+      hoverinfo: "text",
       mode: "markers", // Only markers for dots
       marker: { color: "green", size: 10 },
       name: "Buy",
@@ -46,7 +62,9 @@ export async function fetchStats(div, endPoint) {
     const sellTrace = {
       x: sellX,
       y: sellY,
+      hovertext: sellHover,
       type: "scatter",
+      hoverinfo: "text",
       mode: "markers", // Only markers for dots
       marker: { color: "red", size: 10 },
       name: "Sell",
@@ -54,7 +72,7 @@ export async function fetchStats(div, endPoint) {
     const layout = {
       width: 1000,
       height: 700,
-      title: endPoint,
+      title: "Statistics",
       xaxis: {
         title: "X-axis",
         type: "category",
