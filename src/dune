@@ -37,15 +37,7 @@
 (rule
  ; (mode
  ;  (promote (until-clean)))
- (targets template.ml)
- (deps template.eml.html)
- (action
-  (run dream_eml %{deps} --workspace %{workspace_root})))
-
-(rule
- ; (mode
- ;  (promote (until-clean)))
- (targets multitemplate.ml)
- (deps multitemplate.eml.html)
+ (targets html_template.ml)
+ (deps html_template.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))

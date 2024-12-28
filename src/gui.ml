@@ -41,7 +41,7 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       let body =
         match Pmutex.get mutices.symbols_mutex with
         | None -> "No symbols found"
-        | Some symbols -> Multitemplate.render symbols
+        | Some symbols -> Html_template.render symbols
       in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/favicon.ico"; _ } ->
@@ -65,7 +65,9 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/stats"; _ } ->
       let stats = Pmutex.get mutices.stats_mutex in
-      let body = Stats.yojson_of_t stats |> Yojson.Safe.to_string in
+      let body =
+        Stats.sort stats |> Stats.yojson_of_t |> Yojson.Safe.to_string
+      in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
