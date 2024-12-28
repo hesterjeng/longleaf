@@ -6,6 +6,38 @@ export async function fetchStats(div, endPoint) {
     const response = await fetch(endpointUrl);
     const data = await response.json();
     console.log("Fetched data:", data);
+    const xValues = [];
+    const yValues = [];
+    const text = "Portfolio Value";
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] !== null) {
+        xValues.push(data[i].time);
+        yValues.push(data[i].value);
+      }
+    };
+    const trace = {
+      x: xValues,
+      y: yValues,
+      text: text,
+      type: "scatter",
+      name: endPoint,
+    };
+    const layout = {
+      width: 1000,
+      height: 700,
+      title: endPoint,
+      xaxis: {
+        title: "X-axis",
+        type: "category",
+        tickmode: "linear",
+        dtick: 20,
+        showticklabels: false,
+      },
+      yaxis: { title: "Y-axis" },
+    };
+
+    // Render the graph (use Plotly.react for updates)
+    Plotly.react(div, [trace], layout);
   } catch (error) {
     console.error("Error fetching statistics:", error);
   }
@@ -113,8 +145,8 @@ export async function fetchAndRenderAll(symbols) {
     newDiv.style.marginRight = "auto";
     newDiv.style.display = "block"; // Ensure it's treated as a block element
     newDiv.id = "stats";
-    const stats = await fetchStats(statsDiv, "stats");
-    container.appendChild(statsDiv);
+    const stats = await fetchStats(newDiv, "stats");
+    container.appendChild(newDiv);
     for (let i = 0; i < length; i++) {
       const symbol = symbols_array[i];
       if (symbol) {
