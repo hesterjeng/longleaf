@@ -1,7 +1,6 @@
+module Hashtbl = Hashtbl.Make (String)
+
 let accumulation_distribution_line (l : Item.t list) =
-  Eio.traceln
-    "@[accumulation_distribution_line was written with Alpaca bar items in \
-     mind, not tiingo.@]@.";
   let _, res =
     List.fold_map
       (fun previous_adl (x : Item.t) ->
@@ -22,9 +21,6 @@ let accumulation_distribution_line (l : Item.t list) =
   res
 
 let simple_moving_average (l : Item.t list) =
-  Eio.traceln
-    "@[simple_moving_average was written with Alpaca bar items in mind, not \
-     tiingo.@]@.";
   let n = List.length l in
   let close = List.map (fun (x : Item.t) -> Item.close x) l in
   let sma_i i =
@@ -42,3 +38,27 @@ let simple_moving_average (l : Item.t list) =
     List.fold_left (fun x y -> x +. y) 0.0 vals /. Float.of_int i
   in
   List.mapi (fun i _ -> sma_i i) close
+
+module Point = struct
+  type t = { timestamp : Time.t; adl : float; sma : float }
+  [@@deriving show, yojson]
+end
+
+module Latest = struct
+  type t = Point.t Hashtbl.t
+
+  let empty () : t = Hashtbl.create 0
+
+  let pp : t Format.printer =
+   fun fmt x ->
+    let seq = Hashtbl.to_seq x in
+    let pp = Seq.pp @@ Pair.pp String.pp Point.pp in
+    Format.fprintf fmt "@[%a@]@." pp seq
+
+  let get x symbol =
+    match Hashtbl.find_opt x symbol with
+    | Some x -> x
+    | None -> invalid_arg "Unable to find price of symbol (Indicators.Latest)"
+
+  let of_latest (x : Bars.t) (latest : Bars.Latest.t) = invalid_arg "NYI"
+end
