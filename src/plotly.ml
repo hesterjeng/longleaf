@@ -1,5 +1,4 @@
 module Order = Trading_types.Order
-
 open Option.Infix
 
 let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t option =
@@ -24,13 +23,11 @@ let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t option =
   in
   let reasons =
     List.map
-      (
-        fun (x : Item.t) ->
-          Item.order x |> function
-            | None -> `Null
-            | Some order -> `List order.reason
-      )
-    data
+      (fun (x : Item.t) ->
+        Item.order x |> function
+        | None -> `Null
+        | Some order -> `List (List.map (fun x -> `String x) order.reason))
+      data
   in
   let sell_axis =
     List.map
