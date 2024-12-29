@@ -31,6 +31,7 @@ let some_symbols =
     "MSTR";
     "UBER";
     "LLY";
+    "SPY";
   ]
 
 module Args = struct
