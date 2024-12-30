@@ -6,17 +6,21 @@ let money_flow_multiplier (x : Item.t) =
   let close = close x in
   let low = low x in
   let high = high x in
-  (close - low - (high - close)) / (high - low)
+  if Float.equal high low then 0.0
+  else (close - low - (high - close)) / (high - low)
 
 let money_flow_volume (x : Item.t) =
   let open Float in
   let open Item in
   let volume = volume x |> Float.of_int in
-  volume * money_flow_multiplier x
+  if Float.equal volume 0.0 then 0.0 else volume * money_flow_multiplier x
 
 (* Accumulation distirbution line *)
 let adl previous_adl (current : Item.t) =
-  money_flow_volume current +. previous_adl
+  let res = money_flow_volume current +. previous_adl in
+  (* if Float.is_nan res then *)
+  (*   Eio. traceln "%f %f" (money_flow_volume current) previous_adl; *)
+  res
 
 (* Exponential moving average *)
 (* Length is the number of data points so far *)

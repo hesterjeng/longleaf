@@ -72,8 +72,8 @@ let of_bars (x : Bars.t) (indicators : Indicators.t) (symbol : string) :
                 ("buy", `List buy_axis);
                 ("sell", `List sell_axis);
                 ("reasons", `List reasons);
-                ("adl", `List accumulation_distribution_line);
-                ("ema", `List exponential_moving_average_line);
+                (* ("adl", `List accumulation_distribution_line); *)
+                (* ("ema", `List exponential_moving_average_line); *)
                 ("mode", `String "lines+markers");
                 ("name", `String symbol);
               ];
