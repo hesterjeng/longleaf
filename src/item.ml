@@ -47,4 +47,6 @@ let high x = x.high
 let low x = x.low
 let last (x : t) = x.last
 let volume x = x.volume
+
+(* let indicators x = x.indicators *)
 let compare x y = Ptime.compare x.timestamp y.timestamp

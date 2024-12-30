@@ -123,7 +123,7 @@ export async function fetchAndRender(div, endPoint) {
       if (buyValues[i] !== null) {
         buyX.push(xValues[i]);
         buyY.push(yValues[i]);
-          buyHover.push(`
+        buyHover.push(`
   ${endPoint}<br>
   ${reasons[i].join("<br>")}
 `);
@@ -133,7 +133,7 @@ export async function fetchAndRender(div, endPoint) {
       if (sellValues[i] !== null) {
         sellX.push(xValues[i]);
         sellY.push(yValues[i]);
-          sellHover.push(`
+        sellHover.push(`
   ${endPoint}<br>
   ${reasons[i].join("<br>")}
 `);
