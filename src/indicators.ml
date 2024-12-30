@@ -29,15 +29,22 @@ let ema length previous latest =
 
 module Point = struct
   type t = {
-    timestamp : Time.t;
+    timestamp : Time.t option;
     accumulation_distribution_line : float;
     exponential_moving_average : float;
   }
   [@@deriving show, yojson]
 
+  let initial () : t =
+    {
+      timestamp = None;
+      accumulation_distribution_line = 0.0;
+      exponential_moving_average = 0.0;
+    }
+
   let of_latest timestamp length (previous : t) (latest : Item.t) =
     {
-      timestamp;
+      timestamp = Some timestamp;
       accumulation_distribution_line =
         adl previous.accumulation_distribution_line latest;
       exponential_moving_average =
@@ -64,18 +71,24 @@ let pp : t Format.printer =
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
-let add_latest (latest_bars : Bars.Latest.t) (x : t) =
+let add_latest timestamp (latest_bars : Bars.Latest.t) (x : t) =
   Hashtbl.to_seq latest_bars |> fun seq ->
   let iter f = Seq.iter f seq in
   iter @@ fun (symbol, latest) ->
   let indicators_vector =
-    get x symbol |> Option.get_exn_or "Expected to have indicators data"
+    match get x symbol with
+    | Some i -> i
+    | None ->
+        Eio.traceln "Creating initial indicators for %s." symbol;
+        let new_vector = Vector.create () in
+        Hashtbl.replace x symbol new_vector;
+        new_vector
   in
   let length = Vector.length indicators_vector |> Float.of_int in
-  let timestamp = Item.timestamp latest in
   let previous =
-    Vector.top indicators_vector
-    |> Option.get_exn_or "Expected to have some data in indicators"
+    match Vector.top indicators_vector with
+    | Some p -> p
+    | None -> Point.initial ()
   in
   let new_indicators = Point.of_latest timestamp length previous latest in
   Vector.push indicators_vector new_indicators
