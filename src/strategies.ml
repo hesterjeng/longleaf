@@ -127,6 +127,7 @@ module Strategy_utils (Backend : Backend.S) = struct
         Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
         Pmutex.set Backend.LongleafMutex.orders_mutex state.order_history;
         Pmutex.set Backend.LongleafMutex.stats_mutex state.stats;
+        Pmutex.set Backend.LongleafMutex.indicators_mutex state.indicators;
         match listen_tick () with
         | `Continue ->
             let open Result.Infix in
@@ -172,6 +173,7 @@ module Strategy_utils (Backend : Backend.S) = struct
         in
         Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
         Pmutex.set Backend.LongleafMutex.stats_mutex stats_with_orders;
+        Pmutex.set Backend.LongleafMutex.indicators_mutex state.indicators;
         let filename = get_filename () in
         output_data state filename;
         output_order_history state filename;
