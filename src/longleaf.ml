@@ -8,6 +8,7 @@ module Ticker = Ticker
 module Time = Time
 module Lots_of_words = Lots_of_words
 module Bars = Bars
+module Indicators = Indicators
 module Options = Options
 module Item = Item
 module LongleafMutex = Backend.LongleafMutex ()

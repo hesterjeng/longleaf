@@ -21,6 +21,7 @@ type 'a t = {
   latest : Bars.Latest.t;
   order_history : Order_history.t;
   stats : Stats.t;
+  indicators : Indicators.t;
   content : 'a;
 }
 
