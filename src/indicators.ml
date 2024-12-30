@@ -14,46 +14,44 @@ let money_flow_volume (x : Item.t) =
   let volume = volume x |> Float.of_int in
   volume * money_flow_multiplier x
 
-(* This is pretty inefficient, as it recalculates the whole thing every time *)
-let accumulation_distribution_line_whole (l : Bars.symbol_history) =
-  let mfv_vector = Vector.map money_flow_volume l in
-  Vector.fold ( +. ) 0.0 mfv_vector
-
-let accumulation_distribution_line previous_adl (current : Item.t) =
+(* Accumulation distirbution line *)
+let adl previous_adl (current : Item.t) =
   money_flow_volume current +. previous_adl
 
-let simple_moving_average n (l : Bars.symbol_history) =
-  let length = Vector.length l in
-  let close = Vector.map Item.close l in
-  let start = Int.max (length - n) 0 in
-  let window = Vector.slice_iter close start n in
-  let sum = Iter.fold ( +. ) 0.0 window in
-  sum /. Float.of_int n
+(* Exponential moving average *)
+(* Length is the number of data points so far *)
+(* Previous is the previous EMA value *)
+(* Latest is the latest price *)
+let ema length previous latest =
+  let price = Item.last latest in
+  let alpha = 2.0 /. (length +. 1.0) in
+  previous +. (alpha *. (price -. previous))
 
 module Point = struct
-  type t = { timestamp : Time.t; adl : float; sma : float }
+  type t = {
+    timestamp : Time.t;
+    accumulation_distribution_line : float;
+    exponential_moving_average : float;
+  }
   [@@deriving show, yojson]
+
+  let of_latest timestamp length (previous : t) (latest : Item.t) =
+    {
+      timestamp;
+      accumulation_distribution_line =
+        adl previous.accumulation_distribution_line latest;
+      exponential_moving_average =
+        ema length previous.exponential_moving_average latest;
+    }
 end
 
-(* module Latest = struct *)
-(*   type t = Point.t Hashtbl.t *)
-
-(*   let empty () : t = Hashtbl.create 0 *)
-
-(*   let pp : t Format.printer = *)
-(*    fun fmt x -> *)
-(*     let seq = Hashtbl.to_seq x in *)
-(*     let pp = Seq.pp @@ Pair.pp String.pp Point.pp in *)
-(*     Format.fprintf fmt "@[%a@]@." pp seq *)
-
-(*   let get x symbol = *)
-(*     match Hashtbl.find_opt x symbol with *)
-(*     | Some x -> x *)
-(*     | None -> invalid_arg "Unable to find price of symbol (Indicators.Latest)" *)
-
-(*   let of_latest (x : Bars.t) (latest : Bars.Latest.t) = invalid_arg "NYI" *)
-
-(* end *)
+(* let simple_moving_average n (l : Bars.symbol_history) = *)
+(*   let length = Vector.length l in *)
+(*   let close = Vector.map Item.close l in *)
+(*   let start = Int.max (length - n) 0 in *)
+(*   let window = Vector.slice_iter close start n in *)
+(*   let sum = Iter.fold ( +. ) 0.0 window in *)
+(*   sum /. Float.of_int n *)
 
 type t = Point.t Vector.vector Hashtbl.t
 
@@ -66,15 +64,18 @@ let pp : t Format.printer =
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
-let add_latest (latest : Bars.Latest.t) (x : t) =
-  Hashtbl.to_seq latest |> fun seq ->
+let add_latest (latest_bars : Bars.Latest.t) (x : t) =
+  Hashtbl.to_seq latest_bars |> fun seq ->
   let iter f = Seq.iter f seq in
-  iter @@ fun (symbol, data) ->
+  iter @@ fun (symbol, latest) ->
   let indicators_vector =
     get x symbol |> Option.get_exn_or "Expected to have indicators data"
   in
-  let most_recent_indicators =
+  let length = Vector.length indicators_vector |> Float.of_int in
+  let timestamp = Item.timestamp latest in
+  let previous =
     Vector.top indicators_vector
     |> Option.get_exn_or "Expected to have some data in indicators"
   in
-  invalid_arg "indicators.ml: NYI"
+  let new_indicators = Point.of_latest timestamp length previous latest in
+  Vector.push indicators_vector new_indicators
