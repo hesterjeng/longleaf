@@ -84,6 +84,7 @@ module Make
       | Manual -> manual ()
       | Paper -> paper ()
       | Listener -> listener ()
+      | BuyAndHold -> backtest ()
       | Backtest -> backtest ()
     in
     Alpaca.shutdown ();
@@ -156,4 +157,15 @@ module Listener = struct
   end
 
   module Make = Make (Data) (Listener.Make)
+end
+
+module BuyAndHold = struct
+  module Data : RUN_DATA = struct
+    let symbols = [ "SPY" ]
+    let tick = 600.0
+    let overnight = true
+    let resume_after_liquidate = true
+  end
+
+  module Make = Make (Data) (Buy_and_hold.Make)
 end

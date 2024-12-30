@@ -1,4 +1,4 @@
-module BuyAndHold (Backend : Backend.S) : Strategies.S = struct
+module Make (Backend : Backend.S) : Strategies.S = struct
   module SU = Strategies.Strategy_utils (Backend)
 
   let qty (state : _ State.t) pct symbol =
