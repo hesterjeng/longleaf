@@ -35,24 +35,25 @@ module Point = struct
   [@@deriving show, yojson]
 end
 
-module Latest = struct
-  type t = Point.t Hashtbl.t
+(* module Latest = struct *)
+(*   type t = Point.t Hashtbl.t *)
 
-  let empty () : t = Hashtbl.create 0
+(*   let empty () : t = Hashtbl.create 0 *)
 
-  let pp : t Format.printer =
-   fun fmt x ->
-    let seq = Hashtbl.to_seq x in
-    let pp = Seq.pp @@ Pair.pp String.pp Point.pp in
-    Format.fprintf fmt "@[%a@]@." pp seq
+(*   let pp : t Format.printer = *)
+(*    fun fmt x -> *)
+(*     let seq = Hashtbl.to_seq x in *)
+(*     let pp = Seq.pp @@ Pair.pp String.pp Point.pp in *)
+(*     Format.fprintf fmt "@[%a@]@." pp seq *)
 
-  let get x symbol =
-    match Hashtbl.find_opt x symbol with
-    | Some x -> x
-    | None -> invalid_arg "Unable to find price of symbol (Indicators.Latest)"
+(*   let get x symbol = *)
+(*     match Hashtbl.find_opt x symbol with *)
+(*     | Some x -> x *)
+(*     | None -> invalid_arg "Unable to find price of symbol (Indicators.Latest)" *)
 
-  let of_latest (x : Bars.t) (latest : Bars.Latest.t) = invalid_arg "NYI"
-end
+(*   let of_latest (x : Bars.t) (latest : Bars.Latest.t) = invalid_arg "NYI" *)
+
+(* end *)
 
 type t = Point.t Vector.vector Hashtbl.t
 
@@ -63,3 +64,17 @@ let pp : t Format.printer =
   Format.fprintf fmt "@[%a@]@." pp seq
 
 let empty () = Hashtbl.create 100
+let get (x : t) symbol = Hashtbl.find_opt x symbol
+
+let add_latest (latest : Bars.Latest.t) (x : t) =
+  Hashtbl.to_seq latest |> fun seq ->
+  let iter f = Seq.iter f seq in
+  iter @@ fun (symbol, data) ->
+  let indicators_vector =
+    get x symbol |> Option.get_exn_or "Expected to have indicators data"
+  in
+  let most_recent_indicators =
+    Vector.top indicators_vector
+    |> Option.get_exn_or "Expected to have some data in indicators"
+  in
+  invalid_arg "indicators.ml: NYI"
