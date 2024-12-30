@@ -48,6 +48,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received eio_env =
       orders_mutex = LongleafMutex.orders_mutex;
       symbols_mutex = LongleafMutex.symbols_mutex;
       stats_mutex = LongleafMutex.stats_mutex;
+      indicators_mutex = LongleafMutex.indicators_mutex;
     }
   in
   let run_strategy () =
