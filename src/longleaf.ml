@@ -16,7 +16,7 @@ let runtype_target_check ~runtype ~target : unit =
   match target with
   | Some _ -> (
       match runtype with
-      | Options.Runtype.Backtest -> ()
+      | Options.Runtype.Backtest | Options.Runtype.BuyAndHold -> ()
       | _ ->
           Eio.traceln "Must be in a backtest if we have a specified target.";
           exit 1)
@@ -63,6 +63,9 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received eio_env =
     match runtype with
     | Listener ->
         let module Run = Run.Listener.Make (LongleafMutex) (Context) in
+        Run.top runtype
+    | BuyAndHold ->
+        let module Run = Run.BuyAndHold.Make (LongleafMutex) (Context) in
         Run.top runtype
     | _ ->
         let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
