@@ -97,6 +97,7 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
       content;
       stats = Stats.empty;
       order_history = Vector.create ();
+      indicators = Indicators.empty ();
     }
 
   let next_market_open _ = None
@@ -247,6 +248,7 @@ module Alpaca
       content;
       stats = Stats.empty;
       order_history = Vector.create ();
+      indicators = Indicators.empty ();
     }
 
   let next_market_open () =
