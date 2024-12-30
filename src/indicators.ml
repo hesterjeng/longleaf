@@ -53,3 +53,13 @@ module Latest = struct
 
   let of_latest (x : Bars.t) (latest : Bars.Latest.t) = invalid_arg "NYI"
 end
+
+type t = Point.t Vector.vector Hashtbl.t
+
+let pp : t Format.printer =
+ fun fmt x ->
+  let seq = Hashtbl.to_seq x in
+  let pp = Seq.pp @@ Pair.pp String.pp (Vector.pp Point.pp) in
+  Format.fprintf fmt "@[%a@]@." pp seq
+
+let empty () = Hashtbl.create 100
