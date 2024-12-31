@@ -90,7 +90,22 @@ export async function fetchStats(div, endPoint) {
   }
 }
 
-function emaTrace(json) {}
+function makeEmaTrace(data) {
+  const xValues = data.indicators_x;
+  const yValues = data.ema;
+  return {
+    x: xValues,
+    y: yValues,
+    text: "Exponential Moving Average",
+    type: "scatter",
+    line: {
+      color: "red",
+      dash: "dash",
+      width: 2,
+    },
+    name: "Exponential Moving Average",
+  };
+}
 
 // Function to fetch data and update the graph
 export async function fetchAndRender(div, endPoint) {
@@ -152,6 +167,8 @@ export async function fetchAndRender(div, endPoint) {
       name: endPoint,
     };
 
+    const emaTrace = makeEmaTrace(data.data[0]);
+
     const buyTrace = {
       x: buyX,
       y: buyY,
@@ -189,7 +206,7 @@ export async function fetchAndRender(div, endPoint) {
     };
 
     // Render the graph (use Plotly.react for updates)
-    Plotly.react(div, [trace, buyTrace, sellTrace], layout);
+    Plotly.react(div, [trace, buyTrace, sellTrace, emaTrace], layout);
   } catch (error) {
     console.error("Error AFTER fetching:", error);
   }
