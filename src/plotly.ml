@@ -32,7 +32,6 @@ let of_bars (x : Bars.t) (indicators : Indicators.t) (symbol : string) :
       indicators_vec
     |> Vector.to_list |> List.drop 1
   in
-  Eio.traceln "@[%a@]" (Vector.pp Indicators.Point.pp) indicators_vec;
   let data = Vector.to_list data_vec in
   let x_axis =
     let mk_plotly_x x =
