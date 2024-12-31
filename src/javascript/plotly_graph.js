@@ -89,6 +89,9 @@ export async function fetchStats(div, endPoint) {
     console.error("Error fetching statistics:", error);
   }
 }
+
+function emaTrace(json) {}
+
 // Function to fetch data and update the graph
 export async function fetchAndRender(div, endPoint) {
   try {

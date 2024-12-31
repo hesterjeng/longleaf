@@ -27,28 +27,30 @@ let adl previous_adl (current : Item.t) =
 (* Previous is the previous EMA value *)
 (* Latest is the latest price *)
 let ema length previous latest =
-  let price = Item.last latest in
-  let alpha = 2.0 /. (length +. 1.0) in
-  previous +. (alpha *. (price -. previous))
+  if Item.volume latest = 0 then previous
+  else
+    let price = Item.last latest in
+    let alpha = 2.0 /. (length +. 1.0) in
+    previous +. (alpha *. (price -. previous))
 
 module Point = struct
   type t = {
-    timestamp : Time.t option;
+    timestamp : Time.t;
     accumulation_distribution_line : float;
     exponential_moving_average : float;
   }
   [@@deriving show, yojson]
 
-  let initial () : t =
+  let initial timestamp : t =
     {
-      timestamp = None;
+      timestamp;
       accumulation_distribution_line = 0.0;
       exponential_moving_average = 0.0;
     }
 
   let of_latest timestamp length (previous : t) (latest : Item.t) =
     {
-      timestamp = Some timestamp;
+      timestamp;
       accumulation_distribution_line =
         adl previous.accumulation_distribution_line latest;
       exponential_moving_average =
@@ -92,7 +94,7 @@ let add_latest timestamp (latest_bars : Bars.Latest.t) (x : t) =
   let previous =
     match Vector.top indicators_vector with
     | Some p -> p
-    | None -> Point.initial ()
+    | None -> Point.initial timestamp
   in
   let new_indicators = Point.of_latest timestamp length previous latest in
   Vector.push indicators_vector new_indicators
