@@ -11,17 +11,26 @@ let of_bars (x : Bars.t) (indicators : Indicators.t) (symbol : string) :
         Eio.traceln "Could not get indicators for %s from mutex?" symbol;
         None
   in
+  let indicators_x =
+    Vector.map
+      (fun (p : Indicators.Point.t) ->
+        let time = p.timestamp in
+        let res = Ptime.to_rfc3339 time in
+        `String res)
+      indicators_vec
+    |> Vector.to_list |> List.drop 1
+  in
   let accumulation_distribution_line =
     Vector.map
       (fun (p : Indicators.Point.t) -> `Float p.accumulation_distribution_line)
       indicators_vec
-    |> Vector.to_list
+    |> Vector.to_list |> List.drop 1
   in
   let exponential_moving_average_line =
     Vector.map
       (fun (p : Indicators.Point.t) -> `Float p.exponential_moving_average)
       indicators_vec
-    |> Vector.to_list
+    |> Vector.to_list |> List.drop 1
   in
   Eio.traceln "@[%a@]" (Vector.pp Indicators.Point.pp) indicators_vec;
   let data = Vector.to_list data_vec in
@@ -72,8 +81,9 @@ let of_bars (x : Bars.t) (indicators : Indicators.t) (symbol : string) :
                 ("buy", `List buy_axis);
                 ("sell", `List sell_axis);
                 ("reasons", `List reasons);
-                (* ("adl", `List accumulation_distribution_line); *)
-                (* ("ema", `List exponential_moving_average_line); *)
+                ("adl", `List accumulation_distribution_line);
+                ("ema", `List exponential_moving_average_line);
+                ("indicators_x", `List indicators_x);
                 ("mode", `String "lines+markers");
                 ("name", `String symbol);
               ];
