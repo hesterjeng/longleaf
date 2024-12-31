@@ -133,7 +133,7 @@ module Strategy_utils (Backend : Backend.S) = struct
             let open Result.Infix in
             let* latest = Backend.latest_bars Backend.symbols in
             let* time = Bars.Latest.timestamp latest in
-            Indicators.add_latest time latest state.indicators;
+            Indicators.add_latest time state.bars latest state.indicators;
             let value = Backend.Backend_position.value latest in
             Bars.append latest state.bars;
             Result.return
