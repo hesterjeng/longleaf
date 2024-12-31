@@ -17,10 +17,16 @@ type state = [ nonlogical_state | logical_state ]
 
 type 'a t = {
   current : state;
-  bars : Bars.t;
+  (* Hashtable of latest bars *)
   latest : Bars.Latest.t;
+  (* Vector of orders made *)
   order_history : Order_history.t;
+  (* List of statistics about portfolio value in reverse order *)
   stats : Stats.t;
+  (* These are mutable hashtables tracking data *)
+  indicators : Indicators.t;
+  bars : Bars.t;
+  (* Wildcard content for individual strategies to use *)
   content : 'a;
 }
 

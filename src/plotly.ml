@@ -1,8 +1,37 @@
 module Order = Trading_types.Order
 open Option.Infix
 
-let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t option =
-  let+ data_vec = Bars.get x symbol in
+let of_bars (x : Bars.t) (indicators : Indicators.t) (symbol : string) :
+    Yojson.Safe.t option =
+  let* data_vec = Bars.get x symbol in
+  let+ indicators_vec =
+    match Indicators.get indicators symbol with
+    | Some indicators -> Some indicators
+    | None ->
+        Eio.traceln "Could not get indicators for %s from mutex?" symbol;
+        None
+  in
+  let indicators_x =
+    Vector.map
+      (fun (p : Indicators.Point.t) ->
+        let time = p.timestamp in
+        let res = Ptime.to_rfc3339 time in
+        `String res)
+      indicators_vec
+    |> Vector.to_list |> List.drop 1
+  in
+  let accumulation_distribution_line =
+    Vector.map
+      (fun (p : Indicators.Point.t) -> `Float p.accumulation_distribution_line)
+      indicators_vec
+    |> Vector.to_list |> List.drop 1
+  in
+  let exponential_moving_average_line =
+    Vector.map
+      (fun (p : Indicators.Point.t) -> `Float p.exponential_moving_average)
+      indicators_vec
+    |> Vector.to_list |> List.drop 1
+  in
   let data = Vector.to_list data_vec in
   let x_axis =
     let mk_plotly_x x =
@@ -51,6 +80,9 @@ let of_bars (x : Bars.t) (symbol : string) : Yojson.Safe.t option =
                 ("buy", `List buy_axis);
                 ("sell", `List sell_axis);
                 ("reasons", `List reasons);
+                ("adl", `List accumulation_distribution_line);
+                ("ema", `List exponential_moving_average_line);
+                ("indicators_x", `List indicators_x);
                 ("mode", `String "lines+markers");
                 ("name", `String symbol);
               ];
