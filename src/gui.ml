@@ -1,6 +1,7 @@
 type mutices = {
   shutdown_mutex : bool Pmutex.t;
   data_mutex : Bars.t Pmutex.t;
+  indicators_mutex : Indicators.t Pmutex.t;
   orders_mutex : Order_history.t Pmutex.t;
   symbols_mutex : string option Pmutex.t;
   stats_mutex : Stats.t Pmutex.t;
@@ -21,10 +22,11 @@ let serve_favicon () =
 let plotly_response_of_symbol ~mutices target =
   let bars = Pmutex.get mutices.data_mutex in
   let orders = Pmutex.get mutices.orders_mutex in
+  let indicators = Pmutex.get mutices.indicators_mutex in
   Vector.iter (fun order -> Bars.add_order order bars) orders;
   let bars_json_opt =
-    ( Plotly.of_bars bars target,
-      Plotly.of_bars bars @@ String.uppercase_ascii target )
+    ( Plotly.of_bars bars indicators target,
+      Plotly.of_bars bars indicators @@ String.uppercase_ascii target )
   in
   match bars_json_opt with
   | Some bars, None | None, Some bars | Some bars, _ ->

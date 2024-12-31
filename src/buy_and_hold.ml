@@ -27,7 +27,6 @@ module Make (Backend : Backend.S) : Strategies.S = struct
         | Some () -> Result.return @@ { state with current = `Listening }
         | None ->
             let ( let* ) = Result.( let* ) in
-            Eio.traceln "@[NYI: Buying SPY for buy and hold test...@]@.";
             let order =
               Trading_types.Order.make ~symbol:"SPY" ~side:Buy
                 ~tif:GoodTillCanceled
