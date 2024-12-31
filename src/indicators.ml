@@ -77,7 +77,42 @@ let pp : t Format.printer =
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
-let add_latest timestamp (latest_bars : Bars.Latest.t) (x : t) =
+let initialize bars symbol =
+  let initial_stats_vector = Vector.create () in
+  let bars =
+    Bars.get bars symbol |> function
+    | Some x -> Vector.to_list x
+    | None ->
+        invalid_arg "Expected to have bars data when initializing indicators"
+  in
+  let _ =
+    List.fold_left
+      (fun previous item ->
+        let timestamp = Item.timestamp item in
+        match previous with
+        | None ->
+            let res = Point.initial timestamp in
+            Vector.push initial_stats_vector res;
+            Option.return res
+        | Some previous ->
+            let length = Vector.length initial_stats_vector |> Float.of_int in
+            let res : Point.t =
+              {
+                timestamp;
+                accumulation_distribution_line =
+                  adl previous.accumulation_distribution_line item;
+                exponential_moving_average =
+                  ema length previous.exponential_moving_average item;
+              }
+            in
+            Vector.push initial_stats_vector res;
+            Option.return res)
+      None bars
+  in
+  initial_stats_vector
+
+let add_latest timestamp (original_bars : Bars.t) (latest_bars : Bars.Latest.t)
+    (x : t) =
   Hashtbl.to_seq latest_bars |> fun seq ->
   let iter f = Seq.iter f seq in
   iter @@ fun (symbol, latest) ->
@@ -86,7 +121,7 @@ let add_latest timestamp (latest_bars : Bars.Latest.t) (x : t) =
     | Some i -> i
     | None ->
         Eio.traceln "Creating initial indicators for %s." symbol;
-        let new_vector = Vector.create () in
+        let new_vector = initialize original_bars symbol in
         Hashtbl.replace x symbol new_vector;
         new_vector
   in
