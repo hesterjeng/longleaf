@@ -40,8 +40,8 @@ export async function fetchAndRenderAll(symbols) {
     const container = document.getElementById("graph");
     const newDiv = document.createElement("div");
     newDiv.style.marginBottom = "20px";
-    newDiv.style.width = "1000px";
-    newDiv.style.height = "700px";
+    newDiv.style.width = "1400px";
+    newDiv.style.height = "900px";
     newDiv.style.marginLeft = "auto";
     newDiv.style.marginRight = "auto";
     newDiv.style.display = "block";
@@ -54,8 +54,8 @@ export async function fetchAndRenderAll(symbols) {
         console.log("Fetching data for:", symbol);
         const newDiv = document.createElement("div");
         newDiv.style.marginBottom = "20px";
-        newDiv.style.width = "1000px";
-        newDiv.style.height = "700px";
+        newDiv.style.width = "1400px";
+        newDiv.style.height = "900px";
         newDiv.style.marginLeft = "auto";
         newDiv.style.marginRight = "auto";
         newDiv.style.display = "block";
