@@ -29,7 +29,7 @@ let plotly_response_of_symbol ~mutices target =
       Plotly.of_bars bars indicators @@ String.uppercase_ascii target )
   in
   match bars_json_opt with
-  | Some bars, None | None, Some bars | Some bars, _ ->
+  | Some bars, _ | None, Some bars ->
       Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
   | None, None ->
       let headers = Headers.of_list [ ("connection", "close") ] in

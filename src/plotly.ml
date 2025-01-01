@@ -126,14 +126,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let ( = ) = fun x y -> (x, y) in
   `Assoc
     [
-      "traces"
-      = `Assoc
-          [
-            "price_trace" = price_trace;
-            "buy_trace" = buy_trace;
-            "sell_trace" = sell_trace;
-            "ema_trace" = ema_trace;
-          ];
+      "traces" = `List [ price_trace; buy_trace; sell_trace; ema_trace ];
       "layout" = layout symbol;
     ]
 
