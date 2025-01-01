@@ -5,8 +5,8 @@ let layout title =
   let ( = ) = fun x y -> (x, y) in
   `Assoc
     [
-      "width" = `Int 1000;
-      "height" = `Int 700;
+      "width" = `Int 1400;
+      "height" = `Int 900;
       "title" = `String title;
       "xaxis"
       = `Assoc
