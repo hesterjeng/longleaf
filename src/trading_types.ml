@@ -18,8 +18,9 @@ module TimeInForce = struct
 end
 
 module Side = struct
-  type t = Buy | Sell [@@deriving show, yojson]
+  type t = Buy | Sell [@@deriving show, yojson, eq]
 
+  let to_color = function Buy -> "green" | Sell -> "red"
   let to_string = function Buy -> "buy" | Sell -> "sell"
 end
 

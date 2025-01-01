@@ -29,7 +29,7 @@ let plotly_response_of_symbol ~mutices target =
       Plotly.of_bars bars indicators @@ String.uppercase_ascii target )
   in
   match bars_json_opt with
-  | Some bars, None | None, Some bars | Some bars, _ ->
+  | Some bars, _ | None, Some bars ->
       Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
   | None, None ->
       let headers = Headers.of_list [ ("connection", "close") ] in
@@ -67,8 +67,7 @@ let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/stats"; _ } ->
       let stats = Pmutex.get mutices.stats_mutex |> Stats.sort in
-      (* Eio.traceln "GUI: %a" Stats.pp stats; *)
-      let body = Stats.yojson_of_t stats |> Yojson.Safe.to_string in
+      let body = Plotly.of_stats stats |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
