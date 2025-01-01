@@ -6,85 +6,9 @@ export async function fetchStats(div, endPoint) {
     const response = await fetch(endpointUrl);
     const data = await response.json();
     console.log("Fetched data:", data);
-    const xValues = [];
-    const yValues = [];
-    const buyX = [];
-    const buyY = [];
-    const buyHover = [];
-    const sellX = [];
-    const sellY = [];
-    const sellHover = [];
-    const text = "Portfolio Value";
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] !== null) {
-        xValues.push(data[i].time);
-        yValues.push(data[i].value);
-        if (data[i].buy_order) {
-          buyX.push(data[i].time);
-          buyY.push(data[i].value);
-          const order = data[i].buy_order;
-          // buyHover.push(JSON.stringify(data[i].buy_order, null, 2));
-          buyHover.push(`
-  ${order.symbol}<br>
-  ${order.reason.join("<br>")}
-`);
-        }
-        if (data[i].sell_order) {
-          sellX.push(data[i].time);
-          sellY.push(data[i].value);
-          const order = data[i].sell_order;
-          // sellHover.push(JSON.stringify(data[i].sell_order, null, 2));
-          sellHover.push(`
-  ${order.symbol}<br>
-  ${order.reason.join("<br>")}
-`);
-        }
-      }
-    }
-    const trace = {
-      x: xValues,
-      y: yValues,
-      text: text,
-      type: "scatter",
-      name: "Portfolio Value",
-    };
-    const buyTrace = {
-      x: buyX,
-      y: buyY,
-      type: "scatter",
-      hovertext: buyHover,
-      hoverinfo: "text",
-      mode: "markers", // Only markers for dots
-      marker: { color: "green", size: 10 },
-      name: "Buy",
-    };
-
-    const sellTrace = {
-      x: sellX,
-      y: sellY,
-      hovertext: sellHover,
-      type: "scatter",
-      hoverinfo: "text",
-      mode: "markers", // Only markers for dots
-      marker: { color: "red", size: 10 },
-      name: "Sell",
-    };
-    const layout = {
-      width: 1000,
-      height: 700,
-      title: "Statistics",
-      xaxis: {
-        title: "X-axis",
-        type: "category",
-        tickmode: "linear",
-        dtick: 20,
-        showticklabels: false,
-      },
-      yaxis: { title: "Y-axis" },
-    };
 
     // Render the graph (use Plotly.react for updates)
-    Plotly.react(div, [trace, buyTrace, sellTrace], layout);
+    Plotly.react(div, data.traces, data.layout);
   } catch (error) {
     console.error("Error fetching statistics:", error);
   }
@@ -120,7 +44,7 @@ export async function fetchAndRenderAll(symbols) {
     newDiv.style.height = "700px";
     newDiv.style.marginLeft = "auto";
     newDiv.style.marginRight = "auto";
-    newDiv.style.display = "block"; // Ensure it's treated as a block element
+    newDiv.style.display = "block";
     newDiv.id = "Statistics";
     const stats = await fetchStats(newDiv, "stats");
     container.appendChild(newDiv);
@@ -134,7 +58,7 @@ export async function fetchAndRenderAll(symbols) {
         newDiv.style.height = "700px";
         newDiv.style.marginLeft = "auto";
         newDiv.style.marginRight = "auto";
-        newDiv.style.display = "block"; // Ensure it's treated as a block element
+        newDiv.style.display = "block";
         newDiv.id = symbol;
         const result = await fetchAndRender(newDiv, symbol);
         container.appendChild(newDiv);

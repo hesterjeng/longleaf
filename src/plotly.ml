@@ -76,19 +76,8 @@ let price_trace (data : Item.t list) (symbol : string) : Yojson.Safe.t =
       ("type", `String "scatter");
     ]
 
-let order_trace (side : Trading_types.Side.t) (data : Item.t list)
-    (symbol : string) : Yojson.Safe.t =
-  let find_side (x : Order.t) =
-    let order_side = x.side in
-    if Trading_types.Side.equal side order_side then Some x else None
-  in
-  let orders =
-    List.filter_map
-      (fun (item : Item.t) ->
-        let* order = Item.order item in
-        find_side order)
-      data
-  in
+let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
+    Yojson.Safe.t =
   let x =
     List.map
       (fun (x : Order.t) ->
@@ -99,6 +88,7 @@ let order_trace (side : Trading_types.Side.t) (data : Item.t list)
   let hovertext =
     List.map
       (fun (x : Order.t) ->
+        let symbol = x.symbol in
         `String
           (Format.asprintf "%s<br>%s" symbol (String.concat "<br>" x.reason)))
       orders
@@ -116,12 +106,26 @@ let order_trace (side : Trading_types.Side.t) (data : Item.t list)
       ("name", `String (Trading_types.Side.to_string side));
     ]
 
+let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
+  let find_side (x : Order.t) =
+    let order_side = x.side in
+    if Trading_types.Side.equal side order_side then Some x else None
+  in
+  let orders =
+    List.filter_map
+      (fun (item : Item.t) ->
+        let* order = Item.order item in
+        find_side order)
+      data
+  in
+  order_trace side orders
+
 let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* data_vec = Bars.get bars symbol in
   let data = Vector.to_list data_vec in
   let+ ema_trace = ema_trace indicators symbol in
-  let buy_trace = order_trace Buy data symbol in
-  let sell_trace = order_trace Sell data symbol in
+  let buy_trace = order_trace_side Buy data in
+  let sell_trace = order_trace_side Sell data in
   let price_trace = price_trace data symbol in
   let ( = ) = fun x y -> (x, y) in
   `Assoc
@@ -130,70 +134,69 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
       "layout" = layout symbol;
     ]
 
-(* let of_bars (x : Bars.t) (indicators : Indicators.t) (symbol : string) : *)
-(*     Yojson.Safe.t option = *)
-(*   let* data_vec = Bars.get x symbol in *)
-(*   let+ ema_trace = ema_trace indicators symbol in *)
-(*   let data = Vector.to_list data_vec in *)
-(*   let x_axis = *)
-(*     let mk_plotly_x x = *)
-(*       let time = Item.timestamp x in *)
-(*       let res = Ptime.to_rfc3339 time in *)
-(*       `String res *)
-(*     in *)
-(*     List.map mk_plotly_x data *)
-(*   in *)
-(*   let buy_axis = *)
-(*     List.map *)
-(*       (fun (x : Item.t) -> *)
-(*         match Item.order x with *)
-(*         | None -> `Null *)
-(*         | Some order -> ( *)
-(*             match order.side with Buy -> `String "buy" | Sell -> `Null)) *)
-(*       data *)
-(*   in *)
-(*   let reasons = *)
-(*     List.map *)
-(*       (fun (x : Item.t) -> *)
-(*         Item.order x |> function *)
-(*         | None -> `Null *)
-(*         | Some order -> `List (List.map (fun x -> `String x) order.reason)) *)
-(*       data *)
-(*   in *)
-(*   let sell_axis = *)
-(*     List.map *)
-(*       (fun (x : Item.t) -> *)
-(*         match Item.order x with *)
-(*         | None -> `Null *)
-(*         | Some order -> ( *)
-(*             match order.side with Buy -> `Null | Sell -> `String "sell")) *)
-(*       data *)
-(*   in *)
-(*   let y_axis = List.map (fun x -> `Float (Item.last x)) data in *)
-(*   `Assoc *)
-(*     [ *)
-(*       ( "data", *)
-(*         `List *)
-(*           [ *)
-(*             `Assoc *)
-(*               [ *)
-(*                 ("x", `List x_axis); *)
-(*                 ("y", `List y_axis); *)
-(*                 ("buy", `List buy_axis); *)
-(*                 ("sell", `List sell_axis); *)
-(*                 ("reasons", `List reasons); *)
-(*                 ("ema", ema_trace); *)
-(*                 ("mode", `String "lines+markers"); *)
-(*                 ("name", `String symbol); *)
-(*               ]; *)
-(*           ] ); *)
-(*       ( "layout", *)
-(*         `Assoc *)
-(*           [ *)
-(*             ("title", `String "Sample Plotly Graph"); *)
-(*             ( "xaxis", *)
-(*               `Assoc [ ("title", `String "X Axis"); ("type", `String "date") ] *)
-(*             ); *)
-(*             ("yaxis", `Assoc [ ("title", `String "Y Axis") ]); *)
-(*           ] ); *)
-(*     ] *)
+let of_stats (stats : Stats.t) : Yojson.Safe.t =
+  let open Stats in
+  let ( = ) = fun x y -> (x, y) in
+  let value_trace : Yojson.Safe.t =
+    List.map
+      (fun x ->
+        let res = Ptime.to_rfc3339 x.time in
+        let value = x.value in
+        (`String res, `Float value))
+      stats
+    |> List.split
+    |> fun (x, y) ->
+    let ( = ) = fun x y -> (x, y) in
+    `Assoc
+      [
+        "x" = `List x;
+        "y" = `List y;
+        "text" = `String "Statistics";
+        "name" = `String "Statistics";
+        "type" = `String "scatter";
+      ]
+  in
+  let order_trace side =
+    let get_side x =
+      match side with
+      | Trading_types.Side.Sell -> x.sell_order
+      | Buy -> x.buy_order
+    in
+    let name = Trading_types.Side.to_string side in
+    let color = Trading_types.Side.to_color side in
+    let orders =
+      List.filter_map
+        (fun x -> match get_side x with Some _ -> Some x | None -> None)
+        stats
+    in
+    let x = List.map (fun x -> `String (Ptime.to_rfc3339 x.time)) orders in
+    let y = List.map (fun x -> `Float x.value) orders in
+    let hovertext =
+      List.map
+        (fun x ->
+          match get_side x with
+          | Some b ->
+              `String
+                (Format.asprintf "%s<br>%s" b.symbol
+                   (String.concat "<br>" b.reason))
+          | None -> invalid_arg "Expected order here...")
+        orders
+    in
+    `Assoc
+      [
+        "x" = `List x;
+        "y" = `List y;
+        "hovertext" = `List hovertext;
+        "hoverinfo" = `String "text";
+        "mode" = `String "markers";
+        "name" = `String name;
+        "marker" = `Assoc [ "color" = `String color; "size" = `Int 10 ];
+      ]
+  in
+  let buy_trace : Yojson.Safe.t = order_trace Buy in
+  let sell_trace : Yojson.Safe.t = order_trace Sell in
+  `Assoc
+    [
+      "traces" = `List [ value_trace; buy_trace; sell_trace ];
+      "layout" = layout "Statistics";
+    ]
