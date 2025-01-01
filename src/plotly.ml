@@ -1,6 +1,30 @@
 module Order = Trading_types.Order
 open Option.Infix
 
+let ema_trace (indicators : Indicators.t) symbol =
+  let* indicators_vec =
+    match Indicators.get indicators symbol with
+    | Some indicators -> Some indicators
+    | None ->
+        Eio.traceln "Could not get indicators for %s from mutex?" symbol;
+        None
+  in
+  let x =
+    Vector.map
+      (fun (p : Indicators.Point.t) ->
+        let time = p.timestamp in
+        let res = Ptime.to_rfc3339 time in
+        `String res)
+      indicators_vec
+    |> Vector.to_list |> List.drop 1
+  in
+  let y =
+    Vector.map
+      (fun (p : Indicators.Point.t) -> `Float p.exponential_moving_average)
+      indicators_vec
+    |> Vector.to_list |> List.drop 1
+  in
+
 let of_bars (x : Bars.t) (indicators : Indicators.t) (symbol : string) :
     Yojson.Safe.t option =
   let* data_vec = Bars.get x symbol in
