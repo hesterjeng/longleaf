@@ -37,6 +37,8 @@ let simple_moving_average n (l : Bars.symbol_history) =
   let length = Vector.length l in
   let close = Vector.map Item.close l in
   let start = Int.max (length - n) 0 in
+  let n = Int.min n length in
+  (* Eio.traceln "@[sma: %d %d@]" n (Vector.size close); *)
   let window = Vector.slice_iter close start n in
   let sum = Iter.fold ( +. ) 0.0 window in
   sum /. Float.of_int n
@@ -98,8 +100,8 @@ let initialize bars symbol =
   in
   let bars = Vector.to_list bars_vec in
   let _ =
-    List.fold_left
-      (fun previous item ->
+    List.foldi
+      (fun previous i item ->
         let timestamp = Item.timestamp item in
         match previous with
         | None ->
@@ -108,6 +110,9 @@ let initialize bars symbol =
             Option.return res
         | Some previous ->
             let length = Vector.length initial_stats_vector |> Float.of_int in
+            let bars_vec_upto_now =
+              Vector.slice_iter bars_vec 0 i |> Vector.of_iter
+            in
             let res : Point.t =
               {
                 timestamp;
@@ -115,8 +120,8 @@ let initialize bars symbol =
                   adl previous.accumulation_distribution_line item;
                 exponential_moving_average =
                   ema length previous.exponential_moving_average item;
-                sma_5 = simple_moving_average 5 bars_vec;
-                sma_34 = simple_moving_average 34 bars_vec;
+                sma_5 = simple_moving_average 5 bars_vec_upto_now;
+                sma_34 = simple_moving_average 34 bars_vec_upto_now;
               }
             in
             Vector.push initial_stats_vector res;
