@@ -98,98 +98,10 @@ export async function fetchAndRender(div, endPoint) {
     const response = await fetch(endpointUrl);
     const data = await response.json();
 
-    if (!data.data[0] || !data.data[0].x || !data.data[0].y) {
-      console.error("Invalid data structure:", data);
-      return;
-    }
-
-    const text = data.data[0].name;
-
     console.log("Fetched data:", data);
 
-    const xValues = data.data[0].x;
-    const yValues = data.data[0].y;
-    const buyValues = data.data[0].buy;
-    const sellValues = data.data[0].sell;
-    const reasons = data.data[0].reasons;
-
-    // Filter data based on the "order" field
-    const buyX = [];
-    const buyY = [];
-    const sellX = [];
-    const sellY = [];
-    const buyHover = [];
-    const sellHover = [];
-    for (let i = 0; i < yValues.length; i++) {
-      if (buyValues[i] !== null) {
-        buyX.push(xValues[i]);
-        buyY.push(yValues[i]);
-        buyHover.push(`
-  ${endPoint}<br>
-  ${reasons[i].join("<br>")}
-`);
-      }
-    }
-    for (let i = 0; i < yValues.length; i++) {
-      if (sellValues[i] !== null) {
-        sellX.push(xValues[i]);
-        sellY.push(yValues[i]);
-        sellHover.push(`
-  ${endPoint}<br>
-  ${reasons[i].join("<br>")}
-`);
-      }
-    }
-
-    // Process data for Plotly (assuming it returns arrays x and y)
-    const trace = {
-      x: xValues,
-      y: yValues,
-      text: text,
-      type: "scatter",
-      name: endPoint,
-    };
-
-    const emaTrace = data.data[0].ema;
-
-    const buyTrace = {
-      x: buyX,
-      y: buyY,
-      type: "scatter",
-      hovertext: buyHover,
-      hoverinfo: "text",
-      mode: "markers", // Only markers for dots
-      marker: { color: "green", size: 10 },
-      name: "Buy",
-    };
-
-    const sellTrace = {
-      x: sellX,
-      y: sellY,
-      hovertext: sellHover,
-      hoverinfo: "text",
-      type: "scatter",
-      mode: "markers", // Only markers for dots
-      marker: { color: "red", size: 10 },
-      name: "Sell",
-    };
-
-    const layout = {
-      width: 1000,
-      height: 700,
-      title: endPoint,
-      xaxis: {
-        title: "X-axis",
-        type: "category",
-        tickmode: "linear",
-        dtick: 20,
-        showticklabels: false,
-      },
-      yaxis: { title: "Y-axis" },
-    };
-
     // Render the graph (use Plotly.react for updates)
-    Plotly.react(div, [trace, buyTrace, sellTrace, emaTrace], layout);
+    Plotly.react(div, data.traces, data.layout);
   } catch (error) {
     console.error("Error AFTER fetching:", error);
   }
