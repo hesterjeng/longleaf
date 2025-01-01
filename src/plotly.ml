@@ -1,4 +1,5 @@
 module Order = Trading_types.Order
+module IP = Indicators.Point
 open Option.Infix
 
 let layout title =
@@ -20,7 +21,8 @@ let layout title =
       "yaxis" = `Assoc [ "title" = `String "Y-axis" ];
     ]
 
-let ema_trace (indicators : Indicators.t) symbol : Yojson.Safe.t option =
+let indicator_trace (indicators : Indicators.t) indicator_name indicator_get
+    symbol : Yojson.Safe.t option =
   let+ indicators_vec =
     match Indicators.get indicators symbol with
     | Some indicators -> Some indicators
@@ -39,7 +41,7 @@ let ema_trace (indicators : Indicators.t) symbol : Yojson.Safe.t option =
   in
   let y =
     Vector.map
-      (fun (p : Indicators.Point.t) -> `Float p.exponential_moving_average)
+      (fun (p : Indicators.Point.t) -> `Float (indicator_get p))
       indicators_vec
     |> Vector.to_list |> List.drop 1
   in
@@ -47,13 +49,15 @@ let ema_trace (indicators : Indicators.t) symbol : Yojson.Safe.t option =
     [
       ("x", `List x);
       ("y", `List y);
-      ("text", `String "Exponential Moving Average");
-      ("name", `String "Exponential Moving Average");
+      ("text", `String indicator_name);
+      ("name", `String indicator_name);
       ("type", `String "scatter");
       ( "line",
         `Assoc
           [
-            ("color", `String "red"); ("dash", `String "dash"); ("width", `Int 2);
+            (* ("color", `String "red"); *)
+            ("dash", `String "dash");
+            ("width", `Int 2);
           ] );
     ]
 
@@ -123,16 +127,30 @@ let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
 let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* data_vec = Bars.get bars symbol in
   let data = Vector.to_list data_vec in
-  let+ ema_trace = ema_trace indicators symbol in
+  let* ema_trace =
+    indicator_trace indicators "Exponential Moving Average" IP.ema symbol
+  in
+  let* sma_5_trace = indicator_trace indicators "SMA 5" IP.sma_5 symbol in
+  let* sma_34_trace = indicator_trace indicators "SMA 34" IP.sma_34 symbol in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
   let price_trace = price_trace data symbol in
   let ( = ) = fun x y -> (x, y) in
-  `Assoc
-    [
-      "traces" = `List [ price_trace; buy_trace; sell_trace; ema_trace ];
-      "layout" = layout symbol;
-    ]
+  Option.return
+  @@ `Assoc
+       [
+         "traces"
+         = `List
+             [
+               price_trace;
+               buy_trace;
+               sell_trace;
+               ema_trace;
+               sma_5_trace;
+               sma_34_trace;
+             ];
+         "layout" = layout symbol;
+       ]
 
 let of_stats (stats : Stats.t) : Yojson.Safe.t =
   let open Stats in
