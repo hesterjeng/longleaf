@@ -71,6 +71,10 @@ module Point = struct
       sma_5 = simple_moving_average 5 symbol_history;
       sma_34 = simple_moving_average 34 symbol_history;
     }
+
+  let ema x = x.exponential_moving_average
+  let sma_5 x = x.sma_5
+  let sma_34 x = x.sma_34
 end
 
 type t = Point.t Vector.vector Hashtbl.t
@@ -86,12 +90,13 @@ let get (x : t) symbol = Hashtbl.find_opt x symbol
 
 let initialize bars symbol =
   let initial_stats_vector = Vector.create () in
-  let bars =
+  let bars_vec =
     Bars.get bars symbol |> function
-    | Some x -> Vector.to_list x
+    | Some x -> x
     | None ->
         invalid_arg "Expected to have bars data when initializing indicators"
   in
+  let bars = Vector.to_list bars_vec in
   let _ =
     List.fold_left
       (fun previous item ->
@@ -110,6 +115,8 @@ let initialize bars symbol =
                   adl previous.accumulation_distribution_line item;
                 exponential_moving_average =
                   ema length previous.exponential_moving_average item;
+                sma_5 = simple_moving_average 5 bars_vec;
+                sma_34 = simple_moving_average 34 bars_vec;
               }
             in
             Vector.push initial_stats_vector res;
