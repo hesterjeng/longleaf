@@ -1,6 +1,25 @@
 module Order = Trading_types.Order
 open Option.Infix
 
+let layout title =
+  let ( = ) = fun x y -> (x, y) in
+  `Assoc
+    [
+      "width" = `Int 1000;
+      "height" = `Int 700;
+      "title" = `String title;
+      "xaxis" = `Assoc [
+        "title" = `String "X-axis";
+        "type" = `String "category";
+        "tickmode" = `String "linear";
+        "dtick" = `Int 20;
+        "showticklabels" = `Bool false;
+      ];
+      "yaxis" = `Assoc [
+        "title" = `String "Y-axis";
+      ];
+    ]
+
 let ema_trace (indicators : Indicators.t) symbol : Yojson.Safe.t option =
   let+ indicators_vec =
     match Indicators.get indicators symbol with
@@ -38,9 +57,7 @@ let ema_trace (indicators : Indicators.t) symbol : Yojson.Safe.t option =
           ] );
     ]
 
-let price_trace (bars : Bars.t) (symbol : string) =
-  let+ data_vec = Bars.get bars symbol in
-  let data = Vector.to_list data_vec in
+let price_trace (data : Item.t list) (symbol : string) : Yojson.Safe.t =
   let x =
     let mk_plotly_x x =
       let time = Item.timestamp x in
@@ -59,24 +76,44 @@ let price_trace (bars : Bars.t) (symbol : string) =
       ("type", `String "scatter");
     ]
 
-let buy_trace (bars : Bars.t) (symbol : string) =
-  let+ data_vec = Bars.get bars symbol in
-  let data = Vector.to_list data_vec in
-  let buy_orders =
+let order_trace (side : Trading_types.Side.t) (data : Item.t list) (symbol : string) : Yojson.Safe.t =
+  let find_side (x : Order.t) =
+    let order_side = x.side in
+    if Trading_types.Side.equal side order_side then Some x else None
+  in
+  let orders =
     List.filter_map
       (fun (item : Item.t) ->
         let* order = Item.order item in
-        match order.side with Sell -> None | Buy -> Some order)
+        find_side order)
       data
   in
   let x =
     List.map
       (fun (x : Order.t) ->
         x.timestamp |> Ptime.to_rfc3339 |> fun t -> `String t)
-      buy_orders
+      orders
   in
-  let y = List.map (fun (x : Order.t) -> `Float x.price) in
-  invalid_arg "Do reasons!"
+  let y = List.map (fun (x : Order.t) -> `Float x.price) orders in
+  let hovertext =
+    List.map
+      (fun (x : Order.t) ->
+        `String
+          (Format.asprintf "%s<br>%s" symbol (String.concat "<br>" x.reason)))
+      orders
+  in
+  let color = Trading_types.Side.to_color side in
+  `Assoc
+    [
+      ("x", `List x);
+      ("y", `List y);
+      ("hovertext", `List hovertext);
+      ("hoverinfo", `String "text");
+      ("type", `String "scatter");
+      ("mode", `String "markers");
+      ("marker", `Assoc [ ("color", `String color); ("size", `Int 10) ]);
+      ("name", `String (Trading_types.Side.to_string side));
+    ]
 
 let of_bars (x : Bars.t) (indicators : Indicators.t) (symbol : string) :
     Yojson.Safe.t option =
