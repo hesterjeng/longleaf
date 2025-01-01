@@ -8,16 +8,16 @@ let layout title =
       "width" = `Int 1000;
       "height" = `Int 700;
       "title" = `String title;
-      "xaxis" = `Assoc [
-        "title" = `String "X-axis";
-        "type" = `String "category";
-        "tickmode" = `String "linear";
-        "dtick" = `Int 20;
-        "showticklabels" = `Bool false;
-      ];
-      "yaxis" = `Assoc [
-        "title" = `String "Y-axis";
-      ];
+      "xaxis"
+      = `Assoc
+          [
+            "title" = `String "X-axis";
+            "type" = `String "category";
+            "tickmode" = `String "linear";
+            "dtick" = `Int 20;
+            "showticklabels" = `Bool false;
+          ];
+      "yaxis" = `Assoc [ "title" = `String "Y-axis" ];
     ]
 
 let ema_trace (indicators : Indicators.t) symbol : Yojson.Safe.t option =
@@ -76,7 +76,8 @@ let price_trace (data : Item.t list) (symbol : string) : Yojson.Safe.t =
       ("type", `String "scatter");
     ]
 
-let order_trace (side : Trading_types.Side.t) (data : Item.t list) (symbol : string) : Yojson.Safe.t =
+let order_trace (side : Trading_types.Side.t) (data : Item.t list)
+    (symbol : string) : Yojson.Safe.t =
   let find_side (x : Order.t) =
     let order_side = x.side in
     if Trading_types.Side.equal side order_side then Some x else None
@@ -115,21 +116,26 @@ let order_trace (side : Trading_types.Side.t) (data : Item.t list) (symbol : str
       ("name", `String (Trading_types.Side.to_string side));
     ]
 
-let of_bars bars indicators symbol  : Yojson.Safe.t option =
+let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* data_vec = Bars.get bars symbol in
   let data = Vector.to_list data_vec in
   let+ ema_trace = ema_trace indicators symbol in
   let buy_trace = order_trace Buy data symbol in
   let sell_trace = order_trace Sell data symbol in
-  let price_trace =  price_trace data symbol in
+  let price_trace = price_trace data symbol in
   let ( = ) = fun x y -> (x, y) in
-  `Assoc [
-    "price_trace" = price_trace;
-    "buy_trace" = buy_trace;
-    "sell_trace" = sell_trace;
-    "ema_trace" = ema_trace;
-    "layout" = layout symbol;
-  ]
+  `Assoc
+    [
+      "traces"
+      = `Assoc
+          [
+            "price_trace" = price_trace;
+            "buy_trace" = buy_trace;
+            "sell_trace" = sell_trace;
+            "ema_trace" = ema_trace;
+          ];
+      "layout" = layout symbol;
+    ]
 
 (* let of_bars (x : Bars.t) (indicators : Indicators.t) (symbol : string) : *)
 (*     Yojson.Safe.t option = *)
