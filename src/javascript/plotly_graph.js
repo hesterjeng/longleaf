@@ -90,23 +90,6 @@ export async function fetchStats(div, endPoint) {
   }
 }
 
-function makeEmaTrace(data) {
-  const xValues = data.indicators_x;
-  const yValues = data.ema;
-  return {
-    x: xValues,
-    y: yValues,
-    text: "Exponential Moving Average",
-    type: "scatter",
-    line: {
-      color: "red",
-      dash: "dash",
-      width: 2,
-    },
-    name: "Exponential Moving Average",
-  };
-}
-
 // Function to fetch data and update the graph
 export async function fetchAndRender(div, endPoint) {
   try {
@@ -167,7 +150,7 @@ export async function fetchAndRender(div, endPoint) {
       name: endPoint,
     };
 
-    const emaTrace = makeEmaTrace(data.data[0]);
+    const emaTrace = data.data[0].ema;
 
     const buyTrace = {
       x: buyX,
