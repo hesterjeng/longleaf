@@ -20,5 +20,13 @@ Go to `http://localhost:8080/` to see some visualizations, statistics, and indic
 
 There is a helpful data downloader executable that is also included.  The options for this can be examined by running it with the `--help` flag.
 
+# Emacs usage
+
+In the `elisp` directory, there is an Emacs Lisp file that allows you to select a preload and/or a target file and run backtests quickly.  To use use this, open the file and then load the buffer. In Doom Emacs:
+
+* `SPC l p` - specify the preloaded data file
+* `SPC l t` - specify the target data file for the algorithm to run on
+* `SPC l r` - run the program as a backtest on these file
+
 # Miscellaneous
 In order to compile and run this program, you will need to create a `.envrc` file with some environment variables configured, corresponding to the environment variables in `environment.ml`.
