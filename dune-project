@@ -28,6 +28,7 @@
   cmdliner
   landmarks
   iter
+  owl
   containers-data
   ocamlgraph
   eio_main

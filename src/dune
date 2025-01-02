@@ -12,6 +12,7 @@
   iter
   cmdliner
   landmarks
+  owl
   piaf)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
