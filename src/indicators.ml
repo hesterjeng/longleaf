@@ -43,6 +43,20 @@ let simple_moving_average n (l : Bars.symbol_history) =
   let sum = Iter.fold ( +. ) 0.0 window in
   sum /. Float.of_int n
 
+let upper_bollinger standard_deviation sma = sma +. (2.0 *. standard_deviation)
+let lower_bollinger standard_deviation sma = sma -. (2.0 *. standard_deviation)
+
+let bollinger n history =
+  let length = Vector.length history in
+  let sma = simple_moving_average n history in
+  let standard_deviation =
+    Vector.slice_iter history (Int.max (length - n) 0) (Int.min n length)
+    |> (Iter.map @@ fun item -> Item.last item)
+    |> Iter.to_array |> Owl_stats.std
+  in
+  ( lower_bollinger standard_deviation sma,
+    upper_bollinger standard_deviation sma )
+
 module Point = struct
   type t = {
     timestamp : Time.t;
