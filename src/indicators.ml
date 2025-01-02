@@ -64,6 +64,8 @@ module Point = struct
     exponential_moving_average : float;
     sma_5 : float;
     sma_34 : float;
+    upper_bollinger : float;
+    lower_bollinger : float;
   }
   [@@deriving show, yojson]
 
@@ -74,10 +76,13 @@ module Point = struct
       exponential_moving_average = 0.0;
       sma_5 = 0.0;
       sma_34 = 0.0;
+      upper_bollinger = 0.0;
+      lower_bollinger = 0.0;
     }
 
   let of_latest timestamp symbol_history length (previous : t) (latest : Item.t)
       =
+    let lower_bollinger, upper_bollinger = bollinger 34 symbol_history in
     {
       timestamp;
       accumulation_distribution_line =
@@ -86,11 +91,15 @@ module Point = struct
         ema length previous.exponential_moving_average latest;
       sma_5 = simple_moving_average 5 symbol_history;
       sma_34 = simple_moving_average 34 symbol_history;
+      lower_bollinger;
+      upper_bollinger;
     }
 
   let ema x = x.exponential_moving_average
   let sma_5 x = x.sma_5
   let sma_34 x = x.sma_34
+  let lower_bollinger x = x.lower_bollinger
+  let upper_bollinger x = x.upper_bollinger
 end
 
 type t = Point.t Vector.vector Hashtbl.t
@@ -127,6 +136,9 @@ let initialize bars symbol =
             let bars_vec_upto_now =
               Vector.slice_iter bars_vec 0 i |> Vector.of_iter
             in
+            let lower_bollinger, upper_bollinger =
+              bollinger 34 bars_vec_upto_now
+            in
             let res : Point.t =
               {
                 timestamp;
@@ -136,6 +148,8 @@ let initialize bars symbol =
                   ema length previous.exponential_moving_average item;
                 sma_5 = simple_moving_average 5 bars_vec_upto_now;
                 sma_34 = simple_moving_average 34 bars_vec_upto_now;
+                lower_bollinger;
+                upper_bollinger;
               }
             in
             Vector.push initial_stats_vector res;
