@@ -5,7 +5,7 @@ module Conditions = struct
     (* let upper_now_band = 1.01 *)
     let stop_loss_multiplier = 0.96
     let profit_multiplier = 1.04
-    let max_holding_period = 30
+    let max_holding_period = 300
     let window_size = 20
     let lookback = 120
 
@@ -121,7 +121,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategies.S = struct
   let place_buy ~(state : state) =
     let ( let* ) = Result.( let* ) in
     let short_opt =
-      consider_buying ~history:state.bars ~state ~qty:(qty state 0.5)
+      consider_buying ~history:state.bars ~state ~qty:(qty state 1.0)
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
