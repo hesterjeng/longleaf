@@ -28,6 +28,22 @@ module Conditions = struct
   let map (f : Item.t -> t) (l : t Iter.t) =
     Iter.map (function Pass x -> f x | Fail s -> Fail s) l
 
+  (* Is the current price above the bollinger band? *)
+  let above_bollinger (indicators : Indicators.t) symbol
+      (current_price : Item.t) =
+    let last_price = Item.last current_price in
+    let upper_bollinger =
+      Indicators.get indicators symbol
+      |> Option.get_exn_or "double_top: expected to get indicators"
+      |> Vector.top
+      |> Option.get_exn_or
+           "double_top: expected to have data present in indicator"
+      |> Indicators.Point.upper_bollinger
+    in
+    match last_price >=. upper_bollinger with
+    | true -> Some current_price
+    | false -> None
+
   (* There must have been a rise *)
   let check_for_previous_rise ~price_history (current_max : Item.t) : t =
     Vector.find
@@ -140,6 +156,10 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
     let* price_history = Bars.get history symbol in
     let most_recent_price = Bars.Latest.get state.latest symbol in
     let+ (previous_maximum : Item.t) =
+      (* Make sure that we are above the bollinger band *)
+      let* most_recent_price =
+        Conditions.above_bollinger state.indicators symbol most_recent_price
+      in
       (* Both price_history and maxima_search take into account the lookback. *)
       (* maxima_candidates takes into account the minimum time gap as well, *)
       (* so we don't select minima and maxima based on very short time fluctuations*)
