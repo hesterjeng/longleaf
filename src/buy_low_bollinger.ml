@@ -140,7 +140,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategies.S = struct
     let current_bar = Bars.Latest.get state.latest buying_order.symbol in
     let current_price = Item.last current_bar in
     let timestamp = Item.timestamp current_bar in
-    let price_difference = current_price -. buying_order.price in
+    let price_difference = buying_order.price -. current_price in
     let cover_reason =
       Conditions.Sell_reason.make ~time_held ~current_price ~buying_order
         ~price_difference
@@ -158,7 +158,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategies.S = struct
         (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
         let* () =
           Backend.place_order state
-          @@ Order.make ~symbol:buying_order.symbol ~side:Side.Buy
+          @@ Order.make ~symbol:buying_order.symbol ~side:Side.Sell
                ~tif:buying_order.tif ~order_type:buying_order.order_type
                ~qty:buying_order.qty ~price:current_price ~timestamp ~reason
                ~profit:(Some profit)
