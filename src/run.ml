@@ -126,6 +126,39 @@ module DoubleTop = struct
   module Make = Make (Data) (Double_top.DoubleTop)
 end
 
+module LowBall = struct
+  module Data : RUN_DATA = struct
+    let symbols =
+      [
+        "NVDA";
+        "TSLA";
+        "AAPL";
+        "MSFT";
+        "NFLX";
+        "META";
+        "AMZN";
+        "AMD";
+        "AVGO";
+        "ELV";
+        "UNH";
+        "MU";
+        "V";
+        "GOOG";
+        "SMCI";
+        "MSTR";
+        "UBER";
+        "LLY";
+        (* "SPY"; *)
+      ]
+
+    let tick = 600.0
+    let overnight = false
+    let resume_after_liquidate = true
+  end
+
+  module Make = Make (Data) (Buy_low_bollinger.BuyLowBollinger)
+end
+
 module Listener = struct
   module Data : RUN_DATA = struct
     let symbols =
