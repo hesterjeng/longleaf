@@ -13,7 +13,9 @@ module Latest = struct
   let get x symbol =
     match Hashtbl.find_opt x symbol with
     | Some x -> x
-    | None -> invalid_arg "Unable to find price of symbol (Bars.Latest)"
+    | None ->
+        Eio.traceln "Missing symbol %s?" symbol;
+        invalid_arg "Unable to find price of symbol (Bars.Latest)"
 
   let empty () : t = Hashtbl.create 0
 

@@ -70,7 +70,8 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received eio_env =
         let module Run = Run.BuyAndHold.Make (LongleafMutex) (Context) in
         Run.top runtype
     | _ ->
-        let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in
+        (* let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in *)
+        let module Run = Run.LowBall.Make (LongleafMutex) (Context) in
         Run.top runtype
   in
   let run_server () =
