@@ -43,6 +43,8 @@ module Forever : S = struct
   let length = Float.max_finite_value
 end
 
+let tick env time = Eio.Time.sleep env#clock time
+
 module Make (Inp : sig
   val tick : float
 end) : S = struct
