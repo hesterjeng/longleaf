@@ -152,7 +152,7 @@ module LowBall = struct
       ]
 
     let tick = 600.0
-    let overnight = false
+    let overnight = true
     let resume_after_liquidate = true
   end
 
