@@ -30,9 +30,15 @@ module Latest = struct
       match prev with
       | Ok None -> Result.return @@ Some (Item.timestamp item)
       | Ok (Some prev_time) -> (
-          match Ptime.equal prev_time @@ Item.timestamp item with
-          | true -> prev
-          | false -> Error "Different timestamps within same Bars.Latest.t!")
+          let current_timestamp = Item.timestamp item in
+          match Ptime.compare prev_time current_timestamp with
+          | 1 | 0 -> prev
+          | -1 ->
+              (* Eio.traceln *)
+              (*   "@[@[Time mismatch in latest bars:@]@.@[%a@]@.@[%a@]@.@]@." *)
+              (*   Time.pp prev_time Time.pp (Item.timestamp item); *)
+              Ok (Some current_timestamp)
+          | _ -> invalid_arg "Impossible return value from Ptime.compare")
       | Error _ -> prev )
     |> function
     | Ok None ->
