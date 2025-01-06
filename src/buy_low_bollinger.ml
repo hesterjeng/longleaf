@@ -121,7 +121,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategies.S = struct
   let place_buy ~(state : state) =
     let ( let* ) = Result.( let* ) in
     let short_opt =
-      consider_buying ~history:state.bars ~state ~qty:(qty state 1.0)
+      consider_buying ~history:state.bars ~state ~qty:(qty state 0.9)
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
