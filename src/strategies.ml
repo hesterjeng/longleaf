@@ -33,6 +33,8 @@ module Strategy_utils (Backend : Backend.S) = struct
                Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
                | Some t ->
                    Eio.traceln "@[Current time: %a@]@." Time.pp t;
+                   Ticker.FiveSecond.tick Backend.env;
+                   Eio.traceln "@[Waited five seconds.@]@.";
                    `Continue
                | None ->
                    Eio.traceln "@[Detected an illegal time!  Shutting down.@]@.";
@@ -133,6 +135,7 @@ module Strategy_utils (Backend : Backend.S) = struct
             let open Result.Infix in
             let* latest = Backend.latest_bars Backend.symbols in
             let* time = Bars.Latest.timestamp latest in
+            Eio.traceln "@[Bars.Latest.timestamp: %a]@." Time.pp time;
             Indicators.add_latest time state.bars latest state.indicators;
             let value = Backend.Backend_position.value latest in
             Bars.append latest state.bars;
