@@ -212,7 +212,7 @@ let of_stats (stats : Stats.t) : Yojson.Safe.t =
         stats
     in
     (* Eio.traceln "@[Found %d %a orders.@]@." (List.length orders) *)
-      (* Trading_types.Side.pp side; *)
+    (* Trading_types.Side.pp side; *)
     let x =
       List.map
         (fun x ->
