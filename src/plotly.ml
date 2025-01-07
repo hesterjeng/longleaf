@@ -21,8 +21,8 @@ let layout title =
       "yaxis" = `Assoc [ "title" = `String "Y-axis" ];
     ]
 
-let indicator_trace (indicators : Indicators.t) indicator_name indicator_get
-    symbol : Yojson.Safe.t option =
+let indicator_trace ~data (indicators : Indicators.t) indicator_name
+    indicator_get symbol : Yojson.Safe.t option =
   let+ indicators_vec =
     match Indicators.get indicators symbol with
     | Some indicators -> Some indicators
@@ -31,20 +31,34 @@ let indicator_trace (indicators : Indicators.t) indicator_name indicator_get
         None
   in
   let x =
-    Vector.map
-      (fun (p : Indicators.Point.t) ->
-        let time = p.timestamp in
-        let res = Ptime.to_rfc3339 time in
-        `String res)
-      indicators_vec
-    |> Vector.to_list |> List.drop 1
+    let mk_plotly_x x =
+      let time = Item.timestamp x in
+      let res = Ptime.to_rfc3339 time in
+      `String res
+    in
+    List.map mk_plotly_x data
   in
+  (* let x = *)
+  (*   Vector.map *)
+  (*     (fun (p : Indicators.Point.t) -> *)
+  (*       let time = p.timestamp in *)
+  (*       let res = Ptime.to_rfc3339 time in *)
+  (*       `String res) *)
+  (*     indicators_vec *)
+  (*   |> Vector.to_list |> List.drop 1 *)
+  (* in *)
   let y =
     Vector.map
       (fun (p : Indicators.Point.t) -> `Float (indicator_get p))
       indicators_vec
-    |> Vector.to_list |> List.drop 1
+    |> Vector.to_list
+    |> List.mapi (fun i b -> if i = 0 then `Null else b)
   in
+  if List.length x <> List.length y then
+    Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
+      (List.length y);
+  (* if String.equal "SMA 5" indicator_name && String.equal symbol "NVDA" then *)
+  (*   Eio.traceln "@[%a@]@." (List.pp ~pp_sep:Format.newline Yojson.Safe.pp) y; *)
   `Assoc
     [
       ("x", `List x);
@@ -128,15 +142,17 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* data_vec = Bars.get bars symbol in
   let data = Vector.to_list data_vec in
   let* ema_trace =
-    indicator_trace indicators "Exponential Moving Average" IP.ema symbol
+    indicator_trace ~data indicators "Exponential Moving Average" IP.ema symbol
   in
-  let* sma_5_trace = indicator_trace indicators "SMA 5" IP.sma_5 symbol in
-  let* sma_34_trace = indicator_trace indicators "SMA 34" IP.sma_34 symbol in
+  let* sma_5_trace = indicator_trace ~data indicators "SMA 5" IP.sma_5 symbol in
+  let* sma_34_trace =
+    indicator_trace ~data indicators "SMA 34" IP.sma_34 symbol
+  in
   let* upper_bollinger =
-    indicator_trace indicators "Upper Bollinger" IP.upper_bollinger symbol
+    indicator_trace ~data indicators "Upper Bollinger" IP.upper_bollinger symbol
   in
   let* lower_bollinger =
-    indicator_trace indicators "Lower Bollinger" IP.lower_bollinger symbol
+    indicator_trace ~data indicators "Lower Bollinger" IP.lower_bollinger symbol
   in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
@@ -163,6 +179,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
 let of_stats (stats : Stats.t) : Yojson.Safe.t =
   let open Stats in
   let ( = ) = fun x y -> (x, y) in
+  let value_x_times = List.map (fun x -> x.time) stats in
   let value_trace : Yojson.Safe.t =
     List.map
       (fun x ->
@@ -172,7 +189,6 @@ let of_stats (stats : Stats.t) : Yojson.Safe.t =
       stats
     |> List.split
     |> fun (x, y) ->
-    let ( = ) = fun x y -> (x, y) in
     `Assoc
       [
         "x" = `List x;
@@ -195,7 +211,16 @@ let of_stats (stats : Stats.t) : Yojson.Safe.t =
         (fun x -> match get_side x with Some _ -> Some x | None -> None)
         stats
     in
-    let x = List.map (fun x -> `String (Ptime.to_rfc3339 x.time)) orders in
+    (* Eio.traceln "@[Found %d %a orders.@]@." (List.length orders) *)
+      (* Trading_types.Side.pp side; *)
+    let x =
+      List.map
+        (fun x ->
+          let closest = Time.find_closest x.time value_x_times in
+          assert (List.mem closest value_x_times);
+          `String (Ptime.to_rfc3339 closest))
+        orders
+    in
     let y = List.map (fun x -> `Float x.value) orders in
     let hovertext =
       List.map
@@ -215,6 +240,7 @@ let of_stats (stats : Stats.t) : Yojson.Safe.t =
         "hovertext" = `List hovertext;
         "hoverinfo" = `String "text";
         "mode" = `String "markers";
+        "type" = `String "scatter";
         "name" = `String name;
         "marker" = `Assoc [ "color" = `String color; "size" = `Int 10 ];
       ]

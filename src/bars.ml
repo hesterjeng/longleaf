@@ -10,7 +10,7 @@ module Hashtbl = Hashtbl.Make (String)
 module Latest = struct
   type t = Item.t Hashtbl.t
 
-  let get x symbol =
+  let get x symbol : Item.t =
     match Hashtbl.find_opt x symbol with
     | Some x -> x
     | None ->

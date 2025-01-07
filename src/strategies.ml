@@ -135,7 +135,8 @@ module Strategy_utils (Backend : Backend.S) = struct
             let open Result.Infix in
             let* latest = Backend.latest_bars Backend.symbols in
             let* time = Bars.Latest.timestamp latest in
-            Eio.traceln "@[Bars.Latest.timestamp: %a]@." Time.pp time;
+            (* Eio.traceln "@[strategies: %a@]@." Item.pp *)
+            (*   (Bars.Latest.get latest "NVDA"); *)
             Indicators.add_latest time state.bars latest state.indicators;
             let value = Backend.Backend_position.value latest in
             Bars.append latest state.bars;

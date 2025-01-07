@@ -148,7 +148,6 @@ module LowBall = struct
         "MSTR";
         "UBER";
         "LLY";
-        (* "SPY"; *)
       ]
 
     let tick = 600.0
