@@ -21,8 +21,8 @@ let layout title =
       "yaxis" = `Assoc [ "title" = `String "Y-axis" ];
     ]
 
-let indicator_trace (indicators : Indicators.t) indicator_name indicator_get
-    symbol : Yojson.Safe.t option =
+let indicator_trace ~data (indicators : Indicators.t) indicator_name
+    indicator_get symbol : Yojson.Safe.t option =
   let+ indicators_vec =
     match Indicators.get indicators symbol with
     | Some indicators -> Some indicators
@@ -31,20 +31,31 @@ let indicator_trace (indicators : Indicators.t) indicator_name indicator_get
         None
   in
   let x =
-    Vector.map
-      (fun (p : Indicators.Point.t) ->
-        let time = p.timestamp in
-        let res = Ptime.to_rfc3339 time in
-        `String res)
-      indicators_vec
-    |> Vector.to_list |> List.drop 1
+    let mk_plotly_x x =
+      let time = Item.timestamp x in
+      let res = Ptime.to_rfc3339 time in
+      `String res
+    in
+    List.map mk_plotly_x data
   in
+  (* let x = *)
+  (*   Vector.map *)
+  (*     (fun (p : Indicators.Point.t) -> *)
+  (*       let time = p.timestamp in *)
+  (*       let res = Ptime.to_rfc3339 time in *)
+  (*       `String res) *)
+  (*     indicators_vec *)
+  (*   |> Vector.to_list |> List.drop 1 *)
+  (* in *)
   let y =
     Vector.map
       (fun (p : Indicators.Point.t) -> `Float (indicator_get p))
       indicators_vec
-    |> Vector.to_list |> List.drop 1
+    |> Vector.to_list |> List.mapi (fun i b -> if i = 0 then `Null else b)
   in
+  if List.length x <> List.length y then
+    Eio.traceln "Indicator length mismatch! x:%d y:%d" (List.length x)
+      (List.length y);
   `Assoc
     [
       ("x", `List x);
@@ -128,15 +139,17 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* data_vec = Bars.get bars symbol in
   let data = Vector.to_list data_vec in
   let* ema_trace =
-    indicator_trace indicators "Exponential Moving Average" IP.ema symbol
+    indicator_trace ~data indicators "Exponential Moving Average" IP.ema symbol
   in
-  let* sma_5_trace = indicator_trace indicators "SMA 5" IP.sma_5 symbol in
-  let* sma_34_trace = indicator_trace indicators "SMA 34" IP.sma_34 symbol in
+  let* sma_5_trace = indicator_trace ~data indicators "SMA 5" IP.sma_5 symbol in
+  let* sma_34_trace =
+    indicator_trace ~data indicators "SMA 34" IP.sma_34 symbol
+  in
   let* upper_bollinger =
-    indicator_trace indicators "Upper Bollinger" IP.upper_bollinger symbol
+    indicator_trace ~data indicators "Upper Bollinger" IP.upper_bollinger symbol
   in
   let* lower_bollinger =
-    indicator_trace indicators "Lower Bollinger" IP.lower_bollinger symbol
+    indicator_trace ~data indicators "Lower Bollinger" IP.lower_bollinger symbol
   in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
