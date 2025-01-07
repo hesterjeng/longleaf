@@ -131,23 +131,23 @@ module LowBall = struct
     let symbols =
       [
         "NVDA";
-        (* "TSLA"; *)
-        (* "AAPL"; *)
-        (* "MSFT"; *)
-        (* "NFLX"; *)
-        (* "META"; *)
-        (* "AMZN"; *)
-        (* "AMD"; *)
-        (* "AVGO"; *)
-        (* "ELV"; *)
-        (* "UNH"; *)
-        (* "MU"; *)
-        (* "V"; *)
-        (* "GOOG"; *)
-        (* "SMCI"; *)
-        (* "MSTR"; *)
-        (* "UBER"; *)
-        (* "LLY"; *)
+        "TSLA";
+        "AAPL";
+        "MSFT";
+        "NFLX";
+        "META";
+        "AMZN";
+        "AMD";
+        "AVGO";
+        "ELV";
+        "UNH";
+        "MU";
+        "V";
+        "GOOG";
+        "SMCI";
+        "MSTR";
+        "UBER";
+        "LLY";
       ]
 
     let tick = 600.0
