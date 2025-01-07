@@ -179,6 +179,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
 let of_stats (stats : Stats.t) : Yojson.Safe.t =
   let open Stats in
   let ( = ) = fun x y -> (x, y) in
+  let value_x_times = List.map (fun x -> x.time) stats in
   let value_trace : Yojson.Safe.t =
     List.map
       (fun x ->
@@ -188,7 +189,6 @@ let of_stats (stats : Stats.t) : Yojson.Safe.t =
       stats
     |> List.split
     |> fun (x, y) ->
-    let ( = ) = fun x y -> (x, y) in
     `Assoc
       [
         "x" = `List x;
@@ -211,7 +211,16 @@ let of_stats (stats : Stats.t) : Yojson.Safe.t =
         (fun x -> match get_side x with Some _ -> Some x | None -> None)
         stats
     in
-    let x = List.map (fun x -> `String (Ptime.to_rfc3339 x.time)) orders in
+    (* Eio.traceln "@[Found %d %a orders.@]@." (List.length orders) *)
+      (* Trading_types.Side.pp side; *)
+    let x =
+      List.map
+        (fun x ->
+          let closest = Time.find_closest x.time value_x_times in
+          assert (List.mem closest value_x_times);
+          `String (Ptime.to_rfc3339 closest))
+        orders
+    in
     let y = List.map (fun x -> `Float x.value) orders in
     let hovertext =
       List.map
@@ -231,6 +240,7 @@ let of_stats (stats : Stats.t) : Yojson.Safe.t =
         "hovertext" = `List hovertext;
         "hoverinfo" = `String "text";
         "mode" = `String "markers";
+        "type" = `String "scatter";
         "name" = `String name;
         "marker" = `Assoc [ "color" = `String color; "size" = `Int 10 ];
       ]
