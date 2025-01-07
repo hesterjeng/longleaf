@@ -51,7 +51,8 @@ let indicator_trace ~data (indicators : Indicators.t) indicator_name
     Vector.map
       (fun (p : Indicators.Point.t) -> `Float (indicator_get p))
       indicators_vec
-    |> Vector.to_list |> List.mapi (fun i b -> if i = 0 then `Null else b)
+    |> Vector.to_list
+    |> List.mapi (fun i b -> if i = 0 then `Null else b)
   in
   if List.length x <> List.length y then
     Eio.traceln "Indicator length mismatch! x:%d y:%d" (List.length x)
