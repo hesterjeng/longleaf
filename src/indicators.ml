@@ -35,11 +35,11 @@ let ema length previous latest =
 
 let simple_moving_average n (l : Bars.symbol_history) =
   let length = Vector.length l in
-  let close = Vector.map Item.close l in
+  let last = Vector.map Item.last l in
   let start = Int.max (length - n) 0 in
   let n = Int.min n length in
   (* Eio.traceln "@[sma: %d %d@]" n (Vector.size close); *)
-  let window = Vector.slice_iter close start n in
+  let window = Vector.slice_iter last start n in
   let sum = Iter.fold ( +. ) 0.0 window in
   sum /. Float.of_int n
 
@@ -83,24 +83,24 @@ module Point = struct
   let of_latest timestamp symbol_history length (previous : t) (latest : Item.t)
       =
     let lower_bollinger, upper_bollinger = bollinger 34 symbol_history in
-    let res = {
-      timestamp;
-      accumulation_distribution_line =
-        adl previous.accumulation_distribution_line latest;
-      exponential_moving_average =
-        ema length previous.exponential_moving_average latest;
-      sma_5 = simple_moving_average 5 symbol_history;
-      sma_34 = simple_moving_average 34 symbol_history;
-      lower_bollinger;
-      upper_bollinger;
-    } in
-    if (Float.equal previous.sma_5 res.sma_5) then
-      (
-        (* Eio.traceln "%a" (Vector.pp Item.pp) symbol_history; *)
-        Eio.traceln "%a %f %f" Time.pp timestamp previous.sma_5 res.sma_5;
-        ()
-        (* invalid_arg "try" *)
-      );
+    let res =
+      {
+        timestamp;
+        accumulation_distribution_line =
+          adl previous.accumulation_distribution_line latest;
+        exponential_moving_average =
+          ema length previous.exponential_moving_average latest;
+        sma_5 = simple_moving_average 5 symbol_history;
+        sma_34 = simple_moving_average 34 symbol_history;
+        lower_bollinger;
+        upper_bollinger;
+      }
+    in
+    (* if Float.equal previous.sma_5 res.sma_5 then ( *)
+    (*   (\* Eio.traceln "%a" (Vector.pp Item.pp) symbol_history; *\) *)
+    (*   Eio.traceln "error: identical sma5: %a %f %f" Time.pp timestamp *)
+    (*     previous.sma_5 res.sma_5; *)
+    (*   invalid_arg "try"); *)
     res
 
   let ema x = x.exponential_moving_average
