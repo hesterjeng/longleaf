@@ -83,7 +83,7 @@ module Point = struct
   let of_latest timestamp symbol_history length (previous : t) (latest : Item.t)
       =
     let lower_bollinger, upper_bollinger = bollinger 34 symbol_history in
-    {
+    let res = {
       timestamp;
       accumulation_distribution_line =
         adl previous.accumulation_distribution_line latest;
@@ -93,7 +93,15 @@ module Point = struct
       sma_34 = simple_moving_average 34 symbol_history;
       lower_bollinger;
       upper_bollinger;
-    }
+    } in
+    if (Float.equal previous.sma_5 res.sma_5) then
+      (
+        (* Eio.traceln "%a" (Vector.pp Item.pp) symbol_history; *)
+        Eio.traceln "%a %f %f" Time.pp timestamp previous.sma_5 res.sma_5;
+        ()
+        (* invalid_arg "try" *)
+      );
+    res
 
   let ema x = x.exponential_moving_average
   let sma_5 x = x.sma_5
