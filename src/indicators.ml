@@ -57,6 +57,8 @@ let bollinger n history =
   ( lower_bollinger standard_deviation sma,
     upper_bollinger standard_deviation sma )
 
+let awesome fast slow = fast -. slow
+
 module Point = struct
   type t = {
     timestamp : Time.t;
@@ -66,6 +68,7 @@ module Point = struct
     sma_34 : float;
     upper_bollinger : float;
     lower_bollinger : float;
+    awesome_oscillator : float;
   }
   [@@deriving show, yojson]
 
@@ -78,11 +81,15 @@ module Point = struct
       sma_34 = 0.0;
       upper_bollinger = 0.0;
       lower_bollinger = 0.0;
+      awesome_oscillator = 0.0;
     }
 
   let of_latest timestamp symbol_history length (previous : t) (latest : Item.t)
       =
     let lower_bollinger, upper_bollinger = bollinger 34 symbol_history in
+    let sma_5 = simple_moving_average 5 symbol_history in
+    let sma_34 = simple_moving_average 34 symbol_history in
+    let awesome_oscillator = awesome sma_5 sma_34 in
     let res =
       {
         timestamp;
@@ -90,10 +97,11 @@ module Point = struct
           adl previous.accumulation_distribution_line latest;
         exponential_moving_average =
           ema length previous.exponential_moving_average latest;
-        sma_5 = simple_moving_average 5 symbol_history;
-        sma_34 = simple_moving_average 34 symbol_history;
+        sma_5;
+        sma_34;
         lower_bollinger;
         upper_bollinger;
+        awesome_oscillator;
       }
     in
     (* if Float.equal previous.sma_5 res.sma_5 then ( *)
@@ -147,6 +155,9 @@ let initialize bars symbol =
             let lower_bollinger, upper_bollinger =
               bollinger 34 bars_vec_upto_now
             in
+            let sma_5 = simple_moving_average 5 bars_vec_upto_now in
+            let sma_34 = simple_moving_average 34 bars_vec_upto_now in
+            let awesome_oscillator = awesome sma_5 sma_34 in
             let res : Point.t =
               {
                 timestamp;
@@ -154,10 +165,11 @@ let initialize bars symbol =
                   adl previous.accumulation_distribution_line item;
                 exponential_moving_average =
                   ema length previous.exponential_moving_average item;
-                sma_5 = simple_moving_average 5 bars_vec_upto_now;
-                sma_34 = simple_moving_average 34 bars_vec_upto_now;
+                sma_5;
+                sma_34;
                 lower_bollinger;
                 upper_bollinger;
+                awesome_oscillator;
               }
             in
             Vector.push initial_stats_vector res;
