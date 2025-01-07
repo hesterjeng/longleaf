@@ -55,8 +55,10 @@ let indicator_trace ~data (indicators : Indicators.t) indicator_name
     |> List.mapi (fun i b -> if i = 0 then `Null else b)
   in
   if List.length x <> List.length y then
-    Eio.traceln "Indicator length mismatch! x:%d y:%d" (List.length x)
+    Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
       (List.length y);
+  (* if String.equal "SMA 5" indicator_name && String.equal symbol "NVDA" then *)
+  (*   Eio.traceln "@[%a@]@." (List.pp ~pp_sep:Format.newline Yojson.Safe.pp) y; *)
   `Assoc
     [
       ("x", `List x);
