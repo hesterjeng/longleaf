@@ -18,5 +18,7 @@ let yojson_of_t (x : t) =
 
 let add (order_history : t) order = Vector.push order_history order
 
-let find (time : Time.t) (x : t) =
-  Vector.find (fun order -> Ptime.equal (Order.timestamp order) time) x
+(* let find (time : Time.t) (x : t) = *)
+(*   let times = Vector.to_list @@ Vector.map Order.timestamp x in *)
+(*   let closest_time = Time.find_closest time times in *)
+(*   Vector.find (fun order -> Ptime.equal (Order.timestamp order) closest_time) x *)
