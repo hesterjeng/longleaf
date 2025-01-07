@@ -38,3 +38,15 @@ let of_string x =
 let to_string x = Ptime.to_rfc3339 x
 let t_of_yojson (x : Yojson.Safe.t) = string_of_yojson x |> of_string
 let yojson_of_t x = yojson_of_string @@ to_string x
+
+let find_closest (time : t) (l : t list) =
+  let times_array = Array.of_list l in
+  let minimum_difference =
+    List.map
+      (fun x -> Ptime.diff time x |> Ptime.Span.to_float_s |> Float.abs)
+      l
+    |> Array.of_list |> Owl.Stats.min_i
+  in
+  Array.get_safe times_array minimum_difference |> function
+  | Some res -> res
+  | None -> invalid_arg "Expected to find a closest time in Time.find_closest"
