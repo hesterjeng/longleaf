@@ -78,8 +78,7 @@ module RSI = struct
     let d = d now previous in
     d +. (previous_mad *. ((period -. 1.0) /. period))
 
-  let rsi mau mad =
-    100.0 -. (100.0 *. (1.0 /. (1.0 +. (mau /. mad))))
+  let rsi mau mad = 100.0 -. (100.0 *. (1.0 /. (1.0 +. (mau /. mad))))
 end
 
 module Point = struct
@@ -123,8 +122,12 @@ module Point = struct
     let awesome_oscillator = awesome sma_5 sma_34 in
     let price = Item.last latest in
     let previous_price = previous.price in
-    let average_gain = RSI.mau 14.0 previous.average_gain price previous_price in
-    let average_loss = RSI.mad 14.0 previous.average_loss price previous_price in
+    let average_gain =
+      RSI.mau 14.0 previous.average_gain price previous_price
+    in
+    let average_loss =
+      RSI.mad 14.0 previous.average_loss price previous_price
+    in
     let relative_strength_index = RSI.rsi average_gain average_loss in
     let res =
       {
