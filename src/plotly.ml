@@ -21,8 +21,8 @@ let layout title =
       "yaxis" = `Assoc [ "title" = `String "Y-axis" ];
     ]
 
-let indicator_trace ~data (indicators : Indicators.t) indicator_name
-    indicator_get symbol : Yojson.Safe.t option =
+let indicator_trace ?(show = true) ~data (indicators : Indicators.t)
+    indicator_name indicator_get symbol : Yojson.Safe.t option =
   let+ indicators_vec =
     match Indicators.get indicators symbol with
     | Some indicators -> Some indicators
@@ -57,6 +57,7 @@ let indicator_trace ~data (indicators : Indicators.t) indicator_name
   if List.length x <> List.length y then
     Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
       (List.length y);
+  let visible = if show then "true" else "legendonly" in
   (* if String.equal "SMA 5" indicator_name && String.equal symbol "NVDA" then *)
   (*   Eio.traceln "@[%a@]@." (List.pp ~pp_sep:Format.newline Yojson.Safe.pp) y; *)
   `Assoc
@@ -66,6 +67,7 @@ let indicator_trace ~data (indicators : Indicators.t) indicator_name
       ("text", `String indicator_name);
       ("name", `String indicator_name);
       ("type", `String "scatter");
+      ("visible", `String visible);
       ( "line",
         `Assoc
           [
@@ -155,7 +157,8 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~data indicators "Lower Bollinger" IP.lower_bollinger symbol
   in
   let* rsi =
-    indicator_trace ~data indicators "Relative Strength Index" IP.rsi symbol
+    indicator_trace ~data ~show:false indicators "Relative Strength Index"
+      IP.rsi symbol
   in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
