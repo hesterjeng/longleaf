@@ -49,7 +49,12 @@ let indicator_trace ?(show = true) ~data (indicators : Indicators.t)
   (* in *)
   let y =
     Vector.map
-      (fun (p : Indicators.Point.t) -> `Float (indicator_get p))
+      (fun (p : Indicators.Point.t) ->
+        `Float
+          (let res = indicator_get p in
+           if Float.is_nan res then
+             Eio.traceln "ERROR: NaN in data for indicator %s!" indicator_name;
+           res))
       indicators_vec
     |> Vector.to_list
     |> List.mapi (fun i b -> if i = 0 then `Null else b)
@@ -160,6 +165,13 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~data ~show:false indicators "Relative Strength Index"
       IP.rsi symbol
   in
+  let* awesome =
+    indicator_trace ~data ~show:false indicators "Awesome Oscillator" IP.awesome
+      symbol
+  in
+  let* fso_pk =
+    indicator_trace ~data ~show:false indicators "FSO %K" IP.fso_pk symbol
+  in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
   let price_trace = price_trace data symbol in
@@ -178,7 +190,9 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                sma_34_trace;
                upper_bollinger;
                lower_bollinger;
+               awesome;
                rsi;
+               fso_pk;
              ];
          "layout" = layout symbol;
        ]

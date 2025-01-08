@@ -18,8 +18,6 @@ let money_flow_volume (x : Item.t) =
 (* Accumulation distirbution line *)
 let adl previous_adl (current : Item.t) =
   let res = money_flow_volume current +. previous_adl in
-  (* if Float.is_nan res then *)
-  (*   Eio. traceln "%f %f" (money_flow_volume current) previous_adl; *)
   res
 
 (* Exponential moving average *)
@@ -81,6 +79,25 @@ module RSI = struct
   let rsi mau mad = 100.0 -. (100.0 *. (1.0 /. (1.0 +. (mau /. mad))))
 end
 
+module SO = struct
+  (* Stochastic Oscillators *)
+
+  let pK n (l : Bars.symbol_history) (last : Item.t) =
+    let current = Item.last last in
+    let length = Vector.length l in
+    let window =
+      Vector.slice_iter l (Int.max (length - n) 0) (Int.min n length)
+      |> Iter.map Item.last |> Iter.to_array |> fun a -> Array.append a [| current |]
+    in
+    let min, max = Owl_stats.minmax window in
+    if Float.equal max min then 0.0
+    else
+      let rhs = (current -. min) /. (max -. min) in
+      (* Eio.traceln "%f %f %f" min current max; *)
+      assert (rhs <=. 1.0);
+      100.0 *. rhs
+end
+
 module Point = struct
   type t = {
     timestamp : Time.t;
@@ -95,6 +112,7 @@ module Point = struct
     average_gain : float;
     average_loss : float;
     relative_strength_index : float;
+    fast_stochastic_oscillator_k : float;
   }
   [@@deriving show, yojson]
 
@@ -112,6 +130,7 @@ module Point = struct
       average_gain = 0.00001;
       average_loss = 0.00001;
       relative_strength_index = 50.0;
+      fast_stochastic_oscillator_k = 50.0;
     }
 
   let of_latest timestamp symbol_history length (previous : t) (latest : Item.t)
@@ -129,6 +148,7 @@ module Point = struct
       RSI.mad 14.0 previous.average_loss price previous_price
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
+    let fast_stochastic_oscillator_k = SO.pK 140 symbol_history latest in
     let res =
       {
         timestamp;
@@ -145,6 +165,7 @@ module Point = struct
         average_gain;
         average_loss;
         relative_strength_index;
+        fast_stochastic_oscillator_k;
       }
     in
     (* if Float.equal previous.sma_5 res.sma_5 then ( *)
@@ -161,6 +182,7 @@ module Point = struct
   let upper_bollinger x = x.upper_bollinger
   let awesome x = x.awesome_oscillator
   let rsi x = x.relative_strength_index
+  let fso_pk x = x.fast_stochastic_oscillator_k
 end
 
 type t = Point.t Vector.vector Hashtbl.t
