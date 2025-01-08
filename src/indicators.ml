@@ -59,9 +59,33 @@ let bollinger n history =
 
 let awesome fast slow = fast -. slow
 
+module RSI = struct
+  (* Relative strength index calculation *)
+
+  let u now previous =
+    let upward_change = now -. previous in
+    if upward_change >=. 0.0 then upward_change else 0.0
+
+  let d now previous =
+    let downward_change = previous -. now in
+    if downward_change >=. 0.0 then downward_change else 0.0
+
+  let mau period previous_mau now previous =
+    let u = u now previous in
+    u +. (previous_mau *. ((period -. 1.0) /. period))
+
+  let mad period previous_mad now previous =
+    let d = d now previous in
+    d +. (previous_mad *. ((period -. 1.0) /. period))
+
+  let rsi mau mad =
+    100.0 -. (100.0 *. (1.0 /. (1.0 +. (mau /. mad))))
+end
+
 module Point = struct
   type t = {
     timestamp : Time.t;
+    price : float;
     accumulation_distribution_line : float;
     exponential_moving_average : float;
     sma_5 : float;
@@ -69,6 +93,9 @@ module Point = struct
     upper_bollinger : float;
     lower_bollinger : float;
     awesome_oscillator : float;
+    average_gain : float;
+    average_loss : float;
+    relative_strength_index : float;
   }
   [@@deriving show, yojson]
 
@@ -77,11 +104,15 @@ module Point = struct
       timestamp;
       accumulation_distribution_line = 0.0;
       exponential_moving_average = 0.0;
+      price = 0.0;
       sma_5 = 0.0;
       sma_34 = 0.0;
       upper_bollinger = 0.0;
       lower_bollinger = 0.0;
       awesome_oscillator = 0.0;
+      average_gain = 0.00001;
+      average_loss = 0.00001;
+      relative_strength_index = 50.0;
     }
 
   let of_latest timestamp symbol_history length (previous : t) (latest : Item.t)
@@ -90,6 +121,11 @@ module Point = struct
     let sma_5 = simple_moving_average 5 symbol_history in
     let sma_34 = simple_moving_average 34 symbol_history in
     let awesome_oscillator = awesome sma_5 sma_34 in
+    let price = Item.last latest in
+    let previous_price = previous.price in
+    let average_gain = RSI.mau 14.0 previous.average_gain price previous_price in
+    let average_loss = RSI.mad 14.0 previous.average_loss price previous_price in
+    let relative_strength_index = RSI.rsi average_gain average_loss in
     let res =
       {
         timestamp;
@@ -102,6 +138,10 @@ module Point = struct
         lower_bollinger;
         upper_bollinger;
         awesome_oscillator;
+        price;
+        average_gain;
+        average_loss;
+        relative_strength_index;
       }
     in
     (* if Float.equal previous.sma_5 res.sma_5 then ( *)
@@ -116,6 +156,8 @@ module Point = struct
   let sma_34 x = x.sma_34
   let lower_bollinger x = x.lower_bollinger
   let upper_bollinger x = x.upper_bollinger
+  let awesome x = x.awesome_oscillator
+  let rsi x = x.relative_strength_index
 end
 
 type t = Point.t Vector.vector Hashtbl.t
@@ -152,25 +194,8 @@ let initialize bars symbol =
             let bars_vec_upto_now =
               Vector.slice_iter bars_vec 0 i |> Vector.of_iter
             in
-            let lower_bollinger, upper_bollinger =
-              bollinger 34 bars_vec_upto_now
-            in
-            let sma_5 = simple_moving_average 5 bars_vec_upto_now in
-            let sma_34 = simple_moving_average 34 bars_vec_upto_now in
-            let awesome_oscillator = awesome sma_5 sma_34 in
-            let res : Point.t =
-              {
-                timestamp;
-                accumulation_distribution_line =
-                  adl previous.accumulation_distribution_line item;
-                exponential_moving_average =
-                  ema length previous.exponential_moving_average item;
-                sma_5;
-                sma_34;
-                lower_bollinger;
-                upper_bollinger;
-                awesome_oscillator;
-              }
+            let res =
+              Point.of_latest timestamp bars_vec_upto_now length previous item
             in
             Vector.push initial_stats_vector res;
             Option.return res)
