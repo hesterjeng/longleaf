@@ -87,10 +87,15 @@ module SO = struct
     let length = Vector.length l in
     let window =
       Vector.slice_iter l (Int.max (length - n) 0) (Int.min n length)
-      |> Iter.map Item.last |> Iter.to_array
+      |> Iter.map Item.last |> Iter.to_array |> fun a -> Array.append a [| current |]
     in
     let min, max = Owl_stats.minmax window in
-    100.0 *. ((current -. min) /. (max -. min))
+    if Float.equal max min then 0.0
+    else
+      let rhs = (current -. min) /. (max -. min) in
+      (* Eio.traceln "%f %f %f" min current max; *)
+      assert (rhs <=. 1.0);
+      100.0 *. rhs
 end
 
 module Point = struct
@@ -143,7 +148,7 @@ module Point = struct
       RSI.mad 14.0 previous.average_loss price previous_price
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
-    let fast_stochastic_oscillator_k = SO.pK 14 symbol_history latest in
+    let fast_stochastic_oscillator_k = SO.pK 140 symbol_history latest in
     let res =
       {
         timestamp;
