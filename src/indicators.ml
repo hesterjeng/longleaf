@@ -87,7 +87,8 @@ module SO = struct
     let length = Vector.length l in
     let window =
       Vector.slice_iter l (Int.max (length - n) 0) (Int.min n length)
-      |> Iter.map Item.last |> Iter.to_array |> fun a -> Array.append a [| current |]
+      |> Iter.map Item.last |> Iter.to_array
+      |> fun a -> Array.append a [| current |]
     in
     let min, max = Owl_stats.minmax window in
     if Float.equal max min then 0.0
@@ -96,6 +97,28 @@ module SO = struct
       (* Eio.traceln "%f %f %f" min current max; *)
       assert (rhs <=. 1.0);
       100.0 *. rhs
+end
+
+module FFT = struct
+  open Owl
+
+  let fft (l : Bars.symbol_history) (last : Item.t) =
+    let arr =
+      Vector.map Item.last l |> Vector.to_array |> fun a ->
+      Array.append a [| Item.last last |]
+    in
+    let bigarray =
+      Dense.Ndarray.Generic.of_array Float64 arr [| Array.length arr |]
+    in
+    let yf = Owl_fft.D.rfft ~axis:0 bigarray in
+    (* Keep the biggest 5 frequences, set the rest to 0 *)
+    let n = (Dense.Ndarray.Z.shape yf).(0) in
+    let z = Dense.Ndarray.Z.zeros [| n - 5; 1 |] in
+    let _ = Dense.Ndarray.Z.set_slice [ [ 5; n - 1 ]; [] ] yf z in
+    (* Compute the inverse FFT *)
+    let y2 = Owl_fft.D.irfft ~axis:0 yf in
+    let res = Owl_dense_ndarray_generic.to_array y2 in
+    res
 end
 
 module Point = struct
