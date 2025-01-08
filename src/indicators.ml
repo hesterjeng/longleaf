@@ -18,8 +18,6 @@ let money_flow_volume (x : Item.t) =
 (* Accumulation distirbution line *)
 let adl previous_adl (current : Item.t) =
   let res = money_flow_volume current +. previous_adl in
-  (* if Float.is_nan res then *)
-  (*   Eio. traceln "%f %f" (money_flow_volume current) previous_adl; *)
   res
 
 (* Exponential moving average *)
