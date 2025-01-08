@@ -154,6 +154,9 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* lower_bollinger =
     indicator_trace ~data indicators "Lower Bollinger" IP.lower_bollinger symbol
   in
+  let* rsi =
+    indicator_trace ~data indicators "Relative Strength Index" IP.rsi symbol
+  in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
   let price_trace = price_trace data symbol in
@@ -172,6 +175,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                sma_34_trace;
                upper_bollinger;
                lower_bollinger;
+               rsi;
              ];
          "layout" = layout symbol;
        ]
