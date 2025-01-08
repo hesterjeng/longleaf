@@ -164,6 +164,9 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~data ~show:false indicators "Awesome Oscillator" IP.awesome
       symbol
   in
+  let* fso_pk =
+    indicator_trace ~data ~show:false indicators "FSO %K" IP.fso_pk symbol
+  in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
   let price_trace = price_trace data symbol in
@@ -184,6 +187,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                lower_bollinger;
                awesome;
                rsi;
+               fso_pk;
              ];
          "layout" = layout symbol;
        ]
