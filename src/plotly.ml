@@ -172,6 +172,10 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* fso_pk =
     indicator_trace ~data ~show:false indicators "FSO %K" IP.fso_pk symbol
   in
+  let* fft_thing =
+    indicator_trace ~data ~show:false indicators "FFT thing" IP.inverse_fft
+      symbol
+  in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
   let price_trace = price_trace data symbol in
@@ -193,6 +197,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                awesome;
                rsi;
                fso_pk;
+               fft_thing;
              ];
          "layout" = layout symbol;
        ]
