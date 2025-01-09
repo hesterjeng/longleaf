@@ -102,23 +102,41 @@ end
 module FFT = struct
   open Owl
 
-  let fft (l : Bars.symbol_history) (last : Item.t) =
+  module Complex = struct
+    include Complex
+
+    let pp : t Format.printer =
+     fun fmt x -> Format.fprintf fmt "(%f, %f)" x.re x.im
+  end
+
+  let inverse_fft (l : Bars.symbol_history) (last : Item.t) =
+    let length = Vector.length l + 1 |> Float.of_int in
     let arr =
       Vector.map Item.last l |> Vector.to_array |> fun a ->
       Array.append a [| Item.last last |]
     in
+    Eio.traceln "length : %d" (Array.length arr);
     let bigarray =
       Dense.Ndarray.Generic.of_array Float64 arr [| Array.length arr |]
     in
     let yf = Owl_fft.D.rfft ~axis:0 bigarray in
+    let mag = Dense.Ndarray.Generic.l2norm' yf |> Complex.norm in
     (* Keep the biggest 5 frequences, set the rest to 0 *)
-    let n = (Dense.Ndarray.Z.shape yf).(0) in
-    let z = Dense.Ndarray.Z.zeros [| n - 5; 1 |] in
-    let _ = Dense.Ndarray.Z.set_slice [ [ 5; n - 1 ]; [] ] yf z in
+    (* let n = (Dense.Ndarray.Z.shape yf).(0) in *)
+    (* let z = Dense.Ndarray.Z.zeros [| n - 5; 1 |] in *)
+    (* let _ = Dense.Ndarray.Z.set_slice [ [ 5; n - 1 ]; [] ] yf z in *)
+    (* Eio.traceln "converting to array"; *)
+    let yf_array = Owl_dense_ndarray_generic.to_array yf in
     (* Compute the inverse FFT *)
-    let y2 = Owl_fft.D.irfft ~axis:0 yf in
-    let res = Owl_dense_ndarray_generic.to_array y2 in
-    res
+    (* let y2 = Owl_fft.D.irfft ~axis:0 yf in *)
+    (* let res = Owl_dense_ndarray_generic.to_array y2 in *)
+    let res =
+      if Array.length yf_array >= 3 then
+        Array.to_iter yf_array |> Iter.take 3 |> Iter.to_array
+      else yf_array
+    in
+    Eio.traceln "@[%a@]" (Array.pp Complex.pp) res;
+    mag /. length
 end
 
 module Point = struct
@@ -136,6 +154,7 @@ module Point = struct
     average_loss : float;
     relative_strength_index : float;
     fast_stochastic_oscillator_k : float;
+    inverse_fft : float;
   }
   [@@deriving show, yojson]
 
@@ -154,6 +173,7 @@ module Point = struct
       average_loss = 0.00001;
       relative_strength_index = 50.0;
       fast_stochastic_oscillator_k = 50.0;
+      inverse_fft = 0.0;
     }
 
   let of_latest timestamp symbol_history length (previous : t) (latest : Item.t)
@@ -172,6 +192,7 @@ module Point = struct
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
     let fast_stochastic_oscillator_k = SO.pK 140 symbol_history latest in
+    let inverse_fft = FFT.inverse_fft symbol_history latest in
     let res =
       {
         timestamp;
@@ -189,6 +210,7 @@ module Point = struct
         average_loss;
         relative_strength_index;
         fast_stochastic_oscillator_k;
+        inverse_fft;
       }
     in
     (* if Float.equal previous.sma_5 res.sma_5 then ( *)
@@ -206,6 +228,7 @@ module Point = struct
   let awesome x = x.awesome_oscillator
   let rsi x = x.relative_strength_index
   let fso_pk x = x.fast_stochastic_oscillator_k
+  let inverse_fft x = x.inverse_fft
 end
 
 type t = Point.t Vector.vector Hashtbl.t
