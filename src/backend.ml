@@ -48,7 +48,6 @@ module type BACKEND_INPUT = sig
 end
 
 module type S = sig
-  module Ticker : Ticker.S
   module LongleafMutex : LONGLEAF_MUTEX
   module Backend_position : Backend_position.S
   module Input : BACKEND_INPUT
@@ -83,7 +82,8 @@ end
 module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
   S = struct
   open Trading_types
-  module Ticker = Ticker.Instant
+
+  (* module Ticker = Ticker.Instant *)
   module LongleafMutex = LongleafMutex
   module Backend_position = Backend_position.Generative ()
   module Input = Input
@@ -180,12 +180,9 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
 end
 
 (* Live trading *)
-module Alpaca
-    (Input : BACKEND_INPUT)
-    (Ticker : Ticker.S)
-    (LongleafMutex : LONGLEAF_MUTEX) : S = struct
+module Alpaca (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) : S =
+struct
   open Trading_types
-  module Ticker = Ticker
   module Backtesting = Backtesting (Input) (LongleafMutex)
   module LongleafMutex = Backtesting.LongleafMutex
   module Backend_position = Backtesting.Backend_position

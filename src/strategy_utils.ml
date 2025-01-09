@@ -16,7 +16,7 @@ module Make (Backend : Backend.S) = struct
          (fun () ->
            match Backend.next_market_open () with
            | None ->
-               Backend.Ticker.tick Backend.env;
+               Ticker.tick Backend.env Backend.Input.tick;
                `Continue
            | Some open_time -> (
                let open_time = Ptime.to_float_s open_time in
@@ -26,7 +26,7 @@ module Make (Backend : Backend.S) = struct
                Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
                | Some t ->
                    Eio.traceln "@[Current time: %a@]@." Time.pp t;
-                   Ticker.FiveSecond.tick Backend.env;
+                   Ticker.tick Backend.env 5.0;
                    Eio.traceln "@[Waited five seconds.@]@.";
                    `Continue
                | None ->
@@ -37,7 +37,7 @@ module Make (Backend : Backend.S) = struct
              let shutdown = Pmutex.get Backend.LongleafMutex.shutdown_mutex in
              not shutdown
            do
-             Ticker.OneSecond.tick Backend.env
+             Ticker.tick Backend.env 1.0
            done;
            Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
            `BeginShutdown);
@@ -54,7 +54,7 @@ module Make (Backend : Backend.S) = struct
              Ptime.diff close_time now |> Ptime.Span.to_float_s
            in
            while Backend.overnight || time_until_close >=. 600.0 do
-             Ticker.Forever.tick Backend.env
+             Ticker.tick Backend.env Float.max_finite_value
            done;
            Eio.traceln
              "@[Liquidating because we are within 10 minutes to market \
@@ -159,7 +159,7 @@ module Make (Backend : Backend.S) = struct
         @@ { state with current = `Finished "Liquidation finished" }
     | `LiquidateContinue ->
         let* () = Backend.liquidate state in
-        Ticker.TenMinute.tick Backend.env;
+        Ticker.tick Backend.env 600.0;
         Result.return { state with current = `Listening }
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
