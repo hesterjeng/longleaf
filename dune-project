@@ -8,8 +8,6 @@
 
 (maintainers "John Hester")
 
-; (synopsis "Longleaf algorithmic trading platform.")
-
 (package
  (name longleaf)
  (synopsis "Longleaf")
