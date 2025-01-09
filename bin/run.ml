@@ -54,14 +54,14 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env =
     end in
     match runtype with
     | Listener ->
-        let module Run = Run.Listener.Make (LongleafMutex) (Context) in
+        let module Run = Strats.Listener.Make (LongleafMutex) (Context) in
         Run.top runtype
     | BuyAndHold ->
-        let module Run = Run.BuyAndHold.Make (LongleafMutex) (Context) in
+        let module Run = Strats.BuyAndHold.Make (LongleafMutex) (Context) in
         Run.top runtype
     | _ ->
         (* let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in *)
-        let module Run = Run.LowBall.Make (LongleafMutex) (Context) in
+        let module Run = Strats.LowBall.Make (LongleafMutex) (Context) in
         Run.top runtype
   in
   let run_server () =
