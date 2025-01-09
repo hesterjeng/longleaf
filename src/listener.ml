@@ -1,5 +1,5 @@
-module Make (Backend : Backend.S) : Strategies.S = struct
-  module SU = Strategies.Strategy_utils (Backend)
+module Make (Backend : Backend.S) : Strategy.S = struct
+  module SU = Strategy_utils.Make (Backend)
 
   let init_state = Backend.init_state ()
 
