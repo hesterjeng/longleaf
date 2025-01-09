@@ -51,14 +51,7 @@ module Make
   end
 
   module Backtesting : Backend.S = Backend.Backtesting (Input) (LongleafMutex)
-
-  module Alpaca : Backend.S =
-    Backend.Alpaca
-      (Input)
-      (Ticker.Make (struct
-        let tick = Input.tick
-      end))
-      (LongleafMutex)
+  module Alpaca : Backend.S = Backend.Alpaca (Input) (LongleafMutex)
 
   let live () = invalid_arg "Live trading is not implemented yet"
   let manual () = invalid_arg "Cannot create a strategy with manual runtype"

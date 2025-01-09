@@ -114,7 +114,7 @@ let top ~(mutices : mutices) env =
       let command = start ~mutices ~sw env in
       let _ =
         let _ = Promise.await prom in
-        Ticker.OneSecond.tick env;
+        Ticker.tick env 1.0;
         Server.Command.shutdown command
       in
       ())
