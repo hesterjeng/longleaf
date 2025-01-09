@@ -15,6 +15,5 @@ module State = State
 module Strategy_utils = Strategy_utils
 module Item = Item
 module Math = Math
-module LongleafMutex = Backend.LongleafMutex ()
 module Manual = Manual
 module Gui = Gui

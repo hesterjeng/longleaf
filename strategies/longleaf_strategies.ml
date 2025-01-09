@@ -13,6 +13,7 @@ module type RUN_CONTEXT = sig
   val preload : Options.Preload.t
   val target : string option
   val save_received : bool
+  val mutices : Gui.mutices
 end
 
 module type S = sig
@@ -22,7 +23,6 @@ end
 module Make
     (Data : RUN_DATA)
     (StrategyBuilder : Strategy.BUILDER)
-    (LongleafMutex : Backend.LONGLEAF_MUTEX)
     (Context : RUN_CONTEXT) : S = struct
   module Input : Backend.BACKEND_INPUT = struct
     include Data
