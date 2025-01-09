@@ -1,9 +1,20 @@
 module Make (Backend : Backend_intf.S) = struct
   module Input = Backend.Input
 
+<<<<<<<< HEAD:lib/strategy_utils.ml
   let context = Input.options.context
   let mutices : Longleaf_mutex.t = context.mutices
   let runtype = context.runtype
+========
+module Make (Backend : Backend.S) = struct
+  (* module Signal = struct *)
+  (* type t = *)
+  (*   | Shutdown *)
+  (*   | Continue *)
+  (*   | LiquidateAndResume *)
+  (* [@@deriving show] *)
+  (* end *)
+>>>>>>>> 8ebaf6b (feat: changing some names for understanding):src/strategy_utils.ml
 
   let listen_tick () : State.nonlogical_state =
     Eio.Fiber.any
