@@ -1,5 +1,5 @@
-module Make (Backend : Backend.S) : Strategies.S = struct
-  module SU = Strategies.Strategy_utils (Backend)
+module Make (Backend : Backend.S) : Strategy.S = struct
+  module SU = Strategy_utils.Make (Backend)
 
   let qty (state : _ State.t) pct symbol =
     let cash_available = Backend.get_cash () in

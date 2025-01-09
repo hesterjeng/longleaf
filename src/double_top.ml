@@ -132,7 +132,7 @@ module Conditions = struct
   end
 end
 
-module DoubleTop (Backend : Backend.S) : Strategies.S = struct
+module DoubleTop (Backend : Backend.S) : Strategy.S = struct
   let shutdown () =
     Eio.traceln "Shutdown command NYI";
     ()
@@ -147,7 +147,7 @@ module DoubleTop (Backend : Backend.S) : Strategies.S = struct
 
   let init_state = Backend.init_state DT_Status.Waiting
 
-  module SU = Strategies.Strategy_utils (Backend)
+  module SU = Strategy_utils.Make (Backend)
   module P = Conditions.P
 
   let consider_shorting ~(history : Bars.t) ~(state : state)

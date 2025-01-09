@@ -1,13 +1,6 @@
 module Order = Trading_types.Order
 
-module type S = sig
-  val run : unit -> string
-  val shutdown : unit -> unit
-end
-
-module type STRAT_BUILDER = functor (_ : Backend.S) -> S
-
-module Strategy_utils (Backend : Backend.S) = struct
+module Make (Backend : Backend.S) = struct
   (* module Signal = struct *)
   (* type t = *)
   (*   | Shutdown *)
