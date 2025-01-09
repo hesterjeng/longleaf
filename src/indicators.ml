@@ -109,8 +109,9 @@ module FFT = struct
      fun fmt x -> Format.fprintf fmt "(%f, %f)" x.re x.im
   end
 
-  let inverse_fft (l : Bars.symbol_history) (last : Item.t) =
-    let length = Vector.length l + 1 |> Float.of_int in
+  (* let cross_spectral_coherence = *)
+
+  let fft (l : Bars.symbol_history) (last : Item.t) =
     let arr =
       Vector.map Item.last l |> Vector.to_array |> fun a ->
       Array.append a [| Item.last last |]
@@ -120,16 +121,14 @@ module FFT = struct
       Dense.Ndarray.Generic.of_array Float64 arr [| Array.length arr |]
     in
     let yf = Owl_fft.D.rfft ~axis:0 bigarray in
+    yf
+
+  (* Normalized maginitude of fourier transform *)
+  let fft_nm (l : Bars.symbol_history) (last : Item.t) =
+    let length = Vector.length l + 1 |> Float.of_int in
+    let yf = fft l last in
     let mag = Dense.Ndarray.Generic.l2norm' yf |> Complex.norm in
-    (* Keep the biggest 5 frequences, set the rest to 0 *)
-    (* let n = (Dense.Ndarray.Z.shape yf).(0) in *)
-    (* let z = Dense.Ndarray.Z.zeros [| n - 5; 1 |] in *)
-    (* let _ = Dense.Ndarray.Z.set_slice [ [ 5; n - 1 ]; [] ] yf z in *)
-    (* Eio.traceln "converting to array"; *)
     let yf_array = Owl_dense_ndarray_generic.to_array yf in
-    (* Compute the inverse FFT *)
-    (* let y2 = Owl_fft.D.irfft ~axis:0 yf in *)
-    (* let res = Owl_dense_ndarray_generic.to_array y2 in *)
     let res =
       if Array.length yf_array >= 3 then
         Array.to_iter yf_array |> Iter.take 3 |> Iter.to_array
