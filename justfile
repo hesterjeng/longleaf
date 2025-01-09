@@ -18,3 +18,6 @@
 	@sudo perf script -f > out.perf;
 	@../FlameGraph/stackcollapse-perf.pl out.perf > out.folded;
 	@../FlameGraph/flamegraph.pl out.folded > flamegraph.svg;
+
+@deps:
+	@odep dune | dot -Tsvg > dune-odep.svg
