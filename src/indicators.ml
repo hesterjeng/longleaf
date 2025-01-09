@@ -101,40 +101,68 @@ end
 
 module FFT = struct
   open Owl
+  module Genarray = Dense.Ndarray.Generic
 
   module Complex = struct
     include Complex
 
     let pp : t Format.printer =
      fun fmt x -> Format.fprintf fmt "(%f, %f)" x.re x.im
+
+    let norm_complex x : t =
+      let re = norm x in
+      {
+        re;
+        im = 0.0;
+      }
+
+    let square x = Complex.mul x x
   end
 
-  (* let cross_spectral_coherence = *)
+  type t = (Complex.t, Bigarray.complex64_elt) Genarray.t
 
-  let fft (l : Bars.symbol_history) (last : Item.t) =
+  let pp : t Format.printer =
+   fun fmt _ -> Format.fprintf fmt "<fourier transform>"
+
+  let empty : t = Dense.Ndarray.Generic.empty Bigarray.complex64 [||]
+
+  let mean_squared_error (fft1 : t) (fft2 : t) =
+    let l1, l2 = (Genarray.shape fft1, Genarray.shape fft2) in
+    if
+      match Array.get_safe l1 0, Array.get_safe l2 0 with
+      | Some i, Some j ->
+        i < 3 || j < 3
+      | _ -> true
+    then 0.0
+    else (
+      let fft1, fft2 =
+        Pair.map_same
+        (Genarray.get_slice [ [0; 2] ]) (fft1, fft2) in
+      let conj = Genarray.conj fft2 in
+      let minus = Genarray.sub fft1 conj in
+      let magnitudes = Genarray.map Complex.norm_complex minus in
+      let squared = Genarray.map Complex.square magnitudes in
+      let sum = Genarray.sum' squared in
+      let res = Complex.norm sum in
+      Eio.traceln "%f" res;
+      res /. 3.0
+    )
+
+  (* Fast fourier transform *)
+  let fft (l : Bars.symbol_history) (last : Item.t) : t =
     let arr =
       Vector.map Item.last l |> Vector.to_array |> fun a ->
       Array.append a [| Item.last last |]
     in
-    Eio.traceln "length : %d" (Array.length arr);
-    let bigarray =
-      Dense.Ndarray.Generic.of_array Float64 arr [| Array.length arr |]
-    in
+    let bigarray = Genarray.of_array Float64 arr [| Array.length arr |] in
     let yf = Owl_fft.D.rfft ~axis:0 bigarray in
+    Eio.traceln "fft: length : %a" (Array.pp Int.pp) (Genarray.shape yf);
     yf
 
   (* Normalized maginitude of fourier transform *)
-  let fft_nm (l : Bars.symbol_history) (last : Item.t) =
+  let fft_nm (yf : t) (l : Bars.symbol_history) =
     let length = Vector.length l + 1 |> Float.of_int in
-    let yf = fft l last in
-    let mag = Dense.Ndarray.Generic.l2norm' yf |> Complex.norm in
-    let yf_array = Owl_dense_ndarray_generic.to_array yf in
-    let res =
-      if Array.length yf_array >= 3 then
-        Array.to_iter yf_array |> Iter.take 3 |> Iter.to_array
-      else yf_array
-    in
-    Eio.traceln "@[%a@]" (Array.pp Complex.pp) res;
+    let mag = Genarray.l2norm yf |> Genarray.sum' |> Complex.norm in
     mag /. length
 end
 
@@ -153,7 +181,8 @@ module Point = struct
     average_loss : float;
     relative_strength_index : float;
     fast_stochastic_oscillator_k : float;
-    inverse_fft : float;
+    fourier_transform : (FFT.t[@yojson.opaque]);
+    ft_normalized_magnitude : float;
   }
   [@@deriving show, yojson]
 
@@ -172,7 +201,8 @@ module Point = struct
       average_loss = 0.00001;
       relative_strength_index = 50.0;
       fast_stochastic_oscillator_k = 50.0;
-      inverse_fft = 0.0;
+      fourier_transform = FFT.empty;
+      ft_normalized_magnitude = 0.0;
     }
 
   let of_latest timestamp symbol_history length (previous : t) (latest : Item.t)
@@ -191,7 +221,11 @@ module Point = struct
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
     let fast_stochastic_oscillator_k = SO.pK 140 symbol_history latest in
-    let inverse_fft = FFT.inverse_fft symbol_history latest in
+    let fourier_transform = FFT.fft symbol_history latest in
+    let ft_normalized_magnitude = FFT.fft_nm fourier_transform symbol_history in
+    let fft_mse =
+      FFT.mean_squared_error previous.fourier_transform fourier_transform
+    in
     let res =
       {
         timestamp;
@@ -209,7 +243,8 @@ module Point = struct
         average_loss;
         relative_strength_index;
         fast_stochastic_oscillator_k;
-        inverse_fft;
+        fourier_transform;
+        ft_normalized_magnitude;
       }
     in
     (* if Float.equal previous.sma_5 res.sma_5 then ( *)
@@ -227,7 +262,7 @@ module Point = struct
   let awesome x = x.awesome_oscillator
   let rsi x = x.relative_strength_index
   let fso_pk x = x.fast_stochastic_oscillator_k
-  let inverse_fft x = x.inverse_fft
+  let ft_normalized_magnitude x = x.ft_normalized_magnitude
 end
 
 type t = Point.t Vector.vector Hashtbl.t
