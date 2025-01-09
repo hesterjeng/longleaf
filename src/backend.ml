@@ -1,23 +1,5 @@
 module Order = Trading_types.Order
 
-module type LONGLEAF_MUTEX = sig
-  val shutdown_mutex : bool Pmutex.t
-  val data_mutex : Bars.t Pmutex.t
-  val orders_mutex : Order_history.t Pmutex.t
-  val symbols_mutex : string option Pmutex.t
-  val stats_mutex : Stats.t Pmutex.t
-  val indicators_mutex : Indicators.t Pmutex.t
-end
-
-module LongleafMutex () : LONGLEAF_MUTEX = struct
-  let shutdown_mutex = Pmutex.make false
-  let data_mutex = Pmutex.make @@ Bars.empty ()
-  let orders_mutex = Pmutex.make @@ Vector.create ()
-  let symbols_mutex = Pmutex.make None
-  let stats_mutex = Pmutex.make []
-  let indicators_mutex = Pmutex.make @@ Indicators.empty ()
-end
-
 module type BACKEND_INPUT = sig
   val switch : Eio.Switch.t
   val longleaf_env : Environment.t
@@ -45,11 +27,12 @@ module type BACKEND_INPUT = sig
   (* The target is the bars that will be iterated over in a backtest *)
   (* Ordered in reverse time order, so that we can pop off next values easily *)
   val target : Bars.t option
-  val mutices : Gui.mutices
+
+  (* Mutices for delivering information to GUI *)
+  val mutices : Longleaf_mutex.t
 end
 
 module type S = sig
-  module LongleafMutex : LONGLEAF_MUTEX
   module Backend_position : Backend_position.S
   module Input : BACKEND_INPUT
 
@@ -80,12 +63,10 @@ module type S = sig
 end
 
 (* Backtesting *)
-module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
-  S = struct
+module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
 
   (* module Ticker = Ticker.Instant *)
-  module LongleafMutex = LongleafMutex
   module Backend_position = Backend_position.Generative ()
   module Input = Input
 
@@ -181,11 +162,9 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
 end
 
 (* Live trading *)
-module Alpaca (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) : S =
-struct
+module Alpaca (Input : BACKEND_INPUT) : S = struct
   open Trading_types
-  module Backtesting = Backtesting (Input) (LongleafMutex)
-  module LongleafMutex = Backtesting.LongleafMutex
+  module Backtesting = Backtesting (Input)
   module Backend_position = Backtesting.Backend_position
   module Input = Input
 

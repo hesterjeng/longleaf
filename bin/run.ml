@@ -31,16 +31,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env =
     exit 0);
   Util.yojson_safe stacktrace @@ fun () ->
   let domain_manager = Eio.Stdenv.domain_mgr eio_env in
-  let mutices : Gui.mutices =
-    {
-      shutdown_mutex = LongleafMutex.shutdown_mutex;
-      data_mutex = LongleafMutex.data_mutex;
-      orders_mutex = LongleafMutex.orders_mutex;
-      symbols_mutex = LongleafMutex.symbols_mutex;
-      stats_mutex = LongleafMutex.stats_mutex;
-      indicators_mutex = LongleafMutex.indicators_mutex;
-    }
-  in
+  let mutices = Longleaf_mutex.create () in
   let run_strategy () =
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
@@ -51,17 +42,18 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env =
       let preload = preload
       let target = target
       let save_received = save_received
+      let mutices = mutices
     end in
     match runtype with
     | Listener ->
-        let module Run = Strats.Listener.Make (LongleafMutex) (Context) in
+        let module Run = Strats.Listener.Make (Context) in
         Run.top runtype
     | BuyAndHold ->
-        let module Run = Strats.BuyAndHold.Make (LongleafMutex) (Context) in
+        let module Run = Strats.BuyAndHold.Make (Context) in
         Run.top runtype
     | _ ->
         (* let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in *)
-        let module Run = Strats.LowBall.Make (LongleafMutex) (Context) in
+        let module Run = Strats.LowBall.Make (Context) in
         Run.top runtype
   in
   let run_server () =
