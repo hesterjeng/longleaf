@@ -4,6 +4,7 @@
  (promote
   (until-clean)
   (into ..))
+ (package longleaf)
  (libraries
   fmt
   ; logs

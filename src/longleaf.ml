@@ -4,14 +4,20 @@ module Environment = Environment
 module Trading_types = Trading_types
 module Market_data_api = Market_data_api
 module Tiingo_api = Tiingo_api
+module Stats = Stats
 module Ticker = Ticker
 module Time = Time
 module Lots_of_words = Lots_of_words
 module Bars = Bars
 module Indicators = Indicators
 module Options = Options
+module State = State
+module Strategy_utils = Strategy_utils
 module Item = Item
+module Math = Math
 module LongleafMutex = Backend.LongleafMutex ()
+
+[@@@warning "-26-27"]
 
 let runtype_target_check ~runtype ~target : unit =
   match target with
@@ -51,34 +57,34 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received eio_env =
       indicators_mutex = LongleafMutex.indicators_mutex;
     }
   in
-  let run_strategy () =
-    Eio.Domain_manager.run domain_manager @@ fun () ->
-    Eio.Switch.run @@ fun switch ->
-    let module Context : Run.RUN_CONTEXT = struct
-      let eio_env = eio_env
-      let longleaf_env = longleaf_env
-      let switch = switch
-      let preload = preload
-      let target = target
-      let save_received = save_received
-    end in
-    match runtype with
-    | Listener ->
-        let module Run = Run.Listener.Make (LongleafMutex) (Context) in
-        Run.top runtype
-    | BuyAndHold ->
-        let module Run = Run.BuyAndHold.Make (LongleafMutex) (Context) in
-        Run.top runtype
-    | _ ->
-        (* let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in *)
-        let module Run = Run.LowBall.Make (LongleafMutex) (Context) in
-        Run.top runtype
-  in
-  let run_server () =
-    if no_gui then ()
-    else
-      Eio.Domain_manager.run domain_manager @@ fun () ->
-      Gui.top ~mutices eio_env
-  in
-  let _ = Eio.Fiber.both run_strategy run_server in
+  (* let run_strategy () = *)
+  (*   Eio.Domain_manager.run domain_manager @@ fun () -> *)
+  (*   Eio.Switch.run @@ fun switch -> *)
+  (*   let module Context : Run.RUN_CONTEXT = struct *)
+  (*     let eio_env = eio_env *)
+  (*     let longleaf_env = longleaf_env *)
+  (*     let switch = switch *)
+  (*     let preload = preload *)
+  (*     let target = target *)
+  (*     let save_received = save_received *)
+  (*   end in *)
+  (*   match runtype with *)
+  (*   | Listener -> *)
+  (*       let module Run = Run.Listener.Make (LongleafMutex) (Context) in *)
+  (*       Run.top runtype *)
+  (*   | BuyAndHold -> *)
+  (*       let module Run = Run.BuyAndHold.Make (LongleafMutex) (Context) in *)
+  (*       Run.top runtype *)
+  (*   | _ -> *)
+  (*       (\* let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in *\) *)
+  (*       let module Run = Run.LowBall.Make (LongleafMutex) (Context) in *)
+  (*       Run.top runtype *)
+  (* in *)
+  (* let run_server () = *)
+  (*   if no_gui then () *)
+  (*   else *)
+  (*     Eio.Domain_manager.run domain_manager @@ fun () -> *)
+  (*     Gui.top ~mutices eio_env *)
+  (* in *)
+  (* let _ = Eio.Fiber.both run_strategy run_server in *)
   ()
