@@ -176,6 +176,10 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~data ~show:false indicators
       "Fourier Transform Normalized Magnitude" IP.ft_normalized_magnitude symbol
   in
+  let* fft_mse =
+    indicator_trace ~data ~show:false indicators
+      "Fourier Transform Mean Squared Error" IP.fft_mean_squared_error symbol
+  in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
   let price_trace = price_trace data symbol in
@@ -198,6 +202,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                rsi;
                fso_pk;
                fft_thing;
+               fft_mse;
              ];
          "layout" = layout symbol;
        ]
