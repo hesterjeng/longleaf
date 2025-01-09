@@ -21,7 +21,7 @@ end
 
 module Make
     (Data : RUN_DATA)
-    (StrategyBuilder : Strategies.STRAT_BUILDER)
+    (StrategyBuilder : Strategy.BUILDER)
     (LongleafMutex : Backend.LONGLEAF_MUTEX)
     (Context : RUN_CONTEXT) : S = struct
   module Input : Backend.BACKEND_INPUT = struct
