@@ -13,7 +13,7 @@ module type RUN_CONTEXT = sig
   val preload : Options.Preload.t
   val target : string option
   val save_received : bool
-  val mutices : Gui.mutices
+  val mutices : Longleaf_mutex.t
 end
 
 module type S = sig
@@ -50,8 +50,8 @@ module Make
           res
   end
 
-  module Backtesting : Backend.S = Backend.Backtesting (Input) (LongleafMutex)
-  module Alpaca : Backend.S = Backend.Alpaca (Input) (LongleafMutex)
+  module Backtesting : Backend.S = Backend.Backtesting (Input)
+  module Alpaca : Backend.S = Backend.Alpaca (Input)
 
   let live () = invalid_arg "Live trading is not implemented yet"
   let manual () = invalid_arg "Cannot create a strategy with manual runtype"
