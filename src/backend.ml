@@ -45,6 +45,7 @@ module type BACKEND_INPUT = sig
   (* The target is the bars that will be iterated over in a backtest *)
   (* Ordered in reverse time order, so that we can pop off next values easily *)
   val target : Bars.t option
+  val mutices : Gui.mutices
 end
 
 module type S = sig
