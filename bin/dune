@@ -10,13 +10,14 @@
   ; logs
   ; logs.fmt
   fmt.tty
-  longleaf
   containers
   containers-data
   cmdliner
   zarith
   ptime
   yojson
+  longleaf
+  longleaf-strategies
   landmarks
   eio_main)
  ; (preprocess
