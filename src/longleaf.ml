@@ -17,3 +17,4 @@ module Item = Item
 module Math = Math
 module Manual = Manual
 module Gui = Gui
+module Longleaf_mutex = Longleaf_mutex

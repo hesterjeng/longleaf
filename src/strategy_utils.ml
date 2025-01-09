@@ -1,13 +1,7 @@
 module Order = Trading_types.Order
 
 module Make (Backend : Backend.S) = struct
-  (* module Signal = struct *)
-  (* type t = *)
-  (*   | Shutdown *)
-  (*   | Continue *)
-  (*   | LiquidateAndResume *)
-  (* [@@deriving show] *)
-  (* end *)
+  let mutices : Longleaf_mutex.t = Backend.Input.mutices
 
   let listen_tick () : State.nonlogical_state =
     (* if !num_iterations > 3 then exit 1; *)
@@ -34,7 +28,7 @@ module Make (Backend : Backend.S) = struct
                    `BeginShutdown));
          (fun () ->
            while
-             let shutdown = Pmutex.get Backend.LongleafMutex.shutdown_mutex in
+             let shutdown = Pmutex.get mutices.shutdown_mutex in
              not shutdown
            do
              Ticker.tick Backend.env 1.0
@@ -116,13 +110,13 @@ module Make (Backend : Backend.S) = struct
     match current with
     | `Initialize ->
         let symbols_str = String.concat "," Backend.symbols in
-        Pmutex.set Backend.LongleafMutex.symbols_mutex (Some symbols_str);
+        Pmutex.set mutices.symbols_mutex (Some symbols_str);
         Result.return @@ { state with current = `Listening }
     | `Listening -> (
-        Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
-        Pmutex.set Backend.LongleafMutex.orders_mutex state.order_history;
-        Pmutex.set Backend.LongleafMutex.stats_mutex state.stats;
-        Pmutex.set Backend.LongleafMutex.indicators_mutex state.indicators;
+        Pmutex.set mutices.data_mutex state.bars;
+        Pmutex.set mutices.orders_mutex state.order_history;
+        Pmutex.set mutices.stats_mutex state.stats;
+        Pmutex.set mutices.indicators_mutex state.indicators;
         match listen_tick () with
         | `Continue ->
             let open Result.Infix in
@@ -164,13 +158,13 @@ module Make (Backend : Backend.S) = struct
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
         Vector.iter (fun order -> Bars.add_order order state.bars)
-        @@ Pmutex.get Backend.LongleafMutex.orders_mutex;
+        @@ Pmutex.get mutices.orders_mutex;
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
         in
-        Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
-        Pmutex.set Backend.LongleafMutex.stats_mutex stats_with_orders;
-        Pmutex.set Backend.LongleafMutex.indicators_mutex state.indicators;
+        Pmutex.set mutices.data_mutex state.bars;
+        Pmutex.set mutices.stats_mutex stats_with_orders;
+        Pmutex.set mutices.indicators_mutex state.indicators;
         let filename = get_filename () in
         output_data state filename;
         output_order_history state filename;
