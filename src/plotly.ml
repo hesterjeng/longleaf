@@ -173,8 +173,8 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~data ~show:false indicators "FSO %K" IP.fso_pk symbol
   in
   let* fft_thing =
-    indicator_trace ~data ~show:false indicators "FFT thing" IP.inverse_fft
-      symbol
+    indicator_trace ~data ~show:false indicators
+      "Fourier Transform Normalized Magnitude" IP.ft_normalized_magnitude symbol
   in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
