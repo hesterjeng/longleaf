@@ -180,7 +180,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
 
   let step (state : state) =
     let current = state.current in
-    (* Eio.traceln "@[%a@]@." State.pp_state current; *)
+    (* Eio.traceln "@[buylowbollinger: %a@]@." State.pp_state current; *)
     match current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
