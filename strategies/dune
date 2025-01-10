@@ -28,8 +28,13 @@
 >>>>>>> d9e8192 (chore: move strategies)
   piaf)
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv landmarks-ppx --auto
-)))
+  (pps
+   ppx_deriving.std
+   ppx_yojson_conv
+   ppx_variants_conv
+   ppx_fields_conv
+   landmarks-ppx
+   --auto)))
 
 <<<<<<< HEAD
 =======
