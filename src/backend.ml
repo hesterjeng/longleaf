@@ -300,3 +300,67 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
       account_status;
     Ok ()
 end
+
+module Run_options = struct
+  type t = {
+    symbols : string list;
+    tick : float;
+    overnight : bool;
+    resume_after_liquidate : bool;
+    runtype : Options.Runtype.t;
+  }
+end
+
+module Run_context = struct
+  type t = {
+    eio_env : Eio_unix.Stdenv.base;
+    longleaf_env : Environment.t;
+    switch : Eio.Switch.t;
+    preload : Options.Preload.t;
+    target : string option;
+    save_received : bool;
+    mutices : Longleaf_mutex.t;
+  }
+end
+
+let make_backend_input (options : Run_options.t) (context : Run_context.t) =
+  (module struct
+    let switch = context.switch
+    let longleaf_env = context.longleaf_env
+    let eio_env = context.eio_env
+    let save_received = context.save_received
+    let mutices = context.mutices
+    let symbols = options.symbols
+    let overnight = options.overnight
+    let resume_after_liquidate = options.resume_after_liquidate
+    let tick = options.tick
+
+    (* Target *)
+    let target =
+      let ( let+ ) = Option.( let+ ) in
+      let+ res =
+        context.target
+        |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
+      in
+      Bars.sort (Ord.opp Item.compare) res;
+      res
+
+    (* Preload *)
+    let bars =
+      match context.preload with
+      | None -> Bars.empty ()
+      | Download -> invalid_arg "Downloading data for preload NYI"
+      | File file ->
+          Eio.traceln "Preloading bars from %s" file;
+          let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
+          Bars.sort Item.compare res;
+          res
+  end : BACKEND_INPUT)
+
+let create_backend (options : Run_options.t) (context : Run_context.t) =
+  let module Input = (val make_backend_input options context) in
+  match options.runtype with
+  | Live -> invalid_arg "Live trading not implemented"
+  | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
+  | Paper | Listener -> (module Alpaca (Input) : S)
+  | BuyAndHold | Backtest -> (module Backtesting (Input))
