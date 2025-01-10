@@ -1,32 +1,45 @@
-module type RUN_DATA = sig
-  (* val bars : Bars.t *)
-  val symbols : string list
-  val tick : float
-  val overnight : bool
-  val resume_after_liquidate : bool
+module Run_options = struct
+  type t = {
+    symbols : string list;
+    tick : float;
+    overnight : bool;
+    resume_after_liquidate : bool;
+  }
 end
 
-module type RUN_CONTEXT = sig
-  val eio_env : Eio_unix.Stdenv.base
-  val longleaf_env : Environment.t
-  val switch : Eio.Switch.t
-  val preload : Options.Preload.t
-  val target : string option
-  val save_received : bool
-  val mutices : Longleaf_mutex.t
+module Run_context = struct
+  type t = {
+    eio_env : Eio_unix.Stdenv.base;
+    longleaf_env : Environment.t;
+    switch : Eio.Switch.t;
+    preload : Options.Preload.t;
+    target : string option;
+    save_received : bool;
+    mutices : Longleaf_mutex.t;
+    run_options : Run_options.t option;
+  }
 end
+
+module type RUN_CONTEXT = sig end
 
 module type S = sig
   val top : Options.Runtype.t -> unit
 end
 
-module Make
-    (Data : RUN_DATA)
-    (StrategyBuilder : Strategy.BUILDER)
-    (Context : RUN_CONTEXT) : S = struct
+module Make (StrategyBuilder : Strategy.BUILDER) (Context : RUN_CONTEXT) : S =
+struct
   module Input : Backend.BACKEND_INPUT = struct
-    include Data
     include Context
+
+    let run_options =
+      Option.get_exn_or
+        "Must have run options to instantiate strategy and backend"
+        Context.run_options
+
+    let symbols = run_options.symbols
+    let overnight = run_options.overnight
+    let resume_after_liquidate = run_options.resume_after_liquidate
+    let tick = run_options.tick
 
     (* Target *)
     let target =
@@ -87,110 +100,110 @@ module Make
 end
 
 module DoubleTop = struct
-  module Data : RUN_DATA = struct
-    let symbols =
-      [
-        "NVDA";
-        "TSLA";
-        "AAPL";
-        "MSFT";
-        "NFLX";
-        "META";
-        "AMZN";
-        "AMD";
-        "AVGO";
-        "ELV";
-        "UNH";
-        "MU";
-        "V";
-        "GOOG";
-        "SMCI";
-        "MSTR";
-        "UBER";
-        "LLY";
-        "SPY";
-      ]
-
-    let tick = 600.0
-    let overnight = false
-    let resume_after_liquidate = true
-  end
+  let run_options : Run_options.t =
+    {
+      symbols =
+        [
+          "NVDA";
+          "TSLA";
+          "AAPL";
+          "MSFT";
+          "NFLX";
+          "META";
+          "AMZN";
+          "AMD";
+          "AVGO";
+          "ELV";
+          "UNH";
+          "MU";
+          "V";
+          "GOOG";
+          "SMCI";
+          "MSTR";
+          "UBER";
+          "LLY";
+          "SPY";
+        ];
+      tick = 600.0;
+      overnight = false;
+      resume_after_liquidate = true;
+    }
 
   module Make = Make (Data) (Double_top.DoubleTop)
 end
 
 module LowBall = struct
-  module Data : RUN_DATA = struct
-    let symbols =
-      [
-        "NVDA";
-        "TSLA";
-        "AAPL";
-        "MSFT";
-        "NFLX";
-        "META";
-        "AMZN";
-        "AMD";
-        "AVGO";
-        "ELV";
-        "UNH";
-        "MU";
-        "V";
-        "GOOG";
-        "SMCI";
-        "MSTR";
-        "UBER";
-        "LLY";
-      ]
-
-    let tick = 600.0
-    let overnight = true
-    let resume_after_liquidate = true
-  end
+  let run_options : Run_options.t =
+    {
+      symbols =
+        [
+          "NVDA";
+          "TSLA";
+          "AAPL";
+          "MSFT";
+          "NFLX";
+          "META";
+          "AMZN";
+          "AMD";
+          "AVGO";
+          "ELV";
+          "UNH";
+          "MU";
+          "V";
+          "GOOG";
+          "SMCI";
+          "MSTR";
+          "UBER";
+          "LLY";
+        ];
+      tick = 600.0;
+      overnight = true;
+      resume_after_liquidate = true;
+    }
 
   module Make = Make (Data) (Buy_low_bollinger.BuyLowBollinger)
 end
 
 module Listener = struct
-  module Data : RUN_DATA = struct
-    let symbols =
-      [
-        "NVDA";
-        "TSLA";
-        "AAPL";
-        "MSFT";
-        "NFLX";
-        "META";
-        "AMZN";
-        "AMD";
-        "AVGO";
-        "ELV";
-        "UNH";
-        "MU";
-        "V";
-        "GOOG";
-        "SMCI";
-        "MSTR";
-        "UBER";
-        "LLY";
-        "SPY";
-      ]
-
-    let tick = 600.0
-    let overnight = true
-    let resume_after_liquidate = true
-  end
+  let run_options : Run_options.t =
+    {
+      symbols =
+        [
+          "NVDA";
+          "TSLA";
+          "AAPL";
+          "MSFT";
+          "NFLX";
+          "META";
+          "AMZN";
+          "AMD";
+          "AVGO";
+          "ELV";
+          "UNH";
+          "MU";
+          "V";
+          "GOOG";
+          "SMCI";
+          "MSTR";
+          "UBER";
+          "LLY";
+        ];
+      tick = 600.0;
+      overnight = true;
+      resume_after_liquidate = true;
+    }
 
   module Make = Make (Data) (Listener.Make)
 end
 
 module BuyAndHold = struct
-  module Data : RUN_DATA = struct
-    let symbols = [ "SPY" ]
-    let tick = 600.0
-    let overnight = true
-    let resume_after_liquidate = true
-  end
+  let run_options : Run_options.t =
+    {
+      symbols = [ "SPY" ];
+      tick = 600.0;
+      overnight = true;
+      resume_after_liquidate = true;
+    }
 
   module Make = Make (Data) (Buy_and_hold.Make)
 end
