@@ -1,29 +1,16 @@
 module Order = Trading_types.Order
 
-module type S = sig
-  val run : unit -> string
-  val shutdown : unit -> unit
-end
-
-module type STRAT_BUILDER = functor (_ : Backend.S) -> S
-
-module Strategy_utils (Backend : Backend.S) = struct
-  (* module Signal = struct *)
-  (* type t = *)
-  (*   | Shutdown *)
-  (*   | Continue *)
-  (*   | LiquidateAndResume *)
-  (* [@@deriving show] *)
-  (* end *)
+module Make (Backend : Backend.S) = struct
+  let mutices : Longleaf_mutex.t = Backend.Input.mutices
+  let runtype = Backend.Input.runtype
 
   let listen_tick () : State.nonlogical_state =
-    (* if !num_iterations > 3 then exit 1; *)
     Eio.Fiber.any
     @@ [
          (fun () ->
            match Backend.next_market_open () with
            | None ->
-               Backend.Ticker.tick Backend.env;
+               Ticker.tick ~runtype Backend.env Backend.Input.tick;
                `Continue
            | Some open_time -> (
                let open_time = Ptime.to_float_s open_time in
@@ -33,7 +20,7 @@ module Strategy_utils (Backend : Backend.S) = struct
                Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
                | Some t ->
                    Eio.traceln "@[Current time: %a@]@." Time.pp t;
-                   Ticker.FiveSecond.tick Backend.env;
+                   Ticker.tick ~runtype Backend.env 5.0;
                    Eio.traceln "@[Waited five seconds.@]@.";
                    `Continue
                | None ->
@@ -41,10 +28,11 @@ module Strategy_utils (Backend : Backend.S) = struct
                    `BeginShutdown));
          (fun () ->
            while
-             let shutdown = Pmutex.get Backend.LongleafMutex.shutdown_mutex in
+             let shutdown = Pmutex.get mutices.shutdown_mutex in
              not shutdown
            do
-             Ticker.OneSecond.tick Backend.env
+             Eio.Fiber.yield ();
+             Ticker.tick ~runtype Backend.env 1.0
            done;
            Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
            `BeginShutdown);
@@ -61,7 +49,7 @@ module Strategy_utils (Backend : Backend.S) = struct
              Ptime.diff close_time now |> Ptime.Span.to_float_s
            in
            while Backend.overnight || time_until_close >=. 600.0 do
-             Ticker.Forever.tick Backend.env
+             Eio.Fiber.yield ()
            done;
            Eio.traceln
              "@[Liquidating because we are within 10 minutes to market \
@@ -74,6 +62,8 @@ module Strategy_utils (Backend : Backend.S) = struct
                   market close.";
                `LiquidateContinue);
        ]
+
+  let counter = ref 0
 
   let run ~init_state step =
     let rec go prev =
@@ -123,13 +113,13 @@ module Strategy_utils (Backend : Backend.S) = struct
     match current with
     | `Initialize ->
         let symbols_str = String.concat "," Backend.symbols in
-        Pmutex.set Backend.LongleafMutex.symbols_mutex (Some symbols_str);
+        Pmutex.set mutices.symbols_mutex (Some symbols_str);
         Result.return @@ { state with current = `Listening }
     | `Listening -> (
-        Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
-        Pmutex.set Backend.LongleafMutex.orders_mutex state.order_history;
-        Pmutex.set Backend.LongleafMutex.stats_mutex state.stats;
-        Pmutex.set Backend.LongleafMutex.indicators_mutex state.indicators;
+        Pmutex.set mutices.data_mutex state.bars;
+        Pmutex.set mutices.orders_mutex state.order_history;
+        Pmutex.set mutices.stats_mutex state.stats;
+        Pmutex.set mutices.indicators_mutex state.indicators;
         match listen_tick () with
         | `Continue ->
             let open Result.Infix in
@@ -166,18 +156,18 @@ module Strategy_utils (Backend : Backend.S) = struct
         @@ { state with current = `Finished "Liquidation finished" }
     | `LiquidateContinue ->
         let* () = Backend.liquidate state in
-        Ticker.TenMinute.tick Backend.env;
+        Ticker.tick ~runtype Backend.env 600.0;
         Result.return { state with current = `Listening }
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
         Vector.iter (fun order -> Bars.add_order order state.bars)
-        @@ Pmutex.get Backend.LongleafMutex.orders_mutex;
+        @@ Pmutex.get mutices.orders_mutex;
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
         in
-        Pmutex.set Backend.LongleafMutex.data_mutex state.bars;
-        Pmutex.set Backend.LongleafMutex.stats_mutex stats_with_orders;
-        Pmutex.set Backend.LongleafMutex.indicators_mutex state.indicators;
+        Pmutex.set mutices.data_mutex state.bars;
+        Pmutex.set mutices.stats_mutex stats_with_orders;
+        Pmutex.set mutices.indicators_mutex state.indicators;
         let filename = get_filename () in
         output_data state filename;
         output_order_history state filename;

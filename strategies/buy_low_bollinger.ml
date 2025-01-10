@@ -60,7 +60,7 @@ module Conditions = struct
   end
 end
 
-module BuyLowBollinger (Backend : Backend.S) : Strategies.S = struct
+module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
   let shutdown () =
     Eio.traceln "Shutdown command NYI";
     ()
@@ -75,7 +75,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategies.S = struct
 
   let init_state = Backend.init_state DT_Status.Waiting
 
-  module SU = Strategies.Strategy_utils (Backend)
+  module SU = Strategy_utils.Make (Backend)
   module P = Conditions.P
 
   let consider_buying ~(history : Bars.t) ~(state : state)
@@ -180,7 +180,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategies.S = struct
 
   let step (state : state) =
     let current = state.current in
-    (* Eio.traceln "@[%a@]@." State.pp_state current; *)
+    (* Eio.traceln "@[buylowbollinger: %a@]@." State.pp_state current; *)
     match current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state

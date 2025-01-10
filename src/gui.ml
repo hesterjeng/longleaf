@@ -1,12 +1,3 @@
-type mutices = {
-  shutdown_mutex : bool Pmutex.t;
-  data_mutex : Bars.t Pmutex.t;
-  indicators_mutex : Indicators.t Pmutex.t;
-  orders_mutex : Order_history.t Pmutex.t;
-  symbols_mutex : string option Pmutex.t;
-  stats_mutex : Stats.t Pmutex.t;
-}
-
 open Piaf
 module Promise = Eio.Std.Promise
 
@@ -19,7 +10,7 @@ let serve_favicon () =
   let headers = Headers.of_list [ ("Content-Type", "image/x-icon") ] in
   Response.of_string ~headers ~body `OK
 
-let plotly_response_of_symbol ~mutices target =
+let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let bars = Pmutex.get mutices.data_mutex in
   let orders = Pmutex.get mutices.orders_mutex in
   let indicators = Pmutex.get mutices.indicators_mutex in
@@ -36,8 +27,8 @@ let plotly_response_of_symbol ~mutices target =
       Response.of_string ~headers `Not_found
         ~body:(Format.asprintf "Could not find bars for symbol: %S" target)
 
-let connection_handler ~(mutices : mutices) (params : Request_info.t Server.ctx)
-    =
+let connection_handler ~(mutices : Longleaf_mutex.t)
+    (params : Request_info.t Server.ctx) =
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
       let body =
@@ -92,7 +83,7 @@ let run ~sw ~host ~port env handler =
   (* Server.Command.shutdown command *)
   command
 
-let start ~sw ~(mutices : mutices) env =
+let start ~sw ~(mutices : Longleaf_mutex.t) env =
   let host = Eio.Net.Ipaddr.V4.loopback in
   Eio.traceln "Server listening on port 8080";
   run ~sw ~host ~port:8080 env @@ connection_handler ~mutices
@@ -103,7 +94,7 @@ let start ~sw ~(mutices : mutices) env =
 (*   Logs.set_level ~all:true level; *)
 (*   Logs.set_reporter (Logs_fmt.reporter ()) *)
 
-let top ~(mutices : mutices) env =
+let top ~(mutices : Longleaf_mutex.t) env =
   (* setup_log (Some Info); *)
   Eio.Std.Switch.run (fun sw ->
       (* let openai_response = *)
@@ -114,7 +105,7 @@ let top ~(mutices : mutices) env =
       let command = start ~mutices ~sw env in
       let _ =
         let _ = Promise.await prom in
-        Ticker.OneSecond.tick env;
+        Eio.Time.sleep env#clock 1.0;
         Server.Command.shutdown command
       in
       ())

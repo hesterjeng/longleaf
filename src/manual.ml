@@ -30,12 +30,10 @@ let place_order_test eio_env longleaf_env =
     let target = None
     let save_received = false
     let resume_after_liquidate = false
+    let mutices = Longleaf_mutex.create ()
+    let runtype = Options.Runtype.Manual
   end in
-  let module Ticker = Ticker.Make (struct
-    let tick = Input.tick
-  end) in
-  let module LLMutex = Backend.LongleafMutex () in
-  let module Alpaca = Backend.Alpaca (Input) (Ticker) (LLMutex) in
+  let module Alpaca = Backend.Alpaca (Input) in
   let state = Alpaca.init_state () in
   let order : Trading_types.Order.t =
     Trading_types.Order.make ~symbol:"NVDA" ~side:Buy
