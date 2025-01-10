@@ -30,3 +30,12 @@ In the `elisp` directory, there is an Emacs Lisp file that allows you to select 
 
 # Miscellaneous
 In order to compile and run this program, you will need to create a `.envrc` file with some environment variables configured, corresponding to the environment variables in `environment.ml`.
+
+# Technical Details
+
+Strategies are located in the `strategies` directory.  You can write your own by copying one of the small ones, like the listener or lowball, and then adding a hook into it in `strategies/longleaf_strategies.ml`.  This project uses `eio` to handle multiple domains, one for the strategy, and one for an http server that can receive commands like a graceful shutdown and deliver json for graph rendering in your browser.  The overarching flow looks like this:
+
+Parse your options -> Your options are used to create a backend -> The strategy is instantiated with the backend -> The strategy runs
+
+# Help
+If you found this and want to try it, make an issue and I will help you out.  This is still a work in progress that's changing rapidly.
