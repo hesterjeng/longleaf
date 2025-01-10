@@ -51,8 +51,8 @@ module Cmd = struct
     (* Logs.set_reporter reporter; *)
     (* Logs.set_level ~all:true (Some Logs.Info); *)
     Eio_main.run @@ fun eio_env ->
-    Longleaf.top ~stacktrace ~preload ~runtype ~no_gui ~target ~save_received
-      eio_env
+    Run.top ~stacktrace ~preload ~runtype ~no_gui ~target ~save_received
+      ~eio_env
 
   let top =
     let term =

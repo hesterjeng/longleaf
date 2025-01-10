@@ -1,21 +1,25 @@
 module Order = Trading_types.Order
 
-module type LONGLEAF_MUTEX = sig
-  val shutdown_mutex : bool Pmutex.t
-  val data_mutex : Bars.t Pmutex.t
-  val orders_mutex : Order_history.t Pmutex.t
-  val symbols_mutex : string option Pmutex.t
-  val stats_mutex : Stats.t Pmutex.t
-  val indicators_mutex : Indicators.t Pmutex.t
+module Run_options = struct
+  type t = {
+    symbols : string list;
+    tick : float;
+    overnight : bool;
+    resume_after_liquidate : bool;
+    runtype : Options.Runtype.t;
+  }
 end
 
-module LongleafMutex () : LONGLEAF_MUTEX = struct
-  let shutdown_mutex = Pmutex.make false
-  let data_mutex = Pmutex.make @@ Bars.empty ()
-  let orders_mutex = Pmutex.make @@ Vector.create ()
-  let symbols_mutex = Pmutex.make None
-  let stats_mutex = Pmutex.make []
-  let indicators_mutex = Pmutex.make @@ Indicators.empty ()
+module Run_context = struct
+  type t = {
+    eio_env : Eio_unix.Stdenv.base;
+    longleaf_env : Environment.t;
+    switch : Eio.Switch.t;
+    preload : Options.Preload.t;
+    target : string option;
+    save_received : bool;
+    mutices : Longleaf_mutex.t;
+  }
 end
 
 module type BACKEND_INPUT = sig
@@ -45,11 +49,15 @@ module type BACKEND_INPUT = sig
   (* The target is the bars that will be iterated over in a backtest *)
   (* Ordered in reverse time order, so that we can pop off next values easily *)
   val target : Bars.t option
+
+  (* Mutices for delivering information to GUI *)
+  val mutices : Longleaf_mutex.t
+
+  (* Record of options *)
+  val runtype : Options.Runtype.t
 end
 
 module type S = sig
-  module Ticker : Ticker.S
-  module LongleafMutex : LONGLEAF_MUTEX
   module Backend_position : Backend_position.S
   module Input : BACKEND_INPUT
 
@@ -80,11 +88,10 @@ module type S = sig
 end
 
 (* Backtesting *)
-module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
-  S = struct
+module Backtesting (Input : BACKEND_INPUT) : S = struct
   open Trading_types
-  module Ticker = Ticker.Instant
-  module LongleafMutex = LongleafMutex
+
+  (* module Ticker = Ticker.Instant *)
   module Backend_position = Backend_position.Generative ()
   module Input = Input
 
@@ -180,14 +187,9 @@ module Backtesting (Input : BACKEND_INPUT) (LongleafMutex : LONGLEAF_MUTEX) :
 end
 
 (* Live trading *)
-module Alpaca
-    (Input : BACKEND_INPUT)
-    (Ticker : Ticker.S)
-    (LongleafMutex : LONGLEAF_MUTEX) : S = struct
+module Alpaca (Input : BACKEND_INPUT) : S = struct
   open Trading_types
-  module Ticker = Ticker
-  module Backtesting = Backtesting (Input) (LongleafMutex)
-  module LongleafMutex = Backtesting.LongleafMutex
+  module Backtesting = Backtesting (Input)
   module Backend_position = Backtesting.Backend_position
   module Input = Input
 
@@ -323,3 +325,50 @@ module Alpaca
       account_status;
     Ok ()
 end
+
+let make_backend_input (options : Run_options.t) (context : Run_context.t) =
+  (module struct
+    let switch = context.switch
+    let longleaf_env = context.longleaf_env
+    let eio_env = context.eio_env
+    let save_received = context.save_received
+    let mutices = context.mutices
+    let symbols = options.symbols
+    let overnight = options.overnight
+    let resume_after_liquidate = options.resume_after_liquidate
+    let tick = options.tick
+    let runtype = options.runtype
+
+    (* Target *)
+    let target =
+      let ( let+ ) = Option.( let+ ) in
+      let+ res =
+        context.target
+        |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
+      in
+      Bars.sort (Ord.opp Item.compare) res;
+      res
+
+    (* Preload *)
+    let bars =
+      match context.preload with
+      | None -> Bars.empty ()
+      | Download -> invalid_arg "Downloading data for preload NYI"
+      | File file ->
+          Eio.traceln "Preloading bars from %s" file;
+          let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
+          Bars.sort Item.compare res;
+          res
+  end : BACKEND_INPUT)
+
+let create_backend (options : Run_options.t) (context : Run_context.t) =
+  let module Input = (val make_backend_input options context) in
+  match options.runtype with
+  | Live -> invalid_arg "Live trading not implemented"
+  | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
+  | Paper ->
+      Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
+      (module Alpaca (Input) : S)
+  | Backtest ->
+      Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
+      (module Backtesting (Input))

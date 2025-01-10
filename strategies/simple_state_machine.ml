@@ -1,4 +1,4 @@
-module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
+module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
   open Trading_types
 
   let shutdown = Backend.shutdown
@@ -16,7 +16,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategies.S = struct
       indicators = Indicators.empty ();
     }
 
-  module SU = Strategies.Strategy_utils (Backend)
+  module SU = Strategy_utils.Make (Backend)
 
   let step (state : 'a State.t) =
     match state.current with

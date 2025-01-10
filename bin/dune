@@ -4,24 +4,26 @@
  (promote
   (until-clean)
   (into ..))
+ (package longleaf)
  (libraries
   fmt
   ; logs
   ; logs.fmt
   fmt.tty
-  longleaf
   containers
   containers-data
   cmdliner
   zarith
   ptime
   yojson
+  longleaf
+  longleaf-strategies
   landmarks
   eio_main)
  ; (preprocess
  ;  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv)))
+  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
 
 (env
  (dev
