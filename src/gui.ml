@@ -105,7 +105,7 @@ let top ~(mutices : Longleaf_mutex.t) env =
       let command = start ~mutices ~sw env in
       let _ =
         let _ = Promise.await prom in
-        Ticker.tick env 1.0;
+        Eio.Time.sleep env#clock 1.0;
         Server.Command.shutdown command
       in
       ())

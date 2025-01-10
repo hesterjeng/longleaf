@@ -2,15 +2,15 @@ module Order = Trading_types.Order
 
 module Make (Backend : Backend.S) = struct
   let mutices : Longleaf_mutex.t = Backend.Input.mutices
+  let runtype = Backend.Input.runtype
 
   let listen_tick () : State.nonlogical_state =
-    (* if !num_iterations > 3 then exit 1; *)
     Eio.Fiber.any
     @@ [
          (fun () ->
            match Backend.next_market_open () with
            | None ->
-               Ticker.tick Backend.env Backend.Input.tick;
+               Ticker.tick ~runtype Backend.env Backend.Input.tick;
                `Continue
            | Some open_time -> (
                let open_time = Ptime.to_float_s open_time in
@@ -20,7 +20,7 @@ module Make (Backend : Backend.S) = struct
                Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
                | Some t ->
                    Eio.traceln "@[Current time: %a@]@." Time.pp t;
-                   Ticker.tick Backend.env 5.0;
+                   Ticker.tick ~runtype Backend.env 5.0;
                    Eio.traceln "@[Waited five seconds.@]@.";
                    `Continue
                | None ->
@@ -31,7 +31,8 @@ module Make (Backend : Backend.S) = struct
              let shutdown = Pmutex.get mutices.shutdown_mutex in
              not shutdown
            do
-             Ticker.tick Backend.env 1.0
+             Eio.Fiber.yield ();
+             Ticker.tick ~runtype Backend.env 1.0
            done;
            Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
            `BeginShutdown);
@@ -48,7 +49,7 @@ module Make (Backend : Backend.S) = struct
              Ptime.diff close_time now |> Ptime.Span.to_float_s
            in
            while Backend.overnight || time_until_close >=. 600.0 do
-             Ticker.tick Backend.env Float.max_finite_value
+             Eio.Fiber.yield ()
            done;
            Eio.traceln
              "@[Liquidating because we are within 10 minutes to market \
@@ -61,6 +62,8 @@ module Make (Backend : Backend.S) = struct
                   market close.";
                `LiquidateContinue);
        ]
+
+  let counter = ref 0
 
   let run ~init_state step =
     let rec go prev =
@@ -153,7 +156,7 @@ module Make (Backend : Backend.S) = struct
         @@ { state with current = `Finished "Liquidation finished" }
     | `LiquidateContinue ->
         let* () = Backend.liquidate state in
-        Ticker.tick Backend.env 600.0;
+        Ticker.tick ~runtype Backend.env 600.0;
         Result.return { state with current = `Listening }
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
