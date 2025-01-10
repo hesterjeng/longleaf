@@ -1,5 +1,15 @@
 module Run_options = Backend.Run_options
 
+let run_generic ~runtype ~context ~run_options (module Strat : Strategy.BUILDER)
+    =
+  Eio.traceln "@[Starting Doubletop@]@.";
+  let options = run_options runtype in
+  let module Backend = (val Backend.create_backend options context) in
+  let module S = Strat (Backend) in
+  let res = S.run () in
+  Backend.shutdown ();
+  res
+
 module DoubleTop = struct
   let run_options runtype : Run_options.t =
     {
@@ -32,13 +42,7 @@ module DoubleTop = struct
     }
 
   let top runtype context =
-    Eio.traceln "@[Starting Doubletop@]@.";
-    let options = run_options runtype in
-    let module Backend = (val Backend.create_backend options context) in
-    let module S = Double_top.DoubleTop (Backend) in
-    let res = S.run () in
-    Backend.shutdown ();
-    res
+    run_generic ~runtype ~context ~run_options (module Double_top.DoubleTop)
 end
 
 module LowBall = struct
@@ -72,14 +76,8 @@ module LowBall = struct
     }
 
   let top runtype context =
-    Eio.traceln "@[Starting Lowball@]@.";
-    let options = run_options runtype in
-    let module Backend = (val Backend.create_backend options context) in
-    let module S = Buy_low_bollinger.BuyLowBollinger (Backend) in
-    Eio.traceln "@[Lowball running...@]@.";
-    let res = S.run () in
-    Backend.shutdown ();
-    res
+    run_generic ~runtype ~context ~run_options
+      (module Buy_low_bollinger.BuyLowBollinger)
 end
 
 module Listener = struct
@@ -113,13 +111,7 @@ module Listener = struct
     }
 
   let top runtype context =
-    Eio.traceln "@[Starting listener@]@.";
-    let options = run_options runtype in
-    let module Backend = (val Backend.create_backend options context) in
-    let module S = Listener.Make (Backend) in
-    let res = S.run () in
-    Backend.shutdown ();
-    res
+    run_generic ~runtype ~context ~run_options (module Listener.Make)
 end
 
 module BuyAndHold = struct
@@ -133,11 +125,5 @@ module BuyAndHold = struct
     }
 
   let top runtype context =
-    Eio.traceln "@[Starting BuyAndHold@]@.";
-    let options = run_options runtype in
-    let module Backend = (val Backend.create_backend options context) in
-    let module S = Buy_and_hold.Make (Backend) in
-    let res = S.run () in
-    Backend.shutdown ();
-    res
+    run_generic ~runtype ~context ~run_options (module Buy_and_hold.Make)
 end
