@@ -9,6 +9,16 @@ module Args = struct
     Cmdliner.Arg.(
       required & pos 0 (some runtype_conv) None & info [] ~docv:"runtype" ~doc)
 
+  let strategy_arg =
+    let doc =
+      "The selected strategy.  These can be seen in \
+       strategies/longleaf_strategies.ml"
+    in
+    Cmdliner.Arg.(
+      required
+      & pos 1 (some Longleaf_strategies.conv) None
+      & info [] ~docv:"selected strategy" ~doc)
+
   let preload_arg =
     let preload_conv = Longleaf.Options.Preload.conv in
     let doc =
@@ -44,7 +54,8 @@ module Args = struct
 end
 
 module Cmd = struct
-  let run runtype preload stacktrace output no_gui target save_received =
+  let run runtype preload stacktrace output no_gui target save_received
+      strategy_arg =
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output output;
     (* let reporter = Logs_fmt.reporter () in *)
@@ -52,14 +63,14 @@ module Cmd = struct
     (* Logs.set_level ~all:true (Some Logs.Info); *)
     Eio_main.run @@ fun eio_env ->
     Run.top ~stacktrace ~preload ~runtype ~no_gui ~target ~save_received
-      ~eio_env
+      ~eio_env ~strategy_arg
 
   let top =
     let term =
       Cmdliner.Term.(
         const run $ Args.runtype_arg $ Args.preload_arg $ Args.stacktrace_arg
         $ Args.output_file_arg $ Args.no_gui_arg $ Args.target_arg
-        $ Args.save_received_arg)
+        $ Args.save_received_arg $ Args.strategy_arg)
     in
     let doc =
       "This is the OCaml algorithmic trading platform longleaf.  It relies on \
