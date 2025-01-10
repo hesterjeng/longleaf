@@ -16,7 +16,8 @@
   longleaf
   piaf)
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
+  (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv landmarks-ppx --auto
+)))
 
 ; landmarks-ppx
 ; --auto)))
