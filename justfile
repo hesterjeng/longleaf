@@ -12,7 +12,7 @@
 	@dune clean;
 	@dune build --profile=debug;
 	@echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid;
-	@perf record --call-graph dwarf -i -e cycles:u -- ./main.exe backtest -p data/download_Vision_Rapture.json --nogui;
+	@perf record --call-graph dwarf -i -e cycles:u -- ./main.exe backtest --preload data/start_december_2024.json --target data/christmas_break_live.json;
 
 @flamegraph:
 	@sudo perf script -f > out.perf;
