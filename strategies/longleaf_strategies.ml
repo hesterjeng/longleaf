@@ -127,3 +127,23 @@ module BuyAndHold = struct
   let top runtype context =
     run_generic ~runtype ~context ~run_options (module Buy_and_hold.Make)
 end
+
+type t = BuyAndHold | Listener | DoubleTop | LowBoll [@@deriving show, eq]
+
+let of_string_res x =
+  let x = String.uncapitalize_ascii x in
+  match x with
+  | "buyandhold" | "buyhold" -> Ok BuyAndHold
+  | "listener" | "listen" -> Ok Listener
+  | "doubletop" -> Ok DoubleTop
+  | "lowball" | "lowboll" -> Ok LowBoll
+  | _ -> Error (`Msg "Expected a valid strategy")
+
+let conv = Cmdliner.Arg.conv (of_string_res, pp)
+
+let run runtype context x =
+  match x with
+  | BuyAndHold -> BuyAndHold.top runtype context
+  | Listener -> Listener.top runtype context
+  | DoubleTop -> DoubleTop.top runtype context
+  | LowBoll -> LowBall.top runtype context
