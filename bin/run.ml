@@ -7,7 +7,7 @@ let runtype_target_check ~runtype ~target : unit =
   match target with
   | Some _ -> (
       match runtype with
-      | Options.Runtype.Backtest | Options.Runtype.BuyAndHold -> ()
+      | Options.Runtype.Backtest -> ()
       | _ ->
           Eio.traceln "Must be in a backtest if we have a specified target.";
           exit 1)
@@ -40,8 +40,8 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env =
     in
     let res =
       match runtype with
-      | Listener -> Strats.Listener.top runtype context
-      | BuyAndHold -> Strats.BuyAndHold.top runtype context
+      (* | Listener -> Strats.Listener.top runtype context *)
+      (* | BuyAndHold -> Strats.BuyAndHold.top runtype context *)
       | _ -> Strats.LowBall.top runtype context
     in
     Eio.traceln "@[Final response: %s@]@." res;

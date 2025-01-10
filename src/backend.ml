@@ -1,5 +1,27 @@
 module Order = Trading_types.Order
 
+module Run_options = struct
+  type t = {
+    symbols : string list;
+    tick : float;
+    overnight : bool;
+    resume_after_liquidate : bool;
+    runtype : Options.Runtype.t;
+  }
+end
+
+module Run_context = struct
+  type t = {
+    eio_env : Eio_unix.Stdenv.base;
+    longleaf_env : Environment.t;
+    switch : Eio.Switch.t;
+    preload : Options.Preload.t;
+    target : string option;
+    save_received : bool;
+    mutices : Longleaf_mutex.t;
+  }
+end
+
 module type BACKEND_INPUT = sig
   val switch : Eio.Switch.t
   val longleaf_env : Environment.t
@@ -30,6 +52,9 @@ module type BACKEND_INPUT = sig
 
   (* Mutices for delivering information to GUI *)
   val mutices : Longleaf_mutex.t
+
+  (* Record of options *)
+  val runtype : Options.Runtype.t
 end
 
 module type S = sig
@@ -301,28 +326,6 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
     Ok ()
 end
 
-module Run_options = struct
-  type t = {
-    symbols : string list;
-    tick : float;
-    overnight : bool;
-    resume_after_liquidate : bool;
-    runtype : Options.Runtype.t;
-  }
-end
-
-module Run_context = struct
-  type t = {
-    eio_env : Eio_unix.Stdenv.base;
-    longleaf_env : Environment.t;
-    switch : Eio.Switch.t;
-    preload : Options.Preload.t;
-    target : string option;
-    save_received : bool;
-    mutices : Longleaf_mutex.t;
-  }
-end
-
 let make_backend_input (options : Run_options.t) (context : Run_context.t) =
   (module struct
     let switch = context.switch
@@ -334,6 +337,7 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
     let overnight = options.overnight
     let resume_after_liquidate = options.resume_after_liquidate
     let tick = options.tick
+    let runtype = options.runtype
 
     (* Target *)
     let target =
@@ -362,9 +366,9 @@ let create_backend (options : Run_options.t) (context : Run_context.t) =
   match options.runtype with
   | Live -> invalid_arg "Live trading not implemented"
   | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
-  | Paper | Listener ->
+  | Paper ->
       Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
       (module Alpaca (Input) : S)
-  | BuyAndHold | Backtest ->
+  | Backtest ->
       Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
       (module Backtesting (Input))

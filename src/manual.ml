@@ -31,6 +31,7 @@ let place_order_test eio_env longleaf_env =
     let save_received = false
     let resume_after_liquidate = false
     let mutices = Longleaf_mutex.create ()
+    let runtype = Options.Runtype.Manual
   end in
   let module Alpaca = Backend.Alpaca (Input) in
   let state = Alpaca.init_state () in
