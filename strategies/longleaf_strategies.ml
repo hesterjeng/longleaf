@@ -32,6 +32,7 @@ module DoubleTop = struct
     }
 
   let top runtype context =
+    Eio.traceln "@[Starting Doubletop@]@.";
     let options = run_options runtype in
     let module Backend = (val Backend.create_backend options context) in
     let module S = Double_top.DoubleTop (Backend) in
@@ -71,9 +72,11 @@ module LowBall = struct
     }
 
   let top runtype context =
+    Eio.traceln "@[Starting Lowball@]@.";
     let options = run_options runtype in
     let module Backend = (val Backend.create_backend options context) in
     let module S = Buy_low_bollinger.BuyLowBollinger (Backend) in
+    Eio.traceln "@[Lowball running...@]@.";
     let res = S.run () in
     Backend.shutdown ();
     res
@@ -110,6 +113,7 @@ module Listener = struct
     }
 
   let top runtype context =
+    Eio.traceln "@[Starting listener@]@.";
     let options = run_options runtype in
     let module Backend = (val Backend.create_backend options context) in
     let module S = Listener.Make (Backend) in
@@ -129,6 +133,7 @@ module BuyAndHold = struct
     }
 
   let top runtype context =
+    Eio.traceln "@[Starting BuyAndHold@]@.";
     let options = run_options runtype in
     let module Backend = (val Backend.create_backend options context) in
     let module S = Buy_and_hold.Make (Backend) in
