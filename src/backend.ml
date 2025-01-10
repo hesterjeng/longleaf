@@ -362,5 +362,9 @@ let create_backend (options : Run_options.t) (context : Run_context.t) =
   match options.runtype with
   | Live -> invalid_arg "Live trading not implemented"
   | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
-  | Paper | Listener -> (module Alpaca (Input) : S)
-  | BuyAndHold | Backtest -> (module Backtesting (Input))
+  | Paper | Listener ->
+      Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
+      (module Alpaca (Input) : S)
+  | BuyAndHold | Backtest ->
+      Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
+      (module Backtesting (Input))
