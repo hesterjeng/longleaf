@@ -35,26 +35,17 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env =
   let run_strategy () =
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
-    let module Context : Strats.RUN_CONTEXT = struct
-      let eio_env = eio_env
-      let longleaf_env = longleaf_env
-      let switch = switch
-      let preload = preload
-      let target = target
-      let save_received = save_received
-      let mutices = mutices
-    end in
-    match runtype with
-    | Listener ->
-        let module Run = Strats.Listener.Make (Context) in
-        Run.top runtype
-    | BuyAndHold ->
-        let module Run = Strats.BuyAndHold.Make (Context) in
-        Run.top runtype
-    | _ ->
-        (* let module Run = Run.DoubleTop.Make (LongleafMutex) (Context) in *)
-        let module Run = Strats.LowBall.Make (Context) in
-        Run.top runtype
+    let context : Backend.Run_context.t =
+      { eio_env; longleaf_env; switch; preload; target; save_received; mutices }
+    in
+    let res =
+      match runtype with
+      | Listener -> Strats.Listener.top runtype context
+      | BuyAndHold -> Strats.BuyAndHold.top runtype context
+      | _ -> Strats.LowBall.top runtype context
+    in
+    Eio.traceln "@[Final response: %s@]@." res;
+    ()
   in
   let run_server () =
     if no_gui then ()
