@@ -1,7 +1,4 @@
 open Longleaf
-module Strats = Longleaf_strategies
-
-[@@@warning "-26-27"]
 
 let runtype_target_check ~runtype ~target : unit =
   match target with
@@ -21,7 +18,8 @@ let save_received_check ~runtype ~save_received : unit =
         Eio.traceln "Must be live or paper to save received data.";
         exit 1
 
-let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env =
+let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
+    ~strategy_arg =
   runtype_target_check ~runtype ~target;
   save_received_check ~runtype ~save_received;
   if stacktrace then Printexc.record_backtrace true;
@@ -38,12 +36,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env =
     let context : Backend.Run_context.t =
       { eio_env; longleaf_env; switch; preload; target; save_received; mutices }
     in
-    let res =
-      match runtype with
-      (* | Listener -> Strats.Listener.top runtype context *)
-      (* | BuyAndHold -> Strats.BuyAndHold.top runtype context *)
-      | _ -> Strats.LowBall.top runtype context
-    in
+    let res = Longleaf_strategies.run runtype context strategy_arg in
     Eio.traceln "@[Final response: %s@]@." res;
     ()
   in
