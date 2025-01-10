@@ -23,7 +23,7 @@
  ; (preprocess
  ;  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv)))
+  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
 
 (env
  (dev
