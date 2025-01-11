@@ -127,7 +127,8 @@ module Make (Backend : Backend.S) = struct
             let* time = Bars.Latest.timestamp latest in
             (* Eio.traceln "@[strategies: %a@]@." Item.pp *)
             (*   (Bars.Latest.get latest "NVDA"); *)
-            Indicators.add_latest time state.bars latest state.indicators;
+            Indicators.add_latest Backend.Input.indicators_config time
+              state.bars latest state.indicators;
             let value = Backend.Backend_position.value latest in
             Bars.append latest state.bars;
             Result.return
