@@ -39,6 +39,7 @@ module DoubleTop = struct
       overnight = false;
       resume_after_liquidate = true;
       runtype;
+      indicators_config : Indicators.Config.t = { fft = false };
     }
 
   let top runtype context =
@@ -73,6 +74,7 @@ module LowBall = struct
       overnight = true;
       resume_after_liquidate = true;
       runtype;
+      indicators_config : Indicators.Config.t = { fft = false };
     }
 
   let top runtype context =
@@ -108,6 +110,7 @@ module Listener = struct
       overnight = true;
       resume_after_liquidate = true;
       runtype;
+      indicators_config : Indicators.Config.t = { fft = false };
     }
 
   let top runtype context =
@@ -122,6 +125,7 @@ module BuyAndHold = struct
       overnight = true;
       resume_after_liquidate = true;
       runtype;
+      indicators_config : Indicators.Config.t = { fft = false };
     }
 
   let top runtype context =

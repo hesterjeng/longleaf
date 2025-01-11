@@ -7,6 +7,7 @@ module Run_options = struct
     overnight : bool;
     resume_after_liquidate : bool;
     runtype : Options.Runtype.t;
+    indicators_config : Indicators.Config.t;
   }
 end
 
@@ -55,6 +56,9 @@ module type BACKEND_INPUT = sig
 
   (* Record of options *)
   val runtype : Options.Runtype.t
+
+  (* Indicators options *)
+  val indicators_config : Indicators.Config.t
 end
 
 module type S = sig
@@ -338,6 +342,7 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
     let resume_after_liquidate = options.resume_after_liquidate
     let tick = options.tick
     let runtype = options.runtype
+    let indicators_config = options.indicators_config
 
     (* Target *)
     let target =

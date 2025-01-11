@@ -1,5 +1,9 @@
 module Hashtbl = Hashtbl.Make (String)
 
+module Config = struct
+  type t = { fft : bool }
+end
+
 let money_flow_multiplier (x : Item.t) =
   let open Float in
   let open Item in
@@ -123,54 +127,60 @@ module FFT = struct
 
   let empty : t = Dense.Ndarray.Generic.empty Bigarray.complex64 [||]
 
-  let mean_squared_error (fft1 : t) (fft2 : t) =
-    let l1, l2 = (Genarray.shape fft1, Genarray.shape fft2) in
-    if
-      match (Array.get_safe l1 0, Array.get_safe l2 0) with
-      | Some i, Some j -> i < 3 || j < 3
-      | _ -> true
-    then 0.0
+  let mean_squared_error (config : Config.t) (fft1 : t) (fft2 : t) =
+    if not config.fft then 0.0
     else
-      let fft1, fft2 =
-        Pair.map_same (Genarray.get_slice [ [ 0; 2 ] ]) (fft1, fft2)
-      in
-      let max_mse =
-        let fft1_mag, fft2_mag =
-          Pair.map_same (Genarray.map Complex.norm_complex) (fft1, fft2)
+      let l1, l2 = (Genarray.shape fft1, Genarray.shape fft2) in
+      if
+        match (Array.get_safe l1 0, Array.get_safe l2 0) with
+        | Some i, Some j -> i < 3 || j < 3
+        | _ -> true
+      then 0.0
+      else
+        let fft1, fft2 =
+          Pair.map_same (Genarray.get_slice [ [ 0; 2 ] ]) (fft1, fft2)
         in
-        let fft1_sq, fft2_sq =
-          Pair.map_same (Genarray.map Complex.square) (fft1_mag, fft2_mag)
+        let max_mse =
+          let fft1_mag, fft2_mag =
+            Pair.map_same (Genarray.map Complex.norm_complex) (fft1, fft2)
+          in
+          let fft1_sq, fft2_sq =
+            Pair.map_same (Genarray.map Complex.square) (fft1_mag, fft2_mag)
+          in
+          let added = Genarray.add fft1_sq fft2_sq in
+          let sum = Genarray.sum' added in
+          sum.re /. 3.0
         in
-        let added = Genarray.add fft1_sq fft2_sq in
-        let sum = Genarray.sum' added in
-        sum.re /. 3.0
-      in
-      let conj = Genarray.conj fft2 in
-      let minus = Genarray.sub fft1 conj in
-      let magnitudes = Genarray.map Complex.norm_complex minus in
-      let squared = Genarray.map Complex.square magnitudes in
-      let summed = Genarray.sum' squared in
-      let sum = Complex.norm summed in
-      let final = sum /. 3.0 /. max_mse *. 10000.0 in
-      (* Eio.traceln "%f" final; *)
-      final
+        let conj = Genarray.conj fft2 in
+        let minus = Genarray.sub fft1 conj in
+        let magnitudes = Genarray.map Complex.norm_complex minus in
+        let squared = Genarray.map Complex.square magnitudes in
+        let summed = Genarray.sum' squared in
+        let sum = Complex.norm summed in
+        let final = sum /. 3.0 /. max_mse *. 10000.0 in
+        (* Eio.traceln "%f" final; *)
+        final
 
   (* Fast fourier transform *)
-  let fft (l : Bars.symbol_history) (last : Item.t) : t =
-    let arr =
-      Vector.map Item.last l |> Vector.to_array |> fun a ->
-      Array.append a [| Item.last last |]
-    in
-    let bigarray = Genarray.of_array Float64 arr [| Array.length arr |] in
-    let yf = Owl_fft.D.rfft ~axis:0 bigarray in
-    (* Eio.traceln "fft: length : %a" (Array.pp Int.pp) (Genarray.shape yf); *)
-    yf
+  let fft (config : Config.t) (l : Bars.symbol_history) (last : Item.t) : t =
+    if not config.fft then empty
+    else
+      let arr =
+        Vector.map Item.last l |> Vector.to_array |> fun a ->
+        Array.append a [| Item.last last |]
+      in
+      let bigarray = Genarray.of_array Float64 arr [| Array.length arr |] in
+      let yf = Owl_fft.D.rfft ~axis:0 bigarray in
+      (* Eio.traceln "fft: length : %a" (Array.pp Int.pp) (Genarray.shape yf); *)
+      yf
 
   (* Normalized maginitude of fourier transform *)
-  let fft_nm (yf : t) (l : Bars.symbol_history) =
-    let length = Vector.length l + 1 |> Float.of_int in
-    let mag = Genarray.l2norm yf |> Genarray.sum' |> Complex.norm in
-    mag /. length
+  let fft_nm (config : Config.t) (yf : t) (l : Bars.symbol_history) =
+    if not config.fft then 0.0
+    else
+      let length = Vector.length l + 1 |> Float.of_int in
+      let mag = Genarray.l2norm yf |> Genarray.sum' |> Complex.norm in
+      mag /. length
 end
 
 module Point = struct
@@ -214,8 +224,8 @@ module Point = struct
       fft_mean_squared_error = 0.0;
     }
 
-  let of_latest timestamp symbol_history length (previous : t) (latest : Item.t)
-      =
+  let of_latest config timestamp symbol_history length (previous : t)
+      (latest : Item.t) =
     let lower_bollinger, upper_bollinger = bollinger 34 symbol_history in
     let sma_5 = simple_moving_average 5 symbol_history in
     let sma_34 = simple_moving_average 34 symbol_history in
@@ -230,10 +240,12 @@ module Point = struct
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
     let fast_stochastic_oscillator_k = SO.pK 140 symbol_history latest in
-    let fourier_transform = FFT.fft symbol_history latest in
-    let ft_normalized_magnitude = FFT.fft_nm fourier_transform symbol_history in
+    let fourier_transform = FFT.fft config symbol_history latest in
+    let ft_normalized_magnitude =
+      FFT.fft_nm config fourier_transform symbol_history
+    in
     let fft_mean_squared_error =
-      FFT.mean_squared_error previous.fourier_transform fourier_transform
+      FFT.mean_squared_error config previous.fourier_transform fourier_transform
     in
     let res =
       {
@@ -287,7 +299,7 @@ let pp : t Format.printer =
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
-let initialize bars symbol =
+let initialize config bars symbol =
   let initial_stats_vector = Vector.create () in
   let bars_vec =
     Bars.get bars symbol |> function
@@ -311,7 +323,8 @@ let initialize bars symbol =
               Vector.slice_iter bars_vec 0 i |> Vector.of_iter
             in
             let res =
-              Point.of_latest timestamp bars_vec_upto_now length previous item
+              Point.of_latest config timestamp bars_vec_upto_now length previous
+                item
             in
             Vector.push initial_stats_vector res;
             Option.return res)
@@ -319,7 +332,8 @@ let initialize bars symbol =
   in
   initial_stats_vector
 
-let add_latest timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t) (x : t) =
+let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
+    (x : t) =
   Hashtbl.to_seq latest_bars |> fun seq ->
   let iter f = Seq.iter f seq in
   iter @@ fun (symbol, latest) ->
@@ -335,7 +349,7 @@ let add_latest timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t) (x : t) =
     | Some i -> i
     | None ->
         Eio.traceln "Creating initial indicators for %s." symbol;
-        let new_vector = initialize bars symbol in
+        let new_vector = initialize config bars symbol in
         Hashtbl.replace x symbol new_vector;
         new_vector
   in
@@ -346,6 +360,6 @@ let add_latest timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t) (x : t) =
     | None -> Point.initial timestamp
   in
   let new_indicators =
-    Point.of_latest timestamp symbol_history length previous latest
+    Point.of_latest config timestamp symbol_history length previous latest
   in
   Vector.push indicators_vector new_indicators
