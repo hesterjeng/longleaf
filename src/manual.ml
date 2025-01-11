@@ -32,6 +32,7 @@ let place_order_test eio_env longleaf_env =
     let resume_after_liquidate = false
     let mutices = Longleaf_mutex.create ()
     let runtype = Options.Runtype.Manual
+    let indicators_config : Indicators.Config.t = { fft = false }
   end in
   let module Alpaca = Backend.Alpaca (Input) in
   let state = Alpaca.init_state () in
