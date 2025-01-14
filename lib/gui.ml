@@ -4,7 +4,7 @@ module Promise = Eio.Std.Promise
 let prom, resolver = Promise.create ()
 
 let serve_favicon () =
-  let favicon_path = "./src/static/favicon.ico" in
+  let favicon_path = "./lib/static/favicon.ico" in
   let body = Util.read_file_as_string favicon_path in
   Eio.traceln "@[favicon has length %d@]@." (String.length body);
   let headers = Headers.of_list [ ("Content-Type", "image/x-icon") ] in
@@ -45,9 +45,9 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       Promise.resolve resolver true;
       Pmutex.set mutices.shutdown_mutex true;
       Response.of_string ~body:"Shutdown command sent" `OK
-  | { Request.meth = `GET; target = "/src/javascript/plotly_graph.js"; _ } ->
+  | { Request.meth = `GET; target = "/lib/javascript/plotly_graph.js"; _ } ->
       Eio.traceln "GET request for my javascript";
-      let file_path = "./src/javascript/plotly_graph.js" in
+      let file_path = "./lib/javascript/plotly_graph.js" in
       let body = Util.read_file_as_string file_path in
       let headers =
         Headers.of_list [ ("Content-Type", "application/javascript") ]
