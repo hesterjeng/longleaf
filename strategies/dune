@@ -13,9 +13,12 @@
   containers-data
   ptime
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   dream
 >>>>>>> d9e8192 (chore: move strategies)
+=======
+>>>>>>> 6aaf5cc (feat: remove dream dependency)
   eio_main
   iter
   cmdliner
