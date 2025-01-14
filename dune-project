@@ -20,7 +20,6 @@
   ptime
   ppx_yojson_conv
   ppx_deriving
-  dream
   ppx_variants_conv
   ppx_fields_conv
   cmdliner
@@ -46,7 +45,6 @@
   ptime
   ppx_yojson_conv
   ppx_deriving
-  dream
   ppx_variants_conv
   ppx_fields_conv
   cmdliner
