@@ -1,3 +1,5 @@
+module Longleaf = Longleaf_lib
+
 module Args = struct
   (* Define the CLI arguments *)
   let runtype_arg =
