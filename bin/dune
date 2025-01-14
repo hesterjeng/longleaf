@@ -4,7 +4,7 @@
  (promote
   (until-clean)
   (into ..))
- (package longleaf)
+ (package longleaf-lib)
  (libraries
   fmt
   ; logs
@@ -16,7 +16,7 @@
   zarith
   ptime
   yojson
-  longleaf
+  longleaf-lib
   longleaf-strategies
   landmarks
   eio_main)
