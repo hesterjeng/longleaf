@@ -1,8 +1,3 @@
-let backtest_button_js = Util.read_file_as_string "src/javascript/backtest_button.js"
-let live_button_js = Util.read_file_as_string "src/javascript/live_button.js"
-let graceful_exit_js = Util.read_file_as_string "src/javascript/graceful_exit.js"
-
-let render endpoint =
 <html>
   <head>
     <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
@@ -14,8 +9,8 @@ let render endpoint =
       <div id='graph' class="mt-5"></div>
     </div>
     <script type="module">
-      import { fetchAndRenderAll } from "./src/javascript/plotly_graph.js";
-      fetchAndRenderAll(<%S endpoint %>);
+      import { fetchAndRenderAll } from "../src/javascript/plotly_graph.js";
+      fetchAndRenderAll();
     </script>
     <div id='backtest_button' style="display: grid; place-items: center">
       <h1 class = "text-3xl font-bold text-center mt-5">Run a backtest</h1>
@@ -37,8 +32,5 @@ let render endpoint =
         Graceful Quit
       </button>
     </div>
-      <script><%s! backtest_button_js%></script>
-      <script><%s! live_button_js%></script>
-      <script><%s! graceful_exit_js%></script>
   </body>
 </html>
