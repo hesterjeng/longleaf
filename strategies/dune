@@ -7,7 +7,6 @@
   containers
   containers-data
   ptime
-  dream
   eio_main
   iter
   cmdliner
