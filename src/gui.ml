@@ -34,7 +34,8 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       let body =
         match Pmutex.get mutices.symbols_mutex with
         | None -> "No symbols found"
-        | Some symbols -> Html_template.render symbols
+        | Some symbols -> "Work in progress"
+        (* Html_template.render symbols *)
       in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/favicon.ico"; _ } ->
@@ -60,6 +61,12 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       let stats = Pmutex.get mutices.stats_mutex |> Stats.sort in
       let body = Plotly.of_stats stats |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
+  | { Request.meth = `GET; target = "/symbols"; _ } ->
+      let symbols =
+        Pmutex.get mutices.symbols_mutex
+        |> Option.get_exn_or "gui: Must have symbols to display information..."
+      in
+      Response.of_string ~body:symbols `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
       let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
