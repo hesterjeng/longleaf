@@ -9,7 +9,7 @@
 (maintainers "John Hester")
 
 (package
- (name longleaf)
+ (name longleaf-lib)
  (synopsis "Longleaf")
  (license "GPL-3.0-or-later")
  (homepage "https://github.com/hesterjeng/longleaf")
