@@ -25,10 +25,14 @@
   landmarks
   owl
 <<<<<<< HEAD
+<<<<<<< HEAD
   longleaf-lib
 =======
   longleaf
 >>>>>>> d9e8192 (chore: move strategies)
+=======
+  longleaf-lib
+>>>>>>> 7d8f167 (fix: try renaming libraries)
   piaf)
  (preprocess
   (pps
@@ -57,10 +61,14 @@
    Containers
    -open
 <<<<<<< HEAD
+<<<<<<< HEAD
    Longleaf_lib
 =======
    Longleaf
 >>>>>>> d9e8192 (chore: move strategies)
+=======
+   Longleaf_lib
+>>>>>>> 7d8f167 (fix: try renaming libraries)
    -open
    Ppx_yojson_conv_lib.Yojson_conv.Primitives
    -strict-sequence
