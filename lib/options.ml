@@ -1,4 +1,5 @@
 module Runtype = struct
+<<<<<<< HEAD
   type t =
     | Live
     | Paper
@@ -28,6 +29,22 @@ module Runtype = struct
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
   let is_manual = function Manual -> true | _ -> false
   let is_multitest = function Multitest -> true | _ -> false
+=======
+  type t = Live | Paper | Backtest | Manual [@@deriving show, eq]
+
+  let of_string_res x =
+    match x with
+    | "Live" | "live" -> Ok Live
+    | "Paper" | "paper" -> Ok Paper
+    | "Backtest" | "backtest" -> Ok Backtest
+    | "Manual" | "manual" -> Ok Manual
+    (* | "Listener" | "listener" -> Ok Listener *)
+    (* | "Buyandhold" | "buyandhold" -> Ok BuyAndHold *)
+    | _ -> Error (`Msg "Expected a valid runtype")
+
+  let conv = Cmdliner.Arg.conv (of_string_res, pp)
+  let is_manual = function Manual -> true | _ -> false
+>>>>>>> a13b8a6 (chore: src -> lib)
 end
 
 module Preload = struct
@@ -45,6 +62,7 @@ module Preload = struct
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
 end
 
+<<<<<<< HEAD
 module Context = struct
   type t = {
     strategy : string;
@@ -72,3 +90,11 @@ type t = {
   randomized_backtest_length : int;
   context : Context.t;
 }
+=======
+type t = {
+  runtype : Runtype.t;
+  preload : Preload.t;
+  output_file : string option;
+}
+[@@deriving show]
+>>>>>>> a13b8a6 (chore: src -> lib)
