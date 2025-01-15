@@ -29,14 +29,14 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
 
 let connection_handler ~(mutices : Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
+  (* Eio.traceln "gui.ml: connection handler"; *)
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
-      let body =
-        match Pmutex.get mutices.symbols_mutex with
-        | None -> "No symbols found"
-        | Some symbols -> "Work in progress"
-        (* Html_template.render symbols *)
-      in
+      (* assert (Sys.file_exists "/static/index.html"); *)
+      Eio.traceln "gui.ml: about to read file";
+      let body = Util.read_file_as_string "./static/index.html" in
+      (* Eio.traceln "gui.ml: read file"; *)
+      (* Eio.traceln "response %s" body; *)
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/favicon.ico"; _ } ->
       Eio.traceln "@[Serving favicon.@]@.";
@@ -46,7 +46,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       Pmutex.set mutices.shutdown_mutex true;
       Response.of_string ~body:"Shutdown command sent" `OK
   | { Request.meth = `GET; target = "/lib/javascript/plotly_graph.js"; _ } ->
-      Eio.traceln "GET request for my javascript";
+      (* Eio.traceln "GET request for my javascript"; *)
       let file_path = "./lib/javascript/plotly_graph.js" in
       let body = Util.read_file_as_string file_path in
       let headers =
@@ -62,11 +62,12 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       let body = Plotly.of_stats stats |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/symbols"; _ } ->
-      let symbols =
+      let body =
         Pmutex.get mutices.symbols_mutex
         |> Option.get_exn_or "gui: Must have symbols to display information..."
+        |> fun s -> `Assoc [ ("symbols", `String s) ] |> Yojson.Safe.to_string
       in
-      Response.of_string ~body:symbols `OK
+      Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
       let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
