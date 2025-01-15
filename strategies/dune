@@ -41,7 +41,30 @@
    ppx_variants_conv
    ppx_fields_conv
    landmarks-ppx
-   --auto)))
+   --auto))
+ (enabled_if
+  (= %{profile} debug)))
+
+(library
+ (name longleaf_strategies)
+ (modules :standard)
+ (public_name longleaf-strategies)
+ (libraries
+  fmt
+  containers
+  containers-data
+  ptime
+  eio_main
+  iter
+  cmdliner
+  landmarks
+  owl
+  longleaf-lib
+  piaf)
+ (preprocess
+  (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv))
+ (enabled_if
+  (= %{profile} dev)))
 
 <<<<<<< HEAD
 <<<<<<< HEAD
