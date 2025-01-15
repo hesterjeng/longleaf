@@ -23,9 +23,6 @@
    landmarks-ppx
    --auto)))
 
-; landmarks-ppx
-; --auto)))
-
 (env
  (_
   (flags
