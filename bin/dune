@@ -1,16 +1,11 @@
 (executables
  (names main data_downloader shutdown)
  (public_names main data_downloader shutdown)
- (promote
-  (until-clean)
-  (into ..))
  (package longleaf-lib)
  (instrumentation
   (backend landmarks))
  (libraries
   fmt
-  ; logs
-  ; logs.fmt
   fmt.tty
   containers
   containers-data
