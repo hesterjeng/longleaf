@@ -2,6 +2,8 @@
  (name longleaf_strategies)
  (modules :standard)
  (public_name longleaf-strategies)
+ (instrumentation
+  (backend landmarks))
  (libraries
   fmt
   containers
@@ -15,16 +17,7 @@
   longleaf-lib
   piaf)
  (preprocess
-  (pps
-   ppx_deriving.std
-   ppx_yojson_conv
-   ppx_variants_conv
-   ppx_fields_conv
-   landmarks-ppx
-   --auto)))
-
-; landmarks-ppx
-; --auto)))
+  (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
 
 (env
  (_
