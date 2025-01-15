@@ -4,7 +4,7 @@ module Promise = Eio.Std.Promise
 let prom, resolver = Promise.create ()
 
 let serve_favicon () =
-  let favicon_path = "./src/static/favicon.ico" in
+  let favicon_path = "./lib/static/favicon.ico" in
   let body = Util.read_file_as_string favicon_path in
   Eio.traceln "@[favicon has length %d@]@." (String.length body);
   let headers = Headers.of_list [ ("Content-Type", "image/x-icon") ] in
@@ -29,13 +29,14 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
 
 let connection_handler ~(mutices : Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
+  (* Eio.traceln "gui.ml: connection handler"; *)
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
-      let body =
-        match Pmutex.get mutices.symbols_mutex with
-        | None -> "No symbols found"
-        | Some symbols -> Html_template.render symbols
-      in
+      (* assert (Sys.file_exists "/static/index.html"); *)
+      Eio.traceln "gui.ml: about to read file";
+      let body = Util.read_file_as_string "./static/index.html" in
+      (* Eio.traceln "gui.ml: read file"; *)
+      (* Eio.traceln "response %s" body; *)
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/favicon.ico"; _ } ->
       Eio.traceln "@[Serving favicon.@]@.";
@@ -44,9 +45,9 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       Promise.resolve resolver true;
       Pmutex.set mutices.shutdown_mutex true;
       Response.of_string ~body:"Shutdown command sent" `OK
-  | { Request.meth = `GET; target = "/src/javascript/plotly_graph.js"; _ } ->
-      Eio.traceln "GET request for my javascript";
-      let file_path = "./src/javascript/plotly_graph.js" in
+  | { Request.meth = `GET; target = "/lib/javascript/plotly_graph.js"; _ } ->
+      (* Eio.traceln "GET request for my javascript"; *)
+      let file_path = "./lib/javascript/plotly_graph.js" in
       let body = Util.read_file_as_string file_path in
       let headers =
         Headers.of_list [ ("Content-Type", "application/javascript") ]
@@ -59,6 +60,13 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
   | { Request.meth = `GET; target = "/stats"; _ } ->
       let stats = Pmutex.get mutices.stats_mutex |> Stats.sort in
       let body = Plotly.of_stats stats |> Yojson.Safe.to_string in
+      Response.of_string ~body `OK
+  | { Request.meth = `GET; target = "/symbols"; _ } ->
+      let body =
+        Pmutex.get mutices.symbols_mutex
+        |> Option.get_exn_or "gui: Must have symbols to display information..."
+        |> fun s -> `Assoc [ ("symbols", `String s) ] |> Yojson.Safe.to_string
+      in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in

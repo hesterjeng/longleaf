@@ -1,5 +1,15 @@
 module Run_options = Backend.Run_options
 
+module A = struct
+  let top () = 7
+end
+
+module B = struct
+  let top x =
+    Format.printf "Hello!";
+    A.top () + x
+end
+
 let run_generic ~runtype ~context ~run_options (module Strat : Strategy.BUILDER)
     =
   Eio.traceln "@[Starting Doubletop@]@.";

@@ -66,13 +66,18 @@ let get_next_page_token (x : Yojson.Safe.t) =
     | _ -> invalid_arg "next_page_token must be a string or null")
 
 let read_file_as_string filename =
-  let ic = open_in filename in
-  let len = in_channel_length ic in
-  let content = really_input_string ic len in
-  close_in ic;
-  (* Close the input channel *)
-  content
-(* Return the content *)
+  try
+    let ic = open_in filename in
+    let res = IO.read_all ic in
+    close_in ic;
+    res
+  with
+  | Sys_error e ->
+      Eio.traceln "%s" e;
+      invalid_arg "Util.read_file_as_string"
+  | End_of_file ->
+      Eio.traceln "Util.read_file_as_string: EOF";
+      invalid_arg "Util.read_file_as_string"
 
 let yojson_safe stacktrace (f : unit -> 'a) : 'a =
   try f ()
@@ -100,13 +105,6 @@ let handle_output output =
       Unix.dup2 fd Unix.stdout;
       Unix.dup2 fd Unix.stderr;
       Unix.close fd
-
-let read_file_as_string filename =
-  let in_channel = open_in filename in
-  let len = in_channel_length in_channel in
-  let content = really_input_string in_channel len in
-  close_in in_channel;
-  content
 
 module type CLIENT = sig
   val longleaf_env : Environment.t

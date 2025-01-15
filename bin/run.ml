@@ -1,4 +1,4 @@
-open Longleaf
+open Longleaf_lib
 
 let runtype_target_check ~runtype ~target : unit =
   match target with
