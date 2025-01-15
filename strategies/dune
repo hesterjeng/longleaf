@@ -3,10 +3,15 @@
  (modules :standard)
  (public_name longleaf-strategies)
 <<<<<<< HEAD
+<<<<<<< HEAD
  (instrumentation
   (backend landmarks))
 =======
 >>>>>>> d9e8192 (chore: move strategies)
+=======
+ (instrumentation
+  (backend landmarks))
+>>>>>>> 737c594 (feat: backend instrumentation)
  (libraries
   fmt
   containers
@@ -35,36 +40,7 @@
 >>>>>>> 7d8f167 (fix: try renaming libraries)
   piaf)
  (preprocess
-  (pps
-   ppx_deriving.std
-   ppx_yojson_conv
-   ppx_variants_conv
-   ppx_fields_conv
-   landmarks-ppx
-   --auto))
- (enabled_if
-  (= %{profile} debug)))
-
-(library
- (name longleaf_strategies)
- (modules :standard)
- (public_name longleaf-strategies)
- (libraries
-  fmt
-  containers
-  containers-data
-  ptime
-  eio_main
-  iter
-  cmdliner
-  landmarks
-  owl
-  longleaf-lib
-  piaf)
- (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv))
- (enabled_if
-  (= %{profile} dev)))
+  (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
 
 <<<<<<< HEAD
 <<<<<<< HEAD
