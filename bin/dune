@@ -5,6 +5,8 @@
   (until-clean)
   (into ..))
  (package longleaf-lib)
+ (instrumentation
+  (backend landmarks))
  (libraries
   fmt
   ; logs
@@ -20,10 +22,8 @@
   longleaf-strategies
   landmarks
   eio_main)
- ; (preprocess
- ;  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
+  (pps ppx_deriving.std ppx_yojson_conv)))
 
 (env
  (dev
