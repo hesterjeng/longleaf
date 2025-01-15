@@ -1,13 +1,12 @@
 (library
- (name longleaf)
+ (name longleaf_lib)
  (modules :standard)
- (public_name longleaf)
+ (public_name longleaf-lib)
  (libraries
   fmt
   containers
   containers-data
   ptime
-  dream
   eio_main
   iter
   cmdliner
@@ -40,11 +39,3 @@
    Ppx_yojson_conv_lib.Yojson_conv.Primitives
    -strict-sequence
    -safe-string)))
-
-(rule
- ; (mode
- ;  (promote (until-clean)))
- (targets html_template.ml)
- (deps html_template.eml.html)
- (action
-  (run dream_eml %{deps} --workspace %{workspace_root})))

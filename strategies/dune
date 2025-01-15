@@ -7,13 +7,12 @@
   containers
   containers-data
   ptime
-  dream
   eio_main
   iter
   cmdliner
   landmarks
   owl
-  longleaf
+  longleaf-lib
   piaf)
  (preprocess
   (pps
@@ -38,7 +37,7 @@
    -open
    Containers
    -open
-   Longleaf
+   Longleaf_lib
    -open
    Ppx_yojson_conv_lib.Yojson_conv.Primitives
    -strict-sequence
