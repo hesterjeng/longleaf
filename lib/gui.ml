@@ -32,11 +32,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
   (* Eio.traceln "gui.ml: connection handler"; *)
   match params.request with
   | { Request.meth = `GET; target = "/"; _ } ->
-      (* assert (Sys.file_exists "/static/index.html"); *)
-      Eio.traceln "gui.ml: about to read file";
       let body = Util.read_file_as_string "./static/index.html" in
-      (* Eio.traceln "gui.ml: read file"; *)
-      (* Eio.traceln "response %s" body; *)
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/favicon.ico"; _ } ->
       Eio.traceln "@[Serving favicon.@]@.";

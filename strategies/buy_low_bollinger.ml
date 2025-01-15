@@ -15,16 +15,6 @@ module Conditions = struct
 
   module P = Parameters
 
-  (* type t = Pass of Item.t | Fail of string *)
-
-  (* let is_pass = function Pass x -> Some x | _ -> None *)
-  (* let find_pass (l : t Iter.t) = Iter.find_map is_pass l *)
-  (* let init l = Iter.map (fun x -> Pass x) l *)
-
-  (* let map (f : Item.t -> t) (l : t Iter.t) = *)
-  (*   Iter.map (function Pass x -> f x | Fail s -> Fail s) l *)
-
-  (* Is the current price below the bollinger band? *)
   let below_bollinger (indicators : Indicators.t) symbol
       (current_price : Item.t) =
     let last_price = Item.last current_price in
@@ -37,8 +27,14 @@ module Conditions = struct
       |> Indicators.Point.lower_bollinger
     in
     match last_price <=. lower_bollinger with
-    | true -> Some current_price
+    | true -> Some `Pass
     | false -> None
+
+  let small_rsi (indicators : Indicators.t) symbol =
+    let open Option in
+    let* indicators = Indicators.get indicators symbol in
+    let* point = Vector.top indicators in
+    if Indicators.Point.rsi point <=. 40.0 then Some `Pass else None
 
   module Sell_reason = struct
     type t =
@@ -83,8 +79,11 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     let open Option.Infix in
     (* let* price_history = Bars.get history symbol in *)
     let most_recent_price = Bars.Latest.get state.latest symbol in
-    let* (_ : Item.t) =
-      Conditions.below_bollinger state.indicators symbol most_recent_price
+    let* _ =
+      let* _ =
+        Conditions.below_bollinger state.indicators symbol most_recent_price
+      in
+      Conditions.small_rsi state.indicators symbol
     in
     let order =
       let side = Side.Buy in
