@@ -1,4 +1,5 @@
 module Run_options = Backend.Run_options
+module Collections = Ticker_collections
 
 module A = struct
   let top () = 7
@@ -23,28 +24,7 @@ let run_generic ~runtype ~context ~run_options (module Strat : Strategy.BUILDER)
 module DoubleTop = struct
   let run_options runtype : Run_options.t =
     {
-      symbols =
-        [
-          "NVDA";
-          "TSLA";
-          "AAPL";
-          "MSFT";
-          "NFLX";
-          "META";
-          "AMZN";
-          "AMD";
-          "AVGO";
-          "ELV";
-          "UNH";
-          "MU";
-          "V";
-          "GOOG";
-          "SMCI";
-          "MSTR";
-          "UBER";
-          "LLY";
-          "SPY";
-        ];
+      symbols = Collections.some_symbols;
       tick = 600.0;
       overnight = false;
       resume_after_liquidate = true;
@@ -59,27 +39,7 @@ end
 module LowBall = struct
   let run_options runtype : Run_options.t =
     {
-      symbols =
-        [
-          "NVDA";
-          "TSLA";
-          "AAPL";
-          "MSFT";
-          "NFLX";
-          "META";
-          "AMZN";
-          "AMD";
-          "AVGO";
-          "ELV";
-          "UNH";
-          "MU";
-          "V";
-          "GOOG";
-          "SMCI";
-          "MSTR";
-          "UBER";
-          "LLY";
-        ];
+      symbols = Collections.some_symbols;
       tick = 600.0;
       overnight = true;
       resume_after_liquidate = true;
@@ -95,27 +55,7 @@ end
 module Listener = struct
   let run_options runtype : Run_options.t =
     {
-      symbols =
-        [
-          "NVDA";
-          "TSLA";
-          "AAPL";
-          "MSFT";
-          "NFLX";
-          "META";
-          "AMZN";
-          "AMD";
-          "AVGO";
-          "ELV";
-          "UNH";
-          "MU";
-          "V";
-          "GOOG";
-          "SMCI";
-          "MSTR";
-          "UBER";
-          "LLY";
-        ];
+      symbols = Collections.some_symbols;
       tick = 600.0;
       overnight = true;
       resume_after_liquidate = true;
