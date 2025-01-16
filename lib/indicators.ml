@@ -37,11 +37,10 @@ let ema length previous latest =
 
 let simple_moving_average n (l : Bars.symbol_history) =
   let length = Vector.length l in
-  let last = Vector.map Item.last l in
   let start = Int.max (length - n) 0 in
   let n = Int.min n length in
   (* Eio.traceln "@[sma: %d %d@]" n (Vector.size close); *)
-  let window = Vector.slice_iter last start n in
+  let window = Vector.slice_iter l start n |> Iter.map Item.last in
   let sum = Iter.fold ( +. ) 0.0 window in
   sum /. Float.of_int n
 

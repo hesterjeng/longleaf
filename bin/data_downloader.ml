@@ -1,4 +1,5 @@
 open Longleaf_lib
+module Collections = Longleaf_strategies.Collections
 
 module Downloader_ty = struct
   type t = Alpaca | Tiingo [@@deriving show]
@@ -10,29 +11,6 @@ module Downloader_ty = struct
 
   let conv = Cmdliner.Arg.conv (of_string, pp)
 end
-
-let some_symbols =
-  [
-    "NVDA";
-    "TSLA";
-    "AAPL";
-    "MSFT";
-    "NFLX";
-    "META";
-    "AMZN";
-    "AMD";
-    "AVGO";
-    "ELV";
-    "UNH";
-    "MU";
-    "V";
-    "GOOG";
-    "SMCI";
-    "MSTR";
-    "UBER";
-    "LLY";
-    "SPY";
-  ]
 
 module Args = struct
   (* Define the CLI arguments *)
@@ -142,7 +120,7 @@ module Cmd = struct
     let request =
       match
         Longleaf.Market_data_api.Historical_bars_request.of_data_downloader
-          some_symbols begin_arg end_arg timeframe_arg interval_arg
+          Collections.sp100 begin_arg end_arg timeframe_arg interval_arg
       with
       | Some r -> r
       | None ->
@@ -153,7 +131,7 @@ module Cmd = struct
           {
             timeframe = Trading_types.Timeframe.min 10;
             start;
-            symbols = some_symbols;
+            symbols = Collections.sp100;
             end_ = None;
           }
     in
