@@ -110,6 +110,8 @@ let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
   let length = Vector.length vec in
   Vector.slice_iter vec (Int.max (length - n) 0) (Int.min n length)
 
+let random_state = Random.State.make_self_init ()
+
 module type CLIENT = sig
   val longleaf_env : Environment.t
   val client : Piaf.Client.t

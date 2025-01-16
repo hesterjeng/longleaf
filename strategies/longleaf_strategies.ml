@@ -31,6 +31,7 @@ module DoubleTop = struct
       resume_after_liquidate = true;
       runtype;
       indicators_config : Indicators.Config.t = { fft = false };
+      dropout = false;
     }
 
   let top runtype context =
@@ -47,6 +48,7 @@ module LowBall = struct
       resume_after_liquidate = true;
       runtype;
       indicators_config : Indicators.Config.t = { fft = false };
+      dropout = false;
     }
 
   let top runtype context =
@@ -63,6 +65,7 @@ module Listener = struct
       resume_after_liquidate = true;
       runtype;
       indicators_config : Indicators.Config.t = { fft = false };
+      dropout = false;
     }
 
   let top runtype context =
@@ -78,6 +81,7 @@ module BuyAndHold = struct
       resume_after_liquidate = true;
       runtype;
       indicators_config : Indicators.Config.t = { fft = false };
+      dropout = false;
     }
 
   let top runtype context =
