@@ -1,13 +1,22 @@
+open Trading_types
+
+module DT_Status = struct
+  type t = Placed of (int * Order.t) | Waiting [@@deriving show]
+end
+
+type state = DT_Status.t State.t
+
 module Conditions = struct
   module Parameters = struct
     (* let min_dip = 0.98 *)
     (* let lower_now_band = 0.99 *)
     (* let upper_now_band = 1.01 *)
-    let stop_loss_multiplier = 0.96
+    let stop_loss_multiplier = 0.92
     let profit_multiplier = 1.04
     let max_holding_period = 300
-    let window_size = 20
-    let lookback = 120
+
+    (* let window_size = 20 *)
+    (* let lookback = 120 *)
 
     (* The amount of periods necessary between now and the triggering peak *)
     let min_time_gap = max_holding_period
@@ -50,13 +59,21 @@ module Conditions = struct
       | HoldingPeriod of float
       | StopLoss of float
       | FSO_High of float
+      | HoldBelowBollinger
       | Hold
     [@@deriving show { with_path = false }]
 
-    let make ~time_held ~current_price ~indicators
+    let make ~time_held ~current_price ~(state : state)
         ~(buying_order : Trading_types.Order.t) ~price_difference =
+      let below_bollinger =
+        below_bollinger state.indicators buying_order.symbol
+        @@ Bars.Latest.get state.latest buying_order.symbol
+        |> function
+        | Some `Pass -> true
+        | None -> false
+      in
       let fso_pk =
-        Indicators.get indicators buying_order.symbol
+        Indicators.get state.indicators buying_order.symbol
         |> Option.get_exn_or "bollinger: Sell_reason.make"
         |> Vector.top
         |> Option.get_exn_or "boll: Sell_reason.make"
@@ -65,6 +82,7 @@ module Conditions = struct
       if current_price >. P.profit_multiplier *. buying_order.price then
         Profited price_difference
       else if fso_pk >=. 95.0 then FSO_High price_difference
+        (* else if below_bollinger then HoldBelowBollinger *)
       else if time_held > P.max_holding_period then
         HoldingPeriod price_difference
       else if current_price <. P.stop_loss_multiplier *. buying_order.price then
@@ -77,14 +95,6 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
   let shutdown () =
     Eio.traceln "Shutdown command NYI";
     ()
-
-  open Trading_types
-
-  module DT_Status = struct
-    type t = Placed of (int * Order.t) | Waiting [@@deriving show]
-  end
-
-  type state = DT_Status.t State.t
 
   let init_state = Backend.init_state DT_Status.Waiting
 
@@ -160,8 +170,8 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     let timestamp = Item.timestamp current_bar in
     let price_difference = buying_order.price -. current_price in
     let cover_reason =
-      Conditions.Sell_reason.make ~time_held ~indicators:state.indicators
-        ~current_price ~buying_order ~price_difference
+      Conditions.Sell_reason.make ~time_held ~state ~current_price ~buying_order
+        ~price_difference
     in
     match cover_reason with
     | Profited _ | HoldingPeriod _ | StopLoss _ | FSO_High _ ->
@@ -194,6 +204,15 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
              state with
              State.current = `Listening;
              content = DT_Status.Placed (time_held + 1, buying_order);
+           }
+    | HoldBelowBollinger ->
+        Eio.traceln
+          "Resetting hold time because we dipped below bollinger band.";
+        Result.return
+        @@ {
+             state with
+             State.current = `Listening;
+             content = DT_Status.Placed (0, buying_order);
            }
 
   let step (state : state) =
