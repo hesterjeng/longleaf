@@ -24,7 +24,8 @@ let run_generic ~runtype ~context ~run_options (module Strat : Strategy.BUILDER)
 module DoubleTop = struct
   let run_options runtype : Run_options.t =
     {
-      symbols = Collections.some_symbols;
+      (* symbols = Collections.some_symbols; *)
+      symbols = Collections.sp100;
       tick = 600.0;
       overnight = false;
       resume_after_liquidate = true;
@@ -39,7 +40,8 @@ end
 module LowBall = struct
   let run_options runtype : Run_options.t =
     {
-      symbols = Collections.some_symbols;
+      (* symbols = Collections.some_symbols; *)
+      symbols = Collections.sp100;
       tick = 600.0;
       overnight = true;
       resume_after_liquidate = true;
