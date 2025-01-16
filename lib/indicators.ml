@@ -28,7 +28,7 @@ let adl previous_adl (current : Item.t) =
 (* Length is the number of data points so far *)
 (* Previous is the previous EMA value *)
 (* Latest is the latest price *)
-let ema length previous latest =
+let mk_ema length previous latest =
   if Item.volume latest = 0 then previous
   else
     let price = Item.last latest in
@@ -36,11 +36,7 @@ let ema length previous latest =
     previous +. (alpha *. (price -. previous))
 
 let simple_moving_average n (l : Bars.symbol_history) =
-  let length = Vector.length l in
-  let start = Int.max (length - n) 0 in
-  let n = Int.min n length in
-  (* Eio.traceln "@[sma: %d %d@]" n (Vector.size close); *)
-  let window = Vector.slice_iter l start n |> Iter.map Item.last in
+  let window = Util.last_n n l |> Iter.map Item.last in
   let sum = Iter.fold ( +. ) 0.0 window in
   sum /. Float.of_int n
 
@@ -48,17 +44,16 @@ let upper_bollinger standard_deviation sma = sma +. (2.0 *. standard_deviation)
 let lower_bollinger standard_deviation sma = sma -. (2.0 *. standard_deviation)
 
 let bollinger n history =
-  let length = Vector.length history in
   let sma = simple_moving_average n history in
   let standard_deviation =
-    Vector.slice_iter history (Int.max (length - n) 0) (Int.min n length)
+    Util.last_n n history
     |> (Iter.map @@ fun item -> Item.last item)
     |> Iter.to_array |> Owl_stats.std
   in
   ( lower_bollinger standard_deviation sma,
     upper_bollinger standard_deviation sma )
 
-let awesome fast slow = fast -. slow
+let mk_awesome fast slow = fast -. slow
 
 module RSI = struct
   (* Relative strength index calculation *)
@@ -87,11 +82,9 @@ module SO = struct
 
   let pK n (l : Bars.symbol_history) (last : Item.t) =
     let current = Item.last last in
-    let length = Vector.length l in
     let window =
-      Vector.slice_iter l (Int.max (length - n) 0) (Int.min n length)
-      |> Iter.map Item.last |> Iter.to_array
-      |> fun a -> Array.append a [| current |]
+      Util.last_n n l |> Iter.map Item.last |> Iter.cons current
+      |> Iter.to_array
     in
     let min, max = Owl_stats.minmax window in
     if Float.equal max min then 0.0
@@ -100,6 +93,9 @@ module SO = struct
       (* Eio.traceln "%f %f %f" min current max; *)
       assert (rhs <=. 1.0);
       100.0 *. rhs
+
+  let pD previous (previous_pK : float Iter.t) =
+    Owl_stats.mean @@ Iter.to_array @@ Iter.cons previous previous_pK
 end
 
 module FFT = struct
@@ -197,6 +193,7 @@ module Point = struct
     average_loss : float;
     relative_strength_index : float;
     fast_stochastic_oscillator_k : float;
+    fast_stochastic_oscillator_d : float;
     fourier_transform : (FFT.t[@yojson.opaque]);
     ft_normalized_magnitude : float;
     fft_mean_squared_error : float;
@@ -218,17 +215,30 @@ module Point = struct
       average_loss = 0.00001;
       relative_strength_index = 50.0;
       fast_stochastic_oscillator_k = 50.0;
+      fast_stochastic_oscillator_d = 50.0;
       fourier_transform = FFT.empty;
       ft_normalized_magnitude = 0.0;
       fft_mean_squared_error = 0.0;
     }
 
+  let ema x = x.exponential_moving_average
+  let sma_5 x = x.sma_5
+  let sma_34 x = x.sma_34
+  let lower_bollinger x = x.lower_bollinger
+  let upper_bollinger x = x.upper_bollinger
+  let awesome x = x.awesome_oscillator
+  let rsi x = x.relative_strength_index
+  let fso_pk x = x.fast_stochastic_oscillator_k
+  let fso_pd x = x.fast_stochastic_oscillator_d
+  let ft_normalized_magnitude x = x.ft_normalized_magnitude
+  let fft_mean_squared_error x = x.fft_mean_squared_error
+
   let of_latest config timestamp symbol_history length (previous : t)
-      (latest : Item.t) =
+      (previous_vec : (t, _) Vector.t) (latest : Item.t) =
     let lower_bollinger, upper_bollinger = bollinger 34 symbol_history in
     let sma_5 = simple_moving_average 5 symbol_history in
     let sma_34 = simple_moving_average 34 symbol_history in
-    let awesome_oscillator = awesome sma_5 sma_34 in
+    let awesome_oscillator = mk_awesome sma_5 sma_34 in
     let price = Item.last latest in
     let previous_price = previous.price in
     let average_gain =
@@ -239,6 +249,10 @@ module Point = struct
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
     let fast_stochastic_oscillator_k = SO.pK 140 symbol_history latest in
+    let fast_stochastic_oscillator_d =
+      SO.pD fast_stochastic_oscillator_k
+      @@ (Util.last_n 3 previous_vec |> Iter.map fso_pk)
+    in
     let fourier_transform = FFT.fft config symbol_history latest in
     let ft_normalized_magnitude =
       FFT.fft_nm config fourier_transform symbol_history
@@ -252,7 +266,7 @@ module Point = struct
         accumulation_distribution_line =
           adl previous.accumulation_distribution_line latest;
         exponential_moving_average =
-          ema length previous.exponential_moving_average latest;
+          mk_ema length previous.exponential_moving_average latest;
         sma_5;
         sma_34;
         lower_bollinger;
@@ -263,28 +277,13 @@ module Point = struct
         average_loss;
         relative_strength_index;
         fast_stochastic_oscillator_k;
+        fast_stochastic_oscillator_d;
         fourier_transform;
         ft_normalized_magnitude;
         fft_mean_squared_error;
       }
     in
-    (* if Float.equal previous.sma_5 res.sma_5 then ( *)
-    (*   (\* Eio.traceln "%a" (Vector.pp Item.pp) symbol_history; *\) *)
-    (*   Eio.traceln "error: identical sma5: %a %f %f" Time.pp timestamp *)
-    (*     previous.sma_5 res.sma_5; *)
-    (*   invalid_arg "try"); *)
     res
-
-  let ema x = x.exponential_moving_average
-  let sma_5 x = x.sma_5
-  let sma_34 x = x.sma_34
-  let lower_bollinger x = x.lower_bollinger
-  let upper_bollinger x = x.upper_bollinger
-  let awesome x = x.awesome_oscillator
-  let rsi x = x.relative_strength_index
-  let fso_pk x = x.fast_stochastic_oscillator_k
-  let ft_normalized_magnitude x = x.ft_normalized_magnitude
-  let fft_mean_squared_error x = x.fft_mean_squared_error
 end
 
 type t = Point.t Vector.vector Hashtbl.t
@@ -323,7 +322,7 @@ let initialize config bars symbol =
             in
             let res =
               Point.of_latest config timestamp bars_vec_upto_now length previous
-                item
+                initial_stats_vector item
             in
             Vector.push initial_stats_vector res;
             Option.return res)
@@ -359,6 +358,7 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     | None -> Point.initial timestamp
   in
   let new_indicators =
-    Point.of_latest config timestamp symbol_history length previous latest
+    Point.of_latest config timestamp symbol_history length previous
+      indicators_vector latest
   in
   Vector.push indicators_vector new_indicators
