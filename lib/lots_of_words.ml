@@ -627,7 +627,5 @@ let words =
   ]
 
 let select () =
-  Random.self_init ();
-  let state = Random.get_state () in
   let choose = Random.pick_list words in
-  choose state
+  choose Util.random_state
