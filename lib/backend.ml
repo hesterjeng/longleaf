@@ -121,6 +121,7 @@ module Run_options = struct
     resume_after_liquidate : bool;
     runtype : Options.Runtype.t;
     indicators_config : Indicators.Config.t;
+    dropout : bool;
   }
 end
 
@@ -172,6 +173,9 @@ module type BACKEND_INPUT = sig
 
   (* Indicators options *)
   val indicators_config : Indicators.Config.t
+
+  (* Are we going to randomly drop orders for testing? *)
+  val dropout : bool
 end
 
 module type S = sig
@@ -408,6 +412,7 @@ module Alpaca (Input : BACKEND_INPUT) : S = struct
 
   let place_order state order =
     let ( let* ) = Result.( let* ) in
+    assert (not @@ Input.dropout);
     let* () = Backtesting.place_order state order in
     Trading_api.Orders.create_market_order order
 
@@ -456,6 +461,7 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
     let tick = options.tick
     let runtype = options.runtype
     let indicators_config = options.indicators_config
+    let dropout = options.dropout
 
     (* Target *)
     let target =
