@@ -57,7 +57,7 @@ let indicator_trace ?(show = true) ~data (indicators : Indicators.t)
            res))
       indicators_vec
     |> Vector.to_list
-    |> List.mapi (fun i b -> if i = 0 then `Null else b)
+    |> List.mapi (fun i b -> if i <= 34 then `Null else b)
   in
   if List.length x <> List.length y then
     Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
@@ -172,6 +172,9 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* fso_pk =
     indicator_trace ~data ~show:false indicators "FSO %K" IP.fso_pk symbol
   in
+  let* fso_pd =
+    indicator_trace ~data ~show:false indicators "FSO %D" IP.fso_pd symbol
+  in
   let* fft_thing =
     indicator_trace ~data ~show:false indicators
       "Fourier Transform Normalized Magnitude" IP.ft_normalized_magnitude symbol
@@ -201,6 +204,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                awesome;
                rsi;
                fso_pk;
+               fso_pd;
                fft_thing;
                fft_mse;
              ];

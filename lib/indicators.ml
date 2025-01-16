@@ -251,7 +251,7 @@ module Point = struct
     let fast_stochastic_oscillator_k = SO.pK 140 symbol_history latest in
     let fast_stochastic_oscillator_d =
       SO.pD fast_stochastic_oscillator_k
-      @@ (Util.last_n 3 previous_vec |> Iter.map fso_pk)
+      @@ (Util.last_n 34 previous_vec |> Iter.map fso_pk)
     in
     let fourier_transform = FFT.fft config symbol_history latest in
     let ft_normalized_magnitude =
