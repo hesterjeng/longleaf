@@ -15,16 +15,6 @@ module Conditions = struct
 
   module P = Parameters
 
-  (* type t = Pass of Item.t | Fail of string *)
-
-  (* let is_pass = function Pass x -> Some x | _ -> None *)
-  (* let find_pass (l : t Iter.t) = Iter.find_map is_pass l *)
-  (* let init l = Iter.map (fun x -> Pass x) l *)
-
-  (* let map (f : Item.t -> t) (l : t Iter.t) = *)
-  (*   Iter.map (function Pass x -> f x | Fail s -> Fail s) l *)
-
-  (* Is the current price below the bollinger band? *)
   let below_bollinger (indicators : Indicators.t) symbol
       (current_price : Item.t) =
     let last_price = Item.last current_price in
@@ -37,21 +27,44 @@ module Conditions = struct
       |> Indicators.Point.lower_bollinger
     in
     match last_price <=. lower_bollinger with
-    | true -> Some current_price
+    | true -> Some `Pass
     | false -> None
+
+  (* Only buy if RSI is less than 40 *)
+  let small_rsi (indicators : Indicators.t) symbol =
+    let open Option in
+    let* indicators = Indicators.get indicators symbol in
+    let* point = Vector.top indicators in
+    if Indicators.Point.rsi point <=. 40.0 then Some `Pass else None
+
+  (* We only want to buy if FSO %K is less than 50 *)
+  let small_fso (indicators : Indicators.t) symbol =
+    let open Option in
+    let* indicators = Indicators.get indicators symbol in
+    let* point = Vector.top indicators in
+    if Indicators.Point.fso_pk point >=. 50.0 then None else Some `Pass
 
   module Sell_reason = struct
     type t =
       | Profited of float
       | HoldingPeriod of float
       | StopLoss of float
+      | FSO_High of float
       | Hold
     [@@deriving show { with_path = false }]
 
-    let make ~time_held ~current_price ~(buying_order : Trading_types.Order.t)
-        ~price_difference =
+    let make ~time_held ~current_price ~indicators
+        ~(buying_order : Trading_types.Order.t) ~price_difference =
+      let fso_pk =
+        Indicators.get indicators buying_order.symbol
+        |> Option.get_exn_or "bollinger: Sell_reason.make"
+        |> Vector.top
+        |> Option.get_exn_or "boll: Sell_reason.make"
+        |> Indicators.Point.fso_pk
+      in
       if current_price >. P.profit_multiplier *. buying_order.price then
         Profited price_difference
+      else if fso_pk >=. 95.0 then FSO_High price_difference
       else if time_held > P.max_holding_period then
         HoldingPeriod price_difference
       else if current_price <. P.stop_loss_multiplier *. buying_order.price then
@@ -83,8 +96,13 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     let open Option.Infix in
     (* let* price_history = Bars.get history symbol in *)
     let most_recent_price = Bars.Latest.get state.latest symbol in
-    let* (_ : Item.t) =
-      Conditions.below_bollinger state.indicators symbol most_recent_price
+    let* _ =
+      let* _ =
+        Conditions.below_bollinger state.indicators symbol most_recent_price
+      in
+      let* _ = Conditions.small_rsi state.indicators symbol in
+      (* Conditions.small_fso state.indicators symbol *)
+      Some `Buy
     in
     let order =
       let side = Side.Buy in
@@ -142,11 +160,11 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     let timestamp = Item.timestamp current_bar in
     let price_difference = buying_order.price -. current_price in
     let cover_reason =
-      Conditions.Sell_reason.make ~time_held ~current_price ~buying_order
-        ~price_difference
+      Conditions.Sell_reason.make ~time_held ~indicators:state.indicators
+        ~current_price ~buying_order ~price_difference
     in
     match cover_reason with
-    | Profited _ | HoldingPeriod _ | StopLoss _ ->
+    | Profited _ | HoldingPeriod _ | StopLoss _ | FSO_High _ ->
         let profit =
           Float.of_int buying_order.qty *. (current_price -. buying_order.price)
         in
