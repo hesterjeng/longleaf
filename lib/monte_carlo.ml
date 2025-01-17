@@ -1,14 +1,17 @@
 module Gaussian = struct
-  type t = { mean : float; std : float (* standard deviation *); degrees_freedom : float; kurtosis : float }
+  type t = {
+    mean : float;
+    std : float; (* standard deviation *)
+    degrees_freedom : float;
+    kurtosis : float;
+  }
   [@@deriving show]
 
   let of_array (x : float array) =
     let mean = Owl_stats.mean x in
     let std = Owl_stats.std x in
     let kurtosis = Owl_stats.kurtosis ~mean ~sd:std x in
-    let degrees_freedom =
-      (6.0 /. (kurtosis -. 3.0)) +. 4.0
-    in
+    let degrees_freedom = (6.0 /. (kurtosis -. 3.0)) +. 4.0 in
     { mean; std; kurtosis; degrees_freedom }
 
   (* Create a Gaussian PDF of the differences of floats in the array *)
@@ -33,7 +36,9 @@ module Gaussian = struct
   (* sample *)
   let gaussian_rv (x : t) = Owl_stats.gaussian_rvs ~mu:x.mean ~sigma:x.std
   let cauchy_rv (x : t) = Owl_stats.cauchy_rvs ~loc:x.mean ~scale:x.std
-  let student_rv (x : t) = Owl_stats.t_rvs ~df:x.degrees_freedom ~loc:x.mean ~scale:x.std
+
+  let student_rv (x : t) =
+    Owl_stats.t_rvs ~df:x.degrees_freedom ~loc:x.mean ~scale:x.std
 
   let next_data_point ~(dist : t) previous =
     let diff = student_rv dist in
