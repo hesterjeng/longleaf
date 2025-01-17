@@ -68,3 +68,17 @@ module Item = struct
     of_item_array (Vector.to_array preload) (Vector.to_array target)
     |> Vector.of_array
 end
+
+module Bars = struct
+  module Hashtbl = Bars.Hashtbl
+
+  let of_bars ~preload ~(target : Bars.t) : Bars.t =
+    Hashtbl.to_seq target
+    |> Seq.map (fun (symbol, target) ->
+           let preload =
+             Bars.get preload symbol
+             |> Option.get_exn_or "Must have preload in monte carlo"
+           in
+           (symbol, Item.of_item_vector ~preload ~target))
+    |> Hashtbl.of_seq
+end
