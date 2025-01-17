@@ -186,9 +186,11 @@ module Point = struct
     exponential_moving_average : float;
     sma_5 : float;
     sma_34 : float;
+    sma_233 : float;
     upper_bollinger : float;
     lower_bollinger : float;
     awesome_oscillator : float;
+    awesome_slow : float;
     average_gain : float;
     average_loss : float;
     relative_strength_index : float;
@@ -208,9 +210,11 @@ module Point = struct
       price = 0.0;
       sma_5 = 0.0;
       sma_34 = 0.0;
+      sma_233 = 0.0;
       upper_bollinger = 0.0;
       lower_bollinger = 0.0;
       awesome_oscillator = 0.0;
+      awesome_slow = 0.0;
       average_gain = 0.00001;
       average_loss = 0.00001;
       relative_strength_index = 50.0;
@@ -224,9 +228,11 @@ module Point = struct
   let ema x = x.exponential_moving_average
   let sma_5 x = x.sma_5
   let sma_34 x = x.sma_34
+  let sma_233 x = x.sma_233
   let lower_bollinger x = x.lower_bollinger
   let upper_bollinger x = x.upper_bollinger
   let awesome x = x.awesome_oscillator
+  let awesome_slow x = x.awesome_slow
   let rsi x = x.relative_strength_index
   let fso_pk x = x.fast_stochastic_oscillator_k
   let fso_pd x = x.fast_stochastic_oscillator_d
@@ -260,6 +266,7 @@ module Point = struct
     let fft_mean_squared_error =
       FFT.mean_squared_error config previous.fourier_transform fourier_transform
     in
+    let sma_233 = simple_moving_average 233 symbol_history in
     let res =
       {
         timestamp;
@@ -269,9 +276,11 @@ module Point = struct
           mk_ema length previous.exponential_moving_average latest;
         sma_5;
         sma_34;
+        sma_233 = simple_moving_average 233 symbol_history;
         lower_bollinger;
         upper_bollinger;
         awesome_oscillator;
+        awesome_slow = mk_awesome sma_34 sma_233;
         price;
         average_gain;
         average_loss;
