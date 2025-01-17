@@ -489,7 +489,8 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
       in
       Bars.sort (Ord.opp Item.compare) res;
       match options.runtype with
-      | Montecarlo -> Monte_carlo.Bars.of_bars ~preload:bars ~target:res
+      | Montecarlo | MultiMontecarlo ->
+          Monte_carlo.Bars.of_bars ~preload:bars ~target:res
       | _ -> res
   end : BACKEND_INPUT)
 
@@ -501,7 +502,7 @@ let create_backend (options : Run_options.t) (context : Run_context.t) =
   | Paper ->
       Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
       (module Alpaca (Input) : S)
-  | Backtest | Multitest | Montecarlo ->
+  | Backtest | Multitest | Montecarlo | MultiMontecarlo ->
       Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
       (module Backtesting (Input))
 >>>>>>> a13b8a6 (chore: src -> lib)
