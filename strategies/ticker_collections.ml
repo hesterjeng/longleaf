@@ -35,7 +35,7 @@ let sp100 =
     "AMGN";
     "AMT";
     "AMZN";
-    "AVGO";
+    (* "AVGO"; *)
     "AXP";
     "BA";
     "BAC";

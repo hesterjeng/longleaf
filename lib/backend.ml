@@ -386,6 +386,6 @@ let create_backend (options : Run_options.t) (context : Run_context.t) =
   | Paper ->
       Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
       (module Alpaca (Input) : S)
-  | Backtest ->
+  | Backtest | Multitest ->
       Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
       (module Backtesting (Input))

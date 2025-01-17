@@ -1,16 +1,6 @@
 module Run_options = Backend.Run_options
 module Collections = Ticker_collections
 
-module A = struct
-  let top () = 7
-end
-
-module B = struct
-  let top x =
-    Format.printf "Hello!";
-    A.top () + x
-end
-
 let run_generic ~runtype ~context ~run_options (module Strat : Strategy.BUILDER)
     =
   Eio.traceln "@[Starting Doubletop@]@.";
@@ -101,9 +91,36 @@ let of_string_res x =
 
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
 
-let run runtype context x =
+let run_strat runtype context x =
   match x with
   | BuyAndHold -> BuyAndHold.top runtype context
   | Listener -> Listener.top runtype context
   | DoubleTop -> DoubleTop.top runtype context
   | LowBoll -> LowBall.top runtype context
+
+type multitest = { mean : float; min : float; max : float; std : float }
+[@@deriving show]
+
+let run (runtype : Options.Runtype.t) context x =
+  match runtype with
+  | Live | Paper | Backtest | Manual -> run_strat runtype context x
+  | Multitest ->
+      let init = Array.make 100 () in
+      let res = Array.map (fun _ -> run_strat runtype context x) init in
+      Array.sort Float.compare res;
+      let mean = Owl_stats.mean res in
+      let std = Owl_stats.std res in
+      let min, max = Owl_stats.minmax res in
+      let result = { mean; min; max; std } in
+      Eio.traceln "@[%a@]@.@[%a@]@." pp_multitest result (Array.pp Float.pp) res;
+      let histogram = Owl_stats.histogram (`N 10) res in
+      let percent_profitable =
+        Array.filter (fun x -> x >=. 100000.0) res
+        |> Array.length |> Float.of_int
+        |> fun f -> f /. (Float.of_int @@ Array.length res)
+      in
+      Eio.traceln "@[percent profitable: %f@]@." percent_profitable;
+      let normalised_histogram = Owl_stats.normalise histogram in
+      Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
+      Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
+      0.0

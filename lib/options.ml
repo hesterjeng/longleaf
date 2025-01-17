@@ -1,5 +1,5 @@
 module Runtype = struct
-  type t = Live | Paper | Backtest | Manual [@@deriving show, eq]
+  type t = Live | Paper | Backtest | Manual | Multitest [@@deriving show, eq]
 
   let of_string_res x =
     match x with
@@ -7,12 +7,14 @@ module Runtype = struct
     | "Paper" | "paper" -> Ok Paper
     | "Backtest" | "backtest" -> Ok Backtest
     | "Manual" | "manual" -> Ok Manual
+    | "Multitest" | "multitest" -> Ok Multitest
     (* | "Listener" | "listener" -> Ok Listener *)
     (* | "Buyandhold" | "buyandhold" -> Ok BuyAndHold *)
     | _ -> Error (`Msg "Expected a valid runtype")
 
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
   let is_manual = function Manual -> true | _ -> false
+  let is_multitest = function Multitest -> true | _ -> false
 end
 
 module Preload = struct
