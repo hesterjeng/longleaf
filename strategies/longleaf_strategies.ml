@@ -33,6 +33,7 @@ module LowBall = struct
     {
       (* symbols = Collections.some_symbols; *)
       symbols = Collections.sp100;
+      (* symbols = [ "AAPL" ]; *)
       tick = 600.0;
       overnight = true;
       resume_after_liquidate = true;
@@ -104,8 +105,8 @@ type multitest = { mean : float; min : float; max : float; std : float }
 let run (runtype : Options.Runtype.t) context x =
   match runtype with
   | Live | Paper | Backtest | Manual | Montecarlo -> run_strat runtype context x
-  | Multitest ->
-      let init = Array.make 100 () in
+  | Multitest | MultiMontecarlo ->
+      let init = Array.make 20 () in
       let res = Array.map (fun _ -> run_strat runtype context x) init in
       Array.sort Float.compare res;
       let mean = Owl_stats.mean res in
