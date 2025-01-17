@@ -65,7 +65,7 @@ module Make (Backend : Backend.S) = struct
 
   let counter = ref 0
 
-  let run ~init_state step =
+  let run ~init_state step : float =
     let rec go prev =
       let stepped = step prev in
       match stepped with
@@ -80,7 +80,7 @@ module Make (Backend : Backend.S) = struct
           match prev.current with
           | `Liquidate | `Finished _ ->
               Eio.traceln "@[Exiting run.@]@.";
-              s
+              Backend.get_cash ()
           | _ -> try_liquidating ())
     in
     go init_state
@@ -88,7 +88,6 @@ module Make (Backend : Backend.S) = struct
   let get_filename () = Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
 
   let output_data (state : _ State.t) filename =
-    Eio.traceln "cash: %f" (Backend.get_cash ());
     if Backend.Input.save_to_file then (
       let prefix =
         match Backend.is_backtest with true -> "backtest" | false -> "live"
