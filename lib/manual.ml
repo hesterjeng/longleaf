@@ -86,6 +86,7 @@ let place_order_test eio_env longleaf_env =
     let runtype = Options.Runtype.Manual
     let indicators_config : Indicators.Config.t = { fft = false }
     let dropout = false
+    let save_to_file = false
   end in
   let module Alpaca = Backend.Alpaca (Input) in
   let state = Alpaca.init_state () in
