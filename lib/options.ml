@@ -9,7 +9,7 @@ module Runtype = struct
     | "Backtest" | "backtest" -> Ok Backtest
     | "Manual" | "manual" -> Ok Manual
     | "Multitest" | "multitest" -> Ok Multitest
-    | "Montecarlo" | "monte" | "montecarlo" -> Ok Multitest
+    | "Montecarlo" | "monte" | "montecarlo" -> Ok Montecarlo
     (* | "Listener" | "listener" -> Ok Listener *)
     (* | "Buyandhold" | "buyandhold" -> Ok BuyAndHold *)
     | _ -> Error (`Msg "Expected a valid runtype")
