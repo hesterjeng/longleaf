@@ -163,8 +163,8 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
       symbol
   in
   let* awesome_slow =
-    indicator_trace ~data ~drop:233 ~show:false indicators "Awesome Slow" IP.awesome_slow
-      symbol
+    indicator_trace ~data ~drop:233 ~show:false indicators "Awesome Slow"
+      IP.awesome_slow symbol
   in
   let* upper_bollinger =
     indicator_trace ~data indicators "Upper Bollinger" IP.upper_bollinger symbol

@@ -133,6 +133,9 @@ module Make (Backend : Backend.S) = struct
             Indicators.add_latest Backend.Input.indicators_config time
               state.bars latest state.indicators;
             let value = Backend.Backend_position.value latest in
+            let risk_free_value =
+              Stats.risk_free_value state.stats Backend.Input.tick
+            in
             Bars.append latest state.bars;
             Result.return
             @@ {
@@ -141,7 +144,13 @@ module Make (Backend : Backend.S) = struct
                  latest;
                  stats =
                    Stats.append
-                     { time; value; buy_order = None; sell_order = None }
+                     {
+                       time;
+                       value;
+                       buy_order = None;
+                       sell_order = None;
+                       risk_free_value;
+                     }
                      state.stats;
                }
         | `BeginShutdown ->
@@ -164,6 +173,7 @@ module Make (Backend : Backend.S) = struct
         Result.return { state with current = `Listening }
     | `Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
+        let _ = Stats.sharpe_ratio state.stats in
         Vector.iter (fun order -> Bars.add_order order state.bars)
         @@ Pmutex.get mutices.orders_mutex;
         let stats_with_orders =
