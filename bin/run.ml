@@ -4,7 +4,7 @@ let runtype_target_check ~runtype ~target : unit =
   match target with
   | Some _ -> (
       match runtype with
-      | Options.Runtype.Backtest -> ()
+      | Options.Runtype.Backtest | Multitest -> ()
       | _ ->
           Eio.traceln "Must be in a backtest if we have a specified target.";
           exit 1)
@@ -51,10 +51,11 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     ()
   in
   let run_server () =
-    if no_gui then ()
-    else
-      Eio.Domain_manager.run domain_manager @@ fun () ->
-      Gui.top ~mutices eio_env
+    match no_gui with
+    | true -> ()
+    | false ->
+        Eio.Domain_manager.run domain_manager @@ fun () ->
+        Gui.top ~mutices eio_env
   in
   let _ = Eio.Fiber.both run_strategy run_server in
   ()
