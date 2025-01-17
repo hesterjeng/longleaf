@@ -111,7 +111,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
         Conditions.below_bollinger state.indicators symbol most_recent_price
       in
       let* _ = Conditions.small_rsi state.indicators symbol in
-      (* Conditions.small_fso state.indicators symbol *)
+      (* let* _ = Conditions.small_fso state.indicators symbol in *)
       Some `Buy
     in
     let order =
