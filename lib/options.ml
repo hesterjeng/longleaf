@@ -4,9 +4,10 @@ module Runtype = struct
     | Paper
     | Backtest
     | Manual
-    | Multitest                 (* Run the strategy multiple times. *)
-    | Montecarlo                (* Run the test with randomly generated target data. *)
-    | MultiMontecarlo           (* Run multiple tests with ranomly generated target data. *)
+    | Multitest (* Run the strategy multiple times. *)
+    | Montecarlo (* Run the test with randomly generated target data. *)
+    | MultiMontecarlo
+      (* Run multiple tests with ranomly generated target data. *)
   [@@deriving show, eq]
 
   let of_string_res x =
@@ -17,7 +18,7 @@ module Runtype = struct
     | "Manual" | "manual" -> Ok Manual
     | "Multitest" | "multitest" -> Ok Multitest
     | "Montecarlo" | "monte" | "montecarlo" -> Ok Montecarlo
-    | "MultiMontecarlo" | "multimont" -> Ok MultiMontecarlo
+    | "MultiMontecarlo" | "multimont" | "multicarlo" -> Ok MultiMontecarlo
     (* | "Listener" | "listener" -> Ok Listener *)
     (* | "Buyandhold" | "buyandhold" -> Ok BuyAndHold *)
     | _ -> Error (`Msg "Expected a valid runtype")
