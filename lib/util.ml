@@ -112,6 +112,14 @@ let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
 
 let random_state = Random.State.make_self_init ()
 
+(* mean and sigma chosen so that P (x >= 1.0) ~ 0.2 *)
+let one_in_five =
+  let rv = Owl_stats.lognormal_rvs ~mu:(-0.84) ~sigma:1.0 in
+  rv >=. 1.0
+
+let coin_flip () =
+  Random.State.bool random_state
+
 module type CLIENT = sig
   val longleaf_env : Environment.t
   val client : Piaf.Client.t
