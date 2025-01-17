@@ -44,7 +44,8 @@ module Conditions = struct
     let* indicators = Indicators.get indicators symbol in
     let* point = Vector.top indicators in
     let current_price = Item.last most_recent_price in
-    if current_price /. (Indicators.Point.sma_5 point) >=. 0.95 then Some `Pass else None
+    if current_price /. Indicators.Point.sma_5 point >=. 0.95 then Some `Pass
+    else None
 
   (* Only buy if RSI is less than 40 *)
   let small_rsi (indicators : Indicators.t) symbol =
@@ -125,7 +126,9 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     (* let* price_history = Bars.get history symbol in *)
     let most_recent_price = Bars.Latest.get state.latest symbol in
     let* amt_below_bollinger =
-      let* _ = Conditions.crash_block state.indicators symbol most_recent_price in
+      let* _ =
+        Conditions.crash_block state.indicators symbol most_recent_price
+      in
       let* amt_below_bollinger =
         Conditions.below_bollinger state.indicators symbol most_recent_price
       in
