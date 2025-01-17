@@ -469,16 +469,6 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
     let indicators_config = options.indicators_config
     let dropout = options.dropout
 
-    (* Target *)
-    let target =
-      let ( let+ ) = Option.( let+ ) in
-      let+ res =
-        context.target
-        |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
-      in
-      Bars.sort (Ord.opp Item.compare) res;
-      res
-
     (* Preload *)
     let bars =
       match context.preload with
@@ -489,6 +479,18 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
           let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
           Bars.sort Item.compare res;
           res
+
+    (* Target *)
+    let target =
+      let ( let+ ) = Option.( let+ ) in
+      let+ res =
+        context.target
+        |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
+      in
+      Bars.sort (Ord.opp Item.compare) res;
+      match options.runtype with
+      | Montecarlo -> Monte_carlo.Item.of_item_vector ~preload:bars ~target:res
+      | _ -> res
   end : BACKEND_INPUT)
 
 let create_backend (options : Run_options.t) (context : Run_context.t) =
@@ -499,7 +501,7 @@ let create_backend (options : Run_options.t) (context : Run_context.t) =
   | Paper ->
       Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
       (module Alpaca (Input) : S)
-  | Backtest | Multitest ->
+  | Backtest | Multitest | Montecarlo ->
       Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
       (module Backtesting (Input))
 >>>>>>> a13b8a6 (chore: src -> lib)
