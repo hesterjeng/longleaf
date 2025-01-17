@@ -346,7 +346,7 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     match get x symbol with
     | Some i -> i
     | None ->
-        Eio.traceln "Creating initial indicators for %s." symbol;
+        (* Eio.traceln "Creating initial indicators for %s." symbol; *)
         let new_vector = initialize config bars symbol in
         Hashtbl.replace x symbol new_vector;
         new_vector
