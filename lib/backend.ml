@@ -21,6 +21,7 @@ module Run_context = struct
     target : string option;
     save_received : bool;
     mutices : Longleaf_mutex.t;
+    save_to_file : bool;
   }
 end
 
@@ -63,6 +64,9 @@ module type BACKEND_INPUT = sig
 
   (* Are we going to randomly drop orders for testing? *)
   val dropout : bool
+
+  (* Save info to files *)
+  val save_to_file : bool
 end
 
 module type S = sig
@@ -341,6 +345,7 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
     let longleaf_env = context.longleaf_env
     let eio_env = context.eio_env
     let save_received = context.save_received
+    let save_to_file = context.save_to_file
     let mutices = context.mutices
     let symbols = options.symbols
     let overnight = options.overnight
