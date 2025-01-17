@@ -4,7 +4,7 @@ let runtype_target_check ~runtype ~target : unit =
   match target with
   | Some _ -> (
       match runtype with
-      | Options.Runtype.Backtest -> ()
+      | Options.Runtype.Backtest | Multitest -> ()
       | _ ->
           Eio.traceln "Must be in a backtest if we have a specified target.";
           exit 1)
@@ -19,7 +19,7 @@ let save_received_check ~runtype ~save_received : unit =
         exit 1
 
 let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
-    ~strategy_arg =
+    ~strategy_arg ~save_to_file =
   runtype_target_check ~runtype ~target;
   save_received_check ~runtype ~save_received;
   if stacktrace then Printexc.record_backtrace true;
@@ -34,17 +34,28 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
     let context : Backend.Run_context.t =
-      { eio_env; longleaf_env; switch; preload; target; save_received; mutices }
+      {
+        eio_env;
+        longleaf_env;
+        switch;
+        preload;
+        target;
+        save_received;
+        mutices;
+        save_to_file;
+      }
     in
+    Eio.traceln "@[Context: %a@]@." Backend.Run_context.pp context;
     let res = Longleaf_strategies.run runtype context strategy_arg in
-    Eio.traceln "@[Final response: %s@]@." res;
+    Eio.traceln "@[Final response: %f@]@." res;
     ()
   in
   let run_server () =
-    if no_gui then ()
-    else
-      Eio.Domain_manager.run domain_manager @@ fun () ->
-      Gui.top ~mutices eio_env
+    match no_gui with
+    | true -> ()
+    | false ->
+        Eio.Domain_manager.run domain_manager @@ fun () ->
+        Gui.top ~mutices eio_env
   in
   let _ = Eio.Fiber.both run_strategy run_server in
   ()
