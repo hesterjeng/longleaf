@@ -104,6 +104,7 @@ type multitest = { mean : float; min : float; max : float; std : float }
 let run (runtype : Options.Runtype.t) context x =
   match runtype with
   | Live | Paper | Backtest | Manual -> run_strat runtype context x
+  | Montecarlo -> invalid_arg "nyi"
   | Multitest ->
       let init = Array.make 100 () in
       let res = Array.map (fun _ -> run_strat runtype context x) init in
