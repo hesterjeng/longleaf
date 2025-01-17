@@ -1,5 +1,6 @@
 module Runtype = struct
-  type t = Live | Paper | Backtest | Manual | Multitest [@@deriving show, eq]
+  type t = Live | Paper | Backtest | Manual | Multitest | Montecarlo
+  [@@deriving show, eq]
 
   let of_string_res x =
     match x with
@@ -8,6 +9,7 @@ module Runtype = struct
     | "Backtest" | "backtest" -> Ok Backtest
     | "Manual" | "manual" -> Ok Manual
     | "Multitest" | "multitest" -> Ok Multitest
+    | "Montecarlo" | "monte" | "montecarlo" -> Ok Multitest
     (* | "Listener" | "listener" -> Ok Listener *)
     (* | "Buyandhold" | "buyandhold" -> Ok BuyAndHold *)
     | _ -> Error (`Msg "Expected a valid runtype")
