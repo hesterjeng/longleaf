@@ -489,7 +489,7 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
       in
       Bars.sort (Ord.opp Item.compare) res;
       match options.runtype with
-      | Montecarlo -> Monte_carlo.Item.of_item_vector ~preload:bars ~target:res
+      | Montecarlo -> Monte_carlo.Bars.of_bars ~preload:bars ~target:res
       | _ -> res
   end : BACKEND_INPUT)
 
