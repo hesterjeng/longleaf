@@ -22,3 +22,5 @@ let create () =
     stats_mutex;
     indicators_mutex;
   }
+
+let pp : t Format.printer = fun fmt _x -> Format.fprintf fmt "<mutex>"
