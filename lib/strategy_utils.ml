@@ -89,21 +89,25 @@ module Make (Backend : Backend.S) = struct
 
   let output_data (state : _ State.t) filename =
     Eio.traceln "cash: %f" (Backend.get_cash ());
-    let prefix =
-      match Backend.is_backtest with true -> "backtest" | false -> "live"
-    in
-    Eio.traceln "Saving all bars...";
-    Bars.print_to_file ~filename state.bars prefix;
-    Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received")
+    if Backend.Input.save_to_file then (
+      let prefix =
+        match Backend.is_backtest with true -> "backtest" | false -> "live"
+      in
+      Eio.traceln "Saving all bars...";
+      Bars.print_to_file ~filename state.bars prefix;
+      Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received"))
+    else ()
 
   let output_order_history (state : _ State.t) filename =
-    let json_str =
-      Order_history.yojson_of_t state.order_history |> Yojson.Safe.to_string
-    in
-    let filename = Format.sprintf "data/order_history_%s.json" filename in
-    let oc = open_out filename in
-    output_string oc json_str;
-    close_out oc
+    if Backend.Input.save_to_file then (
+      let json_str =
+        Order_history.yojson_of_t state.order_history |> Yojson.Safe.to_string
+      in
+      let filename = Format.sprintf "data/order_history_%s.json" filename in
+      let oc = open_out filename in
+      output_string oc json_str;
+      close_out oc)
+    else ()
 
   let handle_nonlogical_state (current : State.nonlogical_state)
       (state : _ State.t) =
