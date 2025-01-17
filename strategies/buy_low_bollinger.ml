@@ -151,8 +151,9 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     let short_opt =
       consider_buying ~history:state.bars ~state ~qty:(qty state 0.9)
     in
-    let possibilities = List.map short_opt Backend.symbols in
-    let choice = Option.choice possibilities in
+    let possibilities = List.filter_map short_opt Backend.symbols in
+    Eio.traceln "buylow: %d possibilities" (List.length possibilities);
+    let choice = List.head_opt possibilities in
     let* new_status =
       match choice with
       | None -> Ok state.content
