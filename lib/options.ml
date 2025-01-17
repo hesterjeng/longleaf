@@ -4,9 +4,9 @@ module Runtype = struct
     | Paper
     | Backtest
     | Manual
-    | Multitest
-    | Montecarlo
-    | MultiMontecarlo
+    | Multitest                 (* Run the strategy multiple times. *)
+    | Montecarlo                (* Run the test with randomly generated target data. *)
+    | MultiMontecarlo           (* Run multiple tests with ranomly generated target data. *)
   [@@deriving show, eq]
 
   let of_string_res x =
