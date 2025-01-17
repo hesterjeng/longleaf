@@ -21,8 +21,9 @@ let layout title =
       "yaxis" = `Assoc [ "title" = `String "Y-axis" ];
     ]
 
-let indicator_trace ?(show = true) ~data (indicators : Indicators.t)
-    indicator_name indicator_get symbol : Yojson.Safe.t option =
+let indicator_trace ?(show = true) ?(drop = 34) ~data
+    (indicators : Indicators.t) indicator_name indicator_get symbol :
+    Yojson.Safe.t option =
   let+ indicators_vec =
     match Indicators.get indicators symbol with
     | Some indicators -> Some indicators
@@ -57,7 +58,7 @@ let indicator_trace ?(show = true) ~data (indicators : Indicators.t)
            res))
       indicators_vec
     |> Vector.to_list
-    |> List.mapi (fun i b -> if i <= 34 then `Null else b)
+    |> List.mapi (fun i b -> if i <= drop then `Null else b)
   in
   if List.length x <> List.length y then
     Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
@@ -151,9 +152,19 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* ema_trace =
     indicator_trace ~data indicators "Exponential Moving Average" IP.ema symbol
   in
-  let* sma_5_trace = indicator_trace ~data indicators "SMA 5" IP.sma_5 symbol in
+  let* sma_5_trace =
+    indicator_trace ~drop:5 ~data indicators "SMA 5" IP.sma_5 symbol
+  in
   let* sma_34_trace =
-    indicator_trace ~data indicators "SMA 34" IP.sma_34 symbol
+    indicator_trace ~data ~drop:34 indicators "SMA 34" IP.sma_34 symbol
+  in
+  let* sma_233_trace =
+    indicator_trace ~data ~drop:233 ~show:false indicators "SMA 233" IP.sma_233
+      symbol
+  in
+  let* awesome_slow =
+    indicator_trace ~data ~drop:233 ~show:false indicators "Awesome Slow" IP.awesome_slow
+      symbol
   in
   let* upper_bollinger =
     indicator_trace ~data indicators "Upper Bollinger" IP.upper_bollinger symbol
@@ -199,9 +210,11 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                ema_trace;
                sma_5_trace;
                sma_34_trace;
+               sma_233_trace;
                upper_bollinger;
                lower_bollinger;
                awesome;
+               awesome_slow;
                rsi;
                fso_pk;
                fso_pd;
