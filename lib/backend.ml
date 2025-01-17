@@ -127,15 +127,16 @@ end
 
 module Run_context = struct
   type t = {
-    eio_env : Eio_unix.Stdenv.base;
-    longleaf_env : Environment.t;
-    switch : Eio.Switch.t;
+    eio_env : Eio_unix.Stdenv.base; [@opaque]
+    longleaf_env : Environment.t; [@opaque]
+    switch : Eio.Switch.t; [@opaque]
     preload : Options.Preload.t;
     target : string option;
     save_received : bool;
     mutices : Longleaf_mutex.t;
     save_to_file : bool;
   }
+  [@@deriving show]
 end
 
 module type BACKEND_INPUT = sig
