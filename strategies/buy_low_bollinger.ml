@@ -157,7 +157,8 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
         (fun x -> if Util.coin_flip () then Some x else None)
         possibilities
     in
-    Eio.traceln "buylow: %d possibilities" (List.length possibilities);
+    Eio.traceln "buylow: %d possibilities, selecting one randomly"
+      (List.length possibilities);
     let choice = List.head_opt random_drop in
     let* new_status =
       match choice with
