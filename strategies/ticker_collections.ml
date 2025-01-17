@@ -103,7 +103,7 @@ let sp100 =
     "NEE";
     "NFLX";
     "NKE";
-    "NVDA";
+    (* "NVDA"; *)
     "ORCL";
     "PEP";
     "PFE";
