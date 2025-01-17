@@ -16,7 +16,13 @@ module Gaussian = struct
     let len = Array.length differences in
     assert (len >= 4);
     let range = Array.(1 -- (len - 2)) in
-    let slice = Array.map (Array.get differences) range in
+    let slice =
+      Array.map
+        (fun i ->
+          Array.get_safe differences i
+          |> Option.get_exn_or "out of bound: Gaussian.of_preoad")
+        range
+    in
     of_array slice
 
   (* sample *)
@@ -29,7 +35,10 @@ module Gaussian = struct
   (* Generate an array of floats based on the movements from the input array *)
   let monte_carlo (x : float array) =
     let dist = of_preload x in
-    let init = Array.get x 0 in
+    let init =
+      Array.get_safe x 0
+      |> Option.get_exn_or "monte carlo: expected to have first element"
+    in
     let rec make len previous acc =
       assert (len >= 0);
       match len with
@@ -58,7 +67,11 @@ module Item = struct
     in
     Array.mapi
       (fun i timestamp ->
-        let get = Array.get in
+        let get arr i =
+          Array.get_safe arr i
+          |> Option.get_exn_or
+               "monte carlo: unable to get value when creating mc simulation"
+        in
         Item.make ~timestamp ~open_:(get open_arr i) ~high:(get high_arr i)
           ~low:(get low_arr i) ~close:(get close_arr i) ~last:(get last_arr i)
           ~volume:(get volume_arr i) ())
