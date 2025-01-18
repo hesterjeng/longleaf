@@ -39,14 +39,14 @@ let add_orders (orders : Order_history.t) (x : t) =
 
 let risk_free_value stats tick =
   let interest_per_tick = 0.017 *. (tick /. 23400.0) in
-  Eio.traceln "stats.ml: ipt %f" interest_per_tick;
+  (* Eio.traceln "stats.ml: ipt %f" interest_per_tick; *)
   let prev_risk_free =
     stats |> List.head_opt |> function
     | Some x -> x.risk_free_value
     | None -> 100000.0
   in
   let res = prev_risk_free *. (1.0 +. (interest_per_tick /. 100.0)) in
-  Eio.traceln "stats.ml: risk free value %f" res;
+  (* Eio.traceln "stats.ml: risk free value %f" res; *)
   res
 
 let sharpe_ratio (stats : t) =
