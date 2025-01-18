@@ -13,7 +13,7 @@ module Conditions = struct
     (* let upper_now_band = 1.01 *)
     let stop_loss_multiplier = 0.5
     let profit_multiplier = 1.04
-    let max_holding_period = 300
+    let max_holding_period = 600
 
     (* let window_size = 20 *)
     (* let lookback = 120 *)
@@ -92,16 +92,17 @@ module Conditions = struct
       (*   | Some _ -> true *)
       (*   | None -> false *)
       (* in *)
-      let fso_pk =
+      let fso_pd =
         Indicators.get state.indicators buying_order.symbol
         |> Option.get_exn_or "bollinger: Sell_reason.make"
         |> Vector.top
         |> Option.get_exn_or "boll: Sell_reason.make"
-        |> Indicators.Point.fso_pk
+        |> Indicators.Point.fso_pd
       in
       (* if current_price >. P.profit_multiplier *. buying_order.price then *)
       (*   Profited price_difference *)
-      if fso_pk >=. 95.0 then FSO_High price_difference
+      if fso_pd >=. 90.0 then FSO_High price_difference
+        (* if fso_pk >=. 95.0 then FSO_High price_difference *)
         (* else if below_bollinger then HoldBelowBollinger *)
       else if time_held > P.max_holding_period then
         HoldingPeriod price_difference
