@@ -106,7 +106,7 @@ let run (runtype : Options.Runtype.t) context x =
   match runtype with
   | Live | Paper | Backtest | Manual | Montecarlo -> run_strat runtype context x
   | Multitest | MultiMontecarlo ->
-      let init = Array.make 100 () in
+      let init = Array.make 10 () in
       let res = Array.map (fun _ -> run_strat runtype context x) init in
       Array.sort Float.compare res;
       let mean = Owl_stats.mean res in
