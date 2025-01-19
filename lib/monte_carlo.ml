@@ -44,8 +44,25 @@ module Gaussian = struct
     let diff = student_rv dist in
     previous +. diff
 
+  let next_data_point_mean_revert ~(dist : t) previous_list previous_value =
+    let generated = student_rv dist in
+    (* let generated = cauchy_rv dist in *)
+    (* let generated = gaussian_rv dist in *)
+    let new_value = previous_value +. generated in
+    let len = List.length previous_list in
+    let alpha = 0.1 in
+    let sma =
+      match len with
+      | 0 -> new_value
+      | _ -> List.fold_left Float.( + ) 0.0 previous_list /. Float.of_int len
+    in
+    let mean_revert_term = alpha *. (sma -. new_value) in
+    let res = new_value +. mean_revert_term in
+    assert (not @@ Float.is_nan res);
+    res
+
   (* Generate an array of floats based on the movements from the input array *)
-  let monte_carlo ?(print = false) target_len (x : float array) =
+  let monte_carlo ?(print = false) ~mean_revert target_len (x : float array) =
     let dist = of_preload x in
     let init =
       Array.get_safe x (Array.length x - 1)
@@ -56,9 +73,17 @@ module Gaussian = struct
       assert (len >= 0);
       match len with
       | 0 -> acc
-      | i ->
-          let new_value = next_data_point ~dist previous in
-          make (i - 1) new_value (new_value :: acc)
+      | i -> (
+          match mean_revert with
+          | true ->
+              let previous_list = List.take 10 acc in
+              let new_value =
+                next_data_point_mean_revert ~dist previous_list previous
+              in
+              make (i - 1) new_value (new_value :: acc)
+          | false ->
+              let new_value = next_data_point ~dist previous in
+              make (i - 1) new_value (new_value :: acc))
     in
     let res = make target_len init [] |> Array.of_list in
     (* Array.reverse_in_place res; *)
@@ -68,7 +93,7 @@ end
 module Item = struct
   let of_item_array ~print (x : Item.t array) (target : Item.t array) =
     let len = Array.length target in
-    let mc = fun x -> Gaussian.monte_carlo ~print len x in
+    let mc = fun x -> Gaussian.monte_carlo ~print ~mean_revert:true len x in
     let target_times = Array.map Item.timestamp target in
     let open_arr = Array.map Item.open_ x |> mc in
     let high_arr = Array.map Item.high x |> mc in
