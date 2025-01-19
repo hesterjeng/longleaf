@@ -36,6 +36,7 @@ module Gaussian = struct
   (* sample *)
   let gaussian_rv (x : t) = Owl_stats.gaussian_rvs ~mu:x.mean ~sigma:x.std
   let cauchy_rv (x : t) = Owl_stats.cauchy_rvs ~loc:x.mean ~scale:x.std
+  let laplace_rv (x : t) = Owl_stats.laplace_rvs ~loc:x.mean ~scale:x.std
 
   let student_rv (x : t) =
     Owl_stats.t_rvs ~df:x.degrees_freedom ~loc:x.mean ~scale:x.std
@@ -45,7 +46,8 @@ module Gaussian = struct
     previous +. diff
 
   let next_data_point_mean_revert ~(dist : t) previous_list previous_value =
-    let generated = student_rv dist in
+    (* let generated = student_rv dist in *)
+    let generated = laplace_rv dist in
     (* let generated = cauchy_rv dist in *)
     (* let generated = gaussian_rv dist in *)
     let new_value = previous_value +. generated in
@@ -76,7 +78,7 @@ module Gaussian = struct
       | i -> (
           match mean_revert with
           | true ->
-              let previous_list = List.take 10 acc in
+              let previous_list = List.take 2 acc in
               let new_value =
                 next_data_point_mean_revert ~dist previous_list previous
               in
