@@ -96,7 +96,7 @@ module Downloader = struct
             let client = Tiingo_api.tiingo_client eio_env switch
           end in
           let module Tiingo = Longleaf.Tiingo_api.Make (Param) in
-          let res = Tiingo.Data.historical_bars ~afterhours request in
+          let res = Tiingo.Data.top ~afterhours request in
           Piaf.Client.shutdown Param.client;
           res
       | None ->
