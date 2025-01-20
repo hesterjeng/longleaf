@@ -24,16 +24,17 @@ let adl previous_adl (current : Item.t) =
   let res = money_flow_volume current +. previous_adl in
   res
 
-(* Exponential moving average *)
-(* Length is the number of data points so far *)
-(* Previous is the previous EMA value *)
-(* Latest is the latest price *)
-let mk_ema length previous latest =
-  if Item.volume latest = 0 then previous
-  else
-    let price = Item.last latest in
-    let alpha = 2.0 /. (length +. 1.0) in
-    previous +. (alpha *. (price -. previous))
+module EMA = struct
+  let make n (l : Bars.symbol_history) =
+    let window = Util.last_n n l |> Iter.map Item.last in
+    let smoothing_factor = 2.0 /. (Float.of_int n +. 1.0) in
+    let complement_smoothing_factor = 1.0 -. smoothing_factor in
+    let f current_price previous_ema =
+      (current_price *. smoothing_factor)
+      +. (previous_ema *. complement_smoothing_factor)
+    in
+    Iter.fold f 0.0 window
+end
 
 let simple_moving_average n (l : Bars.symbol_history) =
   let window = Util.last_n n l |> Iter.map Item.last in
@@ -188,7 +189,8 @@ module Point = struct
     timestamp : Time.t;
     price : float;
     accumulation_distribution_line : float;
-    exponential_moving_average : float;
+    ema_12 : float;
+    ema_26 : float;
     sma_5 : float;
     sma_34 : float;
     sma_75 : float;
@@ -216,7 +218,8 @@ module Point = struct
     {
       timestamp;
       accumulation_distribution_line = 0.0;
-      exponential_moving_average = 0.0;
+      ema_12 = 0.0;
+      ema_26 = 0.0;
       price = 0.0;
       sma_5 = 0.0;
       sma_34 = 0.0;
@@ -240,7 +243,8 @@ module Point = struct
       fft_mean_squared_error = 0.0;
     }
 
-  let ema x = x.exponential_moving_average
+  let ema_12 x = x.ema_12
+  let ema_26 x = x.ema_26
   let sma_5 x = x.sma_5
   let sma_34 x = x.sma_34
   let sma_75 x = x.sma_75
@@ -259,7 +263,7 @@ module Point = struct
   let ft_normalized_magnitude x = x.ft_normalized_magnitude
   let fft_mean_squared_error x = x.fft_mean_squared_error
 
-  let of_latest config timestamp symbol_history length (previous : t)
+  let of_latest config timestamp symbol_history (previous : t)
       (previous_vec : (t, _) Vector.t) (latest : Item.t) =
     let lower_bollinger, upper_bollinger = bollinger 34 2 symbol_history in
     let lower_bollinger_100_3, upper_bollinger_100_3 =
@@ -298,8 +302,8 @@ module Point = struct
         timestamp;
         accumulation_distribution_line =
           adl previous.accumulation_distribution_line latest;
-        exponential_moving_average =
-          mk_ema length previous.exponential_moving_average latest;
+        ema_12 = EMA.make 12 symbol_history;
+        ema_26 = EMA.make 26 symbol_history;
         sma_5;
         sma_34;
         sma_75 = simple_moving_average 75 symbol_history;
@@ -362,12 +366,11 @@ let initialize config bars symbol =
             Vector.push initial_stats_vector res;
             Option.return res
         | Some previous ->
-            let length = Vector.length initial_stats_vector |> Float.of_int in
             let bars_vec_upto_now =
               Vector.slice_iter bars_vec 0 i |> Vector.of_iter
             in
             let res =
-              Point.of_latest config timestamp bars_vec_upto_now length previous
+              Point.of_latest config timestamp bars_vec_upto_now previous
                 initial_stats_vector item
             in
             Vector.push initial_stats_vector res;
@@ -397,14 +400,13 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
         Hashtbl.replace x symbol new_vector;
         new_vector
   in
-  let length = Vector.length indicators_vector |> Float.of_int in
   let previous =
     match Vector.top indicators_vector with
     | Some p -> p
     | None -> Point.initial timestamp
   in
   let new_indicators =
-    Point.of_latest config timestamp symbol_history length previous
-      indicators_vector latest
+    Point.of_latest config timestamp symbol_history previous indicators_vector
+      latest
   in
   Vector.push indicators_vector new_indicators
