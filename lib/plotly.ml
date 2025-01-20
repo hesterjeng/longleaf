@@ -149,17 +149,20 @@ let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
 let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* data_vec = Bars.get bars symbol in
   let data = Vector.to_list data_vec in
-  let* ema_trace =
-    indicator_trace ~data indicators "Exponential Moving Average" IP.ema symbol
+  let* ema_12_trace =
+    indicator_trace ~data indicators "EMA(12)" IP.ema_12 symbol
+  in
+  let* ema_26_trace =
+    indicator_trace ~data indicators "EMA(26)" IP.ema_26 symbol
   in
   let* sma_5_trace =
-    indicator_trace ~drop:5 ~data indicators "SMA 5" IP.sma_5 symbol
+    indicator_trace ~drop:5 ~data indicators "SMA(5)" IP.sma_5 symbol
   in
   let* sma_34_trace =
-    indicator_trace ~data ~drop:34 indicators "SMA 34" IP.sma_34 symbol
+    indicator_trace ~data ~drop:34 indicators "SMA(34)" IP.sma_34 symbol
   in
   let* sma_233_trace =
-    indicator_trace ~data ~drop:233 ~show:false indicators "SMA 233" IP.sma_233
+    indicator_trace ~data ~drop:233 ~show:false indicators "SMA(233)" IP.sma_233
       symbol
   in
   let* awesome_slow =
@@ -215,7 +218,8 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                price_trace;
                buy_trace;
                sell_trace;
-               ema_trace;
+               ema_12_trace;
+               ema_26_trace;
                sma_5_trace;
                sma_34_trace;
                sma_233_trace;
