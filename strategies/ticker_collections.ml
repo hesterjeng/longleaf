@@ -73,7 +73,7 @@ let sp100 =
     "GE";
     "GILD";
     "GM";
-    "GOOG";
+    (* "GOOG"; *)
     "GOOGL";
     "GS";
     "HD";
