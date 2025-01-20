@@ -230,8 +230,13 @@ module Infill = struct
                     |> Item.timestamp |> Time.to_string
                   else (
                     Eio.traceln "Lacking initial value, using first value.";
-                    Vector.get (Hashtbl.find x symbol) 0
-                    |> Item.timestamp |> Time.to_string)
+                    try
+                      Vector.get (Hashtbl.find x symbol) 0
+                      |> Item.timestamp |> Time.to_string
+                    with Invalid_argument _ ->
+                      invalid_arg
+                      @@ Format.asprintf "Unable to get first value for %s"
+                           symbol)
                 in
                 (* Eio.traceln "Creating value for %d: %s" i current_time; *)
                 let previous_value =

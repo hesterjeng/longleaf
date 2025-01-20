@@ -117,7 +117,7 @@ module Cmd = struct
       downloader_arg afterhours_arg =
     Fmt_tty.setup_std_outputs ();
     let prefix = if today then "download_today" else "download" in
-    let collection = Collections.sp100_spy in
+    let collection = Collections.sp100 in
     let request =
       match
         Longleaf.Market_data_api.Historical_bars_request.of_data_downloader
