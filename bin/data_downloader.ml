@@ -96,7 +96,7 @@ module Downloader = struct
             let client = Tiingo_api.tiingo_client eio_env switch
           end in
           let module Tiingo = Longleaf.Tiingo_api.Make (Param) in
-          let res = Tiingo.Data.historical_bars ~afterhours request in
+          let res = Tiingo.Data.top ~afterhours request in
           Piaf.Client.shutdown Param.client;
           res
       | None ->
@@ -117,13 +117,15 @@ module Cmd = struct
       downloader_arg afterhours_arg =
     Fmt_tty.setup_std_outputs ();
     let prefix = if today then "download_today" else "download" in
+    let collection = Collections.sp100_spy in
     let request =
       match
         Longleaf.Market_data_api.Historical_bars_request.of_data_downloader
-          Collections.sp100 begin_arg end_arg timeframe_arg interval_arg
+          collection begin_arg end_arg timeframe_arg interval_arg
       with
       | Some r -> r
       | None ->
+          Eio.traceln "Is this meant to trigger?";
           let start =
             if today then Time.of_ymd @@ get_todays_date ()
             else Time.of_ymd "2024-11-01"
@@ -131,7 +133,7 @@ module Cmd = struct
           {
             timeframe = Trading_types.Timeframe.min 10;
             start;
-            symbols = Collections.sp100;
+            symbols = collection;
             end_ = None;
           }
     in
