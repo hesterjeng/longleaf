@@ -191,11 +191,12 @@ module Infill = struct
   (* Try to fill it in with the most recent bar indicating no change if it happens. *)
   (* FIXME:  This is too big for a single function. *)
 
-  let top (x : t) =
+  let top (original_bars : t) =
     Eio.traceln "Infill.top";
     let _, most_used_vector =
       let fold f =
-        Seq.fold f ("Bars.Infill.init", Vector.create ()) @@ Hashtbl.to_seq x
+        Seq.fold f ("Bars.Infill.init", Vector.create ())
+        @@ Hashtbl.to_seq original_bars
       in
       fold @@ fun (best_symbol, best_vector) (current_symbol, current_vector) ->
       if Vector.length current_vector >= Vector.length best_vector then
@@ -207,7 +208,7 @@ module Infill = struct
       let fold =
        fun symbol ->
         (* Eio.traceln "Iterating over %s" symbol; *)
-        let vec = Hashtbl.find x symbol in
+        let vec = Hashtbl.find original_bars symbol in
         let tbl = Hashtbl.create @@ Vector.length vec in
         Vector.iter
           (fun item ->
@@ -230,13 +231,9 @@ module Infill = struct
                     |> Item.timestamp |> Time.to_string
                   else (
                     Eio.traceln "Lacking initial value, using first value.";
-                    try
-                      Vector.get (Hashtbl.find x symbol) 0
-                      |> Item.timestamp |> Time.to_string
-                    with Invalid_argument _ ->
-                      invalid_arg
-                      @@ Format.asprintf "Unable to get first value for %s"
-                           symbol)
+                    let found = Hashtbl.find original_bars symbol in
+                    assert (not @@ Vector.is_empty found);
+                    Vector.get found 0 |> Item.timestamp |> Time.to_string)
                 in
                 (* Eio.traceln "Creating value for %d: %s" i current_time; *)
                 let previous_value =
@@ -250,10 +247,10 @@ module Infill = struct
         let new_vector = Hashtbl.to_seq_values tbl |> Vector.of_seq in
         Vector.sort' Item.compare new_vector;
         (* Replace the old, sparse, vector with the new sorted and infilled one. *)
-        Hashtbl.replace x symbol new_vector;
+        Hashtbl.replace original_bars symbol new_vector;
         ()
       in
-      Seq.iter fold @@ Hashtbl.to_seq_keys x
+      Seq.iter fold @@ Hashtbl.to_seq_keys original_bars
     in
     ()
 end
