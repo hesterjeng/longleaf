@@ -150,10 +150,13 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* data_vec = Bars.get bars symbol in
   let data = Vector.to_list data_vec in
   let* ema_12_trace =
-    indicator_trace ~data indicators "EMA(12)" IP.ema_12 symbol
+    indicator_trace ~data ~drop:12 indicators "EMA(12)" IP.ema_12 symbol
   in
   let* ema_26_trace =
-    indicator_trace ~data indicators "EMA(26)" IP.ema_26 symbol
+    indicator_trace ~data ~drop:26 indicators "EMA(26)" IP.ema_26 symbol
+  in
+  let* macd_trace =
+    indicator_trace ~show:false ~drop:26 ~data indicators "MACD" IP.macd symbol
   in
   let* sma_5_trace =
     indicator_trace ~drop:5 ~data indicators "SMA(5)" IP.sma_5 symbol
@@ -220,6 +223,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                sell_trace;
                ema_12_trace;
                ema_26_trace;
+               macd_trace;
                sma_5_trace;
                sma_34_trace;
                sma_233_trace;
