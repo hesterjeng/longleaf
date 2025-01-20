@@ -16,10 +16,12 @@ module BuyReason = struct
       Indicators.indicator state.indicators symbol
         Indicators.Point.upper_bollinger_100_3
     in
-    let* sma75 =
-      Indicators.indicator state.indicators symbol Indicators.Point.sma_75
+    let sma75spy =
+      Indicators.indicator state.indicators "SPY" Indicators.Point.sma_75
+      |> Option.get_exn_or "Must be able to get SPY SMA 75"
     in
-    let pass = current_price >=. upper_bb && not (current_price <=. sma75) in
+    let spy_price = Bars.Latest.get state.latest "SPY" |> Item.last in
+    let pass = current_price >=. upper_bb && not (spy_price <=. sma75spy) in
     match pass with true -> Some (Above3StdBollinger symbol) | false -> None
 end
 
@@ -34,10 +36,11 @@ module SellReason = struct
       Indicators.indicator state.indicators symbol
         Indicators.Point.lower_bollinger_100_1
     in
-    let* sma75 =
-      Indicators.indicator state.indicators symbol Indicators.Point.sma_75
+    let* sma75spy =
+      Indicators.indicator state.indicators "SPY" Indicators.Point.sma_75
     in
-    let pass = current_price <=. lower_bb && not (current_price <=. sma75) in
+    let spy_price = Bars.Latest.get state.latest "SPY" |> Item.last in
+    let pass = current_price <=. lower_bb && not (spy_price <=. sma75spy) in
     match pass with true -> Some (Below1StdBollinger symbol) | false -> None
 end
 
