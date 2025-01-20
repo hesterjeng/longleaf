@@ -82,9 +82,7 @@ end
 module Challenge1 = struct
   let run_options runtype : Run_options.t =
     {
-      symbols =
-        Collections.sp100_spy
-        |> List.filter (fun x -> not @@ String.equal x "SPY");
+      symbols = Collections.sp100_spy;
       tick = 600.0;
       overnight = true;
       resume_after_liquidate = true;
