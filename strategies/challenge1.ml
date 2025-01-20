@@ -63,7 +63,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
           let timestamp = Item.timestamp item in
           let reason =
             [
-              Format.asprintf "Buying (%a): Above 3 bollinger band" Time.pp
+              Format.asprintf "Buying (%a): Above 3 std bollinger band" Time.pp
                 timestamp;
             ]
           in
@@ -86,7 +86,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
           in
           let reason =
             [
-              Format.asprintf "Buying (%a): Below 1 bollinger band" Time.pp
+              Format.asprintf "Selling (%a): Below 1 std bollinger band" Time.pp
                 timestamp;
             ]
           in
