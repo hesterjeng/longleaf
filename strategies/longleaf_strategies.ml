@@ -79,7 +79,24 @@ module BuyAndHold = struct
     run_generic ~runtype ~context ~run_options (module Buy_and_hold.Make)
 end
 
-type t = BuyAndHold | Listener | DoubleTop | LowBoll [@@deriving show, eq]
+module Challenge1 = struct
+  let run_options runtype : Run_options.t =
+    {
+      symbols = [ "SPY" ];
+      tick = 600.0;
+      overnight = true;
+      resume_after_liquidate = true;
+      runtype;
+      indicators_config : Indicators.Config.t = { fft = false };
+      dropout = false;
+    }
+
+  let top runtype context =
+    run_generic ~runtype ~context ~run_options (module Challenge1.Make)
+end
+
+type t = BuyAndHold | Listener | DoubleTop | LowBoll | Challenge1
+[@@deriving show, eq]
 
 let of_string_res x =
   let x = String.uncapitalize_ascii x in
@@ -88,6 +105,7 @@ let of_string_res x =
   | "listener" | "listen" -> Ok Listener
   | "doubletop" -> Ok DoubleTop
   | "lowball" | "lowboll" -> Ok LowBoll
+  | "challenge1" -> Ok LowBoll
   | _ -> Error (`Msg "Expected a valid strategy")
 
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
@@ -98,6 +116,7 @@ let run_strat runtype context x =
   | Listener -> Listener.top runtype context
   | DoubleTop -> DoubleTop.top runtype context
   | LowBoll -> LowBall.top runtype context
+  | Challenge1 -> Challenge1.top runtype context
 
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]

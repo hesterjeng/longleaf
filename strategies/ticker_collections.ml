@@ -23,6 +23,9 @@ let some_symbols =
     "SPY";
   ]
 
+let oex = [ "OEX" ]
+let spy = [ "SPY" ]
+
 let sp100 =
   [
     "AAPL";
@@ -127,3 +130,5 @@ let sp100 =
     "WMT";
     "XOM";
   ]
+
+let sp100_spy = "SPY" :: sp100
