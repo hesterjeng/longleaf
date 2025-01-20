@@ -220,9 +220,14 @@ module Point = struct
       price = 0.0;
       sma_5 = 0.0;
       sma_34 = 0.0;
+      sma_75 = 0.0;
       sma_233 = 0.0;
       upper_bollinger = 0.0;
       lower_bollinger = 0.0;
+      upper_bollinger_100_1 = 0.0;
+      lower_bollinger_100_1 = 0.0;
+      upper_bollinger_100_3 = 0.0;
+      lower_bollinger_100_3 = 0.0;
       awesome_oscillator = 0.0;
       awesome_slow = 0.0;
       average_gain = 0.00001;
@@ -331,6 +336,12 @@ let pp : t Format.printer =
 
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
+
+let indicator (x : t) symbol f =
+  let open Option.Infix in
+  let* ind = get x symbol in
+  let* top = Vector.top ind in
+  f top
 
 let initialize config bars symbol =
   let initial_stats_vector = Vector.create () in
