@@ -56,7 +56,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       ]
 
   let get = Util.get_piaf ~client:Tiingo.client
-  let endpoint = Uri.of_string "/iex/"
+  let iex_endpoint = Uri.of_string "/iex/"
 
   let test () =
     let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
@@ -64,7 +64,8 @@ module Make (Tiingo : Util.CLIENT) = struct
 
   let latest tickers : Bars.Latest.t =
     let endpoint =
-      Uri.add_query_params' endpoint [ ("tickers", String.concat "," tickers) ]
+      Uri.add_query_params' iex_endpoint
+        [ ("tickers", String.concat "," tickers) ]
       |> Uri.to_string
     in
     (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
@@ -86,7 +87,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       close : float;
       volume : float;
     }
-    [@@deriving show, yojson]
+    [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 
     type resp = t list [@@deriving yojson]
 
@@ -131,7 +132,8 @@ module Make (Tiingo : Util.CLIENT) = struct
     let historical_eod (request : Historical_bars_request.t) =
       let get_data symbol =
         let endpoint =
-          Uri.of_string ("/daily/" ^ String.lowercase_ascii symbol ^ "/prices")
+          Uri.of_string
+            ("/tiingo/daily/" ^ String.lowercase_ascii symbol ^ "/prices")
           |> fun e ->
           Uri.add_query_params' e
           @@ [

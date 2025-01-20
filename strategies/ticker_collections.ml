@@ -46,7 +46,7 @@ let sp100 =
     "BKNG";
     "BLK";
     "BMY";
-    "BRK.B";
+    (* "BRK.B"; *)
     "C";
     "CAT";
     "CHTR";
