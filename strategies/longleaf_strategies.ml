@@ -82,7 +82,9 @@ end
 module Challenge1 = struct
   let run_options runtype : Run_options.t =
     {
-      symbols = [ "SPY" ];
+      symbols =
+        Collections.sp100_spy
+        |> List.filter (fun x -> not @@ String.equal x "SPY");
       tick = 600.0;
       overnight = true;
       resume_after_liquidate = true;
@@ -105,7 +107,7 @@ let of_string_res x =
   | "listener" | "listen" -> Ok Listener
   | "doubletop" -> Ok DoubleTop
   | "lowball" | "lowboll" -> Ok LowBoll
-  | "challenge1" -> Ok LowBoll
+  | "challenge1" -> Ok Challenge1
   | _ -> Error (`Msg "Expected a valid strategy")
 
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
