@@ -40,18 +40,23 @@ let simple_moving_average n (l : Bars.symbol_history) =
   let sum = Iter.fold ( +. ) 0.0 window in
   sum /. Float.of_int n
 
-let upper_bollinger standard_deviation sma = sma +. (2.0 *. standard_deviation)
-let lower_bollinger standard_deviation sma = sma -. (2.0 *. standard_deviation)
+let upper_bollinger n standard_deviation sma =
+  let n = Float.of_int n in
+  sma +. (n *. standard_deviation)
 
-let bollinger n history =
+let lower_bollinger n standard_deviation sma =
+  let n = Float.of_int n in
+  sma -. (n *. standard_deviation)
+
+let bollinger n deviations history =
   let sma = simple_moving_average n history in
   let standard_deviation =
     Util.last_n n history
     |> (Iter.map @@ fun item -> Item.last item)
     |> Iter.to_array |> Owl_stats.std
   in
-  ( lower_bollinger standard_deviation sma,
-    upper_bollinger standard_deviation sma )
+  ( lower_bollinger deviations standard_deviation sma,
+    upper_bollinger deviations standard_deviation sma )
 
 let mk_awesome fast slow = fast -. slow
 
@@ -186,9 +191,14 @@ module Point = struct
     exponential_moving_average : float;
     sma_5 : float;
     sma_34 : float;
+    sma_75 : float;
     sma_233 : float;
     upper_bollinger : float;
     lower_bollinger : float;
+    upper_bollinger_100_1 : float;
+    lower_bollinger_100_1 : float;
+    upper_bollinger_100_3 : float;
+    lower_bollinger_100_3 : float;
     awesome_oscillator : float;
     awesome_slow : float;
     average_gain : float;
@@ -210,9 +220,14 @@ module Point = struct
       price = 0.0;
       sma_5 = 0.0;
       sma_34 = 0.0;
+      sma_75 = 0.0;
       sma_233 = 0.0;
       upper_bollinger = 0.0;
       lower_bollinger = 0.0;
+      upper_bollinger_100_1 = 0.0;
+      lower_bollinger_100_1 = 0.0;
+      upper_bollinger_100_3 = 0.0;
+      lower_bollinger_100_3 = 0.0;
       awesome_oscillator = 0.0;
       awesome_slow = 0.0;
       average_gain = 0.00001;
@@ -228,9 +243,14 @@ module Point = struct
   let ema x = x.exponential_moving_average
   let sma_5 x = x.sma_5
   let sma_34 x = x.sma_34
+  let sma_75 x = x.sma_75
   let sma_233 x = x.sma_233
   let lower_bollinger x = x.lower_bollinger
   let upper_bollinger x = x.upper_bollinger
+  let lower_bollinger_100_1 x = x.lower_bollinger_100_1
+  let upper_bollinger_100_1 x = x.upper_bollinger_100_1
+  let lower_bollinger_100_3 x = x.lower_bollinger_100_3
+  let upper_bollinger_100_3 x = x.upper_bollinger_100_3
   let awesome x = x.awesome_oscillator
   let awesome_slow x = x.awesome_slow
   let rsi x = x.relative_strength_index
@@ -241,7 +261,13 @@ module Point = struct
 
   let of_latest config timestamp symbol_history length (previous : t)
       (previous_vec : (t, _) Vector.t) (latest : Item.t) =
-    let lower_bollinger, upper_bollinger = bollinger 34 symbol_history in
+    let lower_bollinger, upper_bollinger = bollinger 34 2 symbol_history in
+    let lower_bollinger_100_3, upper_bollinger_100_3 =
+      bollinger 100 3 symbol_history
+    in
+    let lower_bollinger_100_1, upper_bollinger_100_1 =
+      bollinger 100 1 symbol_history
+    in
     let sma_5 = simple_moving_average 5 symbol_history in
     let sma_34 = simple_moving_average 34 symbol_history in
     let awesome_oscillator = mk_awesome sma_5 sma_34 in
@@ -276,9 +302,14 @@ module Point = struct
           mk_ema length previous.exponential_moving_average latest;
         sma_5;
         sma_34;
+        sma_75 = simple_moving_average 75 symbol_history;
         sma_233 = simple_moving_average 233 symbol_history;
         lower_bollinger;
         upper_bollinger;
+        upper_bollinger_100_1;
+        lower_bollinger_100_1;
+        upper_bollinger_100_3;
+        lower_bollinger_100_3;
         awesome_oscillator;
         awesome_slow = mk_awesome sma_34 sma_233;
         price;
@@ -305,6 +336,12 @@ let pp : t Format.printer =
 
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
+
+let indicator (x : t) symbol f =
+  let open Option.Infix in
+  let* ind = get x symbol in
+  let+ top = Vector.top ind in
+  f top
 
 let initialize config bars symbol =
   let initial_stats_vector = Vector.create () in

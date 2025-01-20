@@ -23,6 +23,9 @@ let some_symbols =
     "SPY";
   ]
 
+let oex = [ "OEX" ]
+let spy = [ "SPY" ]
+
 let sp100 =
   [
     "AAPL";
@@ -43,7 +46,7 @@ let sp100 =
     "BKNG";
     "BLK";
     "BMY";
-    "BRK.B";
+    (* "BRK.B"; *)
     "C";
     "CAT";
     "CHTR";
@@ -59,7 +62,7 @@ let sp100 =
     "DE";
     "DHR";
     "DIS";
-    "DOW";
+    (* "DOW"; *)
     "DUK";
     "EMR";
     "F";
@@ -68,7 +71,7 @@ let sp100 =
     "GE";
     "GILD";
     "GM";
-    (* "GOOG"; *)
+    "GOOG";
     "GOOGL";
     "GS";
     "HD";
@@ -80,7 +83,7 @@ let sp100 =
     "JPM";
     "KHC";
     "KO";
-    "LIN";
+    (* "LIN"; *)
     "LLY";
     "LMT";
     "LOW";
@@ -98,7 +101,7 @@ let sp100 =
     "NEE";
     "NFLX";
     "NKE";
-    (* "NVDA"; *)
+    "NVDA";
     "ORCL";
     "PEP";
     "PFE";
@@ -127,3 +130,5 @@ let sp100 =
     "WMT";
     "XOM";
   ]
+
+let sp100_spy = "SPY" :: sp100

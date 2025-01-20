@@ -49,7 +49,7 @@ end = struct
 end
 
 module Timeframe : sig
-  type t
+  type t = Min of int | Hour of int | Day | Week | Month of int
   type conv = int option -> t
 
   val conv : conv Cmdliner.Arg.conv
