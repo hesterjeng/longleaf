@@ -12,16 +12,23 @@ let layout title =
       "xaxis"
       = `Assoc
           [
-            "title" = `String "X-axis";
+            "title" = `String "Time";
             "type" = `String "category";
             "tickmode" = `String "linear";
             "dtick" = `Int 20;
             "showticklabels" = `Bool false;
           ];
-      "yaxis" = `Assoc [ "title" = `String "Y-axis" ];
+      "yaxis" = `Assoc [ "title" = `String "Value" ];
+      "yaxis2"
+      = `Assoc
+          [
+            "title" = `String "Value2";
+            "overlaying" = `String "y";
+            "side" = `String "right";
+          ];
     ]
 
-let indicator_trace ?(show = true) ?(drop = 34) ~data
+let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1") ~data
     (indicators : Indicators.t) indicator_name indicator_get symbol :
     Yojson.Safe.t option =
   let+ indicators_vec =
@@ -72,6 +79,7 @@ let indicator_trace ?(show = true) ?(drop = 34) ~data
       ("y", `List y);
       ("text", `String indicator_name);
       ("name", `String indicator_name);
+      ("yaxis", `String yaxis);
       ("type", `String "scatter");
       ("visible", `String visible);
       ( "line",
@@ -156,7 +164,8 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~data ~drop:26 indicators "EMA(26)" IP.ema_26 symbol
   in
   let* macd_trace =
-    indicator_trace ~show:false ~drop:26 ~data indicators "MACD" IP.macd symbol
+    indicator_trace ~show:false ~drop:26 ~yaxis:"y2" ~data indicators "MACD"
+      IP.macd symbol
   in
   let* sma_5_trace =
     indicator_trace ~drop:5 ~data indicators "SMA(5)" IP.sma_5 symbol
