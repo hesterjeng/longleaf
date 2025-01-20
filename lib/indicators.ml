@@ -34,6 +34,8 @@ module EMA = struct
       +. (previous_ema *. complement_smoothing_factor)
     in
     Iter.fold f 0.0 window
+
+  let macd ~ema_12 ~ema_26 = ema_12 -. ema_26
 end
 
 let simple_moving_average n (l : Bars.symbol_history) =
@@ -191,6 +193,7 @@ module Point = struct
     accumulation_distribution_line : float;
     ema_12 : float;
     ema_26 : float;
+    macd : float;
     sma_5 : float;
     sma_34 : float;
     sma_75 : float;
@@ -220,6 +223,7 @@ module Point = struct
       accumulation_distribution_line = 0.0;
       ema_12 = 0.0;
       ema_26 = 0.0;
+      macd = 0.0;
       price = 0.0;
       sma_5 = 0.0;
       sma_34 = 0.0;
@@ -245,6 +249,7 @@ module Point = struct
 
   let ema_12 x = x.ema_12
   let ema_26 x = x.ema_26
+  let macd x = x.macd
   let sma_5 x = x.sma_5
   let sma_34 x = x.sma_34
   let sma_75 x = x.sma_75
@@ -297,13 +302,16 @@ module Point = struct
       FFT.mean_squared_error config previous.fourier_transform fourier_transform
     in
     let sma_233 = simple_moving_average 233 symbol_history in
+    let ema_12 = EMA.make 12 symbol_history in
+    let ema_26 = EMA.make 26 symbol_history in
     let res =
       {
         timestamp;
         accumulation_distribution_line =
           adl previous.accumulation_distribution_line latest;
-        ema_12 = EMA.make 12 symbol_history;
-        ema_26 = EMA.make 26 symbol_history;
+        ema_12;
+        ema_26;
+        macd = EMA.macd ~ema_12 ~ema_26;
         sma_5;
         sma_34;
         sma_75 = simple_moving_average 75 symbol_history;
