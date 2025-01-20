@@ -56,7 +56,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     | true -> ()
     | false ->
         Eio.Domain_manager.run domain_manager @@ fun () ->
-        Gui.top ~mutices eio_env
+        Server.top ~mutices eio_env
   in
   let _ = Eio.Fiber.both run_strategy run_server in
   ()

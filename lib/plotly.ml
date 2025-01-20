@@ -195,12 +195,12 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
       "Fourier Transform Mean Squared Error" IP.fft_mean_squared_error symbol
   in
   let* u3b =
-    indicator_trace ~data ~show:false indicators
-      "Upper 3 Bollinger" IP.upper_bollinger_100_3 symbol
+    indicator_trace ~data ~show:false indicators "Upper 3 Bollinger"
+      IP.upper_bollinger_100_3 symbol
   in
   let* l1b =
-    indicator_trace ~data ~show:false indicators
-      "Lower 1 Bollinger" IP.lower_bollinger_100_1 symbol
+    indicator_trace ~data ~show:false indicators "Lower 1 Bollinger"
+      IP.lower_bollinger_100_1 symbol
   in
   let buy_trace = order_trace_side Buy data in
   let sell_trace = order_trace_side Sell data in
