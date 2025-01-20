@@ -28,12 +28,11 @@ module EMA = struct
   let make n (l : Bars.symbol_history) =
     let window = Util.last_n n l |> Iter.map Item.last in
     let smoothing_factor = 2.0 /. (Float.of_int n +. 1.0) in
-    let complement_smoothing_factor = 1.0 -. smoothing_factor in
-    let f current_price previous_ema =
-      (current_price *. smoothing_factor)
-      +. (previous_ema *. complement_smoothing_factor)
+    let initial_value = Iter.take 1 window |> Iter.fold ( +. ) 0.0 in
+    let f previous_ema current_price =
+      previous_ema +. (smoothing_factor *. (current_price -. previous_ema))
     in
-    Iter.fold f 0.0 window
+    Iter.fold f initial_value window
 
   let macd ~ema_12 ~ema_26 = ema_12 -. ema_26
 end
