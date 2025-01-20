@@ -40,7 +40,7 @@ let sp100 =
     "AMGN";
     "AMT";
     "AMZN";
-    (* "AVGO"; *)
+    "AVGO";
     "AXP";
     "BA";
     "BAC";
@@ -64,7 +64,7 @@ let sp100 =
     "DE";
     "DHR";
     "DIS";
-    "DOW";
+    (* "DOW"; *)
     "DUK";
     "EMR";
     (* "F"; *)
@@ -85,7 +85,7 @@ let sp100 =
     "JPM";
     "KHC";
     "KO";
-    "LIN";
+    (* "LIN"; *)
     "LLY";
     "LMT";
     "LOW";
@@ -103,7 +103,7 @@ let sp100 =
     "NEE";
     "NFLX";
     "NKE";
-    (* "NVDA"; *)
+    "NVDA";
     "ORCL";
     "PEP";
     "PFE";
