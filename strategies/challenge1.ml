@@ -1,45 +1,67 @@
 open Trading_types
 
-module DT_Status = struct
+module Status = struct
   type t = Placed of (int * Order.t) | Waiting [@@deriving show]
 end
 
-type state = DT_Status.t State.t
+type state = Status.t State.t
 
-module Conditions = struct
-  let below_bollinger (indicators : Indicators.t) symbol
-      (current_price : Item.t) =
-    let last_price = Item.last current_price in
-    let lower_bollinger =
-      Indicators.get indicators symbol
-      |> Option.get_exn_or "low_bollinger: expected to get indicators"
-      |> Vector.top
-      |> Option.get_exn_or
-           "low_bollinger: expected to have data present in indicator"
-      |> Indicators.Point.lower_bollinger
+module BuyReason = struct
+  type t = Above3StdBollinger
+
+  let make (state : state) symbol =
+    let open Option.Infix in
+    let current_price = Bars.Latest.get state.latest symbol |> Item.last in
+    let* upper_bb =
+      Indicators.indicator state.indicators symbol
+        Indicators.Point.upper_bollinger_100_3
     in
-    match last_price <=. lower_bollinger with
-    | true -> Some (lower_bollinger -. last_price)
-    | false -> None
+    let* sma75 =
+      Indicators.indicator state.indicators symbol Indicators.Point.sma_75
+    in
+    let pass = current_price >=. upper_bb && not (current_price <=. sma75) in
+    match pass with true -> Some Above3StdBollinger | false -> None
+end
 
-  module Sell_reason = struct
-    type t =
-      | Profited of float
-      | HoldingPeriod of float
-      | StopLoss of float
-      | FSO_High of float
-      | HoldBelowBollinger
-      | Hold
-    [@@deriving show { with_path = false }]
-  end
+module Sell_reason = struct
+  type t = Below1StdBollinger [@@deriving show { with_path = false }]
+
+  let make (state : state) symbol =
+    let open Option.Infix in
+    let current_price = Bars.Latest.get state.latest symbol |> Item.last in
+    let* lower_bb =
+      Indicators.indicator state.indicators symbol
+        Indicators.Point.lower_bollinger_100_1
+    in
+    let* sma75 =
+      Indicators.indicator state.indicators symbol Indicators.Point.sma_75
+    in
+    let pass = current_price <=. lower_bb && not (current_price <=. sma75) in
+    match pass with true -> Some Below1StdBollinger | false -> None
+end
+
+module Order = struct
+
+  include Trading_types.Order
+
+  let of_make_reason (x : )
+
 end
 
 module Make (Backend : Backend.S) : Strategy.S = struct
+  module SU = Strategy_utils.Make (Backend)
+
   let shutdown () =
     Eio.traceln "Shutdown command NYI";
     ()
 
-  let init_state = Backend.init_state DT_Status.Waiting
+  let init_state = Backend.init_state Status.Waiting
+
+  let buy (state : state) =
+    let passes = List.filter_map (BuyReason.make state) Backend.symbols in
+    (* Just select the first one for now *)
+    let selected = List.head_opt passes in
+    ()
 
   let step (state : state) =
     let current = state.current in

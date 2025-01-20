@@ -340,7 +340,7 @@ let get (x : t) symbol = Hashtbl.find_opt x symbol
 let indicator (x : t) symbol f =
   let open Option.Infix in
   let* ind = get x symbol in
-  let* top = Vector.top ind in
+  let+ top = Vector.top ind in
   f top
 
 let initialize config bars symbol =
