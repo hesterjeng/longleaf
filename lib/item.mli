@@ -24,3 +24,4 @@ val close : t -> float
 val volume : t -> int
 val order : t -> Order.t option
 val add_order : Order.t -> t -> t
+val eq_timestamp : t -> t -> bool

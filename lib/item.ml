@@ -50,3 +50,4 @@ let volume x = x.volume
 
 (* let indicators x = x.indicators *)
 let compare x y = Ptime.compare x.timestamp y.timestamp
+let eq_timestamp x y = compare x y = 0
