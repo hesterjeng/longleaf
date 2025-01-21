@@ -91,9 +91,8 @@ let length (x : t) =
   in
   Seq.fold folder 0 seq
 
-let split midpoint (x : t) : t * t =
-  let length = length x in
-  assert (0 <= midpoint && midpoint <= length);
+let split ~midpoint ~target_length ~combined_length (x : t) : t * t =
+  assert (0 <= midpoint && midpoint <= combined_length);
   let seq = Hashtbl.to_seq x in
   let first_part =
     Seq.map
@@ -105,7 +104,11 @@ let split midpoint (x : t) : t * t =
   let second_part =
     Seq.map
       ( Pair.map_snd @@ fun vec ->
-        Vector.mapi (fun i p -> if i > midpoint then Some p else None) vec
+        Vector.mapi
+          (fun i p ->
+            if i > midpoint && i < midpoint + target_length then Some p
+            else None)
+          vec
         |> Vector.filter_map Fun.id )
       seq
   in
