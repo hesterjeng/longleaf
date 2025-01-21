@@ -7,7 +7,8 @@ end
 type state = Status.t State.t
 
 module BuyReason = struct
-  type t = Above3StdBollinger of string
+  (* Above 3 std bollingers *)
+  type t = { symbol : string; amt_above : float }
 
   let make (state : state) symbol =
     let open Option.Infix in
@@ -21,8 +22,9 @@ module BuyReason = struct
       |> Option.get_exn_or "Must be able to get SPY SMA 75"
     in
     let spy_price = Bars.Latest.get state.latest "SPY" |> Item.last in
+    let amt_above = current_price -. upper_bb in
     let pass = current_price >=. upper_bb && not (spy_price <=. sma75spy) in
-    match pass with true -> Some (Above3StdBollinger symbol) | false -> None
+    match pass with true -> Some { symbol; amt_above } | false -> None
 end
 
 module SellReason = struct
@@ -52,7 +54,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
 
     let of_buy_reason (state : state) (x : BuyReason.t) =
       match x with
-      | Above3StdBollinger symbol ->
+      | { symbol; _ } ->
           let current_cash = Backend.get_cash () in
           let item = Bars.Latest.get state.latest symbol in
           let side = Side.Buy in
@@ -103,12 +105,22 @@ module Make (Backend : Backend.S) : Strategy.S = struct
   let buy (state : state) =
     let open Result.Infix in
     let passes = List.filter_map (BuyReason.make state) Backend.symbols in
-    let orders = List.map (Order.of_buy_reason state) passes in
-    (* Just select the first one for now *)
+    (* Select the symbol that is most above its bollinger band *)
+    let selected =
+      List.fold_left
+        (fun (previous_opt : BuyReason.t option) (x : BuyReason.t) ->
+          match previous_opt with
+          | None -> Some x
+          | Some previous ->
+              if previous.amt_above <=. x.amt_above then Some previous
+              else Some x)
+        None passes
+    in
     let+ content =
-      match List.head_opt orders with
+      match selected with
       | None -> Ok state.content
-      | Some order ->
+      | Some choice ->
+          let order = Order.of_buy_reason state choice in
           let* () = Backend.place_order state order in
           Result.return @@ Status.Placed (0, order)
     in
