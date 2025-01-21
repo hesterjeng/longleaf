@@ -192,6 +192,8 @@ module Order : sig
   }
   [@@deriving show, yojson]
 
+  val equal : t -> t -> bool
+
   val make :
     symbol:string ->
     side:Side.t ->
@@ -224,6 +226,13 @@ end = struct
   [@@deriving show, yojson]
 
   let timestamp x = x.timestamp
+
+  let equal x y =
+    String.equal x.symbol y.symbol
+    && x.qty = y.qty
+    && Float.equal x.price y.price
+    && Side.equal x.side y.side
+    && Ptime.equal x.timestamp y.timestamp
 
   let make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason ~profit
       =
