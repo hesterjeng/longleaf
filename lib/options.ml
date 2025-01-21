@@ -7,6 +7,8 @@ module Runtype = struct
     | Multitest (* Run the strategy multiple times. *)
     | Montecarlo (* Run the test with randomly generated target data. *)
     | MultiMontecarlo
+    | RandomSliceBacktest
+    | MultiRandomSliceBacktest
       (* Run multiple tests with ranomly generated target data. *)
   [@@deriving show, eq]
 
@@ -19,6 +21,8 @@ module Runtype = struct
     | "Multitest" | "multitest" -> Ok Multitest
     | "Montecarlo" | "monte" | "montecarlo" -> Ok Montecarlo
     | "MultiMontecarlo" | "multimont" | "multicarlo" -> Ok MultiMontecarlo
+    | "randbacktest" -> Ok RandomSliceBacktest
+    | "multirandbacktest" -> Ok MultiRandomSliceBacktest
     (* | "Listener" | "listener" -> Ok Listener *)
     (* | "Buyandhold" | "buyandhold" -> Ok BuyAndHold *)
     | _ -> Error (`Msg "Expected a valid runtype")

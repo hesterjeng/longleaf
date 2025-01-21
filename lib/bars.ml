@@ -73,6 +73,47 @@ let pp_stats : t Format.printer =
       Format.fprintf fmt "@[%a@]@." pp (symbol, Vector.length v))
     seq
 
+let length (x : t) =
+  let seq = Hashtbl.to_seq x in
+  let folder length (symbol, vec) =
+    match length with
+    | 0 -> Vector.length vec
+    | _ -> (
+        let new_length = Vector.length vec in
+        match length = new_length with
+        | true -> length
+        | false ->
+            Eio.traceln
+              "error: bars.ml: Length mistmatch at symbol %s: previous length: \
+               %d current length: %d"
+              symbol length new_length;
+            Int.min length new_length)
+  in
+  Seq.fold folder 0 seq
+
+let split ~midpoint ~target_length ~combined_length (x : t) : t * t =
+  assert (0 <= midpoint && midpoint <= combined_length);
+  let seq = Hashtbl.to_seq x in
+  let first_part =
+    Seq.map
+      ( Pair.map_snd @@ fun vec ->
+        Vector.mapi (fun i p -> if i <= midpoint then Some p else None) vec
+        |> Vector.filter_map Fun.id )
+      seq
+  in
+  let second_part =
+    Seq.map
+      ( Pair.map_snd @@ fun vec ->
+        Vector.mapi
+          (fun i p ->
+            if i > midpoint && i < midpoint + target_length then Some p
+            else None)
+          vec
+        |> Vector.filter_map Fun.id )
+      seq
+  in
+  (Hashtbl.of_seq first_part, Hashtbl.of_seq second_part)
+
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 let sort cmp (x : t) = Hashtbl.iter (fun _ vector -> Vector.sort' cmp vector) x
 let empty () : t = Hashtbl.create 100
