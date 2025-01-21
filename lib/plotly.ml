@@ -182,10 +182,10 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
       IP.awesome_slow symbol
   in
   let* upper_bollinger =
-    indicator_trace ~data indicators "Upper Bollinger" IP.upper_bollinger symbol
+    indicator_trace ~data indicators "Upper BB(34)" IP.upper_bollinger symbol
   in
   let* lower_bollinger =
-    indicator_trace ~data indicators "Lower Bollinger" IP.lower_bollinger symbol
+    indicator_trace ~data indicators "Lower BB(34)" IP.lower_bollinger symbol
   in
   let* rsi =
     indicator_trace ~data ~show:false indicators "Relative Strength Index"
