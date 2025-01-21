@@ -73,6 +73,24 @@ let pp_stats : t Format.printer =
       Format.fprintf fmt "@[%a@]@." pp (symbol, Vector.length v))
     seq
 
+let length (x : t) =
+  let seq = Hashtbl.to_seq x in
+  Seq.fold
+    (fun length (symbol, vec) ->
+      match length with
+      | 0 -> Vector.length vec
+      | _ -> (
+          let new_length = Vector.length vec in
+          match length = new_length with
+          | true -> length
+          | false ->
+              Eio.traceln
+                "Length mistmatch at symbol %s: previous length: %d current \
+                 length: %d"
+                symbol length new_length;
+              Int.min length new_length))
+    0 seq
+
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 let sort cmp (x : t) = Hashtbl.iter (fun _ vector -> Vector.sort' cmp vector) x
 let empty () : t = Hashtbl.create 100
