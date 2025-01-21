@@ -348,7 +348,7 @@ let pp : t Format.printer =
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
-let indicator (x : t) symbol f =
+let get_indicator (x : t) symbol f =
   let open Option.Infix in
   let* ind = get x symbol in
   let+ top = Vector.top ind in
