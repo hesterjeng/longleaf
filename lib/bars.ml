@@ -84,12 +84,32 @@ let length (x : t) =
         | true -> length
         | false ->
             Eio.traceln
-              "Length mistmatch at symbol %s: previous length: %d current \
-               length: %d"
+              "error: bars.ml: Length mistmatch at symbol %s: previous length: \
+               %d current length: %d"
               symbol length new_length;
             Int.min length new_length)
   in
   Seq.fold folder 0 seq
+
+let split midpoint (x : t) : t * t =
+  let length = length x in
+  assert (0 <= midpoint && midpoint <= length);
+  let seq = Hashtbl.to_seq x in
+  let first_part =
+    Seq.map
+      ( Pair.map_snd @@ fun vec ->
+        Vector.mapi (fun i p -> if i <= midpoint then Some p else None) vec
+        |> Vector.filter_map Fun.id )
+      seq
+  in
+  let second_part =
+    Seq.map
+      ( Pair.map_snd @@ fun vec ->
+        Vector.mapi (fun i p -> if i > midpoint then Some p else None) vec
+        |> Vector.filter_map Fun.id )
+      seq
+  in
+  (Hashtbl.of_seq first_part, Hashtbl.of_seq second_part)
 
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 let sort cmp (x : t) = Hashtbl.iter (fun _ vector -> Vector.sort' cmp vector) x
