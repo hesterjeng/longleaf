@@ -22,6 +22,7 @@ module DoubleTop = struct
       runtype;
       indicators_config : Indicators.Config.t = { fft = false };
       dropout = false;
+      randomized_backtest_length = 1000;
     }
 
   let top runtype context =
@@ -40,6 +41,7 @@ module LowBall = struct
       runtype;
       indicators_config : Indicators.Config.t = { fft = false };
       dropout = false;
+      randomized_backtest_length = 1000;
     }
 
   let top runtype context =
@@ -57,6 +59,7 @@ module Listener = struct
       runtype;
       indicators_config : Indicators.Config.t = { fft = false };
       dropout = false;
+      randomized_backtest_length = 1000;
     }
 
   let top runtype context =
@@ -73,6 +76,7 @@ module BuyAndHold = struct
       runtype;
       indicators_config : Indicators.Config.t = { fft = false };
       dropout = false;
+      randomized_backtest_length = 1000;
     }
 
   let top runtype context =
@@ -89,6 +93,7 @@ module Challenge1 = struct
       runtype;
       indicators_config : Indicators.Config.t = { fft = false };
       dropout = false;
+      randomized_backtest_length = 1000;
     }
 
   let top runtype context =

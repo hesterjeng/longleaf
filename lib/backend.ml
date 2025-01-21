@@ -9,6 +9,7 @@ module Run_options = struct
     runtype : Options.Runtype.t;
     indicators_config : Indicators.Config.t;
     dropout : bool;
+    randomized_backtest_length : int;
   }
 end
 
