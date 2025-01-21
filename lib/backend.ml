@@ -382,6 +382,34 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
       | _ -> res
   end : BACKEND_INPUT)
 
+module SliceBacktesting = struct
+
+let select_midpoint length =
+  assert (length >= 8000);
+  let start_range = 1000 in
+  let end_range = length - 1000 in
+  Int.random_range start_range end_range Util.random_state
+
+let top target_length (module Input : BACKEND_INPUT) =
+  let preload = Input.bars in
+  let target =
+    Input.target |> Option.get_exn_or "Must have target for slice backtesting"
+  in
+  let combined = Bars.combine [ preload; target ] in
+  let combined_length = Bars.length combined in
+  let midpoint = select_midpoint combined_length in
+  let new_bars, new_target =
+    Bars.split ~midpoint ~target_length ~combined_length combined
+  in
+  (module struct
+    include Input
+
+    let bars = new_bars
+    let target = Some new_target
+  end : BACKEND_INPUT)
+
+end
+
 let create_backend (options : Run_options.t) (context : Run_context.t) =
   let module Input = (val make_backend_input options context) in
   match options.runtype with
@@ -393,3 +421,6 @@ let create_backend (options : Run_options.t) (context : Run_context.t) =
   | Backtest | Multitest | Montecarlo | MultiMontecarlo ->
       Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
       (module Backtesting (Input))
+  | RandomBacktest ->
+    let module NewInput = SliceBacktesting.top options.randomized_backtest_length (val Input) in
+    (module Backtesting (NewInput))
