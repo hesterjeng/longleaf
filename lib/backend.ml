@@ -390,6 +390,7 @@ module SliceBacktesting = struct
     Int.random_range start_range end_range Util.random_state
 
   let top target_length (module Input : BACKEND_INPUT) =
+    Eio.traceln "Selecting and creating random slice...";
     let preload = Input.bars in
     let target =
       Input.target |> Option.get_exn_or "Must have target for slice backtesting"
@@ -400,6 +401,10 @@ module SliceBacktesting = struct
     let new_bars, new_target =
       Bars.split ~midpoint ~target_length ~combined_length combined
     in
+    Eio.traceln "Sorting random slices...";
+    Bars.sort Item.compare new_bars;
+    Bars.sort (Ord.opp Item.compare) new_target;
+    Eio.traceln "Finished creating random slice...";
     (module struct
       include Input
 
