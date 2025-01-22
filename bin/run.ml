@@ -35,7 +35,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
   let run_strategy () =
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
-    let context : Backend.Run_context.t =
+    let context : Backend_intf.Run_context.t =
       {
         eio_env;
         longleaf_env;
@@ -47,7 +47,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
         save_to_file;
       }
     in
-    Eio.traceln "@[Context: %a@]@." Backend.Run_context.pp context;
+    Eio.traceln "@[Context: %a@]@." Backend_intf.Run_context.pp context;
     let res = Longleaf_strategies.run runtype context strategy_arg in
     Eio.traceln "@[Final response: %f@]@." res;
     ()
