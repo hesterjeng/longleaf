@@ -1,4 +1,4 @@
-module Run_options = Backend.Run_options
+module Run_options = Backend_intf.Run_options
 module Collections = Ticker_collections
 
 let run_generic ~runtype ~context ~run_options (module Strat : Strategy.BUILDER)

@@ -1,6 +1,6 @@
 module Order = Trading_types.Order
 
-module Make (Backend : Backend.S) = struct
+module Make (Backend : Backend_intf.S) = struct
   let mutices : Longleaf_mutex.t = Backend.Input.mutices
   let runtype = Backend.Input.runtype
 
