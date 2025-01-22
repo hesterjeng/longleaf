@@ -5,7 +5,7 @@ let run_generic ~runtype ~context ~run_options (module Strat : Strategy.BUILDER)
     =
   Eio.traceln "@[Starting Doubletop@]@.";
   let options = run_options runtype in
-  let module Backend = (val Backend.create_backend options context) in
+  let module Backend = (val Backend.make options context) in
   let module S = Strat (Backend) in
   let res = S.run () in
   Backend.shutdown ();
