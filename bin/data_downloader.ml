@@ -63,7 +63,7 @@ let get_todays_date () =
     local_time.Unix.tm_mday (* Day *)
 
 module Downloader = struct
-  let data_client switch eio_env (longleaf_env : Longleaf.Environment.t) =
+  let data_client switch eio_env (longleaf_env : Environment.t) =
     let res =
       Piaf.Client.create ~sw:switch eio_env longleaf_env.apca_api_data_url
     in
@@ -80,7 +80,7 @@ module Downloader = struct
     Util.yojson_safe true @@ fun () ->
     let longleaf_env = Environment.make () in
     let data_client = data_client switch eio_env longleaf_env in
-    let module Conn : Longleaf.Util.CLIENT = struct
+    let module Conn : Util.CLIENT = struct
       let client = data_client
       let longleaf_env = longleaf_env
     end in
@@ -95,7 +95,7 @@ module Downloader = struct
             let longleaf_env = longleaf_env
             let client = Tiingo_api.tiingo_client eio_env switch
           end in
-          let module Tiingo = Longleaf.Tiingo_api.Make (Param) in
+          let module Tiingo = Tiingo_api.Make (Param) in
           let res = Tiingo.Data.top ~afterhours request in
           Piaf.Client.shutdown Param.client;
           res
@@ -120,8 +120,8 @@ module Cmd = struct
     let collection = Collections.sp100_spy in
     let request =
       match
-        Longleaf.Market_data_api.Historical_bars_request.of_data_downloader
-          collection begin_arg end_arg timeframe_arg interval_arg
+        Market_data_api.Historical_bars_request.of_data_downloader collection
+          begin_arg end_arg timeframe_arg interval_arg
       with
       | Some r -> r
       | None ->
