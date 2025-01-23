@@ -108,8 +108,8 @@ module Conditions = struct
       (* in *)
       (* if current_price >. P.profit_multiplier *. buying_order.price then *)
       (*   Profited price_difference *)
-      if (fso_pd >=. 90.0) then FSO_High price_difference
-      (* if (fso_pd >=. 90.0 && fso_pk >=. 55.0) then FSO_High price_difference *)
+      if fso_pd >=. 90.0 then FSO_High price_difference
+        (* if (fso_pd >=. 90.0 && fso_pk >=. 55.0) then FSO_High price_difference *)
         (* if fso_pk >=. 95.0 then FSO_High price_difference *)
         (* else if below_bollinger then HoldBelowBollinger *)
       else if time_held > P.max_holding_period then
