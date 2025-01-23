@@ -100,7 +100,24 @@ module Challenge1 = struct
     run_generic ~runtype ~context ~run_options (module Challenge1.Make)
 end
 
-type t = BuyAndHold | Listener | DoubleTop | LowBoll | Challenge1
+module Scalper = struct
+  let run_options runtype : Run_options.t =
+    {
+      symbols = Collections.sp100;
+      tick = 600.0;
+      overnight = true;
+      resume_after_liquidate = true;
+      runtype;
+      indicators_config : Indicators.Config.t = { fft = false };
+      dropout = false;
+      randomized_backtest_length = 1000;
+    }
+
+  let top runtype context =
+    run_generic ~runtype ~context ~run_options (module Scalper.Make)
+end
+
+type t = BuyAndHold | Listener | DoubleTop | LowBoll | Challenge1 | Scalper
 [@@deriving show, eq]
 
 let of_string_res x =
@@ -111,6 +128,7 @@ let of_string_res x =
   | "doubletop" -> Ok DoubleTop
   | "lowball" | "lowboll" -> Ok LowBoll
   | "challenge1" -> Ok Challenge1
+  | "scalper" -> Ok Scalper
   | _ -> Error (`Msg "Expected a valid strategy")
 
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
@@ -122,6 +140,7 @@ let run_strat runtype context x =
   | DoubleTop -> DoubleTop.top runtype context
   | LowBoll -> LowBall.top runtype context
   | Challenge1 -> Challenge1.top runtype context
+  | Scalper -> Scalper.top runtype context
 
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
@@ -131,7 +150,7 @@ let run (runtype : Options.Runtype.t) context x =
   | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest ->
       run_strat runtype context x
   | Multitest | MultiMontecarlo | MultiRandomSliceBacktest ->
-      let init = Array.make 10 () in
+      let init = Array.make 30 () in
       let res = Array.map (fun _ -> run_strat runtype context x) init in
       Array.sort Float.compare res;
       let mean = Owl_stats.mean res in
@@ -145,7 +164,13 @@ let run (runtype : Options.Runtype.t) context x =
         |> Array.length |> Float.of_int
         |> fun f -> f /. (Float.of_int @@ Array.length res)
       in
+      let percent_great =
+        Array.filter (fun x -> x >=. 110000.0) res
+        |> Array.length |> Float.of_int
+        |> fun f -> f /. (Float.of_int @@ Array.length res)
+      in
       Eio.traceln "@[percent profitable: %f@]@." percent_profitable;
+      Eio.traceln "@[percent great: %f@]@." percent_great;
       let normalised_histogram = Owl_stats.normalise histogram in
       Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
       Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
