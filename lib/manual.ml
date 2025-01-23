@@ -19,7 +19,7 @@ let tiingo_test eio_env longleaf_env =
 
 let place_order_test eio_env longleaf_env =
   Eio.Switch.run @@ fun switch ->
-  let module Input : Backend.BACKEND_INPUT = struct
+  let module Input : Backend_intf.BACKEND_INPUT = struct
     let switch = switch
     let longleaf_env = longleaf_env
     let eio_env = eio_env
@@ -36,7 +36,7 @@ let place_order_test eio_env longleaf_env =
     let dropout = false
     let save_to_file = false
   end in
-  let module Alpaca = Backend.Alpaca (Input) in
+  let module Alpaca = Alpaca_backend.Make (Input) in
   let state = Alpaca.init_state () in
   let order : Trading_types.Order.t =
     Trading_types.Order.make ~symbol:"NVDA" ~side:Buy
