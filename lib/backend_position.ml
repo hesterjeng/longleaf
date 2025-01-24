@@ -38,6 +38,10 @@ module Generative () : S = struct
     let symbol_value = Float.of_int qty *. symbol_price in
     symbol_value +. previous_value
 
+  let mem (x : t) symbol =
+    let found = Hashtbl.get x.position symbol in
+    match found with Some 0 | None -> false | Some _ -> true
+
   let execute_order state (order : Order.t) =
     State.record_order state order;
     let symbol = order.symbol in
