@@ -199,13 +199,13 @@ let append (latest : Latest.t) (x : t) =
          Hashtbl.replace x symbol @@ Vector.create ()
      | Some h -> Vector.push h item
 
-let price bars ticker =
-  match List.Assoc.get ~eq:String.equal ticker bars with
-  | Some vec when Vector.length vec = 1 -> Vector.get vec 0
-  | Some _ -> invalid_arg "Multiple bar items on latest bar?"
-  | None ->
-      invalid_arg
-      @@ Format.asprintf "Unable to get price info for ticker %s" ticker
+(* let price (bars : t) ticker = *)
+(*   match List.Assoc.get ~eq:String.equal ticker bars with *)
+(*   | Some vec when Vector.length vec = 1 -> Vector.get vec 0 *)
+(*   | Some _ -> invalid_arg "Multiple bar items on latest bar?" *)
+(*   | None -> *)
+(*       invalid_arg *)
+(*       @@ Format.asprintf "Unable to get price info for ticker %s" ticker *)
 
 let print_to_file ?(filename : string option) bars prefix =
   let bars_json = yojson_of_t bars in
