@@ -84,7 +84,7 @@ module Conditions = struct
     [@@deriving show { with_path = false }]
 
     let make ~time_held ~current_price ~(state : state)
-        ~(buying_order : Trading_types.Order.t) ~price_difference =
+        ~(buying_order : Order.t) ~price_difference =
       (* let below_bollinger = *)
       (*   below_bollinger state.indicators buying_order.symbol *)
       (*   @@ Bars.Latest.get state.latest buying_order.symbol *)

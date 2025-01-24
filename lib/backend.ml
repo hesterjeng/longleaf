@@ -1,4 +1,3 @@
-module Order = Trading_types.Order
 module Run_options = Backend_intf.Run_options
 module Run_context = Backend_intf.Run_context
 
