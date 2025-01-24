@@ -1,5 +1,3 @@
-module Order = Trading_types.Order
-
 type t [@@deriving show, yojson]
 
 val make :
@@ -10,7 +8,7 @@ val make :
   close:float ->
   last:float ->
   volume:int ->
-  ?order:Trading_types.Order.t option ->
+  ?order:Order.t option ->
   unit ->
   t
 

@@ -1,5 +1,3 @@
-module Order = Trading_types.Order
-
 (* type order_history = (Time.t * Order.t) list [@@deriving show, yojson] *)
 (* type t = (Time.t, Order.t) Hashtbl.t *)
 

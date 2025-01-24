@@ -1,5 +1,3 @@
-module Order = Trading_types.Order
-
 type pos = (string, int) Hashtbl.t [@@deriving show]
 
 module type S = sig
@@ -18,8 +16,6 @@ module Generative () : S = struct
   (* be using the true information from the server for this rather than keeping track. *)
   (* TODO: *)
   (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
-
-  module Order = Trading_types.Order
 
   type t = { position : pos; mutable cash : float } [@@deriving show]
 

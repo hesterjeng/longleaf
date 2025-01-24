@@ -44,7 +44,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
   module SU = Strategy_utils.Make (Backend)
 
   module Order = struct
-    include Trading_types.Order
+    include Order
 
     let of_buy_reason (state : state) (x : BuyReason.t) =
       let ( let+ ) = Option.( let+ ) in

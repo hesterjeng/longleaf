@@ -1,5 +1,3 @@
-module Order = Trading_types.Order
-
 type item = {
   time : Time.t;
   value : float;

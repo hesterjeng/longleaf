@@ -1,4 +1,3 @@
-module Order = Trading_types.Order
 module Hashtbl = Hashtbl.Make (String)
 
 (* module Received = struct *)

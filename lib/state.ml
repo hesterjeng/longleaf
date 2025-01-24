@@ -1,5 +1,3 @@
-module Order = Trading_types.Order
-
 type nonlogical_state =
   [ `Initialize
   | `Listening
