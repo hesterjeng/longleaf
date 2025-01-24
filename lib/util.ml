@@ -143,6 +143,9 @@ let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
 
 let random_state = Random.State.make_self_init ()
 
+let random_choose_opt l =
+  match l with [] -> None | l -> Some (List.random_choose l random_state)
+
 (* mean and sigma chosen so that P (x >= 1.0) ~ 0.2 *)
 let one_in_five =
   let rv = Owl_stats.lognormal_rvs ~mu:(-0.84) ~sigma:1.0 in
