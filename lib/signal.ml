@@ -1,69 +1,109 @@
 module Direction = struct
-
-type t =
-  | Above
-  | Below [@@deriving show]
-
+  type t = Above | Below [@@deriving show]
 end
 
 module Reason = struct
-
-  type t = string [@@deriving show]
+  type t = string list [@@deriving show]
 
   let make indicator direction amt =
-    Format.asprint
-
+    [ Format.asprintf "%s %a %f" indicator Direction.pp direction amt ]
 end
 
-module Sig = struct
-  type 'a t = Pass of 'a | Fail of Reason.t
+module Flag = struct
+  type t = Pass of Reason.t | Fail of Reason.t
+
+  let pass x = Pass x
+  let fail x = Fail x
+
+  let conjunction (l : t list) =
+    List.fold_left
+      (fun acc current ->
+        match (acc, current) with
+        | Some (Pass acc), Pass curr -> Some (Pass (curr @ acc))
+        | Some (Pass _), Fail res -> Some (Fail res)
+        | (Some (Fail _) as failure), _ -> failure
+        | None, Pass res -> Some (Pass res)
+        | None, Fail res -> Some (Fail res))
+      None l
+    |> function
+    | Some res -> res
+    | None -> Fail [ "signal.ml: empty conjunction" ]
+
+  let disjunction (l : t list) =
+    List.fold_left
+      (fun acc current ->
+        match (acc, current) with
+        | _, (Pass _ as success) -> Some success
+        | acc, Fail _ -> acc)
+      None l
+    |> function
+    | Some res -> res
+    | None -> Fail [ "signal.ml: empty disjunction" ]
 end
 
+module Indicator = struct
+  type 'a t = string -> Direction.t -> 'a -> Flag.t
 
-type res = Pass of float | Fail of float
-type 'a t = 'a State.t -> string -> res option
+  let of_indicator (state : _ State.t) (indicator : Indicators.Point.t -> float)
+      name : 'a t =
+   fun symbol direction target ->
+    let indicators =
+      Indicators.get state.indicators symbol
+      |> Option.get_exn_or "signal.ml: Unable to get indicators for symbol"
+    in
+    let point =
+      Vector.top indicators
+      |> Option.get_exn_or "signal.ml: Empty indicators for symbol"
+    in
+    let value = indicator point in
+    let reason = Reason.make name direction target in
+    match (direction, value >=. target) with
+    | Above, true -> Pass reason
+    | Above, false -> Fail reason
+    | Below, true -> Fail reason
+    | Below, false -> Pass reason
 
-let rsi ty target : 'a t =
- fun state symbol ->
-  let open Option in
-  let* indicators = Indicators.get state.indicators symbol in
-  let* point = Vector.top indicators in
-  let rsi = Indicators.Point.rsi point in
-  match ty with
-  | Above -> if rsi >=. target then Pass rsi else Fail
-  | Below -> if rsi <=. target then Some (Pass rsi) else None
+  let price (state : 'a State.t) =
+   fun symbol -> Bars.Latest.get state.latest symbol |> Item.last
 
-let awesome_above : 'a t =
- fun state symbol ->
-  let open Option in
-  let* indicators = Indicators.get state.indicators symbol in
-  let* point = Vector.top indicators in
-  let awesome = Indicators.Point.awesome point in
-  if Indicators.Point.awesome point >=. 1.0 then Some (Fail awesome) else None
+  let rsi state : 'a t = of_indicator state Indicators.Point.rsi "RSI"
 
-let bind o f =
-  match o with Some (Pass res) -> f res | Some (Fail _) -> None | None -> None
+  let awesome state : 'a t =
+    of_indicator state Indicators.Point.awesome "Awesome"
 
-let map o f =
-  match o with
-  | Some (Pass res) -> Some (f res)
-  | Some (Fail _) -> None
-  | None -> None
+  let upper_bb state : 'a t =
+    of_indicator state Indicators.Point.upper_bollinger "Upper BB(2)"
 
-let first o f =
-  match o with Some (Pass _) as res -> res | Some (Fail _) | None -> f ()
+  let lower_bb state : 'a t =
+    of_indicator state Indicators.Point.lower_bollinger "Lower BB(2)"
 
-let ( let&& ) = bind
-let ( let|| ) = first
+  let and_ o f =
+    match o with Flag.Pass res -> f res | Flag.Fail _ as failure -> failure
 
-let attempt_using : 'a t =
- fun state symbol ->
-  let&& x = Examples.small_rsi state symbol in
-  let&& y = Examples.above_awesome state symbol in
-  Some (Pass x)
+  let or_ o f =
+    match o with Flag.Pass _ as success -> success | Flag.Fail res -> f res
 
-let sell : 'a t =
- fun state symbol ->
-  let|| () = Examples.small_rsi state symbol in
-  let|| () = Examples.small_rsi state symbol in
-  None
+  let ( let&& ) = and_
+  let ( let|| ) = or_
+
+  (* let conjunction (l : 'a t list) = *)
+end
+
+type 'a t = 'a State.t -> string -> Flag.t
+
+(* let attempt_using (state : _ State.t) symbol = *)
+(*   let rsi = rsi state in *)
+(*   let awesome = awesome state in *)
+(*   let&& _ = rsi symbol Above 40.0 in *)
+(*   let&& _ = awesome symbol Above 1.0 in *)
+(*   Pass "Succeeded" *)
+
+(* let sell state symbol = *)
+(*   let rsi = rsi state in *)
+(*   let awesome = awesome state in *)
+(*   let lower_bb = lower_bb state in *)
+(*   let price = price state symbol in *)
+(*   let|| _ = rsi symbol Below 40.0 in *)
+(*   let|| _ = awesome symbol Below 0.5 in *)
+(*   let|| _ = lower_bb symbol Below price in *)
+(*   Fail "no reason" *)
