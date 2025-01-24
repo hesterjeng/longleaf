@@ -120,7 +120,7 @@ module Conditions = struct
       | Hold
     [@@deriving show { with_path = false }]
 
-    let make ~time_held ~current_price ~(shorting_order : Trading_types.Order.t)
+    let make ~time_held ~current_price ~(shorting_order : Order.t)
         ~price_difference =
       if current_price <. P.profit_multiplier *. shorting_order.price then
         Profited price_difference

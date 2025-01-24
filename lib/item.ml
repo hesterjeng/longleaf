@@ -1,5 +1,3 @@
-module Order = Trading_types.Order
-
 type t = {
   timestamp : Time.t; [@key "t"]
   open_ : float; [@key "o"]
@@ -8,7 +6,7 @@ type t = {
   close : float; [@key "c"] (* We are using this as the latest price... *)
   last : float; [@yojson.default Float.max_finite_value]
   volume : int; [@key "v"]
-  order : Trading_types.Order.t option; [@default None]
+  order : Order.t option; [@default None]
 }
 [@@deriving show { with_path = false }, yojson, make]
 [@@yojson.allow_extra_fields]

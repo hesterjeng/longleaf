@@ -10,66 +10,28 @@ module type TRIGGER = sig
   type state
 
   val make : state -> string -> Signal.Flag.t
+
+  val to_order : price:float -> cash_available:float -> Signal.Flag.t -> Order.t option
 end
 
 module Buy : TRIGGER = struct
   type nonrec state = state
 
-  (* Above 3 std bollingers *)
-  type t = { symbol : string; amt_above : float }
-
   let make (state : state) symbol =
-    let open Signal in
     let price = Signal.Indicator.price state symbol in
     Signal.Flag.conjunction state
     @@ [ Signal.Indicator.lower_bb symbol Below price ]
-  (* let open Option.Infix in *)
-  (* let current_price = Bars.Latest.get state.latest symbol |> Item.last in *)
-  (* let is_owned = *)
-  (*   state.content *)
-  (*   |> List.map (fun (x : Order.t) -> x.symbol) *)
-  (*   |> List.mem symbol *)
-  (* in *)
-  (* let* upper_bb = *)
-  (*   Indicators.get_indicator state.indicators symbol *)
-  (*     (\* Indicators.Point.upper_bollinger_100_3 *\) *)
-  (*     (\* Indicators.Point.upper_bollinger_100_1 *\) *)
-  (*     Indicators.Point.upper_bollinger *)
-  (* in *)
-  (* let sma75spy = *)
-  (*   Indicators.get_indicator state.indicators "SPY" Indicators.Point.sma_75 *)
-  (*   |> Option.get_exn_or "Must be able to get SPY SMA 75" *)
-  (* in *)
-  (* let spy_price = Bars.Latest.get state.latest "SPY" |> Item.last in *)
-  (* let amt_above = current_price -. upper_bb in *)
-  (* let pass = *)
-  (*   current_price >=. upper_bb *)
-  (*   && (not (spy_price <=. sma75spy)) *)
-  (*   && not is_owned *)
-  (* in *)
-  (* match pass with true -> Some { symbol; amt_above } | false -> None *)
+
+  let to_order ~price ~cash_available
 end
 
-module Buy : TRIGGER = struct
+module Sell : TRIGGER = struct
   type nonrec state = state
 
-  type t = Below1StdBollinger of string
-  [@@deriving show { with_path = false }]
-
   let make (state : state) symbol =
-    let open Option.Infix in
-    let current_price = Bars.Latest.get state.latest symbol |> Item.last in
-    let* lower_bb =
-      Indicators.get_indicator state.indicators symbol
-        Indicators.Point.lower_bollinger_100_1
-      (* Indicators.Point.lower_bollinger *)
-    in
-    let* sma75spy =
-      Indicators.get_indicator state.indicators "SPY" Indicators.Point.sma_75
-    in
-    let spy_price = Bars.Latest.get state.latest "SPY" |> Item.last in
-    let pass = current_price <=. lower_bb && not (spy_price <=. sma75spy) in
-    match pass with true -> Some (Below1StdBollinger symbol) | false -> None
+    let price = Signal.Indicator.price state symbol in
+    Signal.Flag.conjunction state
+    @@ [ Signal.Indicator.lower_bb symbol Above price ]
 end
 
 module Make (Backend : Backend.S) : Strategy.S = struct
