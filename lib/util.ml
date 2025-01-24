@@ -123,3 +123,11 @@ module type CLIENT = sig
   val longleaf_env : Environment.t
   val client : Piaf.Client.t
 end
+
+let qty ~current_cash ~pct ~price =
+  match current_cash >=. 0.0 with
+  | true ->
+      let tenp = current_cash *. pct in
+      let max_amt = tenp /. price in
+      if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+  | false -> 0

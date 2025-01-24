@@ -75,7 +75,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
           let order_type = OrderType.Market in
           let price = Item.last item in
           let+ qty =
-            match Math.qty ~current_cash ~pct:1.0 ~price with
+            match Util.qty ~current_cash ~pct:1.0 ~price with
             | 0 -> None
             | qty -> Some qty
           in
