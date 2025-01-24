@@ -48,11 +48,3 @@ let find_local_minima ~window_size l =
 
 let most_recent_maxima ~window_size l =
   max_close @@ Iter.rev @@ Iter.take window_size l
-
-let qty ~current_cash ~pct ~price =
-  match current_cash >=. 0.0 with
-  | true ->
-      let tenp = current_cash *. pct in
-      let max_amt = tenp /. price in
-      if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
-  | false -> 0
