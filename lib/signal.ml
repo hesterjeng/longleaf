@@ -1,19 +1,39 @@
-module Sig = struct
-  type ('a, 'b) t = Pass of 'a | Fail of 'b
+module Direction = struct
+
+type t =
+  | Above
+  | Below [@@deriving show]
+
 end
+
+module Reason = struct
+
+  type t = string [@@deriving show]
+
+  let make indicator direction amt =
+    Format.asprint
+
+end
+
+module Sig = struct
+  type 'a t = Pass of 'a | Fail of Reason.t
+end
+
 
 type res = Pass of float | Fail of float
 type 'a t = 'a State.t -> string -> res option
 
-let rsi : 'a t =
+let rsi ty target : 'a t =
  fun state symbol ->
   let open Option in
   let* indicators = Indicators.get state.indicators symbol in
   let* point = Vector.top indicators in
   let rsi = Indicators.Point.rsi point in
-  if rsi <=. 40.0 then Some (Pass rsi) else None
+  match ty with
+  | Above -> if rsi >=. target then Pass rsi else Fail
+  | Below -> if rsi <=. target then Some (Pass rsi) else None
 
-let awesome : 'a t =
+let awesome_above : 'a t =
  fun state symbol ->
   let open Option in
   let* indicators = Indicators.get state.indicators symbol in
