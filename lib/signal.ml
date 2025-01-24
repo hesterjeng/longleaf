@@ -29,10 +29,10 @@ module Flag = struct
     | Some res -> res
     | None -> Fail [ "signal.ml: empty conjunction" ]
 
-  let disjunction state (l : ('a State.t -> t) list) =
+  let disjunction state (l : (state:'a State.t -> t) list) =
     List.fold_left
       (fun acc current ->
-        match (acc, current state) with
+        match (acc, current ~state) with
         | _, (Pass _ as success) -> Some success
         | acc, Fail _ -> acc)
       None l

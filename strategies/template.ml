@@ -12,7 +12,7 @@ end
 module Sell : TRIGGER = struct
   let make (state : 'a State.t) symbol =
     let price = Signal.Indicator.price state symbol in
-    Signal.Flag.conjunction state
+    Signal.Flag.disjunction state
     @@ [ Signal.Indicator.lower_bb symbol Above price ]
 end
 
