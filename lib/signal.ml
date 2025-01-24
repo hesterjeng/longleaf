@@ -66,6 +66,9 @@ module Indicator = struct
   let price (state : 'a State.t) =
    fun symbol -> Bars.Latest.get state.latest symbol |> Item.last
 
+  let timestamp (state : 'a State.t) =
+   fun symbol -> Bars.Latest.get state.latest symbol |> Item.timestamp
+
   let rsi ~state : 'a t = of_indicator state Indicators.Point.rsi "RSI"
 
   let awesome ~state : 'a t =
