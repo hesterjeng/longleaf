@@ -11,7 +11,8 @@ module type TRIGGER = sig
 
   val make : state -> string -> Signal.Flag.t
 
-  val to_order : price:float -> cash_available:float -> Signal.Flag.t -> Order.t option
+  val to_order :
+    price:float -> cash_available:float -> Signal.Flag.t -> Order.t option
 end
 
 module Buy : TRIGGER = struct
@@ -22,7 +23,12 @@ module Buy : TRIGGER = struct
     Signal.Flag.conjunction state
     @@ [ Signal.Indicator.lower_bb symbol Below price ]
 
-  let to_order ~price ~cash_available
+  let to_order ~price ~current_cash ~symbol ~timestamp (reason : Signal.Flag.t)
+      : Order.t option =
+    match reason with
+    | Pass reason ->
+        Order.default_buy ~current_cash ~price ~symbol ~timestamp ~reason
+    | Fail _ -> None
 end
 
 module Sell : TRIGGER = struct
