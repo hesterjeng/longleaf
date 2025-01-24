@@ -32,20 +32,20 @@ val make :
 val timestamp : t -> Time.t
 val cmp_profit : t Ord.t
 
-val default_buy :
-  ?profit:float ->
-  current_cash:float ->
-  price:float ->
-  reason:string list ->
-  timestamp:Time.t ->
-  string ->
-  t option
+(* val default_buy : *)
+(*   ?profit:float -> *)
+(*   current_cash:float -> *)
+(*   price:float -> *)
+(*   reason:string list -> *)
+(*   timestamp:Time.t -> *)
+(*   string -> *)
+(*   t option *)
 
-val default_sell :
-  ?profit:float ->
-  current_cash:float ->
-  price:float ->
-  reason:string list ->
-  timestamp:Time.t ->
-  string ->
-  t option
+(* val default_sell : *)
+(*   ?profit:float -> *)
+(*   current_cash:float -> *)
+(*   price:float -> *)
+(*   reason:string list -> *)
+(*   timestamp:Time.t -> *)
+(*   string -> *)
+(*   t option *)
