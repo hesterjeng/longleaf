@@ -1,99 +1,94 @@
 open Trading_types
 
-module Status = struct
-  type t = Order.t list [@@deriving show]
-end
-
-type state = Status.t State.t
-
 module type TRIGGER = sig
-  type state
+  val make : 'a State.t -> string -> Signal.Flag.t
 
-  val make : state -> string -> Signal.Flag.t
-
-  val to_order :
-    price:float -> cash_available:float -> Signal.Flag.t -> Order.t option
+  (* val to_order : *)
+  (*   price:float -> *)
+  (*   current_cash:float -> *)
+  (*   symbol:string -> *)
+  (*   timestamp:Time.t -> *)
+  (*   Signal.Flag.t -> *)
+  (*   Order.t option *)
 end
 
 module Buy : TRIGGER = struct
-  type nonrec state = state
-
-  let make (state : state) symbol =
+  let make (state : 'a State.t) symbol =
     let price = Signal.Indicator.price state symbol in
     Signal.Flag.conjunction state
     @@ [ Signal.Indicator.lower_bb symbol Below price ]
-
-  let to_order ~price ~current_cash ~symbol ~timestamp (reason : Signal.Flag.t)
-      : Order.t option =
-    match reason with
-    | Pass reason ->
-        Order.default_buy ~current_cash ~price ~symbol ~timestamp ~reason
-    | Fail _ -> None
 end
 
 module Sell : TRIGGER = struct
-  type nonrec state = state
-
-  let make (state : state) symbol =
+  let make (state : 'a State.t) symbol =
     let price = Signal.Indicator.price state symbol in
     Signal.Flag.conjunction state
     @@ [ Signal.Indicator.lower_bb symbol Above price ]
 end
 
-module Make (Backend : Backend.S) : Strategy.S = struct
+module Make
+    (Backend : Backend.S)
+    (BuyTrigger : TRIGGER)
+    (SellTrigger : TRIGGER) : Strategy.S = struct
   module SU = Strategy_utils.Make (Backend)
 
-  module Order = struct
-    include Trading_types.Order
 
-    let of_buy_reason (state : state) (x : BuyReason.t) =
-      let ( let+ ) = Option.( let+ ) in
-      match x with
-      | { symbol; _ } ->
-          let current_cash = Backend.get_cash () in
-          let item = Bars.Latest.get state.latest symbol in
-          let side = Side.Buy in
-          let tif = TimeInForce.GoodTillCanceled in
-          let order_type = OrderType.Market in
-          let price = Item.last item in
-          let+ qty =
-            match Math.qty ~current_cash ~pct:1.0 ~price with
-            | 0 -> None
-            | qty -> Some qty
-          in
-          let timestamp = Item.timestamp item in
-          let reason =
-            [
-              Format.asprintf "Buying %d (%a): Above 3 std bollinger band" qty
-                Time.pp timestamp;
-            ]
-          in
-          Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-            ~reason ~profit:None
-
-    let of_sell_reason ~(buying_order : Order.t) (state : state)
-        (x : SellReason.t) =
-      match x with
-      | Below1StdBollinger symbol ->
-          let item = Bars.Latest.get state.latest symbol in
-          let side = Side.Sell in
-          let tif = TimeInForce.GoodTillCanceled in
-          let order_type = OrderType.Market in
-          let price = Item.last item in
-          let qty = buying_order.qty in
-          let timestamp = Item.timestamp item in
-          let profit =
-            Float.of_int buying_order.qty *. (price -. buying_order.price)
-          in
-          let reason =
-            [
-              Format.asprintf "Selling %d (%a): Below 1 std bollinger band" qty
-                Time.pp timestamp;
-            ]
-          in
-          Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-            ~reason ~profit:(Some profit)
+  module Status = struct
+    type t = Order.t list [@@deriving show]
   end
+
+  type state = Status.t State.t
+  (* module Order = struct *)
+  (*   include Trading_types.Order *)
+
+  (*   let of_buy_reason (state : state) (x : BuyReason.t) = *)
+  (*     let ( let+ ) = Option.( let+ ) in *)
+  (*     match x with *)
+  (*     | { symbol; _ } -> *)
+  (*         let current_cash = Backend.get_cash () in *)
+  (*         let item = Bars.Latest.get state.latest symbol in *)
+  (*         let side = Side.Buy in *)
+  (*         let tif = TimeInForce.GoodTillCanceled in *)
+  (*         let order_type = OrderType.Market in *)
+  (*         let price = Item.last item in *)
+  (*         let+ qty = *)
+  (*           match Math.qty ~current_cash ~pct:1.0 ~price with *)
+  (*           | 0 -> None *)
+  (*           | qty -> Some qty *)
+  (*         in *)
+  (*         let timestamp = Item.timestamp item in *)
+  (*         let reason = *)
+  (*           [ *)
+  (*             Format.asprintf "Buying %d (%a): Above 3 std bollinger band" qty *)
+  (*               Time.pp timestamp; *)
+  (*           ] *)
+  (*         in *)
+  (*         Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp *)
+  (*           ~reason ~profit:None *)
+
+  (*   let of_sell_reason ~(buying_order : Order.t) (state : state) *)
+  (*       (x : SellReason.t) = *)
+  (*     match x with *)
+  (*     | Below1StdBollinger symbol -> *)
+  (*         let item = Bars.Latest.get state.latest symbol in *)
+  (*         let side = Side.Sell in *)
+  (*         let tif = TimeInForce.GoodTillCanceled in *)
+  (*         let order_type = OrderType.Market in *)
+  (*         let price = Item.last item in *)
+  (*         let qty = buying_order.qty in *)
+  (*         let timestamp = Item.timestamp item in *)
+  (*         let profit = *)
+  (*           Float.of_int buying_order.qty *. (price -. buying_order.price) *)
+  (*         in *)
+  (*         let reason = *)
+  (*           [ *)
+  (*             Format.asprintf "Selling %d (%a): Below 1 std bollinger band" qty *)
+  (*               Time.pp timestamp; *)
+  (*           ] *)
+  (*         in *)
+  (*         Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp *)
+  (*           ~reason ~profit:(Some profit) *)
+  (* end *)
 
   let shutdown () =
     Eio.traceln "Shutdown command NYI";
@@ -127,12 +122,22 @@ module Make (Backend : Backend.S) : Strategy.S = struct
 
   let sell (state : state) ~(buying_order : Order.t) =
     let open Result.Infix in
-    match SellReason.make state buying_order.symbol with
-    | None ->
+    match SellTrigger.make state buying_order.symbol with
+    | Fail _ ->
         Result.return
         @@ { state with State.current = `Listening; content = [ buying_order ] }
-    | Some reason ->
-        let order = Order.of_sell_reason ~buying_order state reason in
+    | Pass reason ->
+        let price = Signal.Indicator.price state buying_order.symbol in
+        let timestamp = Signal.Indicator.timestamp state buying_order.symbol in
+        let order : Order.t =
+          Order.make ~symbol:buying_order.symbol ~side:Sell
+            ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
+            ~price ~reason ~timestamp
+            ~profit:
+              (Option.return
+              @@ (Float.of_int buying_order.qty *. (price -. buying_order.price))
+              )
+        in
         let* () = Backend.place_order state order in
         let new_content =
           List.filter (fun x -> not @@ Order.equal x buying_order) state.content
