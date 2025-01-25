@@ -33,3 +33,7 @@ let record_order state order = Order_history.add state.order_history order
 let map (f : 'a -> 'b) (x : 'a t) = { x with content = f x.content }
 let ( >|= ) x f = map f x
 let ( let+ ) = ( >|= )
+let price (state : 't) symbol = Bars.Latest.get state.latest symbol |> Item.last
+
+let timestamp (state : 'a t) symbol =
+  Bars.Latest.get state.latest symbol |> Item.timestamp
