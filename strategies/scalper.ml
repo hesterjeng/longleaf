@@ -17,7 +17,7 @@ module BuyReason = struct
       |> List.map (fun (x : Order.t) -> x.symbol)
       |> List.mem symbol
     in
-    let* upper_bb =
+    let upper_bb =
       Indicators.get_indicator state.indicators symbol
         (* Indicators.Point.upper_bollinger_100_3 *)
         (* Indicators.Point.upper_bollinger_100_1 *)

@@ -2,21 +2,21 @@
 (* Once the Make functor is instantiated with a backend, the strategy is ready to run. *)
 (* Add a hook for it in longleaf_strategies.ml *)
 
+module S = Signal
+module SI = S.Indicator
+module I = Indicators
+module P = I.Point
+module F = S.Flag
+
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) symbol =
-    let open Signal in
     let price = State.price state symbol in
-    Flag.conjunction state @@ [ Indicator.upper_bb symbol Below price ]
+    F.conjunction state @@ [ SI.upper_bb symbol Below price ]
 
   let score (state : 'a State.t) symbol =
     let price = State.price state symbol in
-    let upper_bb =
-      Indicators.get_indicator state.indicators symbol
-        Indicators.Point.lower_bollinger
-      |> Option.get_exn_or
-           "Must be able to get upper_bb in Template_example.Buy.score"
-    in
+    let upper_bb = I.get_indicator state.indicators symbol P.lower_bollinger in
     price -. upper_bb
 
   let num_positions = 5

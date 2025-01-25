@@ -349,10 +349,16 @@ let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
 let get_indicator (x : t) symbol f =
-  let open Option.Infix in
-  let* ind = get x symbol in
-  let+ top = Vector.top ind in
-  f top
+  let res =
+    let open Option.Infix in
+    let* ind = get x symbol in
+    let+ top = Vector.top ind in
+    f top
+  in
+  Option.get_exn_or
+    (Format.asprintf "indicators.ml: Unable to get indicator for symbol %s"
+       symbol)
+    res
 
 let initialize config bars symbol =
   let initial_stats_vector = Vector.create () in
