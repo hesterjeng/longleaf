@@ -30,7 +30,7 @@ module Make (Alpaca : Util.CLIENT) = struct
 
     let get () =
       let endpoint = "/v2/clock" in
-      get ~headers ~endpoint |> t_of_yojson
+      Result.map t_of_yojson @@ get ~headers ~endpoint
   end
 
   module Accounts = struct
@@ -79,7 +79,7 @@ module Make (Alpaca : Util.CLIENT) = struct
 
     let get_account () =
       let endpoint = "/v2/account" in
-      get ~headers ~endpoint |> t_of_yojson
+      Result.map t_of_yojson @@ get ~headers ~endpoint
   end
 
   module Assets = struct
