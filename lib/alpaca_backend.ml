@@ -53,7 +53,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
   end)
 
   let init_state content =
-    let account_status = Trading_api.Accounts.get_account () in
+    let account_status =
+      Trading_api.Accounts.get_account () |> function
+      | Ok x -> x
+      | Error e ->
+          Eio.traceln "alpaca_backend: error getting account status";
+          raise e
+    in
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     let account_cash = account_status.cash in
@@ -69,11 +75,23 @@ module Make (Input : BACKEND_INPUT) : S = struct
     }
 
   let next_market_open () =
-    let clock = Trading_api.Clock.get () in
+    let clock =
+      Trading_api.Clock.get () |> function
+      | Ok x -> x
+      | Error e ->
+          Eio.traceln "alpaca_backend: error getting clock";
+          raise e
+    in
     if clock.is_open then None else Some clock.next_open
 
   let next_market_close () =
-    let clock = Trading_api.Clock.get () in
+    let clock =
+      Trading_api.Clock.get () |> function
+      | Ok x -> x
+      | Error e ->
+          Eio.traceln "alpaca_backend: error getting clock";
+          raise e
+    in
     clock.next_close
 
   let shutdown () =
@@ -96,7 +114,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
     | _ ->
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
-        let res = Tiingo.latest symbols in
+        let res =
+          Tiingo.latest symbols |> function
+          | Ok x -> x
+          | Error e ->
+              Eio.traceln "alpaca backend: error getting latest tiingo data";
+              raise e
+        in
         if save_received then Bars.append res received_data;
         Ok res
 
@@ -134,7 +158,14 @@ module Make (Input : BACKEND_INPUT) : S = struct
             ())
         symbols
     in
-    let account_status = Trading_api.Accounts.get_account () in
+    let account_status =
+      Trading_api.Accounts.get_account () |> function
+      | Ok x -> x
+      | Error e ->
+          Eio.traceln
+            "alpaca backend: error getting account status while liquidating";
+          raise e
+    in
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     Ok ()
