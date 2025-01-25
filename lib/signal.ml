@@ -15,10 +15,10 @@ module Flag = struct
   let pass x = Pass x
   let fail x = Fail x
 
-  let conjunction (l : t list) =
+  let conjunction state (l : (state:'a State.t -> t) list) =
     List.fold_left
       (fun acc current ->
-        match (acc, current) with
+        match (acc, current ~state) with
         | Some (Pass acc), Pass curr -> Some (Pass (curr @ acc))
         | Some (Pass _), Fail res -> Some (Fail res)
         | (Some (Fail _) as failure), _ -> failure
@@ -29,10 +29,10 @@ module Flag = struct
     | Some res -> res
     | None -> Fail [ "signal.ml: empty conjunction" ]
 
-  let disjunction (l : t list) =
+  let disjunction state (l : (state:'a State.t -> t) list) =
     List.fold_left
       (fun acc current ->
-        match (acc, current) with
+        match (acc, current ~state) with
         | _, (Pass _ as success) -> Some success
         | acc, Fail _ -> acc)
       None l
@@ -66,15 +66,18 @@ module Indicator = struct
   let price (state : 'a State.t) =
    fun symbol -> Bars.Latest.get state.latest symbol |> Item.last
 
-  let rsi state : 'a t = of_indicator state Indicators.Point.rsi "RSI"
+  let timestamp (state : 'a State.t) =
+   fun symbol -> Bars.Latest.get state.latest symbol |> Item.timestamp
 
-  let awesome state : 'a t =
+  let rsi ~state : 'a t = of_indicator state Indicators.Point.rsi "RSI"
+
+  let awesome ~state : 'a t =
     of_indicator state Indicators.Point.awesome "Awesome"
 
-  let upper_bb state : 'a t =
+  let upper_bb ~state : 'a t =
     of_indicator state Indicators.Point.upper_bollinger "Upper BB(2)"
 
-  let lower_bb state : 'a t =
+  let lower_bb ~state : 'a t =
     of_indicator state Indicators.Point.lower_bollinger "Lower BB(2)"
 
   let and_ o f =
@@ -89,7 +92,9 @@ module Indicator = struct
   (* let conjunction (l : 'a t list) = *)
 end
 
-type 'a t = 'a State.t -> string -> Flag.t
+type t = { symbol : string; reason : string list }
+
+(* type 'a t = 'a State.t -> string -> Flag.t *)
 
 (* let attempt_using (state : _ State.t) symbol = *)
 (*   let rsi = rsi state in *)

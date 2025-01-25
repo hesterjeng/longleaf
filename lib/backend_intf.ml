@@ -93,7 +93,7 @@ module type S = sig
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
   val next_market_close : unit -> Time.t
-  val place_order : _ State.t -> Trading_types.Order.t -> (unit, string) result
+  val place_order : _ State.t -> Order.t -> (unit, string) result
   val latest_bars : string list -> (Bars.Latest.t, string) result
   val last_data_bar : (Bars.Latest.t, string) result
   val liquidate : _ State.t -> (unit, string) Result.t

@@ -1,8 +1,6 @@
 open Backend_intf
 
 module Make (Input : BACKEND_INPUT) : S = struct
-  open Trading_types
-
   (* module Ticker = Ticker.Instant *)
   module Backend_position = Backend_position.Generative ()
   module Input = Input

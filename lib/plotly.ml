@@ -1,4 +1,3 @@
-module Order = Trading_types.Order
 module IP = Indicators.Point
 open Option.Infix
 

@@ -1,5 +1,3 @@
-module Order = Trading_types.Order
-
 type pos = (string, int) Hashtbl.t [@@deriving show]
 
 module type S = sig
@@ -19,8 +17,6 @@ module Generative () : S = struct
   (* TODO: *)
   (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
 
-  module Order = Trading_types.Order
-
   type t = { position : pos; mutable cash : float } [@@deriving show]
 
   let make () = { position = Hashtbl.create 0; cash = 100000.0 }
@@ -37,6 +33,10 @@ module Generative () : S = struct
     let symbol_price = Item.last @@ Bars.Latest.get latest symbol in
     let symbol_value = Float.of_int qty *. symbol_price in
     symbol_value +. previous_value
+
+  let mem (x : t) symbol =
+    let found = Hashtbl.get x.position symbol in
+    match found with Some 0 | None -> false | Some _ -> true
 
   let execute_order state (order : Order.t) =
     State.record_order state order;

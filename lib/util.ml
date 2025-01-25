@@ -112,6 +112,9 @@ let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
 
 let random_state = Random.State.make_self_init ()
 
+let random_choose_opt l =
+  match l with [] -> None | l -> Some (List.random_choose l random_state)
+
 (* mean and sigma chosen so that P (x >= 1.0) ~ 0.2 *)
 let one_in_five =
   let rv = Owl_stats.lognormal_rvs ~mu:(-0.84) ~sigma:1.0 in
@@ -123,3 +126,11 @@ module type CLIENT = sig
   val longleaf_env : Environment.t
   val client : Piaf.Client.t
 end
+
+let qty ~current_cash ~pct ~price =
+  match current_cash >=. 0.0 with
+  | true ->
+      let tenp = current_cash *. pct in
+      let max_amt = tenp /. price in
+      if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+  | false -> 0

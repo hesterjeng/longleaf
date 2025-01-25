@@ -33,7 +33,6 @@ module SellReason = struct
   [@@deriving show { with_path = false }]
 
   let make ~(buying_order : Order.t) (state : state) =
-    let open Option.Infix in
     let symbol = buying_order.symbol in
     let current_price = Bars.Latest.get state.latest symbol |> Item.last in
     let pass = current_price >=. buying_order.price in
@@ -44,7 +43,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
   module SU = Strategy_utils.Make (Backend)
 
   module Order = struct
-    include Trading_types.Order
+    include Order
 
     let of_buy_reason (state : state) (x : BuyReason.t) =
       let ( let+ ) = Option.( let+ ) in
@@ -57,7 +56,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
           let order_type = OrderType.Market in
           let price = Item.last item in
           let+ qty =
-            match Math.qty ~current_cash ~pct:1.0 ~price with
+            match Util.qty ~current_cash ~pct:1.0 ~price with
             | 0 -> None
             | qty -> Some qty
           in
