@@ -59,7 +59,15 @@ module Make (Alpaca : Util.CLIENT) = struct
       in
       let rec collect_data ~endpoint ~headers acc =
         Eio.traceln "Sending a get request";
-        let resp_body_json = get ~headers ~endpoint in
+        let resp_body_json =
+          get ~headers ~endpoint |> function
+          | Ok x -> x
+          | Error e ->
+              Eio.traceln
+                "market_data_api.ml: error while getting historical data with \
+                 alpaca";
+              raise e
+        in
         let acc = Bars.t_of_yojson resp_body_json :: acc in
         match Util.get_next_page_token resp_body_json with
         | Some npt ->
@@ -82,7 +90,7 @@ module Make (Alpaca : Util.CLIENT) = struct
       in
       let headers = headers () in
       let resp_body_json = get ~headers ~endpoint in
-      Bars.t_of_yojson resp_body_json
+      Result.map Bars.t_of_yojson resp_body_json
 
     let latest_quotes (symbols : string list) =
       let symbols = String.concat "," symbols in

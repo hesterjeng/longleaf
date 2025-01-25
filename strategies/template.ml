@@ -1,45 +1,37 @@
-(* This module contains a functor for making strategies that buy a single stock at a time. *)
-(* The stocks to buy will be filtered by a pass function, then the one with the highest score will *)
+(* This module contains a functor for making strategies that buy at most n stock at a time. *)
+(* The stocks to buy will be filtered by a pass function, then the n with the highest score will *)
 (* be selected for purchase. *)
 (* Any held stock that meets the sell criterion will be sold. *)
-(* This template will only hold one stock at a time. *)
+(* This template will only hold n at a time. *)
 
 module Buy_trigger = struct
   module type S = sig
-    val make : 'a State.t -> string list -> Signal.t option
+    val make : 'a State.t -> string list -> Signal.t list
+    val num_positions : int
   end
 
   module type INPUT = sig
     val pass : 'a State.t -> string -> Signal.Flag.t
     val score : 'a State.t -> string -> float
+    val num_positions : int
   end
 
-  (* Using the Input module, create a module with a function to select the stock *)
+  (* Using the Input module, create a module with a function to select the stocks *)
   (* with the highest score for buying. *)
   module Make (Input : INPUT) = struct
-    let make state symbols : Signal.t option =
-      let passes =
-        List.filter_map
-          (fun s ->
-            match Input.pass state s with
-            | Pass reason -> Some (s, reason, Input.score state s)
-            | Fail _ -> None)
-          symbols
-      in
-      let selected =
-        List.fold_left
-          (fun acc (symbol, reason, score) ->
-            match acc with
-            | None -> Some (symbol, reason, score)
-            | Some (prev_sym, prev_res, prev_score) ->
-                if prev_score >=. score then
-                  Some (prev_sym, prev_res, prev_score)
-                else Some (symbol, reason, score))
-          None passes
-      in
-      match selected with
-      | Some (symbol, reason, _) -> Some { symbol; reason }
-      | None -> None
+    let make state symbols =
+      List.filter_map
+        (fun symbol ->
+          match Input.pass state symbol with
+          | Pass reason ->
+              let score = Input.score state symbol in
+              Some { Signal.symbol; reason; score }
+          | Fail _ -> None)
+        symbols
+      |> List.sort Signal.compare |> List.rev
+      |> List.take Input.num_positions
+
+    let num_positions = Input.num_positions
   end
 end
 
@@ -70,23 +62,40 @@ module Make
 
   let buy (state : state) =
     let open Result.Infix in
-    let selected = Buy.make state Backend.symbols in
-    let+ content =
-      match selected with
-      | None -> Ok state.content
-      | Some { symbol; reason } ->
-          let price = Signal.Indicator.price state symbol in
-          let timestamp = Signal.Indicator.timestamp state symbol in
-          let current_cash = Backend.get_cash () in
-          let qty = Util.qty ~current_cash ~price ~pct:1.0 in
+    assert (Buy.num_positions >= 0);
+    let n_passes = Buy.make state Backend.symbols in
+    let selected =
+      (* Only buy up to the number of positions we are allowed to take *)
+      (* I/e if we already have 2 positions and are only allowed 5, only do 3 new ones. *)
+      List.take
+        (Buy.num_positions
+        - (List.length @@ Backend.Backend_position.symbols ()))
+        n_passes
+    in
+    match selected with
+    | [] -> Result.return { state with State.current = `Listening }
+    | selected ->
+        let current_cash = Backend.get_cash () in
+        let pct = 1.0 /. Float.of_int (List.length selected) in
+        let place_order state (signal : Signal.t) =
+          let* state = state in
+          let symbol = signal.symbol in
+          let reason = signal.reason in
+          let price = State.price state symbol in
+          let timestamp = State.timestamp state symbol in
+          let qty = Util.qty ~current_cash ~price ~pct in
           let order : Order.t =
             Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
               ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
           in
-          let* () = Backend.place_order state order in
-          Result.return @@ (order :: state.content)
-    in
-    { state with State.current = `Listening; content }
+          let+ () = Backend.place_order state order in
+          {
+            state with
+            State.current = `Listening;
+            content = order :: state.content;
+          }
+        in
+        List.fold_left place_order (Ok state) selected
 
   let sell (state : state) ~(buying_order : Order.t) =
     let open Result.Infix in
@@ -95,8 +104,8 @@ module Make
         Result.return
         @@ { state with State.current = `Listening; content = [ buying_order ] }
     | Pass reason ->
-        let price = Signal.Indicator.price state buying_order.symbol in
-        let timestamp = Signal.Indicator.timestamp state buying_order.symbol in
+        let price = State.price state buying_order.symbol in
+        let timestamp = State.timestamp state buying_order.symbol in
         let order : Order.t =
           Order.make ~symbol:buying_order.symbol ~side:Sell
             ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
@@ -125,17 +134,10 @@ module Make
     match current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
-    | `Ordering -> (
-        let positions = state.content in
-        let length = List.length positions in
-        match length with
-        | 0 ->
-            let* sold_high =
-              List.fold_left sell_fold (Ok state) state.content
-            in
-            let* purchase = buy sold_high in
-            Result.return purchase
-        | _ -> List.fold_left sell_fold (Ok state) state.content)
+    | `Ordering ->
+        let* sold_state = List.fold_left sell_fold (Ok state) state.content in
+        let* complete = buy sold_state in
+        Result.return complete
 
   let run () = SU.run ~init_state step
 end

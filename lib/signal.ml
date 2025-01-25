@@ -1,5 +1,5 @@
 module Direction = struct
-  type t = Above | Below [@@deriving show]
+  type t = Above | Below [@@deriving show { with_path = false }]
 end
 
 module Reason = struct
@@ -63,12 +63,6 @@ module Indicator = struct
     | Below, true -> Fail reason
     | Below, false -> Pass reason
 
-  let price (state : 'a State.t) =
-   fun symbol -> Bars.Latest.get state.latest symbol |> Item.last
-
-  let timestamp (state : 'a State.t) =
-   fun symbol -> Bars.Latest.get state.latest symbol |> Item.timestamp
-
   let rsi ~state : 'a t = of_indicator state Indicators.Point.rsi "RSI"
 
   let awesome ~state : 'a t =
@@ -92,7 +86,12 @@ module Indicator = struct
   (* let conjunction (l : 'a t list) = *)
 end
 
-type t = { symbol : string; reason : string list }
+type t = {
+  symbol : string; [@compare fun _ _ -> 0]
+  reason : string list; [@compare fun _ _ -> 0]
+  score : float;
+}
+[@@deriving show, ord]
 
 (* type 'a t = 'a State.t -> string -> Flag.t *)
 
