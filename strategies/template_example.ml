@@ -18,6 +18,8 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
            "Must be able to get upper_bb in Template_example.Buy.score"
     in
     price -. upper_bb
+
+  let num_positions = 5
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
