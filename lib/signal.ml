@@ -1,5 +1,5 @@
 module Direction = struct
-  type t = Above | Below [@@deriving show]
+  type t = Above | Below [@@deriving show { with_path = false }]
 end
 
 module Reason = struct
