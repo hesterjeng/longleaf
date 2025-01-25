@@ -81,8 +81,8 @@ module Make
           let* state = state in
           let symbol = signal.symbol in
           let reason = signal.reason in
-          let price = Signal.Indicator.price state symbol in
-          let timestamp = Signal.Indicator.timestamp state symbol in
+          let price = State.price state symbol in
+          let timestamp = State.timestamp state symbol in
           let qty = Util.qty ~current_cash ~price ~pct in
           let order : Order.t =
             Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
@@ -104,8 +104,8 @@ module Make
         Result.return
         @@ { state with State.current = `Listening; content = [ buying_order ] }
     | Pass reason ->
-        let price = Signal.Indicator.price state buying_order.symbol in
-        let timestamp = Signal.Indicator.timestamp state buying_order.symbol in
+        let price = State.price state buying_order.symbol in
+        let timestamp = State.timestamp state buying_order.symbol in
         let order : Order.t =
           Order.make ~symbol:buying_order.symbol ~side:Sell
             ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
