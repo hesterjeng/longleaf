@@ -1,24 +1,49 @@
-module type TRIGGER = sig
-  val make : 'a State.t -> string -> Signal.Flag.t
+module Buy_trigger = struct
+  module type S = sig
+    val make : 'a State.t -> string list -> Signal.t option
+  end
+
+  module type INPUT = sig
+    val pass : 'a State.t -> string -> Signal.Flag.t
+    val score : 'a State.t -> string -> float
+  end
+
+  module Make (Input : INPUT) = struct
+    let make state symbols : Signal.t option =
+      let passes =
+        List.filter_map
+          (fun s ->
+            match Input.pass state s with
+            | Pass reason -> Some (s, reason, Input.score state s)
+            | Fail _ -> None)
+          symbols
+      in
+      let selected =
+        List.fold_left
+          (fun acc (symbol, reason, score) ->
+            match acc with
+            | None -> Some (symbol, reason, score)
+            | Some (prev_sym, prev_res, prev_score) ->
+                if prev_score >=. score then
+                  Some (prev_sym, prev_res, prev_score)
+                else Some (symbol, reason, score))
+          None passes
+      in
+      match selected with
+      | Some (symbol, reason, _) -> Some { symbol; reason }
+      | None -> None
+  end
 end
 
-module Buy : TRIGGER = struct
-  let make (state : 'a State.t) symbol =
-    let price = Signal.Indicator.price state symbol in
-    Signal.Flag.conjunction state
-    @@ [ Signal.Indicator.lower_bb symbol Below price ]
-end
-
-module Sell : TRIGGER = struct
-  let make (state : 'a State.t) symbol =
-    let price = Signal.Indicator.price state symbol in
-    Signal.Flag.disjunction state
-    @@ [ Signal.Indicator.lower_bb symbol Above price ]
+module Sell_trigger = struct
+  module type S = sig
+    val make : 'a State.t -> string -> Signal.Flag.t
+  end
 end
 
 module Make
-    (BuyTrigger : TRIGGER)
-    (SellTrigger : TRIGGER)
+    (Buy : Buy_trigger.S)
+    (Sell : Sell_trigger.S)
     (Backend : Backend.S) : Strategy.S = struct
   module SU = Strategy_utils.Make (Backend)
 
@@ -36,20 +61,11 @@ module Make
 
   let buy (state : state) =
     let open Result.Infix in
-    (* let passes = List.filter_map (BuyReason.make state) Backend.symbols in *)
-    let passes =
-      List.filter_map
-        (fun symbol ->
-          match Buy.make state symbol with
-          | Pass reason -> Some (symbol, reason)
-          | Fail _ -> None)
-        Backend.symbols
-    in
-    let selected = Util.random_choose_opt passes in
+    let selected = Buy.make state Backend.symbols in
     let+ content =
       match selected with
       | None -> Ok state.content
-      | Some (symbol, reason) ->
+      | Some { symbol; reason } ->
           let price = Signal.Indicator.price state symbol in
           let timestamp = Signal.Indicator.timestamp state symbol in
           let current_cash = Backend.get_cash () in
@@ -65,7 +81,7 @@ module Make
 
   let sell (state : state) ~(buying_order : Order.t) =
     let open Result.Infix in
-    match SellTrigger.make state buying_order.symbol with
+    match Sell.make state buying_order.symbol with
     | Fail _ ->
         Result.return
         @@ { state with State.current = `Listening; content = [ buying_order ] }
@@ -97,14 +113,12 @@ module Make
   let step (state : state) =
     let ( let* ) = Result.( let* ) in
     let current = state.current in
-    (* Eio.traceln "@[buylowbollinger: %a@]@." State.pp_state current; *)
     match current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering -> (
         let positions = state.content in
         let length = List.length positions in
-        (* Eio.traceln "%d positions" length; *)
         match length with
         | 0 ->
             let* sold_high =
