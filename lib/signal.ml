@@ -92,7 +92,12 @@ module Indicator = struct
   (* let conjunction (l : 'a t list) = *)
 end
 
-type t = { symbol : string; reason : string list }
+type t = {
+  symbol : string; [@compare fun _ _ -> 0]
+  reason : string list; [@compare fun _ _ -> 0]
+  score : float;
+}
+[@@deriving show, ord]
 
 (* type 'a t = 'a State.t -> string -> Flag.t *)
 
