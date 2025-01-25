@@ -117,7 +117,31 @@ module Scalper = struct
     run_generic ~runtype ~context ~run_options (module Scalper.Make)
 end
 
-type t = BuyAndHold | Listener | DoubleTop | LowBoll | Challenge1 | Scalper
+module Template_example = struct
+  let run_options runtype : Run_options.t =
+    {
+      symbols = Collections.sp100;
+      tick = 600.0;
+      overnight = true;
+      resume_after_liquidate = true;
+      runtype;
+      indicators_config : Indicators.Config.t = { fft = false };
+      dropout = false;
+      randomized_backtest_length = 1000;
+    }
+
+  let top runtype context =
+    run_generic ~runtype ~context ~run_options (module Template_example.Make)
+end
+
+type t =
+  | BuyAndHold
+  | Listener
+  | DoubleTop
+  | LowBoll
+  | Challenge1
+  | Scalper
+  | TemplateExample
 [@@deriving show, eq]
 
 let of_string_res x =
@@ -129,6 +153,7 @@ let of_string_res x =
   | "lowball" | "lowboll" -> Ok LowBoll
   | "challenge1" -> Ok Challenge1
   | "scalper" -> Ok Scalper
+  | "template_example" -> Ok TemplateExample
   | _ -> Error (`Msg "Expected a valid strategy")
 
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
@@ -141,6 +166,7 @@ let run_strat runtype context x =
   | LowBoll -> LowBall.top runtype context
   | Challenge1 -> Challenge1.top runtype context
   | Scalper -> Scalper.top runtype context
+  | TemplateExample -> Template_example.top runtype context
 
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
