@@ -72,6 +72,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       stats = Stats.empty;
       order_history = Vector.create ();
       indicators = Indicators.empty ();
+      active_orders = [];
     }
 
   let next_market_open () =
