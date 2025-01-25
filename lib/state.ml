@@ -25,6 +25,7 @@ type 'a t = {
   indicators : Indicators.t;
   bars : Bars.t;
   (* Wildcard content for individual strategies to use *)
+  active_orders : Order.t list;
   content : 'a;
 }
 
