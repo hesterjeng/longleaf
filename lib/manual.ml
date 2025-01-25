@@ -10,7 +10,7 @@ let tiingo_test eio_env longleaf_env =
   end in
   let module Tiingo = Tiingo_api.Make (Client) in
   let tickers = [ "AAPL"; "MSFT" ] in
-  let test_resp = Tiingo.test () in
+  let test_resp = Tiingo.test () |> Result.get_exn in
   Eio.traceln "@[%a@]@." Yojson.Safe.pp test_resp;
   let _ = Tiingo.latest tickers in
   (* Eio.traceln "@[%a@]@." Bars.pp resp; *)

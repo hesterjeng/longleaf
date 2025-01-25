@@ -5,12 +5,12 @@
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) symbol =
-    let price = Signal.Indicator.price state symbol in
-    Signal.Flag.conjunction state
-    @@ [ Signal.Indicator.upper_bb symbol Below price ]
+    let open Signal in
+    let price = State.price state symbol in
+    Flag.conjunction state @@ [ Indicator.upper_bb symbol Below price ]
 
   let score (state : 'a State.t) symbol =
-    let price = Signal.Indicator.price state symbol in
+    let price = State.price state symbol in
     let upper_bb =
       Indicators.get_indicator state.indicators symbol
         Indicators.Point.lower_bollinger
@@ -18,6 +18,8 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
            "Must be able to get upper_bb in Template_example.Buy.score"
     in
     price -. upper_bb
+
+  let num_positions = 5
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
@@ -26,7 +28,7 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) symbol =
-    let price = Signal.Indicator.price state symbol in
+    let price = State.price state symbol in
     Signal.Flag.disjunction state
     @@ [ Signal.Indicator.lower_bb symbol Above price ]
 end
