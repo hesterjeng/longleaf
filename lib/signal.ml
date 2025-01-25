@@ -92,6 +92,8 @@ module Indicator = struct
   (* let conjunction (l : 'a t list) = *)
 end
 
+type t = { symbol : string; reason : string list }
+
 (* type 'a t = 'a State.t -> string -> Flag.t *)
 
 (* let attempt_using (state : _ State.t) symbol = *)
