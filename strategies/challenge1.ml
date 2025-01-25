@@ -11,14 +11,13 @@ module BuyReason = struct
   type t = { symbol : string; amt_above : float }
 
   let make (state : state) symbol =
-    let open Option.Infix in
     let current_price = Bars.Latest.get state.latest symbol |> Item.last in
     let is_owned =
       state.content
       |> List.map (fun (x : Order.t) -> x.symbol)
       |> List.mem symbol
     in
-    let* upper_bb =
+    let upper_bb =
       Indicators.get_indicator state.indicators symbol
         (* Indicators.Point.upper_bollinger_100_3 *)
         (* Indicators.Point.upper_bollinger_100_1 *)
@@ -26,7 +25,6 @@ module BuyReason = struct
     in
     let sma75spy =
       Indicators.get_indicator state.indicators "SPY" Indicators.Point.sma_75
-      |> Option.get_exn_or "Must be able to get SPY SMA 75"
     in
     let spy_price = Bars.Latest.get state.latest "SPY" |> Item.last in
     let amt_above = current_price -. upper_bb in
@@ -43,14 +41,13 @@ module SellReason = struct
   [@@deriving show { with_path = false }]
 
   let make (state : state) symbol =
-    let open Option.Infix in
     let current_price = Bars.Latest.get state.latest symbol |> Item.last in
-    let* lower_bb =
+    let lower_bb =
       Indicators.get_indicator state.indicators symbol
         Indicators.Point.lower_bollinger_100_1
       (* Indicators.Point.lower_bollinger *)
     in
-    let* sma75spy =
+    let sma75spy =
       Indicators.get_indicator state.indicators "SPY" Indicators.Point.sma_75
     in
     let spy_price = Bars.Latest.get state.latest "SPY" |> Item.last in
