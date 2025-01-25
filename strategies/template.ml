@@ -20,20 +20,16 @@ module Buy_trigger = struct
   (* with the highest score for buying. *)
   module Make (Input : INPUT) = struct
     let make state symbols =
-      let res =
-        List.filter_map
-          (fun symbol ->
-            match Input.pass state symbol with
-            | Pass reason ->
-                let score = Input.score state symbol in
-                Some { Signal.symbol; reason; score }
-            | Fail _ -> None)
-          symbols
-        |> List.sort Signal.compare |> List.rev
-        |> List.take Input.num_positions
-      in
-      Eio.traceln "template.ml: %a" (List.pp Signal.pp) res;
-      res
+      List.filter_map
+        (fun symbol ->
+          match Input.pass state symbol with
+          | Pass reason ->
+              let score = Input.score state symbol in
+              Some { Signal.symbol; reason; score }
+          | Fail _ -> None)
+        symbols
+      |> List.sort Signal.compare |> List.rev
+      |> List.take Input.num_positions
 
     let num_positions = Input.num_positions
   end
@@ -66,6 +62,7 @@ module Make
 
   let buy (state : state) =
     let open Result.Infix in
+    assert (Buy.num_positions >= 0);
     let n_passes = Buy.make state Backend.symbols in
     let selected =
       (* Only buy up to the number of positions we are allowed to take *)
