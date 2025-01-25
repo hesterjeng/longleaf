@@ -1,3 +1,9 @@
+(* This module contains a functor for making strategies that buy a single stock at a time. *)
+(* The stocks to buy will be filtered by a pass function, then the one with the highest score will *)
+(* be selected for purchase. *)
+(* Any held stock that meets the sell criterion will be sold. *)
+(* This template will only hold one stock at a time. *)
+
 module Buy_trigger = struct
   module type S = sig
     val make : 'a State.t -> string list -> Signal.t option
@@ -8,6 +14,8 @@ module Buy_trigger = struct
     val score : 'a State.t -> string -> float
   end
 
+  (* Using the Input module, create a module with a function to select the stock *)
+  (* with the highest score for buying. *)
   module Make (Input : INPUT) = struct
     let make state symbols : Signal.t option =
       let passes =
@@ -36,6 +44,7 @@ module Buy_trigger = struct
 end
 
 module Sell_trigger = struct
+  (* Pass if we meet the sell conditions, sell otherwise *)
   module type S = sig
     val make : 'a State.t -> string -> Signal.Flag.t
   end
