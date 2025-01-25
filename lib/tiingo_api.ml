@@ -62,14 +62,15 @@ module Make (Tiingo : Util.CLIENT) = struct
     let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
     get ~headers ~endpoint
 
-  let latest tickers : Bars.Latest.t =
+  let latest tickers =
+    let ( let+ ) = Result.( let+ ) in
     let endpoint =
       Uri.add_query_params' iex_endpoint
         [ ("tickers", String.concat "," tickers) ]
       |> Uri.to_string
     in
     (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
-    let resp = get ~headers ~endpoint in
+    let+ resp = get ~headers ~endpoint in
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
     let tiingo = t_of_yojson resp in
     to_latest tiingo
@@ -120,7 +121,14 @@ module Make (Tiingo : Util.CLIENT) = struct
           |> Uri.to_string
         in
         Eio.traceln "%s" endpoint;
-        let resp = get ~headers ~endpoint in
+        let resp =
+          get ~headers ~endpoint |> function
+          | Ok x -> x
+          | Error e ->
+              Eio.traceln
+                "tiingo_api.ml: Error while getting historical Tiingo data";
+              raise e
+        in
         (* Eio.traceln "%a" Yojson.Safe.pp resp; *)
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
         (symbol, Vector.of_list l)
@@ -150,7 +158,14 @@ module Make (Tiingo : Util.CLIENT) = struct
           |> Uri.to_string
         in
         Eio.traceln "%s" endpoint;
-        let resp = get ~headers ~endpoint in
+        let resp =
+          get ~headers ~endpoint |> function
+          | Ok x -> x
+          | Error e ->
+              Eio.traceln
+                "tiingo_api.ml: Error while getting historical EOD data";
+              raise e
+        in
         (* Eio.traceln "%a" Yojson.Safe.pp resp; *)
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
         (symbol, Vector.of_list l)
