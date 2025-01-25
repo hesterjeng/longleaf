@@ -24,7 +24,13 @@ module Generative () : S = struct
   let set_cash amt = pos.cash <- amt
   let get_cash () = pos.cash
   let get_position () = pos.position
-  let symbols () = Hashtbl.keys_list pos.position
+
+  let symbols () =
+    Hashtbl.to_iter pos.position
+    |> Iter.filter_map (fun (symbol, value) ->
+           if value <> 0 then Some symbol else None)
+    |> Iter.to_list
+
   let qty symbol = Hashtbl.get_or pos.position ~default:0 symbol
 
   let value (latest : Bars.Latest.t) =
