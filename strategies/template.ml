@@ -29,7 +29,6 @@ module Buy_trigger = struct
           | Fail _ -> None)
         symbols
       |> List.sort Signal.compare |> List.rev
-      |> List.take Input.num_positions
 
     let num_positions = Input.num_positions
   end
@@ -48,29 +47,30 @@ module Make
     (Backend : Backend.S) : Strategy.S = struct
   module SU = Strategy_utils.Make (Backend)
 
-  module Status = struct
-    type t = Order.t list [@@deriving show]
-  end
-
-  type state = Status.t State.t
-
   let shutdown () =
     Eio.traceln "Shutdown command NYI";
     ()
 
   let init_state = Backend.init_state []
 
-  let buy (state : state) =
+  let buy (state : 'a State.t) =
     let open Result.Infix in
+    let held_symbols = Backend.Backend_position.symbols () in
+    let potential_buys =
+      (* Get the potential symbols to purchase and don't rebuy into ones we already hold *)
+      Buy.make state Backend.symbols
+      |> List.filter (fun (x : Signal.t) ->
+             not @@ List.mem x.symbol held_symbols)
+    in
+    let num_held_currently = List.length state.active_orders in
     assert (Buy.num_positions >= 0);
-    let n_passes = Buy.make state Backend.symbols in
+    assert (Buy.num_positions >= num_held_currently);
     let selected =
       (* Only buy up to the number of positions we are allowed to take *)
       (* I/e if we already have 2 positions and are only allowed 5, only do 3 new ones. *)
       List.take
-        (Buy.num_positions
-        - (List.length @@ Backend.Backend_position.symbols ()))
-        n_passes
+        (Buy.num_positions - List.length state.active_orders)
+        potential_buys
     in
     match selected with
     | [] -> Result.return { state with State.current = `Listening }
@@ -84,28 +84,31 @@ module Make
           let price = State.price state symbol in
           let timestamp = State.timestamp state symbol in
           let qty = Util.qty ~current_cash ~price ~pct in
-          let order : Order.t =
-            Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
-              ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
-          in
-          let+ () = Backend.place_order state order in
-          {
-            state with
-            State.current = `Listening;
-            content = order :: state.content;
-          }
+          (* assert (qty <> 0); *)
+          match qty with
+          | 0 -> Result.return { state with State.current = `Listening }
+          | qty ->
+              let order : Order.t =
+                Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
+                  ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
+              in
+              let+ () = Backend.place_order state order in
+              {
+                state with
+                State.current = `Listening;
+                active_orders = order :: state.active_orders;
+              }
         in
         List.fold_left place_order (Ok state) selected
 
-  let sell (state : state) ~(buying_order : Order.t) =
+  let sell (state : 'a State.t) ~(buying_order : Order.t) =
     let open Result.Infix in
     match Sell.make state buying_order.symbol with
-    | Fail _ ->
-        Result.return
-        @@ { state with State.current = `Listening; content = [ buying_order ] }
+    | Fail _ -> Result.return @@ { state with State.current = `Listening }
     | Pass reason ->
         let price = State.price state buying_order.symbol in
         let timestamp = State.timestamp state buying_order.symbol in
+        assert (buying_order.qty <> 0);
         let order : Order.t =
           Order.make ~symbol:buying_order.symbol ~side:Sell
             ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
@@ -116,11 +119,17 @@ module Make
               )
         in
         let* () = Backend.place_order state order in
-        let new_content =
-          List.filter (fun x -> not @@ Order.equal x buying_order) state.content
+        let new_active_orders =
+          List.filter
+            (fun x -> not @@ Order.equal x buying_order)
+            state.active_orders
         in
         Result.return
-        @@ { state with State.current = `Listening; content = new_content }
+        @@ {
+             state with
+             State.current = `Listening;
+             active_orders = new_active_orders;
+           }
 
   let sell_fold state buying_order =
     let ( let* ) = Result.( let* ) in
@@ -128,14 +137,16 @@ module Make
     let* res = sell state ~buying_order in
     Result.return res
 
-  let step (state : state) =
+  let step (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let current = state.current in
     match current with
     | #State.nonlogical_state as current ->
         SU.handle_nonlogical_state current state
     | `Ordering ->
-        let* sold_state = List.fold_left sell_fold (Ok state) state.content in
+        let* sold_state =
+          List.fold_left sell_fold (Ok state) state.active_orders
+        in
         let* complete = buy sold_state in
         Result.return complete
 
