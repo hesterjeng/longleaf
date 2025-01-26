@@ -109,6 +109,9 @@ module Make
         let price = State.price state buying_order.symbol in
         let timestamp = State.timestamp state buying_order.symbol in
         assert (buying_order.qty <> 0);
+        let reason =
+          ("Selling b/c " :: reason) @ ("Bought b/c " :: buying_order.reason)
+        in
         let order : Order.t =
           Order.make ~symbol:buying_order.symbol ~side:Sell
             ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
