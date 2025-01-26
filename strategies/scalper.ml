@@ -10,7 +10,6 @@ module BuyReason = struct
   type t = { symbol : string; amt_above : float }
 
   let make (state : state) symbol =
-    let open Option.Infix in
     let current_price = Bars.Latest.get state.latest symbol |> Item.last in
     let is_owned =
       state.content

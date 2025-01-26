@@ -273,40 +273,34 @@ let of_stats (stats : Stats.t) : Yojson.Safe.t =
       ]
   in
   let order_trace side =
-    let get_side x =
-      match side with
-      | Trading_types.Side.Sell -> x.sell_order
-      | Buy -> x.buy_order
-    in
     let name = Trading_types.Side.to_string side in
     let color = Trading_types.Side.to_color side in
-    let orders =
+    let closest_time (x : item) =
+      let closest = Time.find_closest x.time value_x_times in
+      assert (List.mem closest value_x_times);
+      `String (Ptime.to_rfc3339 closest)
+    in
+    let value (x : item) =
+      let orders =
+        List.filter_map
+          (fun (x : Order.t) ->
+            if Trading_types.Side.equal x.side side then Some x else None)
+          x.orders
+      in
+      match orders with [] -> `Null | _ -> `Float x.value
+    in
+    let hovertext (x : item) =
       List.filter_map
-        (fun x -> match get_side x with Some _ -> Some x | None -> None)
-        stats
+        (fun (x : Order.t) ->
+          if Trading_types.Side.equal x.side side then Some x else None)
+        x.orders
+      |> List.map (fun (x : Order.t) ->
+             Format.asprintf "%s<br>%s" x.symbol (String.concat "<br>" x.reason))
+      |> fun x -> `String (String.concat "<br>" x)
     in
-    (* Eio.traceln "@[Found %d %a orders.@]@." (List.length orders) *)
-    (* Trading_types.Side.pp side; *)
-    let x =
-      List.map
-        (fun x ->
-          let closest = Time.find_closest x.time value_x_times in
-          assert (List.mem closest value_x_times);
-          `String (Ptime.to_rfc3339 closest))
-        orders
-    in
-    let y = List.map (fun x -> `Float x.value) orders in
-    let hovertext =
-      List.map
-        (fun x ->
-          match get_side x with
-          | Some b ->
-              `String
-                (Format.asprintf "%s<br>%s" b.symbol
-                   (String.concat "<br>" b.reason))
-          | None -> invalid_arg "Expected order here...")
-        orders
-    in
+    let x = List.map closest_time stats in
+    let y = List.map value stats in
+    let hovertext = List.map hovertext stats in
     `Assoc
       [
         "x" = `List x;
