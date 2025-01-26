@@ -14,6 +14,16 @@ module Flag = struct
 
   let pass x = Pass x
   let fail x = Fail x
+  let is_pass = function Pass _ -> true | _ -> false
+  let is_fail = function Pass _ -> false | _ -> true
+
+  let and_fold acc x =
+    match acc with
+    | Fail _ -> acc
+    | Pass prev -> (
+        match x with Pass curr -> Pass (curr @ prev) | Fail _ -> x)
+
+  let or_fold acc x = match acc with Fail _ -> x | Pass _ -> acc
 
   let conjunction state (l : (state:'a State.t -> t) list) =
     List.fold_left
@@ -39,6 +49,14 @@ module Flag = struct
     |> function
     | Some res -> res
     | None -> Fail [ "signal.ml: empty disjunction" ]
+
+  let and_ o f = match o with Pass res -> f res | Fail _ as failure -> failure
+  let or_ o f = match o with Pass _ as success -> success | Fail res -> f res
+
+  module Infix = struct
+    let ( let&& ) = and_
+    let ( let|| ) = or_
+  end
 end
 
 module Indicator = struct
@@ -73,15 +91,6 @@ module Indicator = struct
 
   let lower_bb ~state : 'a t =
     of_indicator state Indicators.Point.lower_bollinger "Lower BB(2)"
-
-  let and_ o f =
-    match o with Flag.Pass res -> f res | Flag.Fail _ as failure -> failure
-
-  let or_ o f =
-    match o with Flag.Pass _ as success -> success | Flag.Fail res -> f res
-
-  let ( let&& ) = and_
-  let ( let|| ) = or_
 
   (* let conjunction (l : 'a t list) = *)
 end

@@ -2,8 +2,9 @@ type item = {
   time : Time.t;
   value : float;
   risk_free_value : float;
-  buy_order : Order.t option;
-  sell_order : Order.t option;
+  orders : Order.t list;
+      (* buy_order : Order.t option; *)
+      (* sell_order : Order.t option; *)
 }
 [@@deriving yojson, show]
 
@@ -26,9 +27,7 @@ let add_orders (orders : Order_history.t) (x : t) =
         Array.map_inplace
           (fun (item : item) ->
             if Ptime.equal item.time closest_stat_time then
-              match order.side with
-              | Buy -> { item with buy_order = Some order }
-              | Sell -> { item with sell_order = Some order }
+              { item with orders = order :: item.orders }
             else item)
           stats_array)
       orders

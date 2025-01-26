@@ -348,6 +348,12 @@ let pp : t Format.printer =
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
+let get_top (x : t) symbol =
+  get x symbol
+  |> Option.get_exn_or "indicators.ml: unable to get vector for symbol"
+  |> Vector.top
+  |> Option.get_exn_or "inidcators.ml: vector doesn't have a top"
+
 let get_indicator (x : t) symbol f =
   let res =
     let open Option.Infix in
