@@ -23,6 +23,8 @@ module Flag = struct
     | Pass prev -> (
         match x with Pass curr -> Pass (curr @ prev) | Fail _ -> x)
 
+  let or_fold acc x = match acc with Fail _ -> x | Pass _ -> acc
+
   let conjunction state (l : (state:'a State.t -> t) list) =
     List.fold_left
       (fun acc current ->

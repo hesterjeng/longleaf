@@ -48,8 +48,15 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) symbol =
     let price = State.price state symbol in
-    Signal.Flag.disjunction state
-    @@ [ Signal.Indicator.upper_bb symbol Below price ]
+    let i = Indicators.get_top state.indicators symbol in
+    let conditions =
+      [
+        (match i.fast_stochastic_oscillator_d >=. 90.0 with
+        | true -> F.Pass [ "High FSO %D!" ]
+        | false -> F.Fail [ "FSO %D too low to sell" ]);
+      ]
+    in
+    List.fold_left F.or_fold (Fail []) conditions
 end
 
 (* Create a strategy with our parameters *)
