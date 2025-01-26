@@ -17,9 +17,14 @@ module Gaussian = struct
   (* Create a Gaussian PDF of the differences of floats in the array *)
   let of_preload (preload : float array) =
     let differences =
-      let rhs = Array.append [| 0.0 |] preload in
-      let lhs = Array.append preload [| 0.0 |] in
-      Array.map2 Float.( - ) rhs lhs
+      Array.mapi
+        (fun i x ->
+          match Array.get_safe preload (i + 1) with
+          | Some y -> Option.return @@ (y /. x)
+          | None -> None
+          (* fun x y -> *))
+        preload
+      |> Array.filter_map Fun.id
     in
     let len = Array.length differences in
     assert (len >= 4);
@@ -42,15 +47,17 @@ module Gaussian = struct
     Owl_stats.t_rvs ~df:x.degrees_freedom ~loc:x.mean ~scale:x.std
 
   let next_data_point ~(dist : t) previous =
-    let diff = student_rv dist in
-    previous +. diff
+    let multiplier = student_rv dist in
+    previous *. multiplier
+  (* let diff = student_rv dist in *)
+  (* previous +. diff *)
 
   let next_data_point_mean_revert ~(dist : t) previous_list previous_value =
     (* let generated = student_rv dist in *)
     let generated = laplace_rv dist in
     (* let generated = cauchy_rv dist in *)
     (* let generated = gaussian_rv dist in *)
-    let new_value = previous_value +. generated in
+    let new_value = previous_value *. generated in
     let len = List.length previous_list in
     let alpha = 0.1 in
     let sma =
@@ -95,7 +102,7 @@ end
 module Item = struct
   let of_item_array ~print (x : Item.t array) (target : Item.t array) =
     let len = Array.length target in
-    let mc = fun x -> Gaussian.monte_carlo ~print ~mean_revert:true len x in
+    let mc = fun x -> Gaussian.monte_carlo ~print ~mean_revert:false len x in
     let target_times = Array.map Item.timestamp target in
     let open_arr = Array.map Item.open_ x |> mc in
     let high_arr = Array.map Item.high x |> mc in
