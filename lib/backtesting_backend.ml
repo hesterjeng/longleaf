@@ -14,6 +14,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       bars = Input.bars;
       latest = Bars.Latest.empty ();
       content;
+      tick = 0;
       stats = Stats.empty;
       order_history = Vector.create ();
       indicators = Indicators.empty ();
