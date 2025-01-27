@@ -29,6 +29,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
             let ( let* ) = Result.( let* ) in
             let order =
               Order.make ~symbol:"SPY" ~side:Buy ~tif:GoodTillCanceled
+                ~tick:state.tick
                 ~price:(Item.last most_recent_price)
                 ~timestamp:(Item.timestamp most_recent_price)
                 ~qty:(qty state 0.5 "SPY") ~profit:None ~order_type:Market

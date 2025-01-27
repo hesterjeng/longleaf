@@ -4,6 +4,13 @@ module I = Indicators
 module P = I.Point
 module F = S.Flag
 
+module Param = struct
+  let stop_loss_multiplier = 0.5
+
+  (* let profit_multiplier = 1.04 *)
+  let max_holding_period = 600
+end
+
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) symbol =
@@ -46,14 +53,20 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
-  let make (state : 'a State.t) symbol =
-    let price = State.price state symbol in
-    let i = Indicators.get_top state.indicators symbol in
+  let make (state : 'a State.t) ~(buying_order : Order.t) =
+    let price = State.price state buying_order.symbol in
+    let i = Indicators.get_top state.indicators buying_order.symbol in
     let conditions =
       [
         (match i.fast_stochastic_oscillator_d >=. 90.0 with
         | true -> F.Pass [ "High FSO %D!" ]
         | false -> F.Fail [ "FSO %D too low to sell" ]);
+        (match state.tick >= buying_order.tick + Param.max_holding_period with
+        | true -> F.Pass [ "Holding period exceeded" ]
+        | false -> F.Fail [ "Holding period OK" ]);
+        (match price <=. Param.stop_loss_multiplier *. buying_order.price with
+        | true -> F.Pass [ "Stop loss triggered" ]
+        | false -> F.Fail [ "Stop loss not triggered" ]);
       ]
     in
     List.fold_left F.or_fold (Fail []) conditions

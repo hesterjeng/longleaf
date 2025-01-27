@@ -37,7 +37,7 @@ end
 module Sell_trigger = struct
   (* Pass if we meet the sell conditions, sell otherwise *)
   module type S = sig
-    val make : 'a State.t -> string -> Signal.Flag.t
+    val make : 'a State.t -> buying_order:Order.t -> Signal.Flag.t
   end
 end
 
@@ -90,7 +90,8 @@ module Make
           | qty ->
               let order : Order.t =
                 Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
-                  ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
+                  ~tick:state.tick ~order_type:Market ~qty ~price ~reason
+                  ~timestamp ~profit:None
               in
               let+ () = Backend.place_order state order in
               {
@@ -103,7 +104,7 @@ module Make
 
   let sell (state : 'a State.t) ~(buying_order : Order.t) =
     let open Result.Infix in
-    match Sell.make state buying_order.symbol with
+    match Sell.make state ~buying_order with
     | Fail _ -> Result.return @@ { state with State.current = `Listening }
     | Pass reason ->
         let price = State.price state buying_order.symbol in
@@ -113,7 +114,7 @@ module Make
           ("Selling b/c " :: reason) @ ("Bought b/c " :: buying_order.reason)
         in
         let order : Order.t =
-          Order.make ~symbol:buying_order.symbol ~side:Sell
+          Order.make ~tick:state.tick ~symbol:buying_order.symbol ~side:Sell
             ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
             ~price ~reason ~timestamp
             ~profit:
@@ -151,7 +152,7 @@ module Make
           List.fold_left sell_fold (Ok state) state.active_orders
         in
         let* complete = buy sold_state in
-        Result.return complete
+        Result.return { complete with tick = complete.tick + 1 }
 
   let run () = SU.run ~init_state step
 end

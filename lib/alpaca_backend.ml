@@ -67,6 +67,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     {
       State.current = `Initialize;
       bars = Input.bars;
+      tick = 0;
       latest = Bars.Latest.empty ();
       content;
       stats = Stats.empty;
@@ -133,7 +134,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let* () = Backtesting.place_order state order in
     Trading_api.Orders.create_market_order order
 
-  let liquidate state =
+  let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let symbols = Backend_position.symbols () in
     let* last_data_bar = latest_bars symbols in
@@ -150,8 +151,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
             let qty = Int.abs qty in
             let price = Item.last latest_info in
             let timestamp = Item.timestamp latest_info in
-            Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-              ~profit:None ~reason:[ "Liquidate" ]
+            Order.make ~symbol ~tick:state.tick ~side ~tif ~order_type ~qty
+              ~price ~timestamp ~profit:None ~reason:[ "Liquidate" ]
           in
           (* Eio.traceln "%a" Order.pp order; *)
           let _json_resp = place_order state order in
