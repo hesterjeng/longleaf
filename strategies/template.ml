@@ -37,7 +37,7 @@ end
 module Sell_trigger = struct
   (* Pass if we meet the sell conditions, sell otherwise *)
   module type S = sig
-    val make : 'a State.t -> string -> Signal.Flag.t
+    val make : 'a State.t -> buying_order:Order.t -> Signal.Flag.t
   end
 end
 
@@ -104,7 +104,7 @@ module Make
 
   let sell (state : 'a State.t) ~(buying_order : Order.t) =
     let open Result.Infix in
-    match Sell.make state buying_order.symbol with
+    match Sell.make state ~buying_order with
     | Fail _ -> Result.return @@ { state with State.current = `Listening }
     | Pass reason ->
         let price = State.price state buying_order.symbol in
