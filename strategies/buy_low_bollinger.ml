@@ -181,7 +181,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
   (* If not, return the state unchanged, except we are now listening. *)
   let place_buy ~(state : state) =
     let ( let* ) = Result.( let* ) in
-    let short_opt = consider_buying ~state ~qty:(qty state 0.9) in
+    let short_opt = consider_buying ~state ~qty:(qty state 1.0) in
     let possibilities =
       List.filter_map short_opt Backend.symbols
       |> List.sort (Ord.opp @@ fun (_, x) (_, y) -> Float.compare x y)
