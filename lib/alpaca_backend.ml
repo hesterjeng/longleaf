@@ -67,6 +67,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     {
       State.current = `Initialize;
       bars = Input.bars;
+      tick = 0;
       latest = Bars.Latest.empty ();
       content;
       stats = Stats.empty;
