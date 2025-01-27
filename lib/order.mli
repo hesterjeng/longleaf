@@ -6,6 +6,7 @@ type t = private {
   tif : TimeInForce.t;
   order_type : OrderType.t;
   qty : int;
+  tick : int;
   price : float;
   timestamp : Time.t;
   reason : string list;
@@ -19,6 +20,7 @@ val equal : t -> t -> bool
 
 val make :
   symbol:string ->
+  tick:int ->
   side:Side.t ->
   tif:TimeInForce.t ->
   order_type:OrderType.t ->

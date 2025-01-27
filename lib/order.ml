@@ -6,6 +6,7 @@ type t = {
   tif : TimeInForce.t;
   order_type : OrderType.t;
   qty : int;
+  tick : int;
   price : float;
   timestamp : Time.t;
   reason : string list;
@@ -25,11 +26,13 @@ let equal x y =
   && Side.equal x.side y.side
   && Ptime.equal x.timestamp y.timestamp
 
-let make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason ~profit =
+let make ~symbol ~tick ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
+    ~profit =
   {
     symbol;
     side;
     tif;
+    tick;
     order_type;
     qty;
     price;

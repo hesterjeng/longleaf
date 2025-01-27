@@ -90,7 +90,8 @@ module Make
           | qty ->
               let order : Order.t =
                 Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
-                  ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
+                  ~tick:state.tick ~order_type:Market ~qty ~price ~reason
+                  ~timestamp ~profit:None
               in
               let+ () = Backend.place_order state order in
               {
@@ -113,7 +114,7 @@ module Make
           ("Selling b/c " :: reason) @ ("Bought b/c " :: buying_order.reason)
         in
         let order : Order.t =
-          Order.make ~symbol:buying_order.symbol ~side:Sell
+          Order.make ~tick:state.tick ~symbol:buying_order.symbol ~side:Sell
             ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
             ~price ~reason ~timestamp
             ~profit:
@@ -151,7 +152,7 @@ module Make
           List.fold_left sell_fold (Ok state) state.active_orders
         in
         let* complete = buy sold_state in
-        Result.return complete
+        Result.return { complete with tick = complete.tick + 1 }
 
   let run () = SU.run ~init_state step
 end
