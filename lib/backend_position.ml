@@ -63,7 +63,7 @@ module Generative () : S = struct
         Ok ()
     | _ -> Result.fail @@ Format.asprintf "Unsupported order: %a" Order.pp order
 
-  let liquidate state (bars : Bars.Latest.t) =
+  let liquidate (state : 'a State.t) (bars : Bars.Latest.t) =
     let open Trading_types in
     let ( let* ) = Result.( let* ) in
     let fold f = Hashtbl.fold f pos.position (Ok ()) in
@@ -80,8 +80,8 @@ module Generative () : S = struct
           let qty = Int.abs qty in
           let price = Item.last latest in
           let timestamp = Item.timestamp latest in
-          Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-            ~profit:None ~reason:[ "Liquidating" ]
+          Order.make ~tick:state.tick ~symbol ~side ~tif ~order_type ~qty ~price
+            ~timestamp ~profit:None ~reason:[ "Liquidating" ]
         in
         Eio.traceln "@[%a@]@." Order.pp order;
         let* () = execute_order state order in
