@@ -159,8 +159,8 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
           Format.asprintf "Buying (%a): Below bollinger band" Time.pp timestamp;
         ]
       in
-      Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
-        ~profit:None
+      Order.make ~symbol ~tick:state.tick ~side ~tif ~order_type ~qty ~price
+        ~timestamp ~reason ~profit:None
     in
     (* Eio.traceln "@[%a@]@." Order.pp order; *)
     Some (order, amt_below_bollinger)
@@ -181,7 +181,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
   (* If not, return the state unchanged, except we are now listening. *)
   let place_buy ~(state : state) =
     let ( let* ) = Result.( let* ) in
-    let short_opt = consider_buying ~state ~qty:(qty state 0.9) in
+    let short_opt = consider_buying ~state ~qty:(qty state 1.0) in
     let possibilities =
       List.filter_map short_opt Backend.symbols
       |> List.sort (Ord.opp @@ fun (_, x) (_, y) -> Float.compare x y)
@@ -235,9 +235,9 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
         let* () =
           Backend.place_order state
           @@ Order.make ~symbol:buying_order.symbol ~side:Side.Sell
-               ~tif:buying_order.tif ~order_type:buying_order.order_type
-               ~qty:buying_order.qty ~price:current_price ~timestamp ~reason
-               ~profit:(Some profit)
+               ~tick:state.tick ~tif:buying_order.tif
+               ~order_type:buying_order.order_type ~qty:buying_order.qty
+               ~price:current_price ~timestamp ~reason ~profit:(Some profit)
         in
         Result.return
         @@ {

@@ -11,6 +11,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
       bars = Bars.empty ();
       latest = Bars.Latest.empty ();
       content = ();
+      tick = 0;
       stats = Stats.empty;
       order_history = Vector.create ();
       active_orders = [];
@@ -48,8 +49,8 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
               let order_type = OrderType.Market in
               let price = nvda_last in
               let timestamp = Item.timestamp msft in
-              Order.make ~symbol ~side ~tif ~order_type ~price ~qty ~timestamp
-                ~profit:None ~reason:[ "SimpleStateMachine" ]
+              Order.make ~tick:state.tick ~symbol ~side ~tif ~order_type ~price
+                ~qty ~timestamp ~profit:None ~reason:[ "SimpleStateMachine" ]
             in
             let _json_resp = Backend.place_order state order in
             ()

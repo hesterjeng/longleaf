@@ -151,11 +151,29 @@ module Template_example2 = struct
     run_generic ~runtype ~context ~run_options (module Template_example2.Make)
 end
 
+module LowBall2 = struct
+  let run_options runtype : Run_options.t =
+    {
+      symbols = Collections.sp100;
+      tick = 600.0;
+      overnight = true;
+      resume_after_liquidate = true;
+      runtype;
+      indicators_config : Indicators.Config.t = { fft = false };
+      dropout = false;
+      randomized_backtest_length = 1000;
+    }
+
+  let top runtype context =
+    run_generic ~runtype ~context ~run_options (module Lowboll2.Make)
+end
+
 type t =
   | BuyAndHold
   | Listener
   | DoubleTop
   | LowBoll
+  | LowBoll2
   | Challenge1
   | Scalper
   | TemplateExample
@@ -169,6 +187,7 @@ let of_string_res x =
   | "listener" | "listen" -> Ok Listener
   | "doubletop" -> Ok DoubleTop
   | "lowball" | "lowboll" -> Ok LowBoll
+  | "lowball2" | "lowboll2" -> Ok LowBoll2
   | "challenge1" -> Ok Challenge1
   | "scalper" -> Ok Scalper
   | "template_example" -> Ok TemplateExample
@@ -183,6 +202,7 @@ let run_strat runtype context x =
   | Listener -> Listener.top runtype context
   | DoubleTop -> DoubleTop.top runtype context
   | LowBoll -> LowBall.top runtype context
+  | LowBoll2 -> LowBall2.top runtype context
   | Challenge1 -> Challenge1.top runtype context
   | Scalper -> Scalper.top runtype context
   | TemplateExample -> Template_example.top runtype context

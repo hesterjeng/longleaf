@@ -210,8 +210,8 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
             (Item.timestamp previous_maximum);
         ]
       in
-      Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
-        ~profit:None
+      Order.make ~tick:state.tick ~symbol ~side ~tif ~order_type ~qty ~price
+        ~timestamp ~reason ~profit:None
     in
     (* Eio.traceln "@[%a@]@." Order.pp order; *)
     order
@@ -271,10 +271,10 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
         (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
         let* () =
           Backend.place_order state
-          @@ Order.make ~symbol:shorting_order.symbol ~side:Side.Buy
-               ~tif:shorting_order.tif ~order_type:shorting_order.order_type
-               ~qty:shorting_order.qty ~price:current_price ~timestamp ~reason
-               ~profit:(Some profit)
+          @@ Order.make ~tick:state.tick ~symbol:shorting_order.symbol
+               ~side:Side.Buy ~tif:shorting_order.tif
+               ~order_type:shorting_order.order_type ~qty:shorting_order.qty
+               ~price:current_price ~timestamp ~reason ~profit:(Some profit)
         in
         Result.return
         @@ {

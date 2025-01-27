@@ -66,8 +66,8 @@ module Make (Backend : Backend.S) : Strategy.S = struct
                 Time.pp timestamp;
             ]
           in
-          Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-            ~reason ~profit:None
+          Order.make ~tick:state.tick ~symbol ~side ~tif ~order_type ~qty ~price
+            ~timestamp ~reason ~profit:None
 
     let of_sell_reason ~(buying_order : Order.t) (state : state)
         (x : SellReason.t) =
@@ -89,8 +89,8 @@ module Make (Backend : Backend.S) : Strategy.S = struct
                 Time.pp timestamp;
             ]
           in
-          Order.make ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
-            ~reason ~profit:(Some profit)
+          Order.make ~symbol ~side ~tick:state.tick ~tif ~order_type ~qty ~price
+            ~timestamp ~reason ~profit:(Some profit)
   end
 
   let shutdown () =
