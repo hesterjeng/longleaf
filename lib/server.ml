@@ -61,7 +61,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/stats"; _ } ->
       let stats = Pmutex.get mutices.stats_mutex |> Stats.sort in
-      let body = Plotly.of_stats stats |> Yojson.Safe.to_string in
+      let body = Plotly.Stats.make stats |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/symbols"; _ } ->
       let body =

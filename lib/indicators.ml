@@ -374,27 +374,29 @@ let initialize config bars symbol =
     | None ->
         invalid_arg "Expected to have bars data when initializing indicators"
   in
-  let bars = Vector.to_list bars_vec in
+  (* Create a vector to store the data so far *)
+  let bars_upto_now = Vector.create () in
+  (* Function to generate the indicators from the bars *)
+  let fold i previous item =
+    let timestamp = Item.timestamp item in
+    match previous with
+    | None ->
+        let res = Point.initial timestamp in
+        Vector.push initial_stats_vector res;
+        Vector.push bars_upto_now (Vector.get bars_vec i);
+        Option.return res
+    | Some previous ->
+        Vector.push bars_upto_now (Vector.get bars_vec i);
+        let res =
+          Point.of_latest config timestamp bars_upto_now previous
+            initial_stats_vector item
+        in
+        Vector.push initial_stats_vector res;
+        Option.return res
+  in
   let _ =
-    List.foldi
-      (fun previous i item ->
-        let timestamp = Item.timestamp item in
-        match previous with
-        | None ->
-            let res = Point.initial timestamp in
-            Vector.push initial_stats_vector res;
-            Option.return res
-        | Some previous ->
-            let bars_vec_upto_now =
-              Vector.slice_iter bars_vec 0 i |> Vector.of_iter
-            in
-            let res =
-              Point.of_latest config timestamp bars_vec_upto_now previous
-                initial_stats_vector item
-            in
-            Vector.push initial_stats_vector res;
-            Option.return res)
-      None bars
+    (* Fold, so that we have access to the previous indicator record *)
+    Vector.foldi fold None bars_vec
   in
   initial_stats_vector
 
@@ -414,7 +416,8 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     match get x symbol with
     | Some i -> i
     | None ->
-        (* Eio.traceln "Creating initial indicators for %s." symbol; *)
+        (* Eio.traceln "\rCreating initial indicators for %s..." symbol; *)
+        (* flush stderr; *)
         let new_vector = initialize config bars symbol in
         Hashtbl.replace x symbol new_vector;
         new_vector

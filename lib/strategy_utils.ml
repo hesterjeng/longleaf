@@ -113,6 +113,7 @@ module Make (Backend : Backend_intf.S) = struct
     (*   (Bars.Hashtbl.length state.bars); *)
     match current with
     | `Initialize ->
+        Eio.traceln "Initialize state...";
         let symbols_str = String.concat "," Backend.symbols in
         Pmutex.set mutices.symbols_mutex (Some symbols_str);
         Result.return @@ { state with current = `Listening }
