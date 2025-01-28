@@ -48,8 +48,8 @@ let make_bars ~(options : Run_options.t) ~(context : Run_context.t) =
   let target =
     let ( let+ ) = Option.( let+ ) in
     let+ res =
-      target
-      |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
+      let+ target = target in
+      Yojson.Safe.from_file target |> Bars.t_of_yojson
     in
     Bars.sort (Ord.opp Item.compare) res;
     match options.runtype with
