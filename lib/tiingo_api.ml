@@ -76,7 +76,7 @@ module Make (Tiingo : Util.CLIENT) = struct
     to_latest tiingo
 
   module Data = struct
-    module Historical_bars_request = Market_data_api.Historical_bars_request
+    module Request = Market_data_api.Request
     module Timeframe = Trading_types.Timeframe
     module Hashbtl = Bars.Hashtbl
 
@@ -97,8 +97,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       Item.make ~timestamp:date ~open_ ~high ~low ~close
         ~volume:(Int.of_float volume) ~last:close ~order:None ()
 
-    let historical_bars ?(afterhours = false)
-        (request : Historical_bars_request.t) =
+    let historical_bars ?(afterhours = false) (request : Request.t) =
       let get_data symbol =
         let endpoint =
           Uri.of_string ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices")
@@ -137,7 +136,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       let hashtbl : Bars.t = Hashtbl.of_seq items_assoc in
       hashtbl
 
-    let historical_eod (request : Historical_bars_request.t) =
+    let historical_eod (request : Request.t) =
       let get_data symbol =
         let endpoint =
           Uri.of_string
@@ -174,7 +173,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       let hashtbl : Bars.t = Hashtbl.of_seq items_assoc in
       hashtbl
 
-    let top ?(afterhours = false) (request : Historical_bars_request.t) =
+    let top ?(afterhours = false) (request : Request.t) =
       match request.timeframe with
       | Day -> historical_eod request
       | _ -> historical_bars ~afterhours request

@@ -35,10 +35,30 @@ end
 let make_bars ~(options : Run_options.t) ~(context : Run_context.t) =
   let preload = context.preload in
   let target = context.target in
+  let symbols = options.symbols in
   let bars =
     match preload with
     | None -> Bars.empty ()
-    | Download -> invalid_arg "Downloading data for preload NYI"
+    | Download ->
+        Eio.traceln "Downloading data from tiingo for preload";
+        let module Param = struct
+          let longleaf_env = context.longleaf_env
+          let client = Tiingo_api.tiingo_client context.eio_env context.switch
+        end in
+        let module Tiingo = Tiingo_api.Make (Param) in
+        let request : Market_data_api.Request.t =
+          let end_ = Time.get_todays_date () in
+          let start = Time.subtract_30_days end_ in
+          {
+            timeframe = Trading_types.Timeframe.min 10;
+            symbols;
+            start;
+            end_ = Some end_;
+          }
+        in
+        let res = Tiingo.Data.top request in
+        Bars.sort Item.compare res;
+        res
     | File file ->
         Eio.traceln "Preloading bars from %s" file;
         let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in

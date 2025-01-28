@@ -1,7 +1,8 @@
 open Trading_types
 module Headers = Piaf.Headers
 
-module Historical_bars_request = struct
+module Request = struct
+  (* Type for requesting historical bars *)
   type t = {
     symbols : string list;
     timeframe : Timeframe.t;
@@ -40,7 +41,7 @@ module Make (Alpaca : Util.CLIENT) = struct
       ]
 
   module Stock = struct
-    let historical_bars (request : Historical_bars_request.t) =
+    let historical_bars (request : Request.t) =
       let symbols = String.concat "," request.symbols in
       let headers = headers () in
       let endpoint =

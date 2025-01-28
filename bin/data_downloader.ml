@@ -54,14 +54,6 @@ module Args = struct
       value & pos 1 (some string) None & info [] ~docv:"output file" ~doc)
 end
 
-let get_todays_date () =
-  let time = Unix.time () in
-  let local_time = Unix.localtime time in
-  Printf.sprintf "%04d-%02d-%02d"
-    (1900 + local_time.Unix.tm_year) (* Year *)
-    (local_time.Unix.tm_mon + 1) (* Month *)
-    local_time.Unix.tm_mday (* Day *)
-
 module Downloader = struct
   let data_client switch eio_env (longleaf_env : Environment.t) =
     let res =
@@ -85,8 +77,7 @@ module Downloader = struct
       let longleaf_env = longleaf_env
     end in
     let module MDA = Market_data_api.Make (Conn) in
-    Eio.traceln "Making request %a..."
-      Market_data_api.Historical_bars_request.pp request;
+    Eio.traceln "Making request %a..." Market_data_api.Request.pp request;
     let bars =
       match downloader_arg with
       | Some Alpaca -> MDA.Stock.historical_bars request
@@ -120,15 +111,14 @@ module Cmd = struct
     let collection = Collections.sp100_spy in
     let request =
       match
-        Market_data_api.Historical_bars_request.of_data_downloader collection
-          begin_arg end_arg timeframe_arg interval_arg
+        Market_data_api.Request.of_data_downloader collection begin_arg end_arg
+          timeframe_arg interval_arg
       with
       | Some r -> r
       | None ->
           Eio.traceln "Is this meant to trigger?";
           let start =
-            if today then Time.of_ymd @@ get_todays_date ()
-            else Time.of_ymd "2024-11-01"
+            if today then Time.get_todays_date () else Time.of_ymd "2024-11-01"
           in
           {
             timeframe = Trading_types.Timeframe.min 10;
