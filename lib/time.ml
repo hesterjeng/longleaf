@@ -23,11 +23,11 @@ let of_ymd x =
   | Ok (t, _, _) -> t
   | Error _ ->
       invalid_arg
-      @@ Format.asprintf "Invalid time in my time module (ymd)? %s" x
+      @@ Format.asprintf "Invalid time in my time module (ymd)? %s" rfc
 
 let to_ymd (x : t) =
   Ptime.to_date_time x |> fun (date, _) ->
-  date |> fun (y, m, d) -> Format.asprintf "%d-%d-%d" y m d
+  date |> fun (y, m, d) -> Format.asprintf "%d-%02d-%02d" y m d
 
 let of_string x =
   match Ptime.of_rfc3339 x with
@@ -53,12 +53,20 @@ let find_closest (time : t) (l : t list) =
 
 let get_todays_date () =
   let time = Unix.time () in
-  let local_time = Unix.localtime time in
-  let res =
-    Printf.sprintf "%04d-%02d-%02d"
-      (1900 + local_time.Unix.tm_year) (* Year *)
-      (local_time.Unix.tm_mon + 1) (* Month *)
-      local_time.Unix.tm_mday
-    (* Day *)
+  let now =
+    Ptime.of_float_s time |> Option.get_exn_or "time.ml: get_todays_date float"
   in
-  of_ymd res
+  Eio.traceln "%s" (to_ymd now);
+  let res = to_ymd now |> of_ymd in
+  Eio.traceln "%s" (to_ymd res);
+  res
+
+let subtract_30_days (ptime_value : Ptime.t) =
+  let thirty_days_in_seconds = -1 * (30 * 86400) in
+  (* 30 days * 86400 seconds/day *)
+  let sub =
+    Ptime.add_span ptime_value (Ptime.Span.of_int_s thirty_days_in_seconds)
+  in
+  match sub with
+  | Some t -> t
+  | None -> invalid_arg "Time.subtract_30_days: invalid time"
