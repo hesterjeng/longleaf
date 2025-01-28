@@ -284,6 +284,43 @@ module Stats = struct
       sell_hovertext;
     }
 
+  let order_trace (side : Side.t) (items : t list) =
+    let ( = ) = fun x y -> (x, y) in
+    let filtered =
+      List.filter
+        (fun (x : t) ->
+          match side with
+          | Buy -> Option.is_some x.buy_hovertext
+          | Sell -> Option.is_some x.sell_hovertext)
+        items
+    in
+    let x = List.map (fun (x : t) -> `String x.x) filtered in
+    let y = List.map (fun (x : t) -> `Float x.y) filtered in
+    let hovertext =
+      List.map
+        (fun (x : t) ->
+          `String
+            (Option.get_exn_or
+               "plotly.ml: impossible, already filtered for side"
+               (match side with
+               | Buy -> x.buy_hovertext
+               | Sell -> x.sell_hovertext)))
+        filtered
+    in
+    let name = Trading_types.Side.to_string side in
+    let color = Trading_types.Side.to_color side in
+    `Assoc
+      [
+        "x" = `List x;
+        "y" = `List y;
+        "hovertext" = `List hovertext;
+        "hoverinfo" = `String "text";
+        "mode" = `String "markers";
+        "type" = `String "scatter";
+        "name" = `String name;
+        "marker" = `Assoc [ "color" = `String color; "size" = `Int 10 ];
+      ]
+
   let make (stats : Stats.t) : Yojson.Safe.t =
     let ( = ) = fun x y -> (x, y) in
     let l = List.map of_item stats in
@@ -299,35 +336,8 @@ module Stats = struct
           "type" = `String "scatter";
         ]
     in
-    let buy_hovertext =
-      List.map
-        (fun x ->
-          match x.buy_hovertext with Some x -> `String x | None -> `Null)
-        l
-    in
-    let sell_hovertext =
-      List.map
-        (fun x ->
-          match x.sell_hovertext with Some x -> `String x | None -> `Null)
-        l
-    in
-    let order_trace side hovertext =
-      let name = Trading_types.Side.to_string side in
-      let color = Trading_types.Side.to_color side in
-      `Assoc
-        [
-          "x" = `List x;
-          "y" = `List y;
-          "hovertext" = `List hovertext;
-          "hoverinfo" = `String "text";
-          "mode" = `String "markers";
-          "type" = `String "scatter";
-          "name" = `String name;
-          "marker" = `Assoc [ "color" = `String color; "size" = `Int 10 ];
-        ]
-    in
-    let buy_trace : Yojson.Safe.t = order_trace Buy buy_hovertext in
-    let sell_trace : Yojson.Safe.t = order_trace Sell sell_hovertext in
+    let buy_trace : Yojson.Safe.t = order_trace Buy l in
+    let sell_trace : Yojson.Safe.t = order_trace Sell l in
     `Assoc
       [
         "traces" = `List [ value_trace; buy_trace; sell_trace ];
