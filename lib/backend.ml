@@ -48,8 +48,8 @@ let make_bars ~(options : Run_options.t) ~(context : Run_context.t) =
   let target =
     let ( let+ ) = Option.( let+ ) in
     let+ res =
-      target
-      |> Option.map @@ fun f -> Yojson.Safe.from_file f |> Bars.t_of_yojson
+      let+ target = target in
+      Yojson.Safe.from_file target |> Bars.t_of_yojson
     in
     Bars.sort (Ord.opp Item.compare) res;
     match options.runtype with
@@ -87,13 +87,17 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
 
 let make (options : Run_options.t) (context : Run_context.t) =
   let module Input = (val make_backend_input options context) in
-  match options.runtype with
-  | Live -> invalid_arg "Live trading not implemented"
-  | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
-  | Paper ->
-      Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
-      (module Alpaca_backend.Make (Input) : S)
-  | Backtest | Multitest | Montecarlo | MultiMontecarlo | RandomSliceBacktest
-  | MultiRandomSliceBacktest ->
-      Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
-      (module Backtesting_backend.Make (Input))
+  let res =
+    match options.runtype with
+    | Live -> invalid_arg "Live trading not implemented"
+    | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
+    | Paper ->
+        Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
+        (module Alpaca_backend.Make (Input) : S)
+    | Backtest | Multitest | Montecarlo | MultiMontecarlo | RandomSliceBacktest
+    | MultiRandomSliceBacktest ->
+        Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
+        (module Backtesting_backend.Make (Input))
+  in
+  Eio.traceln "Finished creating backend";
+  res
