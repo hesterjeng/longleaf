@@ -50,3 +50,15 @@ let find_closest (time : t) (l : t list) =
   Array.get_safe times_array minimum_difference |> function
   | Some res -> res
   | None -> invalid_arg "Expected to find a closest time in Time.find_closest"
+
+let get_todays_date () =
+  let time = Unix.time () in
+  let local_time = Unix.localtime time in
+  let res =
+    Printf.sprintf "%04d-%02d-%02d"
+      (1900 + local_time.Unix.tm_year) (* Year *)
+      (local_time.Unix.tm_mon + 1) (* Month *)
+      local_time.Unix.tm_mday
+    (* Day *)
+  in
+  of_ymd res
