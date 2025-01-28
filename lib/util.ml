@@ -141,6 +141,19 @@ let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
   let length = Vector.length vec in
   Vector.slice_iter vec (Int.max (length - n) 0) (Int.min n length)
 
+(* This is slower than using just last_n, don't bother *)
+let last_n_vec (n : int) (vec : ('a, _) Vector.t) =
+  let length = Vector.length vec in
+  let res = Vector.create () in
+  let target = ref (length - 1) in
+  let stop = length - n in
+  while !target >= 0 && !target >= stop do
+    (* Eio.traceln "%d %d" !target (Vector.length vec); *)
+    Vector.push res @@ Vector.get vec !target;
+    target := !target - 1
+  done;
+  res
+
 let random_state = Random.State.make_self_init ()
 
 let random_choose_opt l =
