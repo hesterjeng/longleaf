@@ -54,7 +54,6 @@
 =======
 let tiingo_test eio_env longleaf_env =
   Eio.Switch.run @@ fun switch ->
-  Util.yojson_safe false @@ fun () ->
   let client = Tiingo_api.tiingo_client eio_env switch in
   let module Client : Util.CLIENT = struct
     let client = client
