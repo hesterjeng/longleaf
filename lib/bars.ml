@@ -1,11 +1,5 @@
 module Hashtbl = Hashtbl.Make (String)
 
-(* module Received = struct *)
-(*   type t = { bars : (string * Item.t list) list } [@@deriving show, yojson] *)
-
-(*   let unbox x = x.bars *)
-(* end *)
-
 module Latest = struct
   type t = Item.t Hashtbl.t
 
