@@ -3,8 +3,6 @@ type item = {
   value : float;
   risk_free_value : float;
   orders : Order.t list;
-      (* buy_order : Order.t option; *)
-      (* sell_order : Order.t option; *)
 }
 [@@deriving yojson, show]
 
@@ -45,18 +43,3 @@ let risk_free_value stats tick =
   let res = prev_risk_free *. (1.0 +. (interest_per_tick /. 100.0)) in
   (* Eio.traceln "stats.ml: risk free value %f" res; *)
   res
-
-let sharpe_ratio (stats : t) =
-  let final : item =
-    List.head_opt stats
-    |> Option.get_exn_or
-         "stats.ml: Expected to get final element of stats in backtest"
-  in
-  Eio.traceln "%a" pp_item final;
-  let values =
-    List.map (fun x -> x.value -. x.risk_free_value) stats |> Array.of_list
-  in
-  let std = Owl_stats.std values in
-  let sharpe = (final.value -. final.risk_free_value) /. std in
-  Eio.traceln "@[SR: %f@]@." sharpe;
-  sharpe
