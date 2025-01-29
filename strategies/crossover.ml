@@ -16,7 +16,7 @@ let ( let* ) = F.Infix.( let* )
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) symbol =
-    let price = State.price state symbol in
+    (* let price = State.price state symbol in *)
     let i = Indicators.get_top state.indicators symbol in
     let* prev = i.previous in
     let conditions =
@@ -53,9 +53,9 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
-    let price = State.price state buying_order.symbol in
-    let i = Indicators.get_top state.indicators buying_order.symbol in
-    let* prev = i.previous in
+    (* let price = State.price state buying_order.symbol in *)
+    (* let i = Indicators.get_top state.indicators buying_order.symbol in *)
+    (* let* prev = i.previous in *)
     let conditions =
       [
         (* (let crossover = *)
