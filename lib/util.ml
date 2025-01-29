@@ -30,7 +30,8 @@ let get_piaf ~client ~headers ~endpoint =
       "@[Error converting body of response to json in get_piaf.@]@.@[reason: \
        %s@]@.@[headers: %a@]@.@[endpoint: %s@]@."
       s Headers.pp_hum resp_headers endpoint;
-    Result.fail e
+    let s = Printexc.to_string e in
+    Result.fail s
 
 let delete_piaf ~client ~headers ~endpoint =
   let open Piaf in
