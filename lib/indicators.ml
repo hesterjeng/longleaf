@@ -94,7 +94,7 @@ module SO = struct
       |> Iter.to_array
     in
     let min, max = Owl_stats.minmax window in
-    if Float.equal max min then 0.0
+    if Float.equal max min then 50.0
     else
       let rhs = (current -. min) /. (max -. min) in
       (* Eio.traceln "%f %f %f" min current max; *)
@@ -213,6 +213,7 @@ module Point = struct
     fourier_transform : (FFT.t[@yojson.opaque]);
     ft_normalized_magnitude : float;
     fft_mean_squared_error : float;
+    previous : t option;
   }
   [@@deriving show, yojson]
 
@@ -244,6 +245,7 @@ module Point = struct
       fourier_transform = FFT.empty;
       ft_normalized_magnitude = 0.0;
       fft_mean_squared_error = 0.0;
+      previous = None;
     }
 
   let ema_12 x = x.ema_12
@@ -332,6 +334,7 @@ module Point = struct
         fourier_transform;
         ft_normalized_magnitude;
         fft_mean_squared_error;
+        previous = Some previous;
       }
     in
     res
