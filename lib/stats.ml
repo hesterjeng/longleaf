@@ -3,8 +3,7 @@ type item = {
   value : float;
   risk_free_value : float;
   orders : Order.t list;
-      (* buy_order : Order.t option; *)
-      (* sell_order : Order.t option; *)
+  order_history : (Order_history.t[@opaque]);
 }
 [@@deriving yojson, show]
 
