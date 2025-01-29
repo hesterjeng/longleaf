@@ -69,7 +69,7 @@ module Downloader = struct
   let top eio_env request prefix output_file
       (downloader_arg : Downloader_ty.t option) afterhours =
     Eio.Switch.run @@ fun switch ->
-    Util.yojson_safe true @@ fun () ->
+    (* Util.yojson_safe true @@ fun () -> *)
     let longleaf_env = Environment.make () in
     let data_client = data_client switch eio_env longleaf_env in
     let module Conn : Util.CLIENT = struct
