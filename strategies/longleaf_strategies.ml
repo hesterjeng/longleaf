@@ -169,7 +169,7 @@ module LowBall2 = struct
     run_generic ~runtype ~context ~run_options (module Lowboll2.Make)
 end
 
-module UglyBottom = struct
+module Crossover = struct
   let run_options runtype : Run_options.t =
     {
       symbols = Collections.sp100;
@@ -183,7 +183,7 @@ module UglyBottom = struct
     }
 
   let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Ugly_bottom.Make)
+    run_generic ~runtype ~context ~run_options (module Crossover.Make)
 end
 
 type t =
@@ -196,7 +196,7 @@ type t =
   | Scalper
   | TemplateExample
   | TemplateExample2
-  | UglyBottom
+  | Crossover
 [@@deriving show, eq]
 
 let of_string_res x =
@@ -211,7 +211,7 @@ let of_string_res x =
   | "scalper" -> Ok Scalper
   | "template_example" -> Ok TemplateExample
   | "template_example2" -> Ok TemplateExample2
-  | "uglybottom" -> Ok UglyBottom
+  | "crossover" -> Ok Crossover
   | _ -> Error (`Msg "Expected a valid strategy")
 
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
@@ -227,7 +227,7 @@ let run_strat runtype context x =
   | Scalper -> Scalper.top runtype context
   | TemplateExample -> Template_example.top runtype context
   | TemplateExample2 -> Template_example2.top runtype context
-  | UglyBottom -> UglyBottom.top runtype context
+  | Crossover -> Crossover.top runtype context
 
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
