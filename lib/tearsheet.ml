@@ -7,6 +7,8 @@ type t = {
   average_loss : float;
   stddev_returns : float;
   profit_factor : float;
+  biggest_winner : Order.t option;
+  biggest_loser : Order.t option;
 }
 [@@deriving show]
 
@@ -100,9 +102,25 @@ let profit_factor (h : Order_history.t) =
         | _ -> acc)
       0.0 h
   in
-  profits /. losses
+  profits /. (-1.0 *. losses)
 
-let make (h : Order_history.t) (stats : Stats.t) : t =
+let biggest (state : 'a State.t) =
+  let ordered_orders =
+    state.order_history
+    |> Vector.filter_map (fun (o : Order.t) ->
+           match o.profit with Some _ -> Some o | None -> None)
+    |> Vector.sort Order.cmp_profit
+  in
+  let biggest_loser =
+    try Option.return @@ Vector.get ordered_orders 0 with _ -> None
+  in
+  let biggest_winner = Vector.pop ordered_orders in
+  (biggest_winner, biggest_loser)
+
+let make (state : 'a State.t) : t =
+  let h = state.order_history in
+  let stats = state.stats in
+  let biggest_winner, biggest_loser = biggest state in
   {
     num_orders = num_orders h;
     sharpe_ratio = sharpe_ratio stats;
@@ -112,4 +130,6 @@ let make (h : Order_history.t) (stats : Stats.t) : t =
     average_loss = average_loss h;
     profit_factor = profit_factor h;
     stddev_returns = stddev_returns stats;
+    biggest_winner;
+    biggest_loser;
   }
