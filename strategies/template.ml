@@ -111,7 +111,7 @@ module Make
         let timestamp = State.timestamp state buying_order.symbol in
         assert (buying_order.qty <> 0);
         let reason =
-          ("Selling b/c " :: reason) @ ("Bought b/c " :: buying_order.reason)
+          ("Sell reason:" :: reason) @ ("Buy reason:" :: buying_order.reason)
         in
         let order : Order.t =
           Order.make ~tick:state.tick ~symbol:buying_order.symbol ~side:Sell
