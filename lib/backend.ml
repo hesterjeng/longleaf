@@ -49,8 +49,9 @@ let make_bars ~(options : Run_options.t) ~(context : Run_context.t) =
         let request : Market_data_api.Request.t =
           let end_ = Time.get_todays_date () in
           let start = Time.subtract_30_days end_ in
+          let tick_mins = Int.of_float (options.tick /. 60.0) in
           {
-            timeframe = Trading_types.Timeframe.min 10;
+            timeframe = Trading_types.Timeframe.min tick_mins;
             symbols;
             start;
             end_ = Some end_;
