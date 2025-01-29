@@ -122,6 +122,7 @@ module Make (Backend : Backend_intf.S) = struct
         Pmutex.set mutices.orders_mutex state.order_history;
         Pmutex.set mutices.stats_mutex state.stats;
         Pmutex.set mutices.indicators_mutex state.indicators;
+        Eio.traceln "tick";
         match listen_tick () with
         | `Continue ->
             let open Result.Infix in
