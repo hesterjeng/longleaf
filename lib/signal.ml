@@ -53,9 +53,15 @@ module Flag = struct
   let and_ o f = match o with Pass res -> f res | Fail _ as failure -> failure
   let or_ o f = match o with Pass _ as success -> success | Fail res -> f res
 
+  let bind_opt o f =
+    match o with
+    | None -> Fail [ "Expected a Some value in bind" ]
+    | Some x -> f x
+
   module Infix = struct
     let ( let&& ) = and_
     let ( let|| ) = or_
+    let ( let* ) = bind_opt
   end
 end
 
