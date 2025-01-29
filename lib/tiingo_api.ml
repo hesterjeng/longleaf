@@ -15,7 +15,16 @@ type item = {
 }
 [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
-type t = item list [@@deriving show { with_path = false }, yojson]
+let item_of_yojson x =
+  try Result.return @@ item_of_yojson x
+  with _ -> Error "Error while decoding json of Tiing_api.item"
+
+type t = item list [@@deriving show { with_path = false }]
+
+let t_of_yojson (l : Yojson.Safe.t) =
+  match l with
+  | `List l -> Result.map_l item_of_yojson l
+  | _ -> Error "Expected a list in Tiingo_api.t_of_yojson"
 
 let item_to_bar_item (x : item) : Item.t =
   let open_ = x.open_ in
@@ -38,7 +47,9 @@ let tiingo_client eio_env sw =
   in
   match res with
   | Ok x -> x
-  | Error _ -> invalid_arg "Unable to create Tiingo client"
+  | Error s ->
+      Eio.traceln "%a" Piaf.Error.pp_hum s;
+      invalid_arg "Unable to create Tiingo client"
 
 module Make (Tiingo : Util.CLIENT) = struct
   let client = Tiingo.client
@@ -64,15 +75,16 @@ module Make (Tiingo : Util.CLIENT) = struct
 
   let latest tickers =
     let ( let+ ) = Result.( let+ ) in
+    let ( let* ) = Result.( let* ) in
     let endpoint =
       Uri.add_query_params' iex_endpoint
         [ ("tickers", String.concat "," tickers) ]
       |> Uri.to_string
     in
     (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
-    let+ resp = get ~headers ~endpoint in
+    let* resp = get ~headers ~endpoint in
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
-    let tiingo = t_of_yojson resp in
+    let+ tiingo = t_of_yojson resp in
     to_latest tiingo
 
   module Data = struct
@@ -125,8 +137,9 @@ module Make (Tiingo : Util.CLIENT) = struct
           | Ok x -> x
           | Error e ->
               Eio.traceln
-                "tiingo_api.ml: Error while getting historical Tiingo data";
-              raise e
+                "tiingo_api.ml: Error while getting historical Tiingo data: %s"
+                e;
+              invalid_arg "Bad data when getting Tiingo historical bars"
         in
         (* Eio.traceln "%a" Yojson.Safe.pp resp; *)
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
@@ -162,8 +175,8 @@ module Make (Tiingo : Util.CLIENT) = struct
           | Ok x -> x
           | Error e ->
               Eio.traceln
-                "tiingo_api.ml: Error while getting historical EOD data";
-              raise e
+                "tiingo_api.ml: Error while getting historical EOD data: %s" e;
+              invalid_arg "Bad data in Tiingo_api.historical_eod"
         in
         (* Eio.traceln "%a" Yojson.Safe.pp resp; *)
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
