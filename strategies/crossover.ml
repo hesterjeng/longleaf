@@ -7,7 +7,7 @@ module F = S.Flag
 module Param = struct
   let stop_loss_multiplier = 0.98
 
-  (* let profit_multiplier = 1.04 *)
+  (* let profit_multiplier = 1.03 *)
   let max_holding_period = 6
 end
 
@@ -16,7 +16,7 @@ let ( let* ) = F.Infix.( let* )
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) symbol =
-    (* let price = State.price state symbol in *)
+    let price = State.price state symbol in
     let i = Indicators.get_top state.indicators symbol in
     let* prev = i.previous in
     let conditions =
@@ -35,16 +35,22 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
          match crossover with
          | true -> F.Pass [ "Bullish Crossover" ]
          | false -> F.Fail [ "No Crossover" ]);
+        (match price <=. i.sma_233 with
+        | true -> F.Pass [ "Below SMA confirm" ]
+        | false -> F.Fail [ "price above SMA" ]);
       ]
     in
     List.fold_left F.and_fold (Pass []) conditions
 
   let score (state : 'a State.t) symbol =
-    let price = State.price state symbol in
-    let lower_bb = I.get_indicator state.indicators symbol P.lower_bollinger in
-    lower_bb /. price
+    let i = Indicators.get_top state.indicators symbol in
+    -1.0 *. i.relative_strength_index
 
-  let num_positions = 5
+  (* let price = State.price state symbol in *)
+  (* let lower_bb = I.get_indicator state.indicators symbol P.lower_bollinger in *)
+  (* lower_bb /. price *)
+
+  let num_positions = 1
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
@@ -70,6 +76,9 @@ module Sell : Template.Sell_trigger.S = struct
         (* (match price <=. Param.stop_loss_multiplier *. buying_order.price with *)
         (* | true -> F.Pass [ "Stop loss triggered" ] *)
         (* | false -> F.Fail [ "Stop loss not triggered" ]); *)
+        (* (match price >=. Param.profit_multiplier *. buying_order.price with *)
+        (* | true -> F.Pass [ "Take profit" ] *)
+        (* | false -> F.Fail [ "Not profited enough yet" ]); *)
         (match state.tick >= buying_order.tick + Param.max_holding_period with
         | true -> F.Pass [ "Holding period exceeded" ]
         | false -> F.Fail [ "Holding period OK" ]);
