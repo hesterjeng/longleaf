@@ -85,7 +85,7 @@ module Cmd = struct
        of how to create a new strategy, look at double_top.ml and run.ml.  In \
        longleaf.ml, you can instantiate the functors to create your strategy."
     in
-    let info = Cmdliner.Cmd.info ~doc "main.exe" in
+    let info = Cmdliner.Cmd.info ~doc "longleaf" in
     Cmdliner.Cmd.v info term
 end
 

@@ -142,7 +142,7 @@ module Cmd = struct
         $ Args.downloader_arg $ Args.afterhours_arg)
     in
     let doc = "Simple data downloader." in
-    let info = Cmdliner.Cmd.info ~doc "data_downloader.exe" in
+    let info = Cmdliner.Cmd.info ~doc "longleaf_downloader" in
     Cmdliner.Cmd.v info term
 end
 
