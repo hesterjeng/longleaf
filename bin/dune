@@ -1,7 +1,7 @@
 (executables
  (names main data_downloader shutdown)
  (public_names main data_downloader shutdown)
- (package longleaf-lib)
+ (package longleaf-strategies)
  (instrumentation
   (backend landmarks))
  (libraries
