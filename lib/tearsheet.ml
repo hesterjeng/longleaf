@@ -1,7 +1,7 @@
 type t = {
   num_orders : int;
   sharpe_ratio : float;
-  win_loss_ratio : float;
+  win_percentage : float;
   average_trade_net : float;
   average_profit : float;
   average_loss : float;
@@ -14,7 +14,7 @@ type t = {
 
 let num_orders (x : Order_history.t) = Vector.length x
 
-let win_loss_ratio (h : Order_history.t) =
+let win_percentage (h : Order_history.t) =
   let fold (winners, losers) (x : Order.t) =
     match x.profit with
     | None -> (winners, losers)
@@ -23,8 +23,8 @@ let win_loss_ratio (h : Order_history.t) =
     | Some _ -> (winners, losers)
   in
   let winners, losers = Vector.fold fold (0.0, 0.0) h in
-  let winlossratio = winners /. losers in
-  winlossratio
+  let win_percentage = winners /. (winners +. losers) in
+  win_percentage
 
 let sharpe_ratio (stats : Stats.t) =
   let final : Stats.item =
@@ -124,7 +124,7 @@ let make (state : 'a State.t) : t =
   {
     num_orders = num_orders h;
     sharpe_ratio = sharpe_ratio stats;
-    win_loss_ratio = win_loss_ratio h;
+    win_percentage = win_percentage h;
     average_trade_net = average_trade_net h;
     average_profit = average_profit h;
     average_loss = average_loss h;
