@@ -1,6 +1,7 @@
 type item = {
   time : Time.t;
   value : float;
+  cash : float;
   risk_free_value : float;
   orders : Order.t list;
 }
