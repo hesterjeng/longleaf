@@ -347,6 +347,7 @@ module Stats = struct
           "text" = `String "Cash";
           "name" = `String "Cash";
           "type" = `String "scatter";
+          "visible" = `String "legendonly";
         ]
     in
     let buy_trace : Yojson.Safe.t = order_trace Buy l in
