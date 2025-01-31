@@ -256,6 +256,7 @@ module Stats = struct
   type t = {
     x : string;
     y : float;
+    cash : float;
     buy_hovertext : string option;
     sell_hovertext : string option;
   }
@@ -280,6 +281,7 @@ module Stats = struct
     {
       x = Ptime.to_rfc3339 item.time;
       y = item.value;
+      cash = item.cash;
       buy_hovertext;
       sell_hovertext;
     }
@@ -326,6 +328,7 @@ module Stats = struct
     let l = List.map of_item stats in
     let x = List.map (fun x -> `String x.x) l in
     let y = List.map (fun x -> `Float x.y) l in
+    let cash = List.map (fun x -> `Float x.cash) l in
     let value_trace : Yojson.Safe.t =
       `Assoc
         [
@@ -336,11 +339,22 @@ module Stats = struct
           "type" = `String "scatter";
         ]
     in
+    let cash_trace : Yojson.Safe.t =
+      `Assoc
+        [
+          "x" = `List x;
+          "y" = `List cash;
+          "text" = `String "Cash";
+          "name" = `String "Cash";
+          "type" = `String "scatter";
+          "visible" = `String "legendonly";
+        ]
+    in
     let buy_trace : Yojson.Safe.t = order_trace Buy l in
     let sell_trace : Yojson.Safe.t = order_trace Sell l in
     `Assoc
       [
-        "traces" = `List [ value_trace; buy_trace; sell_trace ];
+        "traces" = `List [ value_trace; buy_trace; sell_trace; cash_trace ];
         "layout" = layout "Statistics";
       ]
 end

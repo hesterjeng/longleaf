@@ -144,7 +144,13 @@ module Make (Backend : Backend_intf.S) = struct
                  latest;
                  stats =
                    Stats.append
-                     { time; value; orders = []; risk_free_value }
+                     {
+                       time;
+                       value;
+                       orders = [];
+                       risk_free_value;
+                       cash = Backend.get_cash ();
+                     }
                      state.stats;
                }
         | `BeginShutdown ->

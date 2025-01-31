@@ -76,7 +76,12 @@ module Make
     | [] -> Result.return { state with State.current = `Listening }
     | selected ->
         let current_cash = Backend.get_cash () in
-        let pct = 1.0 /. Float.of_int (List.length selected) in
+        let pct =
+          match List.length selected with
+          | 1 -> 1.0
+          | n -> 1.0 /. Float.of_int n
+        in
+        assert (pct >=. 0.0 && pct <=. 1.0);
         let place_order state (signal : Signal.t) =
           let* state = state in
           let symbol = signal.symbol in
