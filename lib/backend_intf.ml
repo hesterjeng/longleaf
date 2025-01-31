@@ -30,43 +30,43 @@ module type BACKEND_INPUT = sig
   val longleaf_env : Environment.t
   val eio_env : Eio_unix.Stdenv.base
 
-  (* Historical information, ordered with in time order *)
   val bars : Bars.t
+  (** Historical information, ordered with in time order *)
 
-  (* The symbols that will be traded on *)
   val symbols : string list
+  (** The symbols that will be traded on *)
 
-  (* The interval of time that the strategy operates on. *)
-  (* i/e we will wait ten minutes then do something, etc. *)
   val tick : float
+  (** The interval of time that the strategy operates on. i/e we will wait ten
+      minutes then do something, etc. *)
 
-  (* Allow holding positions overnight *)
   val overnight : bool
+  (** Allow holding positions overnight *)
 
-  (* Save the received data *)
   val save_received : bool
+  (** Save the received data *)
 
-  (* Allow the strategy to resume after liquidating the position *)
   val resume_after_liquidate : bool
+  (** Allow the strategy to resume after liquidating the position *)
 
-  (* The target is the bars that will be iterated over in a backtest *)
-  (* Ordered in reverse time order, so that we can pop off next values easily *)
   val target : Bars.t option
+  (** The target is the bars that will be iterated over in a backtest Ordered in
+      reverse time order, so that we can pop off next values easily *)
 
-  (* Mutices for delivering information to GUI *)
   val mutices : Longleaf_mutex.t
+  (** Mutices for delivering information to GUI *)
 
-  (* Record of options *)
   val runtype : Options.Runtype.t
+  (** Record of options *)
 
-  (* Indicators options *)
   val indicators_config : Indicators.Config.t
+  (** Indicators options *)
 
-  (* Are we going to randomly drop orders for testing? *)
   val dropout : bool
+  (** Are we going to randomly drop orders for testing? *)
 
-  (* Save info to files *)
   val save_to_file : bool
+  (** Save info to files *)
 end
 
 module type S = sig
