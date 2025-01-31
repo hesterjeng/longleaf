@@ -8,7 +8,7 @@ module Param = struct
   let stop_loss_multiplier = 0.98
 
   (* let profit_multiplier = 1.03 *)
-  let max_holding_period = 600
+  let max_holding_period = 6
 end
 
 let ( let* ) = F.Infix.( let* )
@@ -50,7 +50,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
   (* let lower_bb = I.get_indicator state.indicators symbol P.lower_bollinger in *)
   (* lower_bb /. price *)
 
-  let num_positions = 10
+  let num_positions = 4
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
