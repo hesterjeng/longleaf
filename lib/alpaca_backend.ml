@@ -7,24 +7,25 @@ module Make (Input : BACKEND_INPUT) : S = struct
   module Input = Input
 
   let get_cash = Backend_position.get_cash
-  let env = Input.eio_env
-  let overnight = Input.overnight
-  let save_received = Input.save_received
+  let env = Input.context.eio_env
+  let overnight = Input.options.overnight
+  let save_received = Input.context.save_received
   let received_data = Bars.empty ()
 
   let trading_client =
     let res =
-      Piaf.Client.create ~sw:Input.switch Input.eio_env
-        Input.longleaf_env.apca_api_base_url
+      Piaf.Client.create ~sw:Input.context.switch Input.context.eio_env
+        Input.context.longleaf_env.apca_api_base_url
     in
     match res with
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create trading client"
 
-  let tiingo_client = Tiingo_api.tiingo_client Input.eio_env Input.switch
+  let tiingo_client =
+    Tiingo_api.tiingo_client Input.context.eio_env Input.context.switch
 
   module Tiingo_client : Util.CLIENT = struct
-    let longleaf_env = Input.longleaf_env
+    let longleaf_env = Input.context.longleaf_env
     let client = tiingo_client
   end
 
@@ -32,8 +33,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let data_client =
     let res =
-      Piaf.Client.create ~sw:Input.switch Input.eio_env
-        Input.longleaf_env.apca_api_data_url
+      Piaf.Client.create ~sw:Input.context.switch Input.context.eio_env
+        Input.context.longleaf_env.apca_api_data_url
     in
     match res with
     | Ok x -> x
@@ -44,12 +45,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
-    let longleaf_env = Input.longleaf_env
+    let longleaf_env = Input.context.longleaf_env
   end)
 
   module Market_data_api = Market_data_api.Make (struct
     let client = data_client
-    let longleaf_env = Input.longleaf_env
+    let longleaf_env = Input.context.longleaf_env
   end)
 
   let init_state content =
@@ -103,7 +104,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     Piaf.Client.shutdown tiingo_client;
     ()
 
-  let symbols = Input.symbols
+  let symbols = Input.options.symbols
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
   let last_data_bar = Error "No last data bar in Alpaca backend"
@@ -125,7 +126,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let place_order state order =
     let ( let* ) = Result.( let* ) in
-    assert (not @@ Input.dropout);
+    assert (not @@ Input.options.dropout);
     let* () = Backtesting.place_order state order in
     Trading_api.Orders.create_market_order order
 
