@@ -13,7 +13,7 @@ let run_options : Run_options.t =
     randomized_backtest_length = 1000;
   }
 
-let run_generic ~context (module Strat : Strategy.BUILDER) =
+let run_generic (module Strat : Strategy.BUILDER) context =
   Eio.traceln "@[Starting Doubletop@]@.";
   let module Backend = (val Backend.make run_options context) in
   let module S = Strat (Backend) in
@@ -23,44 +23,43 @@ let run_generic ~context (module Strat : Strategy.BUILDER) =
   res
 
 module DoubleTop = struct
-  let top context = run_generic ~context (module Double_top.DoubleTop)
+  let top = run_generic (module Double_top.DoubleTop)
 end
 
 module LowBall = struct
-  let top context =
-    run_generic ~context (module Buy_low_bollinger.BuyLowBollinger)
+  let top = run_generic (module Buy_low_bollinger.BuyLowBollinger)
 end
 
 module Listener = struct
-  let top context = run_generic ~context (module Listener.Make)
+  let top = run_generic (module Listener.Make)
 end
 
 module BuyAndHold = struct
-  let top context = run_generic ~context (module Buy_and_hold.Make)
+  let top = run_generic (module Buy_and_hold.Make)
 end
 
 module Challenge1 = struct
-  let top context = run_generic ~context (module Challenge1.Make)
+  let top = run_generic (module Challenge1.Make)
 end
 
 module Scalper = struct
-  let top context = run_generic ~context (module Scalper.Make)
+  let top = run_generic (module Scalper.Make)
 end
 
 module Template_example = struct
-  let top context = run_generic ~context (module Template_example.Make)
+  let top = run_generic (module Template_example.Make)
 end
 
 module Template_example2 = struct
-  let top context = run_generic ~context (module Template_example2.Make)
+  let top = run_generic (module Template_example2.Make)
 end
 
 module LowBall2 = struct
-  let top context = run_generic ~context (module Lowboll2.Make)
+  let top = run_generic (module Lowboll2.Make)
 end
 
 module Crossover = struct
-  let top context = run_generic ~context (module Crossover.Make)
+  let top = run_generic (module Crossover.Make)
 end
 
 type t =
@@ -74,7 +73,7 @@ type t =
   | TemplateExample
   | TemplateExample2
   | Crossover
-[@@deriving show, eq]
+[@@deriving show, eq, variants]
 
 let of_string_res x =
   let x = String.uncapitalize_ascii x in

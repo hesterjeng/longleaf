@@ -52,13 +52,15 @@ module Conditions = struct
     let open Option in
     let* indicators = Indicators.get indicators symbol in
     let* point = Vector.top indicators in
-    if Indicators.Point.rsi point <=. 40.0 then Some `Pass else None
+    if Indicators.Point.relative_strength_index point <=. 40.0 then Some `Pass
+    else None
 
   let above_awesome (indicators : Indicators.t) symbol =
     let open Option in
     let* indicators = Indicators.get indicators symbol in
     let* point = Vector.top indicators in
-    if Indicators.Point.awesome point >=. 1.0 then Some `Pass else None
+    if Indicators.Point.awesome_oscillator point >=. 1.0 then Some `Pass
+    else None
 
   let above_awesome_slow (indicators : Indicators.t) symbol =
     let open Option in
@@ -71,7 +73,8 @@ module Conditions = struct
     let open Option in
     let* indicators = Indicators.get indicators symbol in
     let* point = Vector.top indicators in
-    if Indicators.Point.fso_pk point >=. 50.0 then None else Some `Pass
+    if Indicators.Point.fast_stochastic_oscillator_k point >=. 50.0 then None
+    else Some `Pass
 
   module Sell_reason = struct
     type t =
@@ -97,7 +100,7 @@ module Conditions = struct
         |> Option.get_exn_or "bollinger: Sell_reason.make"
         |> Vector.top
         |> Option.get_exn_or "boll: Sell_reason.make"
-        |> Indicators.Point.fso_pd
+        |> Indicators.Point.fast_stochastic_oscillator_d
       in
       (* let fso_pk = *)
       (*   Indicators.get state.indicators buying_order.symbol *)

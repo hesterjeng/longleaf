@@ -4,6 +4,8 @@ module I = Indicators
 module P = I.Point
 module F = S.Flag
 
+[@@@warning "-26"]
+
 module Param = struct
   let stop_loss_multiplier = 0.98
 

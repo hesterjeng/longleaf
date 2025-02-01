@@ -87,10 +87,11 @@ module Indicator = struct
     | Below, true -> Fail reason
     | Below, false -> Pass reason
 
-  let rsi ~state : 'a t = of_indicator state Indicators.Point.rsi "RSI"
+  let rsi ~state : 'a t =
+    of_indicator state Indicators.Point.relative_strength_index "RSI"
 
   let awesome ~state : 'a t =
-    of_indicator state Indicators.Point.awesome "Awesome"
+    of_indicator state Indicators.Point.awesome_oscillator "Awesome"
 
   let upper_bb ~state : 'a t =
     of_indicator state Indicators.Point.upper_bollinger "Upper BB(2)"
