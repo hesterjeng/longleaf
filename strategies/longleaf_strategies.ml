@@ -93,8 +93,13 @@ let of_string_res x =
 
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
 
-let run_strat (context : t Run_context.t) =
-  match context.strategy with
+let run_strat (context : Run_context.t) =
+  let strategy =
+    match of_string_res context.strategy with
+    | Ok x -> x
+    | Error _ -> invalid_arg "Expected a valid strategy name"
+  in
+  match strategy with
   | BuyAndHold -> BuyAndHold.top context
   | Listener -> Listener.top context
   | DoubleTop -> DoubleTop.top context
@@ -109,7 +114,7 @@ let run_strat (context : t Run_context.t) =
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 
-let run (context : t Run_context.t) =
+let run (context : Run_context.t) =
   match context.runtype with
   | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest ->
       run_strat context

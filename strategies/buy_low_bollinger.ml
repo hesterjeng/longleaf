@@ -188,7 +188,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     in
     (* Eio.traceln "%a" (List.pp Float.pp) (List.map snd possibilities); *)
     let random_drop =
-      match Backend.Input.dropout with
+      match Backend.Input.options.dropout with
       | true ->
           (* Eio.traceln "buylow: %d possibilities, selecting one randomly" *)
           (* (List.length possibilities); *)

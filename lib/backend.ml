@@ -32,7 +32,7 @@ module SliceBacktesting = struct
     (new_bars, new_target)
 end
 
-let make_bars ~(options : Run_options.t) ~(context : 'a Run_context.t) =
+let make_bars ~(options : Run_options.t) ~(context : Run_context.t) =
   let preload = context.preload in
   let target = context.target in
   let symbols = options.symbols in
@@ -86,27 +86,16 @@ let make_bars ~(options : Run_options.t) ~(context : 'a Run_context.t) =
     ->
       (bars, target)
 
-let make_backend_input (options : Run_options.t) (context : 'a Run_context.t) =
+let make_backend_input (options : Run_options.t) (context : Run_context.t) =
   let bars, target = make_bars ~options ~context in
   (module struct
-    let switch = context.switch
-    let longleaf_env = context.longleaf_env
-    let eio_env = context.eio_env
-    let save_received = context.save_received
-    let save_to_file = context.save_to_file
-    let mutices = context.mutices
-    let symbols = options.symbols
-    let overnight = options.overnight
-    let resume_after_liquidate = options.resume_after_liquidate
-    let tick = options.tick
-    let runtype = context.runtype
-    let indicators_config = options.indicators_config
-    let dropout = options.dropout
+    let context = context
+    let options = options
     let bars = bars
     let target = target
   end : BACKEND_INPUT)
 
-let make (options : Run_options.t) (context : 'a Run_context.t) =
+let make (options : Run_options.t) (context : Run_context.t) =
   let module Input = (val make_backend_input options context) in
   let res =
     match context.runtype with
