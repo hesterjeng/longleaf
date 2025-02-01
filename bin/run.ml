@@ -47,7 +47,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
       }
     in
     Eio.traceln "@[Context: %a@]@." Backend_intf.Run_context.pp context;
-    let res = Longleaf_strategies.run context in
+    let res = Longleaf_strategies.run context strategy_arg in
     Eio.traceln "@[Final response: %f@]@." res;
     ()
   in
