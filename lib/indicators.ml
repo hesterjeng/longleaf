@@ -215,7 +215,7 @@ module Point = struct
     fft_mean_squared_error : float;
     previous : t option;
   }
-  [@@deriving show, yojson]
+  [@@deriving show, yojson, fields ~getters]
 
   let initial timestamp : t =
     {
@@ -248,27 +248,6 @@ module Point = struct
       previous = None;
     }
 
-  let ema_12 x = x.ema_12
-  let ema_26 x = x.ema_26
-  let macd x = x.macd
-  let sma_5 x = x.sma_5
-  let sma_34 x = x.sma_34
-  let sma_75 x = x.sma_75
-  let sma_233 x = x.sma_233
-  let lower_bollinger x = x.lower_bollinger
-  let upper_bollinger x = x.upper_bollinger
-  let lower_bollinger_100_1 x = x.lower_bollinger_100_1
-  let upper_bollinger_100_1 x = x.upper_bollinger_100_1
-  let lower_bollinger_100_3 x = x.lower_bollinger_100_3
-  let upper_bollinger_100_3 x = x.upper_bollinger_100_3
-  let awesome x = x.awesome_oscillator
-  let awesome_slow x = x.awesome_slow
-  let rsi x = x.relative_strength_index
-  let fso_pk x = x.fast_stochastic_oscillator_k
-  let fso_pd x = x.fast_stochastic_oscillator_d
-  let ft_normalized_magnitude x = x.ft_normalized_magnitude
-  let fft_mean_squared_error x = x.fft_mean_squared_error
-
   let of_latest config timestamp symbol_history (previous : t)
       (previous_vec : (t, _) Vector.t) (latest : Item.t) =
     let lower_bollinger, upper_bollinger = bollinger 34 2 symbol_history in
@@ -290,10 +269,10 @@ module Point = struct
       RSI.mad 14.0 previous.average_loss price previous_price
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
-    let fast_stochastic_oscillator_k = SO.pK 140 symbol_history latest in
+    let fso_pk = SO.pK 140 symbol_history latest in
     let fast_stochastic_oscillator_d =
-      SO.pD fast_stochastic_oscillator_k
-      @@ (Util.last_n 34 previous_vec |> Iter.map fso_pk)
+      SO.pD fso_pk
+      @@ (Util.last_n 34 previous_vec |> Iter.map fast_stochastic_oscillator_k)
     in
     let fourier_transform = FFT.fft config symbol_history latest in
     let ft_normalized_magnitude =
@@ -329,7 +308,7 @@ module Point = struct
         average_gain;
         average_loss;
         relative_strength_index;
-        fast_stochastic_oscillator_k;
+        fast_stochastic_oscillator_k = fso_pk;
         fast_stochastic_oscillator_d;
         fourier_transform;
         ft_normalized_magnitude;

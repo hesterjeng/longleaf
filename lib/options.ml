@@ -10,22 +10,18 @@ module Runtype = struct
     | RandomSliceBacktest
     | MultiRandomSliceBacktest
       (* Run multiple tests with ranomly generated target data. *)
-  [@@deriving show, eq]
+  [@@deriving show, eq, yojson, variants]
 
   let of_string_res x =
-    match x with
-    | "Live" | "live" -> Ok Live
-    | "Paper" | "paper" -> Ok Paper
-    | "Backtest" | "backtest" -> Ok Backtest
-    | "Manual" | "manual" -> Ok Manual
-    | "Multitest" | "multitest" -> Ok Multitest
-    | "Montecarlo" | "monte" | "montecarlo" -> Ok Montecarlo
-    | "MultiMontecarlo" | "multimont" | "multicarlo" -> Ok MultiMontecarlo
-    | "randbacktest" -> Ok RandomSliceBacktest
-    | "multirandbacktest" -> Ok MultiRandomSliceBacktest
-    (* | "Listener" | "listener" -> Ok Listener *)
-    (* | "Buyandhold" | "buyandhold" -> Ok BuyAndHold *)
-    | _ -> Error (`Msg "Expected a valid runtype")
+    let j = `List [ `String x ] in
+    try Result.return @@ t_of_yojson j
+    with _ ->
+      let all = List.map fst Variants.descriptions in
+      Result.fail
+      @@ `Msg
+           (Format.asprintf
+              "@[Unknown runtype selected: %s@]@.@[Valid options are: %a@]@." x
+              (List.pp String.pp) all)
 
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
   let is_manual = function Manual -> true | _ -> false

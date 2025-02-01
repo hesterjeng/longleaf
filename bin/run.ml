@@ -21,14 +21,11 @@ let save_received_check ~runtype ~save_received : unit =
         exit 1
 
 let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
-    ~strategy_arg ~save_to_file =
+    ~strategy_arg ~save_to_file ~nowait_market_open =
   runtype_target_check ~runtype ~target;
   save_received_check ~runtype ~save_received;
   let _ = stacktrace in
   let longleaf_env = Environment.make () in
-  if Options.Runtype.is_manual runtype then (
-    Manual.top eio_env longleaf_env;
-    exit 0);
   let domain_manager = Eio.Stdenv.domain_mgr eio_env in
   let mutices = Longleaf_mutex.create () in
   let run_strategy () =
@@ -36,18 +33,21 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     Eio.Switch.run @@ fun switch ->
     let context : Backend_intf.Run_context.t =
       {
+        strategy = Longleaf_strategies.show strategy_arg;
+        runtype;
         eio_env;
         longleaf_env;
         switch;
         preload;
         target;
         save_received;
+        nowait_market_open;
         mutices;
         save_to_file;
       }
     in
     Eio.traceln "@[Context: %a@]@." Backend_intf.Run_context.pp context;
-    let res = Longleaf_strategies.run runtype context strategy_arg in
+    let res = Longleaf_strategies.run context strategy_arg in
     Eio.traceln "@[Final response: %f@]@." res;
     ()
   in
