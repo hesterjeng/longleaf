@@ -85,7 +85,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
           Eio.traceln "alpaca_backend: error getting clock";
           invalid_arg e
     in
-    if clock.is_open then None else Some clock.next_open
+    if clock.is_open || Input.context.nowait_market_open then None
+    else Some clock.next_open
 
   let next_market_close () =
     let clock =
