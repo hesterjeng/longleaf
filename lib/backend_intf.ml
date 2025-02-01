@@ -1,28 +1,30 @@
-module Run_options = struct
-  type t = {
-    symbols : string list;
-    tick : float;
-    overnight : bool;
-    resume_after_liquidate : bool;
-    runtype : Options.Runtype.t;
-    indicators_config : Indicators.Config.t;
-    dropout : bool;
-    randomized_backtest_length : int;
-  }
-end
-
 module Run_context = struct
-  type t = {
+  type 'a t = {
+    strategy : 'a;
+    runtype : Options.Runtype.t;
     eio_env : Eio_unix.Stdenv.base; [@opaque]
     longleaf_env : Environment.t; [@opaque]
     switch : Eio.Switch.t; [@opaque]
     preload : Options.Preload.t;
     target : string option;
     save_received : bool;
+    nowait_market_open : bool;
     mutices : Longleaf_mutex.t;
     save_to_file : bool;
   }
   [@@deriving show]
+end
+
+module Run_options = struct
+  type t = {
+    symbols : string list;
+    tick : float;
+    overnight : bool;
+    resume_after_liquidate : bool;
+    indicators_config : Indicators.Config.t;
+    dropout : bool;
+    randomized_backtest_length : int;
+  }
 end
 
 module type BACKEND_INPUT = sig
