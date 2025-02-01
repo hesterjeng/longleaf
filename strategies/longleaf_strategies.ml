@@ -22,46 +22,6 @@ let run_generic (module Strat : Strategy.BUILDER) context =
   Backend.shutdown ();
   res
 
-module DoubleTop = struct
-  let top = run_generic (module Double_top.DoubleTop)
-end
-
-module LowBall = struct
-  let top = run_generic (module Buy_low_bollinger.BuyLowBollinger)
-end
-
-module Listener = struct
-  let top = run_generic (module Listener.Make)
-end
-
-module BuyAndHold = struct
-  let top = run_generic (module Buy_and_hold.Make)
-end
-
-module Challenge1 = struct
-  let top = run_generic (module Challenge1.Make)
-end
-
-module Scalper = struct
-  let top = run_generic (module Scalper.Make)
-end
-
-module Template_example = struct
-  let top = run_generic (module Template_example.Make)
-end
-
-module Template_example2 = struct
-  let top = run_generic (module Template_example2.Make)
-end
-
-module LowBall2 = struct
-  let top = run_generic (module Lowboll2.Make)
-end
-
-module Crossover = struct
-  let top = run_generic (module Crossover.Make)
-end
-
 type t =
   | BuyAndHold
   | Listener
@@ -75,18 +35,29 @@ type t =
   | Crossover
 [@@deriving show, eq, yojson, variants]
 
+let strats =
+  let ( --> ) x y = (x, run_generic y) in
+  [
+    BuyAndHold --> (module Buy_and_hold.Make);
+    Listener --> (module Listener.Make);
+    DoubleTop --> (module Double_top.DoubleTop);
+    LowBoll --> (module Buy_low_bollinger.BuyLowBollinger);
+    LowBoll2 --> (module Lowboll2.Make);
+    Challenge1 --> (module Challenge1.Make);
+    Scalper --> (module Scalper.Make);
+    TemplateExample --> (module Template_example.Make);
+    TemplateExample2 --> (module Template_example2.Make);
+    Crossover --> (module Crossover.Make);
+  ]
+
 let run_strat (context : Run_context.t) strategy =
-  match strategy with
-  | BuyAndHold -> BuyAndHold.top context
-  | Listener -> Listener.top context
-  | DoubleTop -> DoubleTop.top context
-  | LowBoll -> LowBall.top context
-  | LowBoll2 -> LowBall2.top context
-  | Challenge1 -> Challenge1.top context
-  | Scalper -> Scalper.top context
-  | TemplateExample -> Template_example.top context
-  | TemplateExample2 -> Template_example2.top context
-  | Crossover -> Crossover.top context
+  let f = List.Assoc.get ~eq:equal strategy strats in
+  match f with
+  | Some f -> f context
+  | None ->
+      invalid_arg
+      @@ Format.asprintf "Did not find a strategy implementation for %a" pp
+           strategy
 
 let of_string_res x =
   let j = `List [ `String x ] in
