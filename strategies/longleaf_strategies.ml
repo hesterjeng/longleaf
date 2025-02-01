@@ -73,24 +73,7 @@ type t =
   | TemplateExample
   | TemplateExample2
   | Crossover
-[@@deriving show, eq, variants]
-
-let of_string_res x =
-  let x = String.uncapitalize_ascii x in
-  match x with
-  | "buyandhold" | "buyhold" -> Ok BuyAndHold
-  | "listener" | "listen" -> Ok Listener
-  | "doubletop" -> Ok DoubleTop
-  | "lowball" | "lowboll" -> Ok LowBoll
-  | "lowball2" | "lowboll2" -> Ok LowBoll2
-  | "challenge1" -> Ok Challenge1
-  | "scalper" -> Ok Scalper
-  | "template_example" -> Ok TemplateExample
-  | "template_example2" -> Ok TemplateExample2
-  | "crossover" -> Ok Crossover
-  | _ -> Error (`Msg "Expected a valid strategy")
-
-let conv = Cmdliner.Arg.conv (of_string_res, pp)
+[@@deriving show, eq, yojson, variants]
 
 let run_strat (context : Run_context.t) strategy =
   match strategy with
@@ -104,6 +87,19 @@ let run_strat (context : Run_context.t) strategy =
   | TemplateExample -> Template_example.top context
   | TemplateExample2 -> Template_example2.top context
   | Crossover -> Crossover.top context
+
+let of_string_res x =
+  let j = `List [ `String x ] in
+  try Result.return @@ t_of_yojson j
+  with _ ->
+    let all = List.map fst Variants.descriptions in
+    Result.fail
+    @@ `Msg
+         (Format.asprintf
+            "@[Unknown runtype selected: %s@]@.@[Valid options are: %a@]@." x
+            (List.pp String.pp) all)
+
+let conv = Cmdliner.Arg.conv (of_string_res, pp)
 
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
