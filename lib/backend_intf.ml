@@ -1,6 +1,6 @@
 module Run_context = struct
-  type 'a t = {
-    strategy : 'a;
+  type t = {
+    strategy : string;
     runtype : Options.Runtype.t;
     eio_env : Eio_unix.Stdenv.base; [@opaque]
     longleaf_env : Environment.t; [@opaque]
@@ -28,47 +28,15 @@ module Run_options = struct
 end
 
 module type BACKEND_INPUT = sig
-  val switch : Eio.Switch.t
-  val longleaf_env : Environment.t
-  val eio_env : Eio_unix.Stdenv.base
+  val options : Run_options.t
+  val context : Run_context.t
 
   val bars : Bars.t
   (** Historical information, ordered with in time order *)
 
-  val symbols : string list
-  (** The symbols that will be traded on *)
-
-  val tick : float
-  (** The interval of time that the strategy operates on. i/e we will wait ten
-      minutes then do something, etc. *)
-
-  val overnight : bool
-  (** Allow holding positions overnight *)
-
-  val save_received : bool
-  (** Save the received data *)
-
-  val resume_after_liquidate : bool
-  (** Allow the strategy to resume after liquidating the position *)
-
   val target : Bars.t option
   (** The target is the bars that will be iterated over in a backtest Ordered in
       reverse time order, so that we can pop off next values easily *)
-
-  val mutices : Longleaf_mutex.t
-  (** Mutices for delivering information to GUI *)
-
-  val runtype : Options.Runtype.t
-  (** Record of options *)
-
-  val indicators_config : Indicators.Config.t
-  (** Indicators options *)
-
-  val dropout : bool
-  (** Are we going to randomly drop orders for testing? *)
-
-  val save_to_file : bool
-  (** Save info to files *)
 end
 
 module type S = sig

@@ -1,6 +1,8 @@
 module Make (Backend : Backend_intf.S) = struct
-  let mutices : Longleaf_mutex.t = Backend.Input.mutices
-  let runtype = Backend.Input.runtype
+  module Input = Backend.Input
+
+  let mutices : Longleaf_mutex.t = Input.context.mutices
+  let runtype = Input.context.runtype
 
   let listen_tick () : State.nonlogical_state =
     Eio.Fiber.any
@@ -8,7 +10,7 @@ module Make (Backend : Backend_intf.S) = struct
          (fun () ->
            match Backend.next_market_open () with
            | None ->
-               Ticker.tick ~runtype Backend.env Backend.Input.tick;
+               Ticker.tick ~runtype Backend.env Input.options.tick;
                `Continue
            | Some open_time -> (
                let open_time = Ptime.to_float_s open_time in
@@ -52,7 +54,7 @@ module Make (Backend : Backend_intf.S) = struct
            Eio.traceln
              "@[Liquidating because we are within 10 minutes to market \
               close.@]@.";
-           match Backend.Input.resume_after_liquidate with
+           match Input.options.resume_after_liquidate with
            | false -> `BeginShutdown
            | true ->
                Eio.traceln
@@ -86,7 +88,7 @@ module Make (Backend : Backend_intf.S) = struct
   let get_filename () = Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
 
   let output_data (state : _ State.t) filename =
-    if Backend.Input.save_to_file then (
+    if Input.context.save_to_file then (
       let prefix =
         match Backend.is_backtest with true -> "backtest" | false -> "live"
       in
@@ -96,7 +98,7 @@ module Make (Backend : Backend_intf.S) = struct
     else ()
 
   let output_order_history (state : _ State.t) filename =
-    if Backend.Input.save_to_file then (
+    if Input.context.save_to_file then (
       let json_str =
         Order_history.yojson_of_t state.order_history |> Yojson.Safe.to_string
       in
@@ -130,11 +132,11 @@ module Make (Backend : Backend_intf.S) = struct
             let* time = Bars.Latest.timestamp latest in
             (* Eio.traceln "@[strategies: %a@]@." Item.pp *)
             (*   (Bars.Latest.get latest "NVDA"); *)
-            Indicators.add_latest Backend.Input.indicators_config time
+            Indicators.add_latest Input.options.indicators_config time
               state.bars latest state.indicators;
             let value = Backend.Backend_position.value latest in
             let risk_free_value =
-              Stats.risk_free_value state.stats Backend.Input.tick
+              Stats.risk_free_value state.stats Input.options.tick
             in
             Bars.append latest state.bars;
             Result.return
