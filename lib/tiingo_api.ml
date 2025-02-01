@@ -16,8 +16,13 @@ type item = {
 [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
 let item_of_yojson x =
-  try Result.return @@ item_of_yojson x
-  with _ -> Error "Error while decoding json of Tiing_api.item"
+  match x with
+  | `Null -> Error "tiingo_api: received null"
+  | _ -> (
+      try Result.return @@ item_of_yojson x
+      with _ ->
+        Eio.traceln "%a" Yojson.Safe.pp x;
+        Error "Error while decoding json of Tiingo_api.item")
 
 type t = item list [@@deriving show { with_path = false }]
 

@@ -23,13 +23,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let next_market_open _ = None
   let next_market_close _ = Ptime.max
-  let env = Input.eio_env
-  let symbols = Input.symbols
+  let env = Input.context.eio_env
+  let symbols = Input.options.symbols
   let is_backtest = true
   let shutdown () = ()
   let get_cash = Backend_position.get_cash
-  let overnight = Input.overnight
-  let save_received = Input.overnight
+  let overnight = Input.options.overnight
+  let save_received = Input.context.save_received
 
   let place_order state (order : Order.t) =
     Eio.traceln "@[%a@]@." Order.pp order;

@@ -188,17 +188,19 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   in
   let* rsi =
     indicator_trace ~data ~show:false indicators "Relative Strength Index"
-      IP.rsi symbol
+      IP.relative_strength_index symbol
   in
   let* awesome =
-    indicator_trace ~data ~show:false indicators "Awesome Oscillator" IP.awesome
-      symbol
+    indicator_trace ~data ~show:false indicators "Awesome Oscillator"
+      IP.awesome_oscillator symbol
   in
   let* fso_pk =
-    indicator_trace ~data ~show:false indicators "FSO %K" IP.fso_pk symbol
+    indicator_trace ~data ~show:false indicators "FSO %K"
+      IP.fast_stochastic_oscillator_k symbol
   in
   let* fso_pd =
-    indicator_trace ~data ~show:false indicators "FSO %D" IP.fso_pd symbol
+    indicator_trace ~data ~show:false indicators "FSO %D"
+      IP.fast_stochastic_oscillator_d symbol
   in
   let* fft_thing =
     indicator_trace ~data ~show:false indicators

@@ -73,12 +73,12 @@ let make_bars ~(options : Run_options.t) ~(context : Run_context.t) =
       Yojson.Safe.from_file target |> Bars.t_of_yojson
     in
     Bars.sort (Ord.opp Item.compare) res;
-    match options.runtype with
+    match context.runtype with
     | Options.Runtype.Montecarlo | MultiMontecarlo ->
         Monte_carlo.Bars.of_bars ~preload:bars ~target:res
     | _ -> res
   in
-  match options.runtype with
+  match context.runtype with
   | RandomSliceBacktest | MultiRandomSliceBacktest ->
       let bars, target = SliceBacktesting.top ~options bars target in
       (bars, Some target)
@@ -89,19 +89,8 @@ let make_bars ~(options : Run_options.t) ~(context : Run_context.t) =
 let make_backend_input (options : Run_options.t) (context : Run_context.t) =
   let bars, target = make_bars ~options ~context in
   (module struct
-    let switch = context.switch
-    let longleaf_env = context.longleaf_env
-    let eio_env = context.eio_env
-    let save_received = context.save_received
-    let save_to_file = context.save_to_file
-    let mutices = context.mutices
-    let symbols = options.symbols
-    let overnight = options.overnight
-    let resume_after_liquidate = options.resume_after_liquidate
-    let tick = options.tick
-    let runtype = options.runtype
-    let indicators_config = options.indicators_config
-    let dropout = options.dropout
+    let context = context
+    let options = options
     let bars = bars
     let target = target
   end : BACKEND_INPUT)
@@ -109,7 +98,7 @@ let make_backend_input (options : Run_options.t) (context : Run_context.t) =
 let make (options : Run_options.t) (context : Run_context.t) =
   let module Input = (val make_backend_input options context) in
   let res =
-    match options.runtype with
+    match context.runtype with
     | Live -> invalid_arg "Live trading not implemented"
     | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
     | Paper ->

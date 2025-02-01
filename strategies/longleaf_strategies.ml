@@ -1,190 +1,26 @@
 module Run_options = Backend_intf.Run_options
+module Run_context = Backend_intf.Run_context
 module Collections = Ticker_collections
 
-let run_generic ~runtype ~context ~run_options (module Strat : Strategy.BUILDER)
-    =
+let run_options : Run_options.t =
+  {
+    symbols = Collections.sp100;
+    tick = 600.0;
+    overnight = true;
+    resume_after_liquidate = true;
+    indicators_config : Indicators.Config.t = { fft = false };
+    dropout = false;
+    randomized_backtest_length = 1000;
+  }
+
+let run_generic (module Strat : Strategy.BUILDER) context =
   Eio.traceln "@[Starting Doubletop@]@.";
-  let options = run_options runtype in
-  let module Backend = (val Backend.make options context) in
+  let module Backend = (val Backend.make run_options context) in
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running.";
   let res = S.run () in
   Backend.shutdown ();
   res
-
-module DoubleTop = struct
-  let run_options runtype : Run_options.t =
-    {
-      (* symbols = Collections.some_symbols; *)
-      symbols = Collections.sp100;
-      tick = 600.0;
-      overnight = false;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Double_top.DoubleTop)
-end
-
-module LowBall = struct
-  let run_options runtype : Run_options.t =
-    {
-      (* symbols = Collections.some_symbols; *)
-      symbols = Collections.sp100;
-      (* symbols = [ "AAPL" ]; *)
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options
-      (module Buy_low_bollinger.BuyLowBollinger)
-end
-
-module Listener = struct
-  let run_options runtype : Run_options.t =
-    {
-      symbols = Collections.some_symbols;
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Listener.Make)
-end
-
-module BuyAndHold = struct
-  let run_options runtype : Run_options.t =
-    {
-      symbols = [ "SPY" ];
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Buy_and_hold.Make)
-end
-
-module Challenge1 = struct
-  let run_options runtype : Run_options.t =
-    {
-      symbols = Collections.sp100_spy;
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Challenge1.Make)
-end
-
-module Scalper = struct
-  let run_options runtype : Run_options.t =
-    {
-      symbols = Collections.sp100;
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Scalper.Make)
-end
-
-module Template_example = struct
-  let run_options runtype : Run_options.t =
-    {
-      symbols = Collections.sp100;
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Template_example.Make)
-end
-
-module Template_example2 = struct
-  let run_options runtype : Run_options.t =
-    {
-      symbols = Collections.sp100;
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Template_example2.Make)
-end
-
-module LowBall2 = struct
-  let run_options runtype : Run_options.t =
-    {
-      symbols = Collections.sp100;
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Lowboll2.Make)
-end
-
-module Crossover = struct
-  let run_options runtype : Run_options.t =
-    {
-      symbols = Collections.sp100;
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      runtype;
-      indicators_config : Indicators.Config.t = { fft = false };
-      dropout = false;
-      randomized_backtest_length = 1000;
-    }
-
-  let top runtype context =
-    run_generic ~runtype ~context ~run_options (module Crossover.Make)
-end
 
 type t =
   | BuyAndHold
@@ -197,48 +33,55 @@ type t =
   | TemplateExample
   | TemplateExample2
   | Crossover
-[@@deriving show, eq]
+[@@deriving show, eq, yojson, variants]
+
+let strats =
+  let ( --> ) x y = (x, run_generic y) in
+  [
+    BuyAndHold --> (module Buy_and_hold.Make);
+    Listener --> (module Listener.Make);
+    DoubleTop --> (module Double_top.DoubleTop);
+    LowBoll --> (module Buy_low_bollinger.BuyLowBollinger);
+    LowBoll2 --> (module Lowboll2.Make);
+    Challenge1 --> (module Challenge1.Make);
+    Scalper --> (module Scalper.Make);
+    TemplateExample --> (module Template_example.Make);
+    TemplateExample2 --> (module Template_example2.Make);
+    Crossover --> (module Crossover.Make);
+  ]
+
+let run_strat (context : Run_context.t) strategy =
+  let f = List.Assoc.get ~eq:equal strategy strats in
+  match f with
+  | Some f -> f context
+  | None ->
+      invalid_arg
+      @@ Format.asprintf "Did not find a strategy implementation for %a" pp
+           strategy
 
 let of_string_res x =
-  let x = String.uncapitalize_ascii x in
-  match x with
-  | "buyandhold" | "buyhold" -> Ok BuyAndHold
-  | "listener" | "listen" -> Ok Listener
-  | "doubletop" -> Ok DoubleTop
-  | "lowball" | "lowboll" -> Ok LowBoll
-  | "lowball2" | "lowboll2" -> Ok LowBoll2
-  | "challenge1" -> Ok Challenge1
-  | "scalper" -> Ok Scalper
-  | "template_example" -> Ok TemplateExample
-  | "template_example2" -> Ok TemplateExample2
-  | "crossover" -> Ok Crossover
-  | _ -> Error (`Msg "Expected a valid strategy")
+  let j = `List [ `String x ] in
+  try Result.return @@ t_of_yojson j
+  with _ ->
+    let all = List.map fst Variants.descriptions in
+    Result.fail
+    @@ `Msg
+         (Format.asprintf
+            "@[Unknown runtype selected: %s@]@.@[Valid options are: %a@]@." x
+            (List.pp String.pp) all)
 
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
-
-let run_strat runtype context x =
-  match x with
-  | BuyAndHold -> BuyAndHold.top runtype context
-  | Listener -> Listener.top runtype context
-  | DoubleTop -> DoubleTop.top runtype context
-  | LowBoll -> LowBall.top runtype context
-  | LowBoll2 -> LowBall2.top runtype context
-  | Challenge1 -> Challenge1.top runtype context
-  | Scalper -> Scalper.top runtype context
-  | TemplateExample -> Template_example.top runtype context
-  | TemplateExample2 -> Template_example2.top runtype context
-  | Crossover -> Crossover.top runtype context
 
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 
-let run (runtype : Options.Runtype.t) context x =
-  match runtype with
+let run (context : Run_context.t) strategy =
+  match context.runtype with
   | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest ->
-      run_strat runtype context x
+      run_strat context strategy
   | Multitest | MultiMontecarlo | MultiRandomSliceBacktest ->
       let init = Array.make 30 () in
-      let res = Array.map (fun _ -> run_strat runtype context x) init in
+      let res = Array.map (fun _ -> run_strat context strategy) init in
       Array.sort Float.compare res;
       let mean = Owl_stats.mean res in
       let std = Owl_stats.std res in
