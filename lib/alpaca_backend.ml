@@ -1,5 +1,8 @@
 open Backend_intf
 
+let apca_api_base_url = Uri.of_string "https://paper-api.alpaca.markets/v2"
+let apca_api_data_url = Uri.of_string "https://data.alpaca.markets/v2"
+
 module Make (Input : BACKEND_INPUT) : S = struct
   open Trading_types
   module Backtesting = Backtesting_backend.Make (Input)
@@ -15,7 +18,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let trading_client =
     let res =
       Piaf.Client.create ~sw:Input.context.switch Input.context.eio_env
-        Input.context.longleaf_env.apca_api_base_url
+        apca_api_base_url
     in
     match res with
     | Ok x -> x
@@ -34,7 +37,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let data_client =
     let res =
       Piaf.Client.create ~sw:Input.context.switch Input.context.eio_env
-        Input.context.longleaf_env.apca_api_data_url
+        apca_api_data_url
     in
     match res with
     | Ok x -> x
