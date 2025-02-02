@@ -122,7 +122,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
     | _ ->
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
-        let+ res = Tiingo.latest symbols in
+        let+ res =
+          match Tiingo.latest symbols with
+          | Ok x -> Result.return x
+          | Error s ->
+              Eio.traceln "Error %s from Tiingo.latest, trying again." s;
+              Tiingo.latest symbols
+        in
         if save_received then Bars.append res received_data;
         res
 
