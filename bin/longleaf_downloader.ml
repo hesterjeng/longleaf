@@ -55,23 +55,21 @@ module Args = struct
 end
 
 module Downloader = struct
-  let data_client switch eio_env (longleaf_env : Environment.t) =
+  let data_client switch eio_env =
     let res =
-      Piaf.Client.create ~sw:switch eio_env longleaf_env.apca_api_data_url
+      Piaf.Client.create ~sw:switch eio_env
+        Longleaf_lib.Alpaca_backend.apca_api_data_url
     in
     match res with
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create data client"
-
-  (* let tiingo_client switch eio_env longleaf_env = *)
-  (*   let module Tiingo_client *)
 
   let top eio_env request prefix output_file
       (downloader_arg : Downloader_ty.t option) afterhours =
     Eio.Switch.run @@ fun switch ->
     (* Util.yojson_safe true @@ fun () -> *)
     let longleaf_env = Environment.make () in
-    let data_client = data_client switch eio_env longleaf_env in
+    let data_client = data_client switch eio_env in
     let module Conn : Util.CLIENT = struct
       let client = data_client
       let longleaf_env = longleaf_env
