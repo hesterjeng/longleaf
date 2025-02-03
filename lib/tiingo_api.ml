@@ -17,7 +17,7 @@ type item = {
 
 let item_of_yojson x =
   match x with
-  | `Null -> Error "tiingo_api: received null"
+  | `Null -> Error "tiingo_api: received null in item_of_yojson"
   | _ -> (
       try Result.return @@ item_of_yojson x
       with _ ->
@@ -29,6 +29,7 @@ type t = item list [@@deriving show { with_path = false }]
 let t_of_yojson (l : Yojson.Safe.t) =
   match l with
   | `List l -> Result.map_l item_of_yojson l
+  | `Null -> Error "Got `Null from Tiingo_api"
   | _ -> Error "Expected a list in Tiingo_api.t_of_yojson"
 
 let item_to_bar_item (x : item) : Item.t =
