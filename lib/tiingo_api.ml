@@ -4,12 +4,12 @@ module Hashtbl = Bars.Hashtbl
 type item = {
   ticker : string;
   timestamp : Time.t;
-  last : float;
+  last : float [@key "tngoLast"];
   open_ : float; [@key "open"]
   prevClose : float;
   high : float;
-  ask_price : float option; [@key "askPrice"]
-  bid_price : float option; [@key "bidPrice"]
+  (* ask_price : float option; [@key "askPrice"] *)
+  (* bid_price : float option; [@key "bidPrice"] *)
   low : float;
   volume : int;
 }
@@ -20,8 +20,10 @@ let item_of_yojson x =
   | `Null -> Error "tiingo_api: received null in item_of_yojson"
   | _ -> (
       try Result.return @@ item_of_yojson x
-      with _ ->
-        Eio.traceln "%a" Yojson.Safe.pp x;
+      with s ->
+        Eio.traceln "[tiingo_api] %a" Yojson.Safe.pp x;
+        let e = Printexc.to_string s in
+        Eio.traceln "[tiingo_api] %s" e;
         Error "Error while decoding json of Tiingo_api.item")
 
 type t = item list [@@deriving show { with_path = false }]
