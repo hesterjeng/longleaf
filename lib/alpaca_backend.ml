@@ -11,6 +11,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let get_cash = Backend_position.get_cash
   let env = Input.context.eio_env
+  let runtype = Input.context.runtype
   let overnight = Input.options.overnight
   let save_received = Input.context.save_received
   let received_data = Bars.empty ()
@@ -126,7 +127,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
           match Tiingo.latest symbols with
           | Ok x -> Result.return x
           | Error s ->
-              Eio.traceln "Error %s from Tiingo.latest, trying again." s;
+              Eio.traceln "Error %s from Tiingo.latest, trying again after 5 seconds." s;
+              Ticker.tick ~runtype env 5.0;
               Tiingo.latest symbols
         in
         if save_received then Bars.append res received_data;
