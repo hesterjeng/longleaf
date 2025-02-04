@@ -1,8 +1,9 @@
 module Make (Backend : Backend_intf.S) = struct
   module Input = Backend.Input
 
-  let mutices : Longleaf_mutex.t = Input.context.mutices
-  let runtype = Input.context.runtype
+  let context = Input.options.context
+  let mutices : Longleaf_mutex.t = context.mutices
+  let runtype = context.runtype
 
   let listen_tick () : State.nonlogical_state =
     Eio.Fiber.any
@@ -88,7 +89,7 @@ module Make (Backend : Backend_intf.S) = struct
   let get_filename () = Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
 
   let output_data (state : _ State.t) filename =
-    if Input.context.save_to_file then (
+    if context.save_to_file then (
       let prefix =
         match Backend.is_backtest with true -> "backtest" | false -> "live"
       in
@@ -98,7 +99,7 @@ module Make (Backend : Backend_intf.S) = struct
     else ()
 
   let output_order_history (state : _ State.t) filename =
-    if Input.context.save_to_file then (
+    if context.save_to_file then (
       let json_str =
         Order_history.yojson_of_t state.order_history |> Yojson.Safe.to_string
       in

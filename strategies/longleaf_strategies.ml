@@ -1,21 +1,32 @@
-module Run_options = Backend_intf.Run_options
-module Run_context = Backend_intf.Run_context
+module Context = Options.Context
 module Collections = Ticker_collections
 
-let run_options : Run_options.t =
+let run_options (context : Context.t) : Options.t =
+  let symbols =
+    match context.runtype with
+    | RandomTickerBacktest | MultiRandomTickerBacktest ->
+        let arr = Array.of_list Collections.sp100 in
+        let eighty_percent =
+          (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
+        in
+        Owl_stats.choose arr eighty_percent |> Array.to_list
+    | _ -> Collections.sp100
+  in
   {
-    symbols = Collections.sp100;
+    symbols;
     tick = 600.0;
     overnight = true;
     resume_after_liquidate = true;
     indicators_config : Indicators.Config.t = { fft = false };
     dropout = false;
     randomized_backtest_length = 1000;
+    context;
   }
 
 let run_generic (module Strat : Strategy.BUILDER) context =
   Eio.traceln "@[Starting Doubletop@]@.";
-  let module Backend = (val Backend.make run_options context) in
+  let options = run_options context in
+  let module Backend = (val Backend.make options) in
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running.";
   let res = S.run () in
@@ -50,7 +61,7 @@ let strats =
     Crossover --> (module Crossover.Make);
   ]
 
-let run_strat (context : Run_context.t) strategy =
+let run_strat (context : Context.t) strategy =
   let f = List.Assoc.get ~eq:equal strategy strats in
   match f with
   | Some f -> f context
@@ -75,11 +86,13 @@ let conv = Cmdliner.Arg.conv (of_string_res, pp)
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 
-let run (context : Run_context.t) strategy =
+let run (context : Context.t) strategy =
   match context.runtype with
-  | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest ->
+  | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest
+  | RandomTickerBacktest ->
       run_strat context strategy
-  | Multitest | MultiMontecarlo | MultiRandomSliceBacktest ->
+  | Multitest | MultiMontecarlo | MultiRandomSliceBacktest
+  | MultiRandomTickerBacktest ->
       let init = Array.make 30 () in
       let res = Array.map (fun _ -> run_strat context strategy) init in
       Array.sort Float.compare res;

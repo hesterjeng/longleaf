@@ -9,6 +9,8 @@ module Runtype = struct
     | MultiMontecarlo
     | RandomSliceBacktest
     | MultiRandomSliceBacktest
+    | RandomTickerBacktest
+    | MultiRandomTickerBacktest
       (* Run multiple tests with ranomly generated target data. *)
   [@@deriving show, eq, yojson, variants]
 
@@ -43,9 +45,30 @@ module Preload = struct
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
 end
 
+module Context = struct
+  type t = {
+    strategy : string;
+    runtype : Runtype.t;
+    eio_env : Eio_unix.Stdenv.base; [@opaque]
+    longleaf_env : Environment.t; [@opaque]
+    switch : Eio.Switch.t; [@opaque]
+    preload : Preload.t;
+    target : string option;
+    save_received : bool;
+    nowait_market_open : bool;
+    mutices : Longleaf_mutex.t;
+    save_to_file : bool;
+  }
+  [@@deriving show]
+end
+
 type t = {
-  runtype : Runtype.t;
-  preload : Preload.t;
-  output_file : string option;
+  symbols : string list;
+  tick : float;
+  overnight : bool;
+  resume_after_liquidate : bool;
+  indicators_config : Indicators.Config.t;
+  dropout : bool;
+  randomized_backtest_length : int;
+  context : Context.t;
 }
-[@@deriving show]
