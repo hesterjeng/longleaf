@@ -38,7 +38,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let* prev = i.previous in
     let conditions =
       [
-        (match i.relative_strength_index >=. 40.0 with
+        (match i.relative_strength_index <=. 40.0 with
         | true -> F.Pass [ "Small RSI" ]
         | false -> Fail [ "RSI too large to buy" ]);
         (* confirmed_crossover state symbol; *)
