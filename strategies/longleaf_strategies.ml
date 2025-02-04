@@ -23,7 +23,8 @@ let run_options (context : Context.t) : Options.t =
     context;
   }
 
-let run_generic (module Strat : Strategy.BUILDER) context =
+let run_generic ?(run_options = run_options) (module Strat : Strategy.BUILDER)
+    context =
   Eio.traceln "@[Starting Doubletop@]@.";
   let options = run_options context in
   let module Backend = (val Backend.make options) in
