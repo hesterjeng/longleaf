@@ -138,8 +138,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let place_order state order =
     let ( let* ) = Result.( let* ) in
     assert (not @@ Input.options.dropout);
+    let* () = Trading_api.Orders.create_market_order order in
     let* () = Backtesting.place_order state order in
-    Trading_api.Orders.create_market_order order
+    Ok ()
 
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
