@@ -9,27 +9,26 @@ module Make (Input : BACKEND_INPUT) : S = struct
   module Backend_position = Backtesting.Backend_position
   module Input = Input
 
+  let context = Input.options.context
   let get_cash = Backend_position.get_cash
-  let env = Input.context.eio_env
-  let runtype = Input.context.runtype
+  let env = context.eio_env
+  let runtype = context.runtype
   let overnight = Input.options.overnight
-  let save_received = Input.context.save_received
+  let save_received = context.save_received
   let received_data = Bars.empty ()
 
   let trading_client =
     let res =
-      Piaf.Client.create ~sw:Input.context.switch Input.context.eio_env
-        apca_api_base_url
+      Piaf.Client.create ~sw:context.switch context.eio_env apca_api_base_url
     in
     match res with
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create trading client"
 
-  let tiingo_client =
-    Tiingo_api.tiingo_client Input.context.eio_env Input.context.switch
+  let tiingo_client = Tiingo_api.tiingo_client context.eio_env context.switch
 
   module Tiingo_client : Util.CLIENT = struct
-    let longleaf_env = Input.context.longleaf_env
+    let longleaf_env = context.longleaf_env
     let client = tiingo_client
   end
 
@@ -37,8 +36,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let data_client =
     let res =
-      Piaf.Client.create ~sw:Input.context.switch Input.context.eio_env
-        apca_api_data_url
+      Piaf.Client.create ~sw:context.switch context.eio_env apca_api_data_url
     in
     match res with
     | Ok x -> x
@@ -49,12 +47,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
-    let longleaf_env = Input.context.longleaf_env
+    let longleaf_env = context.longleaf_env
   end)
 
   module Market_data_api = Market_data_api.Make (struct
     let client = data_client
-    let longleaf_env = Input.context.longleaf_env
+    let longleaf_env = context.longleaf_env
   end)
 
   let init_state content =
@@ -89,7 +87,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
           Eio.traceln "alpaca_backend: error getting clock";
           invalid_arg e
     in
-    if clock.is_open || Input.context.nowait_market_open then None
+    if clock.is_open || context.nowait_market_open then None
     else Some clock.next_open
 
   let next_market_close () =
@@ -127,7 +125,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
           match Tiingo.latest symbols with
           | Ok x -> Result.return x
           | Error s ->
-              Eio.traceln "Error %s from Tiingo.latest, trying again after 5 seconds." s;
+              Eio.traceln
+                "Error %s from Tiingo.latest, trying again after 5 seconds." s;
               Ticker.tick ~runtype env 5.0;
               Tiingo.latest symbols
         in
