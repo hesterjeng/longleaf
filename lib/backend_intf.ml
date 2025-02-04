@@ -1,9 +1,5 @@
-module Config = Options.Config
-module Context = Options.Context
-
 module type BACKEND_INPUT = sig
-  val config : Config.t
-  val context : Context.t
+  val options : Options.t
 
   val bars : Bars.t
   (** Historical information, ordered with in time order *)

@@ -1,6 +1,3 @@
-module Config = Options.Config
-module Context = Options.Context
-
 module type S = Backend_intf.S
 module type BACKEND_INPUT = Backend_intf.BACKEND_INPUT
 
@@ -12,7 +9,7 @@ module SliceBacktesting = struct
     Int.random_range start_range end_range Util.random_state
 
   (* let top target_length (module Input : BACKEND_INPUT) = *)
-  let top ~(config : Config.t) bars target =
+  let top ~(options : Options.t) bars target =
     Eio.traceln "Selecting and creating random slice...";
     let preload = bars in
     let target =
@@ -22,7 +19,7 @@ module SliceBacktesting = struct
     let combined_length = Bars.length combined in
     let midpoint = select_midpoint combined_length in
     let new_bars, new_target =
-      Bars.split ~midpoint ~target_length:config.randomized_backtest_length
+      Bars.split ~midpoint ~target_length:options.randomized_backtest_length
         ~combined_length combined
     in
     Eio.traceln "Sorting random slices...";
@@ -32,10 +29,11 @@ module SliceBacktesting = struct
     (new_bars, new_target)
 end
 
-let make_bars ~(config : Config.t) ~(context : Context.t) =
+let make_bars (options : Options.t) =
+  let context = options.context in
   let preload = context.preload in
   let target = context.target in
-  let symbols = config.symbols in
+  let symbols = options.symbols in
   let bars =
     match preload with
     | None -> Bars.empty ()
@@ -49,7 +47,7 @@ let make_bars ~(config : Config.t) ~(context : Context.t) =
         let request : Market_data_api.Request.t =
           let end_ = Time.get_todays_date () in
           let start = Time.subtract_30_days end_ in
-          let tick_mins = Int.of_float (config.tick /. 60.0) in
+          let tick_mins = Int.of_float (options.tick /. 60.0) in
           {
             timeframe = Trading_types.Timeframe.min tick_mins;
             symbols;
@@ -80,25 +78,24 @@ let make_bars ~(config : Config.t) ~(context : Context.t) =
   in
   match context.runtype with
   | RandomSliceBacktest | MultiRandomSliceBacktest ->
-      let bars, target = SliceBacktesting.top ~config bars target in
+      let bars, target = SliceBacktesting.top ~options bars target in
       (bars, Some target)
   | Live | Manual | Paper | Backtest | Multitest | Montecarlo | MultiMontecarlo
   | RandomTickerBacktest | MultiRandomTickerBacktest ->
       (bars, target)
 
-let make_backend_input (config : Config.t) (context : Context.t) =
-  let bars, target = make_bars ~config ~context in
+let make_backend_input (options : Options.t) =
+  let bars, target = make_bars options in
   (module struct
-    let context = context
-    let config = config
+    let options = options
     let bars = bars
     let target = target
   end : BACKEND_INPUT)
 
-let make (config : Config.t) (context : Context.t) =
-  let module Input = (val make_backend_input config context) in
+let make (options : Options.t) =
+  let module Input = (val make_backend_input options) in
   let res =
-    match context.runtype with
+    match options.context.runtype with
     | Live -> invalid_arg "Live trading not implemented"
     | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
     | Paper ->
