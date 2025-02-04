@@ -9,6 +9,8 @@ module Runtype = struct
     | MultiMontecarlo
     | RandomSliceBacktest
     | MultiRandomSliceBacktest
+    | RandomTickerBacktest
+    | MultiRandomTickerBacktest
       (* Run multiple tests with ranomly generated target data. *)
   [@@deriving show, eq, yojson, variants]
 

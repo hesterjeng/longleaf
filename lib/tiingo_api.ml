@@ -4,7 +4,7 @@ module Hashtbl = Bars.Hashtbl
 type item = {
   ticker : string;
   timestamp : Time.t;
-  last : float [@key "tngoLast"];
+  last : float; [@key "tngoLast"]
   open_ : float; [@key "open"]
   prevClose : float;
   high : float;
