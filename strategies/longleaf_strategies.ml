@@ -1,8 +1,8 @@
-module Run_options = Backend_intf.Run_options
-module Run_context = Backend_intf.Run_context
+module Context = Options.Context
+module Config = Options.Config
 module Collections = Ticker_collections
 
-let run_options : Run_options.t =
+let run_config : Config.t =
   {
     symbols = Collections.sp100;
     tick = 600.0;
@@ -13,10 +13,9 @@ let run_options : Run_options.t =
     randomized_backtest_length = 1000;
   }
 
-let run_generic ?(run_options = run_options) (module Strat : Strategy.BUILDER)
-    context =
+let run_generic (module Strat : Strategy.BUILDER) context =
   Eio.traceln "@[Starting Doubletop@]@.";
-  let module Backend = (val Backend.make run_options context) in
+  let module Backend = (val Backend.make run_config context) in
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running.";
   let res = S.run () in
@@ -51,7 +50,7 @@ let strats =
     Crossover --> (module Crossover.Make);
   ]
 
-let run_strat (context : Run_context.t) strategy =
+let run_strat (context : Context.t) strategy =
   let f = List.Assoc.get ~eq:equal strategy strats in
   match f with
   | Some f -> f context
@@ -76,7 +75,7 @@ let conv = Cmdliner.Arg.conv (of_string_res, pp)
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 
-let run (context : Run_context.t) strategy =
+let run (context : Context.t) strategy =
   match context.runtype with
   | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest
   | RandomTickerBacktest ->

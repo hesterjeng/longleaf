@@ -12,7 +12,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let get_cash = Backend_position.get_cash
   let env = Input.context.eio_env
   let runtype = Input.context.runtype
-  let overnight = Input.options.overnight
+  let overnight = Input.config.overnight
   let save_received = Input.context.save_received
   let received_data = Bars.empty ()
 
@@ -109,7 +109,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     Piaf.Client.shutdown tiingo_client;
     ()
 
-  let symbols = Input.options.symbols
+  let symbols = Input.config.symbols
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
   let last_data_bar = Error "No last data bar in Alpaca backend"
@@ -139,7 +139,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let place_order state order =
     let ( let* ) = Result.( let* ) in
-    assert (not @@ Input.options.dropout);
+    assert (not @@ Input.config.dropout);
     let* () = Backtesting.place_order state order in
     Trading_api.Orders.create_market_order order
 

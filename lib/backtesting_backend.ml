@@ -24,11 +24,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let next_market_open _ = None
   let next_market_close _ = Ptime.max
   let env = Input.context.eio_env
-  let symbols = Input.options.symbols
+  let symbols = Input.config.symbols
   let is_backtest = true
   let shutdown () = ()
   let get_cash = Backend_position.get_cash
-  let overnight = Input.options.overnight
+  let overnight = Input.config.overnight
   let save_received = Input.context.save_received
 
   let place_order state (order : Order.t) =
