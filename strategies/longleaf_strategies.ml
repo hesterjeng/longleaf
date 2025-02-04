@@ -1,9 +1,19 @@
 module Context = Options.Context
 module Collections = Ticker_collections
 
-let run_options context : Options.t =
+let run_options (context : Context.t) : Options.t =
+  let symbols =
+    match context.runtype with
+    | RandomTickerBacktest | MultiRandomTickerBacktest ->
+        let arr = Array.of_list Collections.sp100 in
+        let eighty_percent =
+          (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
+        in
+        Owl_stats.choose arr eighty_percent |> Array.to_list
+    | _ -> Collections.sp100
+  in
   {
-    symbols = Collections.sp100;
+    symbols;
     tick = 600.0;
     overnight = true;
     resume_after_liquidate = true;
