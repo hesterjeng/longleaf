@@ -127,7 +127,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
           match Tiingo.latest symbols with
           | Ok x -> Result.return x
           | Error s ->
-              Eio.traceln "Error %s from Tiingo.latest, trying again after 5 seconds." s;
+              Eio.traceln
+                "Error %s from Tiingo.latest, trying again after 5 seconds." s;
               Ticker.tick ~runtype env 5.0;
               Tiingo.latest symbols
         in
