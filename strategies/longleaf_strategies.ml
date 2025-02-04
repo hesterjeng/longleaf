@@ -13,7 +13,8 @@ let run_options : Run_options.t =
     randomized_backtest_length = 1000;
   }
 
-let run_generic (module Strat : Strategy.BUILDER) context =
+let run_generic ?(run_options = run_options) (module Strat : Strategy.BUILDER)
+    context =
   Eio.traceln "@[Starting Doubletop@]@.";
   let module Backend = (val Backend.make run_options context) in
   let module S = Strat (Backend) in
@@ -77,9 +78,11 @@ type multitest = { mean : float; min : float; max : float; std : float }
 
 let run (context : Run_context.t) strategy =
   match context.runtype with
-  | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest ->
+  | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest
+  | RandomTickerBacktest ->
       run_strat context strategy
-  | Multitest | MultiMontecarlo | MultiRandomSliceBacktest ->
+  | Multitest | MultiMontecarlo | MultiRandomSliceBacktest
+  | MultiRandomTickerBacktest ->
       let init = Array.make 30 () in
       let res = Array.map (fun _ -> run_strat context strategy) init in
       Array.sort Float.compare res;
