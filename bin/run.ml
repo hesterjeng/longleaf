@@ -5,7 +5,8 @@ let runtype_target_check ~runtype ~target : unit =
   | Some _ -> (
       match runtype with
       | Options.Runtype.Backtest | Multitest | Montecarlo | MultiMontecarlo
-      | RandomSliceBacktest | MultiRandomSliceBacktest ->
+      | RandomSliceBacktest | MultiRandomSliceBacktest | RandomTickerBacktest
+      | MultiRandomTickerBacktest ->
           ()
       | _ ->
           Eio.traceln "Must be in a backtest if we have a specified target.";
