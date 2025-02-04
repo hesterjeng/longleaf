@@ -1,8 +1,7 @@
 module Context = Options.Context
-module Config = Options.Config
 module Collections = Ticker_collections
 
-let run_config : Config.t =
+let run_options context : Options.t =
   {
     symbols = Collections.sp100;
     tick = 600.0;
@@ -11,11 +10,13 @@ let run_config : Config.t =
     indicators_config : Indicators.Config.t = { fft = false };
     dropout = false;
     randomized_backtest_length = 1000;
+    context;
   }
 
 let run_generic (module Strat : Strategy.BUILDER) context =
   Eio.traceln "@[Starting Doubletop@]@.";
-  let module Backend = (val Backend.make run_config context) in
+  let options = run_options context in
+  let module Backend = (val Backend.make options) in
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running.";
   let res = S.run () in

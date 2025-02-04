@@ -45,13 +45,6 @@ module Preload = struct
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
 end
 
-type t = {
-  runtype : Runtype.t;
-  preload : Preload.t;
-  output_file : string option;
-}
-[@@deriving show]
-
 module Context = struct
   type t = {
     strategy : string;
@@ -69,14 +62,13 @@ module Context = struct
   [@@deriving show]
 end
 
-module Config = struct
-  type t = {
-    symbols : string list;
-    tick : float;
-    overnight : bool;
-    resume_after_liquidate : bool;
-    indicators_config : Indicators.Config.t;
-    dropout : bool;
-    randomized_backtest_length : int;
-  }
-end
+type t = {
+  symbols : string list;
+  tick : float;
+  overnight : bool;
+  resume_after_liquidate : bool;
+  indicators_config : Indicators.Config.t;
+  dropout : bool;
+  randomized_backtest_length : int;
+  context : Context.t;
+}
