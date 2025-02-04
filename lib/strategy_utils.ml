@@ -10,7 +10,7 @@ module Make (Backend : Backend_intf.S) = struct
          (fun () ->
            match Backend.next_market_open () with
            | None ->
-               Ticker.tick ~runtype Backend.env Input.options.tick;
+               Ticker.tick ~runtype Backend.env Input.config.tick;
                `Continue
            | Some open_time -> (
                let open_time = Ptime.to_float_s open_time in
@@ -54,7 +54,7 @@ module Make (Backend : Backend_intf.S) = struct
            Eio.traceln
              "@[Liquidating because we are within 10 minutes to market \
               close.@]@.";
-           match Input.options.resume_after_liquidate with
+           match Input.config.resume_after_liquidate with
            | false -> `BeginShutdown
            | true ->
                Eio.traceln
@@ -131,11 +131,11 @@ module Make (Backend : Backend_intf.S) = struct
             let* latest = Backend.latest_bars Backend.symbols in
             let* time = Bars.Latest.timestamp latest in
             Eio.traceln "@[Tick time: %a@]@." Time.pp time;
-            Indicators.add_latest Input.options.indicators_config time
-              state.bars latest state.indicators;
+            Indicators.add_latest Input.config.indicators_config time state.bars
+              latest state.indicators;
             let value = Backend.Backend_position.value latest in
             let risk_free_value =
-              Stats.risk_free_value state.stats Input.options.tick
+              Stats.risk_free_value state.stats Input.config.tick
             in
             Bars.append latest state.bars;
             Result.return

@@ -51,3 +51,32 @@ type t = {
   output_file : string option;
 }
 [@@deriving show]
+
+module Context = struct
+  type t = {
+    strategy : string;
+    runtype : Runtype.t;
+    eio_env : Eio_unix.Stdenv.base; [@opaque]
+    longleaf_env : Environment.t; [@opaque]
+    switch : Eio.Switch.t; [@opaque]
+    preload : Preload.t;
+    target : string option;
+    save_received : bool;
+    nowait_market_open : bool;
+    mutices : Longleaf_mutex.t;
+    save_to_file : bool;
+  }
+  [@@deriving show]
+end
+
+module Config = struct
+  type t = {
+    symbols : string list;
+    tick : float;
+    overnight : bool;
+    resume_after_liquidate : bool;
+    indicators_config : Indicators.Config.t;
+    dropout : bool;
+    randomized_backtest_length : int;
+  }
+end
