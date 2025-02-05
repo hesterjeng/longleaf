@@ -113,7 +113,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let last_data_bar = Error "No last data bar in Alpaca backend"
 
   let latest_bars symbols =
-    let ( let+ ) = Result.( let+ ) in
+    let ( let* ) = Result.( let* ) in
+    let* account = Trading_api.Accounts.get_account () in
+    Eio.traceln "[alpaca_backend] Backend cash: %f Alpaca cash: %f"
+      (Backend_position.get_cash ())
+      account.cash;
+    Backend_position.set_cash account.cash;
     match symbols with
     | [] ->
         Eio.traceln "No symbols in latest bars request.";
@@ -121,7 +126,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     | _ ->
         let _ = Backtesting.latest_bars symbols in
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
-        let+ res =
+        let* res =
           match Tiingo.latest symbols with
           | Ok x -> Result.return x
           | Error s ->
@@ -131,7 +136,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
               Tiingo.latest symbols
         in
         if save_received then Bars.append res received_data;
-        res
+        Ok res
 
   let get_clock = Trading_api.Clock.get
 
