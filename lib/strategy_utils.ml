@@ -131,7 +131,7 @@ module Make (Backend : Backend_intf.S) = struct
             let open Result.Infix in
             let* latest = Backend.latest_bars Backend.symbols in
             let* time = Bars.Latest.timestamp latest in
-            Eio.traceln "@[Tick time: %a@]@." Time.pp time;
+            Eio.traceln "Tick time: %a" Time.pp time;
             Indicators.add_latest Input.options.indicators_config time
               state.bars latest state.indicators;
             let value = Backend.Backend_position.value latest in
