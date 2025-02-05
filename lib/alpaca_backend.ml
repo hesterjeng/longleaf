@@ -115,9 +115,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let latest_bars symbols =
     let ( let* ) = Result.( let* ) in
     let* account = Trading_api.Accounts.get_account () in
-    Eio.traceln "[alpaca_backend] Backend cash: %f Alpaca cash: %f"
-      (Backend_position.get_cash ())
-      account.cash;
+    let backend_cash = Backend_position.get_cash () in
+    if not @@ Float.equal backend_cash account.cash then
+      Eio.traceln "[alpaca_backend] Backend cash: %f Alpaca cash: %f"
+        (Backend_position.get_cash ())
+        account.cash;
     Backend_position.set_cash account.cash;
     match symbols with
     | [] ->
