@@ -143,12 +143,12 @@ module Make (Alpaca : Util.CLIENT) = struct
                  string: %a@]@."
                 Piaf.Error.pp_hum e;
               Result.fail
-              @@ Error.Fatal
+              @@ `FatalError
                    "Error converting create_market_order response body to \
                     string")
       | x ->
           Eio.traceln "@[Response: %a@]@." Response.pp_hum response;
-          Result.fail @@ Error.Fatal "Bad response in create_market_order"
+          Result.fail @@ `FatalError "Bad response in create_market_order"
 
     let get_all_orders () =
       let endpoint = "/v2/orders" in
