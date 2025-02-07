@@ -10,6 +10,7 @@ module Latest = struct
         Eio.traceln "Missing symbol %s?" symbol;
         invalid_arg "Unable to find price of symbol (Bars.Latest)"
 
+  let get_opt = Hashtbl.find_opt
   let empty () : t = Hashtbl.create 0
 
   let pp : t Format.printer =

@@ -22,8 +22,8 @@ module type S = sig
   (* Save data that is received in a live/paper run *)
   (* val save_received : bool *)
   val received_data : Bars.t
-  val get_trading_client : unit -> (Piaf.Client.t, string) result
-  val get_data_client : unit -> (Piaf.Client.t, string) result
+  val get_trading_client : unit -> (Piaf.Client.t, Error.t) result
+  val get_data_client : unit -> (Piaf.Client.t, Error.t) result
   val env : Eio_unix.Stdenv.base
   val init_state : 'a -> 'a State.t
   val get_cash : unit -> float
@@ -33,8 +33,8 @@ module type S = sig
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> Time.t option
   val next_market_close : unit -> Time.t
-  val place_order : _ State.t -> Order.t -> (unit, string) result
-  val latest_bars : string list -> (Bars.Latest.t, string) result
-  val last_data_bar : (Bars.Latest.t, string) result
-  val liquidate : _ State.t -> (unit, string) Result.t
+  val place_order : 'a State.t -> Order.t -> ('a State.t, Error.t) result
+  val latest_bars : string list -> (Bars.Latest.t, Error.t) result
+  val last_data_bar : (Bars.Latest.t, Error.t) result
+  val liquidate : _ State.t -> (unit, Error.t) Result.t
 end

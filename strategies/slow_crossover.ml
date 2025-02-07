@@ -106,7 +106,7 @@ module Sell : Template.Sell_trigger.S = struct
     (* in *)
     let conditions =
       [
-        (match i.fast_stochastic_oscillator_k >=. 80.0 with
+        (match i.fast_stochastic_oscillator_d >=. 60.0 with
         | true -> F.Pass [ "high %D" ]
         | false -> F.Fail [ "low %D" ]);
         (* (match price <=. Param.stop_loss_multiplier *. buying_order.price with *)
@@ -115,14 +115,14 @@ module Sell : Template.Sell_trigger.S = struct
         (match state.tick >= buying_order.tick + Param.max_holding_period with
         | true -> F.Pass [ "Get out! An hour!!" ]
         | false -> F.Fail [ "Holding period OK" ]);
-        (* (match state.tick >= buying_order.tick + 35 with *)
-        (* | true -> ( *)
-        (*     match *)
-        (*       price <=. Param.stop_loss_multiplier *. buying_order.price *)
-        (*     with *)
-        (*     | true -> F.Pass [ "Price when down after a day" ] *)
-        (*     | false -> F.Fail [ "Price OK" ]) *)
-        (* | false -> F.Fail [ "Holding period OK" ]); *)
+        (match state.tick >= buying_order.tick + 35 with
+        | true -> (
+            match
+              price <=. Param.stop_loss_multiplier *. buying_order.price
+            with
+            | true -> F.Pass [ "Price when down after a day" ]
+            | false -> F.Fail [ "Price OK" ])
+        | false -> F.Fail [ "Holding period OK" ]);
       ]
     in
     List.fold_left F.or_fold (Fail []) conditions

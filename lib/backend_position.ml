@@ -1,8 +1,8 @@
 type pos = (string, int) Hashtbl.t [@@deriving show]
 
 module type S = sig
-  val execute_order : _ State.t -> Order.t -> (unit, string) Result.t
-  val liquidate : _ State.t -> Bars.Latest.t -> (unit, string) Result.t
+  val execute_order : _ State.t -> Order.t -> (unit, Error.t) Result.t
+  val liquidate : _ State.t -> Bars.Latest.t -> (unit, Error.t) Result.t
   val get_cash : unit -> float
   val set_cash : float -> unit
   val symbols : unit -> string list
@@ -61,7 +61,7 @@ module Generative () : S = struct
         Hashtbl.replace pos.position symbol (current_amt - qty);
         set_cash @@ (pos.cash +. (price *. Float.of_int qty));
         Ok ()
-    | _ -> Result.fail @@ Format.asprintf "Unsupported order: %a" Order.pp order
+    | _ -> Result.fail @@ Error.UnsupportedOrder order
 
   let liquidate (state : 'a State.t) (bars : Bars.Latest.t) =
     let open Trading_types in
