@@ -28,6 +28,8 @@ let spy = [ "SPY" ]
 
 let sp100 =
   [
+    "PLTR";
+    "SPY";
     "AAPL";
     "ABBV";
     "ABT";
@@ -38,7 +40,7 @@ let sp100 =
     "AMGN";
     "AMT";
     "AMZN";
-    (* "AVGO"; *)
+    "AVGO";
     "AXP";
     "BA";
     "BAC";
@@ -46,7 +48,7 @@ let sp100 =
     "BKNG";
     "BLK";
     "BMY";
-    (* "BRK.B"; *)
+    "BRK.B";
     "C";
     "CAT";
     "CHTR";
@@ -62,7 +64,7 @@ let sp100 =
     "DE";
     "DHR";
     "DIS";
-    (* "DOW"; *)
+    "DOW";
     "DUK";
     "EMR";
     "F";
@@ -71,7 +73,7 @@ let sp100 =
     "GE";
     "GILD";
     "GM";
-    (* "GOOG"; *)
+    "GOOG";
     "GOOGL";
     "GS";
     "HD";
@@ -83,7 +85,7 @@ let sp100 =
     "JPM";
     "KHC";
     "KO";
-    (* "LIN"; *)
+    "LIN";
     "LLY";
     "LMT";
     "LOW";
