@@ -67,7 +67,7 @@ let sp100 =
     "DOW";
     "DUK";
     "EMR";
-    (* "F"; *)
+    "F";
     "FDX";
     "GD";
     "GE";
