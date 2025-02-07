@@ -13,19 +13,12 @@ module Client = Piaf.Client
 
 let get_piaf ~client ~headers ~endpoint =
   (* let open Piaf in *)
+  let ( let* ) = Result.( let* ) in
   let headers = Headers.to_list headers in
-  let resp =
-    match Client.get client ~headers endpoint with
-    | Ok x -> x
-    | Error e -> invalid_arg @@ Format.asprintf "%a" Piaf.Error.pp_hum e
-  in
+  let* resp = Client.get client ~headers endpoint in
   let _status = Response.status resp in
   let body = Response.body resp in
-  let json =
-    match Body.to_string body with
-    | Ok x -> x
-    | Error e -> invalid_arg @@ Format.asprintf "%a" Piaf.Error.pp_hum e
-  in
+  let* json = Body.to_string body in
   try Result.return (Yojson.Safe.from_string json)
   with Yojson.Json_error s as e ->
     let resp_headers = Response.headers resp in
@@ -35,7 +28,7 @@ let get_piaf ~client ~headers ~endpoint =
        %s@]@.@[headers: %a@]@.@[endpoint: %s@]@."
       s Headers.pp_hum resp_headers endpoint;
     let s = Printexc.to_string e in
-    Result.fail @@ Error.Json s
+    Result.fail @@ `Json s
 
 let delete_piaf ~client ~headers ~endpoint =
   let open Piaf in
