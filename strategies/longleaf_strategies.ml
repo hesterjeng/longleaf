@@ -44,6 +44,7 @@ type t =
   | TemplateExample
   | TemplateExample2
   | Crossover
+  | SlowCrossover
 [@@deriving show, eq, yojson, variants]
 
 let strats =
@@ -59,6 +60,7 @@ let strats =
     TemplateExample --> (module Template_example.Make);
     TemplateExample2 --> (module Template_example2.Make);
     Crossover --> (module Crossover.Make);
+    SlowCrossover --> (module Slow_crossover.Make);
   ]
 
 let run_strat (context : Context.t) strategy =
