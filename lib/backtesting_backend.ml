@@ -18,7 +18,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       stats = Stats.empty;
       order_history = Vector.create ();
       indicators = Indicators.empty ();
-      active_orders = [];
+      (* active_orders = []; *)
     }
 
   let context = Input.options.context
