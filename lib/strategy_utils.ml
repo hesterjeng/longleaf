@@ -1,18 +1,20 @@
 module Make (Backend : Backend_intf.S) = struct
   module Input = Backend.Input
 
+  let ( let* ) = Result.( let* )
   let context = Input.options.context
   let mutices : Longleaf_mutex.t = context.mutices
   let runtype = context.runtype
 
-  let listen_tick () : State.nonlogical_state =
+  let listen_tick () : (State.nonlogical_state, Error.t) result =
     Eio.Fiber.any
     @@ [
          (fun () ->
-           match Backend.next_market_open () with
+           let* nmo = Backend.next_market_open () in
+           match nmo with
            | None ->
                Ticker.tick ~runtype Backend.env Input.options.tick;
-               `Continue
+               Result.return `Continue
            | Some open_time -> (
                let open_time = Ptime.to_float_s open_time in
                Eio.traceln "@[Waiting until market open...@]@.";
@@ -23,10 +25,10 @@ module Make (Backend : Backend_intf.S) = struct
                    Eio.traceln "@[Current time: %a@]@." Time.pp t;
                    Ticker.tick ~runtype Backend.env 5.0;
                    Eio.traceln "@[Waited five seconds.@]@.";
-                   `Continue
+                   Result.return @@ `Continue
                | None ->
                    Eio.traceln "@[Detected an illegal time!  Shutting down.@]@.";
-                   `BeginShutdown));
+                   Result.return @@ `BeginShutdown));
          (fun () ->
            while
              let shutdown = Pmutex.get mutices.shutdown_mutex in
@@ -36,9 +38,9 @@ module Make (Backend : Backend_intf.S) = struct
              Ticker.tick ~runtype Backend.env 1.0
            done;
            Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
-           `BeginShutdown);
+           Result.return @@ `BeginShutdown);
          (fun () ->
-           let close_time = Backend.next_market_close () in
+           let* close_time = Backend.next_market_close () in
            let now =
              Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
              | Some t -> t
@@ -56,12 +58,12 @@ module Make (Backend : Backend_intf.S) = struct
              "@[Liquidating because we are within 10 minutes to market \
               close.@]@.";
            match Input.options.resume_after_liquidate with
-           | false -> `BeginShutdown
+           | false -> Result.return @@ `BeginShutdown
            | true ->
                Eio.traceln
                  "Liquidating and then continuing because we are approaching \
                   market close.";
-               `LiquidateContinue);
+               Result.return @@ `LiquidateContinue);
        ]
 
   let counter = ref 0
@@ -126,9 +128,9 @@ module Make (Backend : Backend_intf.S) = struct
         Pmutex.set mutices.stats_mutex state.stats;
         Pmutex.set mutices.indicators_mutex state.indicators;
         (* Eio.traceln "tick"; *)
-        match listen_tick () with
+        let* listened = listen_tick () in
+        match listened with
         | `Continue ->
-            let open Result.Infix in
             let* latest = Backend.latest_bars Backend.symbols in
             let* time = Bars.Latest.timestamp latest in
             Eio.traceln "Tick time: %a" Time.pp time;
@@ -188,7 +190,7 @@ module Make (Backend : Backend_intf.S) = struct
         output_order_history state filename;
         let tearsheet = Tearsheet.make state in
         Eio.traceln "%a" Tearsheet.pp tearsheet;
-        Result.fail code
+        Result.fail @@ `Finished code
     | _ ->
         invalid_arg
           "Strategies.handle_nonlogical_state: unhandled nonlogical state"
