@@ -33,8 +33,10 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let save_received = context.save_received
 
   let place_order state (order : Order.t) =
+    let ( let* ) = Result.( let* ) in
     Eio.traceln "@[%a@]@." Order.pp order;
-    Backend_position.execute_order state order
+    let* () = Backend_position.execute_order state order in
+    Result.return state
 
   (* Ordered in reverse time order when INPUT is created *)
   let data_remaining =
@@ -55,10 +57,10 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Hashtbl.to_seq data_remaining
       |> Seq.find_map @@ fun (symbol, vector) ->
          Vector.pop vector |> function
-         | None -> Some "Empty vector when trying to collect data"
+         | None ->
+             Option.return
+             @@ Error.MissingData "backtesting_backend.ml:latest_bars"
          | Some value ->
-             (* Eio.traceln "There are %d members remaining in bar %s." *)
-             (*   (Vector.length vector) symbol; *)
              Hashtbl.replace latest symbol value;
              None
     in
