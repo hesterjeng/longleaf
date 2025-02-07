@@ -76,7 +76,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       stats = Stats.empty;
       order_history = Vector.create ();
       indicators = Indicators.empty ();
-      active_orders = [];
+      (* active_orders = []; *)
     }
 
   let next_market_open () =
@@ -146,8 +146,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let ( let* ) = Result.( let* ) in
     assert (not @@ Input.options.dropout);
     let* () = Trading_api.Orders.create_market_order order in
-    let* () = Backtesting.place_order state order in
-    Result.return @@ { state with active_orders = order :: state.active_orders }
+    let* state = Backtesting.place_order state order in
+    Result.return state
 
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
