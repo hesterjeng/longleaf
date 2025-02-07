@@ -54,7 +54,7 @@ module Make
   let init_state = Backend.init_state []
 
   let buy (state : 'a State.t) =
-    let open Result.Infix in
+    let ( let* ) = Result.( let* ) in
     let held_symbols = Backend.Backend_position.symbols () in
     let potential_buys =
       (* Get the potential symbols to purchase and don't rebuy into ones we already hold *)
@@ -72,45 +72,44 @@ module Make
         (Buy.num_positions - List.length state.active_orders)
         potential_buys
     in
-    match selected with
-    | [] -> Result.return { state with State.current = `Listening }
-    | selected ->
-        let current_cash = Backend.get_cash () in
-        let pct =
-          match List.length selected with
-          | 1 -> 1.0
-          | n -> 1.0 /. Float.of_int n
-        in
-        assert (pct >=. 0.0 && pct <=. 1.0);
-        let place_order state (signal : Signal.t) =
-          let* state = state in
-          let symbol = signal.symbol in
-          let reason = signal.reason in
-          let price = State.price state symbol in
-          let timestamp = State.timestamp state symbol in
-          let qty = Util.qty ~current_cash ~price ~pct in
-          (* assert (qty <> 0); *)
-          match qty with
-          | 0 -> Result.return { state with State.current = `Listening }
-          | qty ->
-              let order : Order.t =
-                Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
-                  ~tick:state.tick ~order_type:Market ~qty ~price ~reason
-                  ~timestamp ~profit:None
-              in
-              let+ () = Backend.place_order state order in
-              {
-                state with
-                State.current = `Listening;
-                active_orders = order :: state.active_orders;
-              }
-        in
-        List.fold_left place_order (Ok state) selected
+    let* res =
+      match selected with
+      | [] -> Result.return state
+      | selected ->
+          let current_cash = Backend.get_cash () in
+          let pct =
+            match List.length selected with
+            | 1 -> 1.0
+            | n -> 1.0 /. Float.of_int n
+          in
+          assert (pct >=. 0.0 && pct <=. 1.0);
+          let place_order state (signal : Signal.t) =
+            let* state = state in
+            let symbol = signal.symbol in
+            let reason = signal.reason in
+            let price = State.price state symbol in
+            let timestamp = State.timestamp state symbol in
+            let qty = Util.qty ~current_cash ~price ~pct in
+            (* assert (qty <> 0); *)
+            match qty with
+            | 0 -> Result.return { state with State.current = `Listening }
+            | qty ->
+                let order : Order.t =
+                  Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
+                    ~tick:state.tick ~order_type:Market ~qty ~price ~reason
+                    ~timestamp ~profit:None
+                in
+                let* state = Backend.place_order state order in
+                Result.return state
+          in
+          List.fold_left place_order (Ok state) selected
+    in
+    Result.return @@ State.listen res
 
   let sell (state : 'a State.t) ~(buying_order : Order.t) =
     let open Result.Infix in
     match Sell.make state ~buying_order with
-    | Fail _ -> Result.return @@ { state with State.current = `Listening }
+    | Fail _ -> Result.return @@ State.listen state
     | Pass reason ->
         let price = State.price state buying_order.symbol in
         let timestamp = State.timestamp state buying_order.symbol in
@@ -127,18 +126,13 @@ module Make
               @@ (Float.of_int buying_order.qty *. (price -. buying_order.price))
               )
         in
-        let* () = Backend.place_order state order in
+        let* state = Backend.place_order state order in
         let new_active_orders =
           List.filter
             (fun x -> not @@ Order.equal x buying_order)
             state.active_orders
         in
-        Result.return
-        @@ {
-             state with
-             State.current = `Listening;
-             active_orders = new_active_orders;
-           }
+        Result.return State.listen state
 
   let sell_fold state buying_order =
     let ( let* ) = Result.( let* ) in

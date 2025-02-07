@@ -5,8 +5,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
   module Backend_position = Backend_position.Generative ()
   module Input = Input
 
-  let get_trading_client _ = Error "Backtesting does not have a trading client"
-  let get_data_client _ = Error "Backtesting does not have a data client"
+  let get_trading_client _ = Result.fail @@ Error.MissingClient Trading
+  let get_data_client _ = Result.fail @@ Error.MissingClient Data
 
   let init_state content =
     {
@@ -69,7 +69,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let module Hashtbl = Bars.Hashtbl in
     let ( let* ) = Result.( let* ) in
     let tbl : Bars.Latest.t = Hashtbl.create 20 in
-    let* target = Option.to_result "No target for last data bar" Input.target in
+    let* target =
+      match Input.target with
+      | Some x -> Ok x
+      | None ->
+          Result.fail @@ Error.MissingData "No target to create last data bar"
+    in
     let res =
       Hashtbl.to_seq target
       |>
@@ -78,7 +83,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
       let* _ = ok in
       let l = Vector.length vector in
       match l with
-      | 0 -> Error "No data for symbol in last_data_bar?"
+      | 0 ->
+          Error (Error.MissingData symbol)
+          (* "No data for symbol in last_data_bar?" *)
       | _ ->
           (* Eio.traceln "@[%a@]@." (Vector.pp Item.pp) vector; *)
           Result.return
