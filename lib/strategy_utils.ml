@@ -6,7 +6,7 @@ module Make (Backend : Backend_intf.S) = struct
   let mutices : Longleaf_mutex.t = context.mutices
   let runtype = context.runtype
 
-  let listen_tick () : (State.nonlogical_state, Error.t) result =
+  let listen_tick () : (State.state, Error.t) result =
     Eio.Fiber.any
     @@ [
          (fun () ->
@@ -14,7 +14,7 @@ module Make (Backend : Backend_intf.S) = struct
            match nmo with
            | None ->
                Ticker.tick ~runtype Backend.env Input.options.tick;
-               Result.return `Continue
+               Result.return State.Continue
            | Some open_time -> (
                let open_time = Ptime.to_float_s open_time in
                Eio.traceln "@[Waiting until market open...@]@.";
@@ -25,10 +25,10 @@ module Make (Backend : Backend_intf.S) = struct
                    Eio.traceln "@[Current time: %a@]@." Time.pp t;
                    Ticker.tick ~runtype Backend.env 5.0;
                    Eio.traceln "@[Waited five seconds.@]@.";
-                   Result.return @@ `Continue
+                   Result.return @@ State.Continue
                | None ->
                    Eio.traceln "@[Detected an illegal time!  Shutting down.@]@.";
-                   Result.return @@ `BeginShutdown));
+                   Result.return @@ State.BeginShutdown));
          (fun () ->
            while
              let shutdown = Pmutex.get mutices.shutdown_mutex in
@@ -38,7 +38,7 @@ module Make (Backend : Backend_intf.S) = struct
              Ticker.tick ~runtype Backend.env 1.0
            done;
            Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
-           Result.return @@ `BeginShutdown);
+           Result.return @@ State.BeginShutdown);
          (fun () ->
            let* close_time = Backend.next_market_close () in
            let now =
@@ -58,12 +58,12 @@ module Make (Backend : Backend_intf.S) = struct
              "@[Liquidating because we are within 10 minutes to market \
               close.@]@.";
            match Input.options.resume_after_liquidate with
-           | false -> Result.return @@ `BeginShutdown
+           | false -> Result.return @@ State.BeginShutdown
            | true ->
                Eio.traceln
                  "Liquidating and then continuing because we are approaching \
                   market close.";
-               Result.return @@ `LiquidateContinue);
+               Result.return @@ State.LiquidateContinue);
        ]
 
   let counter = ref 0
@@ -77,11 +77,11 @@ module Make (Backend : Backend_intf.S) = struct
           let try_liquidating () =
             Eio.traceln
               "@[Trying to liquidate because of a signal or error: %s@]@." s;
-            let liquidate = { prev with State.current = `Liquidate } in
+            let liquidate = { prev with State.current = Liquidate } in
             go liquidate
           in
           match prev.current with
-          | `Liquidate | `Finished _ ->
+          | Liquidate | Finished _ ->
               Eio.traceln "@[Exiting run.@]@.";
               Backend.get_cash ()
           | _ -> try_liquidating ())
@@ -111,18 +111,17 @@ module Make (Backend : Backend_intf.S) = struct
       close_out oc)
     else ()
 
-  let handle_nonlogical_state (current : State.nonlogical_state)
-      (state : _ State.t) =
+  let handle_nonlogical_state (current : State.state) (state : _ State.t) =
     let ( let* ) = Result.( let* ) in
     (* Eio.traceln "There are %d bindings in state.bars" *)
     (*   (Bars.Hashtbl.length state.bars); *)
     match current with
-    | `Initialize ->
+    | Initialize ->
         Eio.traceln "Initialize state...";
         let symbols_str = String.concat "," Backend.symbols in
         Pmutex.set mutices.symbols_mutex (Some symbols_str);
-        Result.return @@ { state with current = `Listening }
-    | `Listening -> (
+        Result.return @@ { state with current = Listening }
+    | Listening -> (
         Pmutex.set mutices.data_mutex state.bars;
         Pmutex.set mutices.orders_mutex state.order_history;
         Pmutex.set mutices.stats_mutex state.stats;
@@ -130,7 +129,7 @@ module Make (Backend : Backend_intf.S) = struct
         (* Eio.traceln "tick"; *)
         let* listened = listen_tick () in
         match listened with
-        | `Continue ->
+        | Continue ->
             let* latest = Backend.latest_bars Backend.symbols in
             let* time = Bars.Latest.timestamp latest in
             Eio.traceln "Tick time: %a" Time.pp time;
@@ -144,7 +143,7 @@ module Make (Backend : Backend_intf.S) = struct
             Result.return
             @@ {
                  state with
-                 current = `Ordering;
+                 current = Ordering;
                  latest;
                  stats =
                    Stats.append
@@ -157,25 +156,25 @@ module Make (Backend : Backend_intf.S) = struct
                      }
                      state.stats;
                }
-        | `BeginShutdown ->
+        | BeginShutdown ->
             Eio.traceln "Attempting to liquidate positions before shutting down";
-            Result.return { state with current = `Liquidate }
-        | `LiquidateContinue ->
+            Result.return { state with current = Liquidate }
+        | LiquidateContinue ->
             Eio.traceln "Strategies.listen_tick resturned LiquidateContinue";
-            Result.return { state with current = `LiquidateContinue }
+            Result.return { state with current = LiquidateContinue }
         | _ ->
             invalid_arg
               "Strategies.handle_nonlogical_state: unhandled return value from \
                listen_tick")
-    | `Liquidate ->
+    | Liquidate ->
         let* () = Backend.liquidate state in
         Result.return
-        @@ { state with current = `Finished "Liquidation finished" }
-    | `LiquidateContinue ->
+        @@ { state with current = Finished "Liquidation finished" }
+    | LiquidateContinue ->
         let* () = Backend.liquidate state in
         Ticker.tick ~runtype Backend.env 600.0;
-        Result.return { state with current = `Listening }
-    | `Finished code ->
+        Result.return { state with current = Listening }
+    | Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
         Vector.iter (fun order -> Bars.add_order order state.bars)
         @@ Pmutex.get mutices.orders_mutex;

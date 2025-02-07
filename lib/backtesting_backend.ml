@@ -11,7 +11,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let init_state content =
     Result.return
     @@ {
-         State.current = `Initialize;
+         State.current = Initialize;
          bars = Input.bars;
          latest = Bars.Latest.empty ();
          content;
