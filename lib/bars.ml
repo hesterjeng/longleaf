@@ -37,13 +37,13 @@ module Latest = struct
     |> function
     | Ok None ->
         Eio.traceln "Current latest: %a" pp x;
-        Error "No values in Bars.Latest.t"
+        Result.fail @@ `MissingData "No values in Bars.Latest.t"
     | Ok (Some res) ->
         (* Eio.traceln "Ok Bars.Latest.t"; *)
         Ok res
     | Error e ->
         Eio.traceln "%a" pp x;
-        Error e
+        Result.fail @@ `MissingData e
 end
 
 type symbol_history = Item.t Vector.vector

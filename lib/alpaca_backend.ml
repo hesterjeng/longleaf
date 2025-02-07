@@ -56,49 +56,41 @@ module Make (Input : BACKEND_INPUT) : S = struct
   end)
 
   let init_state content =
-    let account_status =
-      Trading_api.Accounts.get_account () |> function
-      | Ok x -> x
-      | Error e ->
-          Eio.traceln "alpaca_backend: error getting account status";
-          invalid_arg e
+    let ( let* ) = Result.( let* ) in
+    let* account_status =
+      Trading_api.Accounts.get_account ()
+      (* | Ok x -> x *)
+      (* | Error e -> *)
+      (*     Eio.traceln "alpaca_backend: error getting account status"; *)
+      (*     invalid_arg e *)
     in
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     let account_cash = account_status.cash in
     Backend_position.set_cash account_cash;
-    {
-      State.current = `Initialize;
-      bars = Input.bars;
-      tick = 0;
-      latest = Bars.Latest.empty ();
-      content;
-      stats = Stats.empty;
-      order_history = Vector.create ();
-      indicators = Indicators.empty ();
-      (* active_orders = []; *)
-    }
+    Result.return
+    @@ {
+         State.current = `Initialize;
+         bars = Input.bars;
+         tick = 0;
+         latest = Bars.Latest.empty ();
+         content;
+         stats = Stats.empty;
+         order_history = Vector.create ();
+         indicators = Indicators.empty ();
+         (* active_orders = []; *)
+       }
 
   let next_market_open () =
-    let clock =
-      Trading_api.Clock.get () |> function
-      | Ok x -> x
-      | Error e ->
-          Eio.traceln "alpaca_backend: error getting clock";
-          invalid_arg e
-    in
-    if clock.is_open || context.nowait_market_open then None
-    else Some clock.next_open
+    let ( let* ) = Result.( let* ) in
+    let* clock = Trading_api.Clock.get () in
+    if clock.is_open || context.nowait_market_open then Result.return None
+    else Result.return @@ Some clock.next_open
 
   let next_market_close () =
-    let clock =
-      Trading_api.Clock.get () |> function
-      | Ok x -> x
-      | Error e ->
-          Eio.traceln "alpaca_backend: error getting clock";
-          invalid_arg e
-    in
-    clock.next_close
+    let ( let* ) = Result.( let* ) in
+    let* clock = Trading_api.Clock.get () in
+    Result.return @@ clock.next_close
 
   let shutdown () =
     Eio.traceln "Alpaca backend shutdown";
@@ -110,7 +102,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let symbols = Input.options.symbols
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
-  let last_data_bar = Error "No last data bar in Alpaca backend"
+
+  let last_data_bar =
+    Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
   let latest_bars symbols =
     let ( let* ) = Result.( let* ) in
@@ -133,7 +127,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
           | Ok x -> Result.return x
           | Error s ->
               Eio.traceln
-                "Error %s from Tiingo.latest, trying again after 5 seconds." s;
+                "Error %a from Tiingo.latest, trying again after 5 seconds."
+                Error.pp s;
               Ticker.tick ~runtype env 5.0;
               Tiingo.latest symbols
         in
@@ -174,14 +169,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
           ())
         symbols
     in
-    let account_status =
-      Trading_api.Accounts.get_account () |> function
-      | Ok x -> x
-      | Error e ->
-          Eio.traceln
-            "alpaca backend: error getting account status while liquidating";
-          invalid_arg e
-    in
+    let* account_status = Trading_api.Accounts.get_account () in
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     Ok ()

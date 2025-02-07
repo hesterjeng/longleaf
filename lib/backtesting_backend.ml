@@ -9,21 +9,22 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let get_data_client _ = Result.fail @@ `MissingClient "Data"
 
   let init_state content =
-    {
-      State.current = `Initialize;
-      bars = Input.bars;
-      latest = Bars.Latest.empty ();
-      content;
-      tick = 0;
-      stats = Stats.empty;
-      order_history = Vector.create ();
-      indicators = Indicators.empty ();
-      (* active_orders = []; *)
-    }
+    Result.return
+    @@ {
+         State.current = `Initialize;
+         bars = Input.bars;
+         latest = Bars.Latest.empty ();
+         content;
+         tick = 0;
+         stats = Stats.empty;
+         order_history = Vector.create ();
+         indicators = Indicators.empty ();
+         (* active_orders = []; *)
+       }
 
   let context = Input.options.context
-  let next_market_open _ = None
-  let next_market_close _ = Ptime.max
+  let next_market_open _ = Ok None
+  let next_market_close _ = Ok Ptime.max
   let env = context.eio_env
   let symbols = Input.options.symbols
   let is_backtest = true
