@@ -70,7 +70,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     Backend_position.set_cash account_cash;
     Result.return
     @@ {
-         State.current = `Initialize;
+         State.current = Initialize;
          bars = Input.bars;
          tick = 0;
          latest = Bars.Latest.empty ();
