@@ -5,8 +5,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
   module Backend_position = Backend_position.Generative ()
   module Input = Input
 
-  let get_trading_client _ = Result.fail @@ Error.MissingClient Trading
-  let get_data_client _ = Result.fail @@ Error.MissingClient Data
+  let get_trading_client _ = Result.fail @@ `MissingClient "Trading"
+  let get_data_client _ = Result.fail @@ `MissingClient "Data"
 
   let init_state content =
     {
@@ -58,8 +58,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       |> Seq.find_map @@ fun (symbol, vector) ->
          Vector.pop vector |> function
          | None ->
-             Option.return
-             @@ Error.MissingData "backtesting_backend.ml:latest_bars"
+             Option.return @@ `MissingData "backtesting_backend.ml:latest_bars"
          | Some value ->
              Hashtbl.replace latest symbol value;
              None
@@ -74,8 +73,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let* target =
       match Input.target with
       | Some x -> Ok x
-      | None ->
-          Result.fail @@ Error.MissingData "No target to create last data bar"
+      | None -> Result.fail @@ `MissingData "No target to create last data bar"
     in
     let res =
       Hashtbl.to_seq target
@@ -86,7 +84,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       let l = Vector.length vector in
       match l with
       | 0 ->
-          Error (Error.MissingData symbol)
+          Error (`MissingData symbol)
           (* "No data for symbol in last_data_bar?" *)
       | _ ->
           (* Eio.traceln "@[%a@]@." (Vector.pp Item.pp) vector; *)

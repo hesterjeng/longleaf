@@ -61,7 +61,7 @@ module Generative () : S = struct
         Hashtbl.replace pos.position symbol (current_amt - qty);
         set_cash @@ (pos.cash +. (price *. Float.of_int qty));
         Ok ()
-    | _ -> Result.fail @@ Error.UnsupportedOrder order
+    | _ -> Result.fail @@ `UnsupportedOrder order
 
   let liquidate (state : 'a State.t) (bars : Bars.Latest.t) =
     let open Trading_types in
