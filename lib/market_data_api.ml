@@ -66,8 +66,8 @@ module Make (Alpaca : Util.CLIENT) = struct
           | Error e ->
               Eio.traceln
                 "market_data_api.ml: error while getting historical data with \
-                 alpaca: %s"
-                e;
+                 alpaca: %a"
+                Error.pp e;
               invalid_arg "Bad JSON while getting historical bars"
         in
         let acc = Bars.t_of_yojson resp_body_json :: acc in
