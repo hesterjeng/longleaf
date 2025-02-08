@@ -1,8 +1,8 @@
 type pos = (string, int) Hashtbl.t [@@deriving show]
 
 module type S = sig
-  val execute_order : _ State.t -> Order.t -> (unit, Error.t) Result.t
-  val liquidate : _ State.t -> Bars.Latest.t -> (unit, Error.t) Result.t
+  val execute_order : Order.t -> (unit, Error.t) Result.t
+  val liquidate : int -> Bars.Latest.t -> (unit, Error.t) Result.t
   val get_cash : unit -> float
   val set_cash : float -> unit
   val symbols : unit -> string list
@@ -44,8 +44,7 @@ module Generative () : S = struct
     let found = Hashtbl.get x.position symbol in
     match found with Some 0 | None -> false | Some _ -> true
 
-  let execute_order state (order : Order.t) =
-    State.record_order state order;
+  let execute_order (order : Order.t) =
     let symbol = order.symbol in
     let qty = order.qty in
     let price = order.price in
@@ -63,7 +62,7 @@ module Generative () : S = struct
         Ok ()
     | _ -> Result.fail @@ `UnsupportedOrder order
 
-  let liquidate (state : 'a State.t) (bars : Bars.Latest.t) =
+  let liquidate (tick : int) (bars : Bars.Latest.t) =
     let open Trading_types in
     let ( let* ) = Result.( let* ) in
     let fold f = Hashtbl.fold f pos.position (Ok ()) in
@@ -80,10 +79,10 @@ module Generative () : S = struct
           let qty = Int.abs qty in
           let price = Item.last latest in
           let timestamp = Item.timestamp latest in
-          Order.make ~tick:state.tick ~symbol ~side ~tif ~order_type ~qty ~price
-            ~timestamp ~profit:None ~reason:[ "Liquidating" ]
+          Order.make ~tick ~symbol ~side ~tif ~order_type ~qty ~price ~timestamp
+            ~profit:None ~reason:[ "Liquidating" ]
         in
         Eio.traceln "@[%a@]@." Order.pp order;
-        let* () = execute_order state order in
+        let* () = execute_order order in
         Ok ()
 end
