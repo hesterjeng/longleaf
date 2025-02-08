@@ -1,32 +1,15 @@
-(* type order_history = (Time.t * Order.t) list [@@deriving show, yojson] *)
-(* type t = (Time.t, Order.t) Hashtbl.t *)
+type t = { inactive : Order.t list; active : Order.t list }
 
-(* let yojson_of_t (x : t) = *)
-(*   let l = Hashtbl.to_list x in *)
-(*   yojson_of_order_history l *)
+let all h = h.inactive @ h.active |> List.sort Order.cmp_timestamp
 
-(* let add (order_history : t) time order = Hashtbl.replace order_history time order *)
+let yojson_of_t (h : t) : Yojson.Safe.t =
+  let l = all h in
+  `List (List.map Order.yojson_of_t l)
 
-type order_history = Order.t list [@@deriving show, yojson]
-type t = Order.t Vector.vector
+let activate x order = { x with active = order :: x.active }
 
-let yojson_of_t (x : t) =
-  let l = Vector.to_list x in
-  yojson_of_order_history l
-
-let add (order_history : t) order = Vector.push order_history order
-
-(* let find (time : Time.t) (x : t) = *)
-(*   let times = Vector.to_list @@ Vector.map Order.timestamp x in *)
-(*   let closest_time = Time.find_closest time times in *)
-(*   Vector.find (fun order -> Ptime.equal (Order.timestamp order) closest_time) x *)
-
-module V2 = struct
-
-  type t =
-    {
-      inactive : Order.t list;
-      active : Order.t list;
-    }
-
-end
+let complete history order =
+  {
+    inactive = order :: history.inactive;
+    active = List.filter (fun o -> not @@ Order.equal o order) history.active;
+  }
