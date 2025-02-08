@@ -146,7 +146,7 @@ module Make (Alpaca : Util.CLIENT) = struct
               @@ `FatalError
                    "Error converting create_market_order response body to \
                     string")
-      | x ->
+      | _ ->
           Eio.traceln "@[Response: %a@]@." Response.pp_hum response;
           Result.fail @@ `FatalError "Bad response in create_market_order"
 
