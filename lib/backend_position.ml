@@ -8,7 +8,7 @@ type pos = (string, int) Hashtbl.t [@@deriving show]
 
 type t = { position : pos; cash : float } [@@deriving show]
 
-let make () = { position = Hashtbl.create 0; cash = 100000.0 }
+let make () = { position = Hashtbl.create 5; cash = 100000.0 }
 let set_cash x cash = { x with cash }
 let get_cash pos = pos.cash
 let get_position pos = pos.position
