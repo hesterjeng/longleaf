@@ -36,5 +36,5 @@ module type S = sig
   val place_order : 'a State.t -> Order.t -> ('a State.t, Error.t) result
   val latest_bars : string list -> (Bars.Latest.t, Error.t) result
   val last_data_bar : (Bars.Latest.t, Error.t) result
-  val liquidate : _ State.t -> (unit, Error.t) Result.t
+  val liquidate : _ State.t -> ('a State.t, Error.t) Result.t
 end

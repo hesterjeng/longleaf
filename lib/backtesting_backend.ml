@@ -17,7 +17,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          content;
          tick = 0;
          stats = Stats.empty;
-         order_history = Vector.create ();
+         order_history = Order_history.empty;
          indicators = Indicators.empty ();
          (* active_orders = []; *)
        }
@@ -36,7 +36,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let place_order state (order : Order.t) =
     let ( let* ) = Result.( let* ) in
     Eio.traceln "@[%a@]@." Order.pp order;
-    let* () = Backend_position.execute_order state order in
+    let* state = Backend_position.execute_order state order in
     Result.return state
 
   (* Ordered in reverse time order when INPUT is created *)
@@ -103,6 +103,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let liquidate state =
     let ( let* ) = Result.( let* ) in
     let* last = last_data_bar in
-    let* () = Backend_position.liquidate state last in
-    Ok ()
+    let* state = Backend_position.liquidate state last in
+    Ok state
 end
