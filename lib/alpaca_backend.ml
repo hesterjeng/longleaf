@@ -70,7 +70,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          latest = Bars.Latest.empty ();
          content;
          stats = Stats.empty;
-         order_history = Order_history.empty;
+         order_history = Order.History.empty;
          indicators = Indicators.empty ();
        }
 

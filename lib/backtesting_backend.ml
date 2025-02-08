@@ -17,7 +17,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          content;
          tick = 0;
          stats = Stats.empty;
-         order_history = Order_history.empty;
+         order_history = Order.History.empty;
          indicators = Indicators.empty ();
          (* active_orders = []; *)
        }

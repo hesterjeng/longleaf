@@ -14,7 +14,7 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let bars = Pmutex.get mutices.data_mutex in
   let orders = Pmutex.get mutices.orders_mutex in
   let indicators = Pmutex.get mutices.indicators_mutex in
-  List.iter (fun order -> Bars.add_order order bars) (Order_history.all orders);
+  List.iter (fun order -> Bars.add_order order bars) (Order.History.all orders);
   let bars_json_opt =
     ( Plotly.of_bars bars indicators target,
       Plotly.of_bars bars indicators @@ String.uppercase_ascii target )
@@ -57,7 +57,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       Response.of_string ~headers ~body `OK
   | { Request.meth = `GET; target = "/orders"; _ } ->
       let orders = Pmutex.get mutices.orders_mutex in
-      let body = Order_history.yojson_of_t orders |> Yojson.Safe.to_string in
+      let body = Order.History.yojson_of_t orders |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/stats"; _ } ->
       let stats = Pmutex.get mutices.stats_mutex |> Stats.sort in

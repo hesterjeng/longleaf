@@ -108,7 +108,7 @@ module Make (Backend : Backend_intf.S) = struct
   let output_order_history (state : _ State.t) filename =
     if context.save_to_file then (
       let json_str =
-        Order_history.yojson_of_t state.order_history |> Yojson.Safe.to_string
+        Order.History.yojson_of_t state.order_history |> Yojson.Safe.to_string
       in
       let filename = Format.sprintf "data/order_history_%s.json" filename in
       let oc = open_out filename in
@@ -182,7 +182,7 @@ module Make (Backend : Backend_intf.S) = struct
     | Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
         List.iter (fun order -> Bars.add_order order state.bars)
-        @@ Order_history.all (Pmutex.get mutices.orders_mutex);
+        @@ Order.History.all (Pmutex.get mutices.orders_mutex);
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
         in
