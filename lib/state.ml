@@ -19,10 +19,11 @@ type 'a t = {
   stats : Stats.t;
   (* These are mutable hashtables tracking data *)
   indicators : Indicators.t;
+  (* Historical data *)
   bars : Bars.t;
-  (* Wildcard content for individual strategies to use *)
-  (* active_orders : Order.t list; *)
+  (* The current tick the state machine is on *)
   tick : int;
+  (* Wildcard content for individual strategies to use *)
   content : 'a;
 }
 
@@ -37,21 +38,8 @@ let map (f : 'a -> 'b) (x : 'a t) = { x with content = f x.content }
 let ( >|= ) x f = map f x
 let ( let+ ) = ( >|= )
 
-(* let price state symbol = *)
-(*   match Bars.Latest.get_opt state.latest symbol with *)
-(*   | Some x -> Result.return @@ Item.last x *)
-(*   | None -> Result.fail @@ Error.MissingData {symbol; state} *)
-
 let price (state : 'a t) symbol =
   Bars.Latest.get state.latest symbol |> Item.last
-(* match Bars.Latest.get_opt state.latest symbol with *)
-(* | Some x -> Option.return @@ Item.last x *)
-(* | None -> *)
-(*     Eio.traceln "[error] Missing information for symbol %s?" symbol; *)
-(*     None *)
 
 let timestamp (state : 'a t) symbol =
   Bars.Latest.get state.latest symbol |> Item.timestamp
-
-(* let ( let$ ) x f = *)
-(*   match f with *)
