@@ -18,7 +18,7 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let bars = Pmutex.get mutices.data_mutex in
   let orders = Pmutex.get mutices.orders_mutex in
   let indicators = Pmutex.get mutices.indicators_mutex in
-  Vector.iter (fun order -> Bars.add_order order bars) orders;
+  List.iter (fun order -> Bars.add_order order bars) (Order_history.all orders);
   let bars_json_opt =
     ( Plotly.of_bars bars indicators target,
       Plotly.of_bars bars indicators @@ String.uppercase_ascii target )
