@@ -12,9 +12,10 @@ type t = {
 }
 [@@deriving show]
 
-let num_orders (x : Order_history.t) = Vector.length x
+(* let num_orders (x : Order_history.t) = Vector.length x *)
 
 let win_percentage (h : Order_history.t) =
+  let orders = Order_history.inactive h in
   let fold (winners, losers) (x : Order.t) =
     match x.profit with
     | None -> (winners, losers)
@@ -22,7 +23,7 @@ let win_percentage (h : Order_history.t) =
     | Some f when f <. 0.0 -> (winners, losers +. 1.0)
     | Some _ -> (winners, losers)
   in
-  let winners, losers = Vector.fold fold (0.0, 0.0) h in
+  let winners, losers = List.fold_left fold (0.0, 0.0) orders in
   let win_percentage = winners /. (winners +. losers) in
   win_percentage
 
@@ -44,36 +45,36 @@ let sharpe_ratio (stats : Stats.t) =
 let average_trade_net (h : Order_history.t) =
   let ( let+ ) = Option.( let+ ) in
   let nets =
-    Vector.filter_map
+    List.filter_map
       (fun (x : Order.t) ->
         let+ profit = x.profit in
         profit)
-      h
-    |> Vector.to_array
+      h.inactive
+    |> Array.of_list
   in
   Owl_stats.mean nets
 
 let average_profit (h : Order_history.t) =
   let ( let* ) = Option.( let* ) in
   let nets =
-    Vector.filter_map
+    List.filter_map
       (fun (x : Order.t) ->
         let* profit = x.profit in
         match profit >=. 0.0 with true -> Some profit | false -> None)
-      h
-    |> Vector.to_array
+      h.inactive
+    |> Array.of_list
   in
   Owl_stats.mean nets
 
 let average_loss (h : Order_history.t) =
   let ( let* ) = Option.( let* ) in
   let nets =
-    Vector.filter_map
+    List.filter_map
       (fun (x : Order.t) ->
         let* profit = x.profit in
         match profit <=. 0.0 with true -> Some profit | false -> None)
-      h
-    |> Vector.to_array
+      h.inactive
+    |> Array.of_list
   in
   Owl_stats.mean nets
 
@@ -85,44 +86,43 @@ let stddev_returns (stats : Stats.t) =
 
 let profit_factor (h : Order_history.t) =
   let profits =
-    Vector.fold
+    List.fold_left
       (fun acc (x : Order.t) ->
         match x.profit with
         | None -> acc
         | Some f when f >=. 0.0 -> acc +. f
         | _ -> acc)
-      0.0 h
+      0.0 h.inactive
   in
   let losses =
-    Vector.fold
+    List.fold_left
       (fun acc (x : Order.t) ->
         match x.profit with
         | None -> acc
         | Some f when f <=. 0.0 -> acc +. f
         | _ -> acc)
-      0.0 h
+      0.0 h.inactive
   in
   profits /. (-1.0 *. losses)
 
-let biggest (state : 'a State.t) =
-  let ordered_orders =
-    state.order_history
-    |> Vector.filter_map (fun (o : Order.t) ->
+let biggest (h : Order_history.t) =
+  let sorted =
+    h.inactive
+    |> List.filter_map (fun (o : Order.t) ->
            match o.profit with Some _ -> Some o | None -> None)
-    |> Vector.sort Order.cmp_profit
+    |> List.sort Order.cmp_profit
   in
-  let biggest_loser =
-    try Option.return @@ Vector.get ordered_orders 0 with _ -> None
-  in
-  let biggest_winner = Vector.pop ordered_orders in
+  let biggest_loser = List.head_opt sorted in
+  let biggest_winner = List.last_opt sorted in
   (biggest_winner, biggest_loser)
 
 let make (state : 'a State.t) : t =
   let h = state.order_history in
+  assert (List.is_empty h.active);
   let stats = state.stats in
-  let biggest_winner, biggest_loser = biggest state in
+  let biggest_winner, biggest_loser = biggest h in
   {
-    num_orders = num_orders h;
+    num_orders = Order_history.length h;
     sharpe_ratio = sharpe_ratio stats;
     win_percentage = win_percentage h;
     average_trade_net = average_trade_net h;
