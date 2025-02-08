@@ -9,9 +9,8 @@ module Make (Backend : Backend.S) : Strategy.S = struct
 
   let step (state : _ State.t) =
     match state.current with
-    | #State.nonlogical_state as current ->
-        SU.handle_nonlogical_state current state
-    | `Ordering -> Result.return @@ State.listen state
+    | Ordering -> Result.return @@ State.listen state
+    | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step
 end

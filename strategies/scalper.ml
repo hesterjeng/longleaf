@@ -121,14 +121,14 @@ module Make (Backend : Backend.S) : Strategy.S = struct
           let* () = Backend.place_order state choice in
           Result.return @@ (choice :: state.content)
     in
-    { state with State.current = `Listening; content }
+    { state with State.current = Listening; content }
 
   let sell (state : state) ~(buying_order : Order.t) =
     let open Result.Infix in
     match SellReason.make ~buying_order state with
     | None ->
         Result.return
-        @@ { state with State.current = `Listening; content = [ buying_order ] }
+        @@ { state with State.current = Listening; content = [ buying_order ] }
     | Some reason ->
         let order = Order.of_sell_reason ~buying_order state reason in
         let* () = Backend.place_order state order in
@@ -136,7 +136,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
           List.filter (fun x -> not @@ Order.equal x buying_order) state.content
         in
         Result.return
-        @@ { state with State.current = `Listening; content = new_content }
+        @@ { state with State.current = Listening; content = new_content }
 
   let sell_fold state buying_order =
     let ( let* ) = Result.( let* ) in
@@ -149,9 +149,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
     let current = state.current in
     (* Eio.traceln "@[buylowbollinger: %a@]@." State.pp_state current; *)
     match current with
-    | #State.nonlogical_state as current ->
-        SU.handle_nonlogical_state current state
-    | `Ordering -> (
+    | Ordering -> (
         let positions = state.content in
         let length = List.length positions in
         (* Eio.traceln "%d positions" length; *)
@@ -163,6 +161,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
             let* purchase = buy sold_high in
             Result.return purchase
         | _ -> List.fold_left sell_fold (Ok state) state.content)
+    | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step
 end

@@ -245,7 +245,7 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
           Result.return @@ DT_Status.Placed (0, order)
     in
     Result.return
-    @@ { state with State.current = `Listening; content = new_status }
+    @@ { state with State.current = Listening; content = new_status }
 
   let cover_position ~(state : state) time_held (shorting_order : Order.t) =
     let ( let* ) = Result.( let* ) in
@@ -277,17 +277,13 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
                ~price:current_price ~timestamp ~reason ~profit:(Some profit)
         in
         Result.return
-        @@ {
-             state with
-             State.current = `Listening;
-             content = DT_Status.Waiting;
-           }
+        @@ { state with State.current = Listening; content = DT_Status.Waiting }
     | Hold ->
         (* Eio.traceln "@[Holding...@]@."; *)
         Result.return
         @@ {
              state with
-             State.current = `Listening;
+             State.current = Listening;
              content = DT_Status.Placed (time_held + 1, shorting_order);
            }
 
@@ -295,13 +291,12 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
     let current = state.current in
     (* Eio.traceln "@[%a@]@." State.pp_state current; *)
     match current with
-    | #State.nonlogical_state as current ->
-        SU.handle_nonlogical_state current state
-    | `Ordering -> (
+    | Ordering -> (
         (* Eio.traceln "@[%a@]@." DT_Status.pp state.content; *)
         match state.content with
         | Waiting -> place_short ~state
         | Placed (time_held, order) -> cover_position ~state time_held order)
+    | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step
 end

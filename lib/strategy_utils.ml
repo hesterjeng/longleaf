@@ -68,15 +68,16 @@ module Make (Backend : Backend_intf.S) = struct
 
   let counter = ref 0
 
-  let run ~init_state step : float =
+  let run ~init_state step =
     let rec go prev =
       let stepped = step prev in
       match stepped with
       | Ok x -> go x
-      | Error s -> (
+      | Error e -> (
           let try_liquidating () =
             Eio.traceln
-              "@[Trying to liquidate because of a signal or error: %s@]@." s;
+              "@[Trying to liquidate because of a signal or error: %a@]@."
+              Error.pp e;
             let liquidate = { prev with State.current = Liquidate } in
             go liquidate
           in
@@ -86,7 +87,11 @@ module Make (Backend : Backend_intf.S) = struct
               Backend.get_cash ()
           | _ -> try_liquidating ())
     in
-    go init_state
+    match init_state with
+    | Ok init_state -> go init_state
+    | Error e ->
+        Eio.traceln "[error] %a" Error.pp e;
+        0.0
 
   let get_filename () = Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
 
@@ -111,11 +116,11 @@ module Make (Backend : Backend_intf.S) = struct
       close_out oc)
     else ()
 
-  let handle_nonlogical_state (current : State.state) (state : _ State.t) =
+  let handle_nonlogical_state (state : _ State.t) =
     let ( let* ) = Result.( let* ) in
     (* Eio.traceln "There are %d bindings in state.bars" *)
     (*   (Bars.Hashtbl.length state.bars); *)
-    match current with
+    match state.current with
     | Initialize ->
         Eio.traceln "Initialize state...";
         let symbols_str = String.concat "," Backend.symbols in
@@ -176,8 +181,8 @@ module Make (Backend : Backend_intf.S) = struct
         Result.return { state with current = Listening }
     | Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
-        Vector.iter (fun order -> Bars.add_order order state.bars)
-        @@ Pmutex.get mutices.orders_mutex;
+        List.iter (fun order -> Bars.add_order order state.bars)
+        @@ Order_history.all (Pmutex.get mutices.orders_mutex);
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
         in
