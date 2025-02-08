@@ -33,6 +33,7 @@ val make :
 
 val timestamp : t -> Time.t
 val cmp_profit : t Ord.t
+val cmp_timestamp : t Ord.t
 
 (* val default_buy : *)
 (*   ?profit:float -> *)
