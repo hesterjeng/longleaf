@@ -33,11 +33,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let overnight = Input.options.overnight
   let save_received = context.save_received
 
-  let place_order state (order : Order.t) =
+  let place_order _state (order : Order.t) =
     let ( let* ) = Result.( let* ) in
     Eio.traceln "@[%a@]@." Order.pp order;
-    let* state = Backend_position.execute_order state order in
-    Result.return state
+    let* () = Backend_position.execute_order order in
+    Result.return ()
 
   (* Ordered in reverse time order when INPUT is created *)
   let data_remaining =
@@ -100,9 +100,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
     (* invalid_arg "debug" *)
     res
 
-  let liquidate state =
+  let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let* last = last_data_bar in
-    let* state = Backend_position.liquidate state last in
-    Ok state
+    let* () = Backend_position.liquidate state.tick last in
+    Ok ()
 end
