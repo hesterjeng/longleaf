@@ -57,13 +57,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let init_state content =
     let ( let* ) = Result.( let* ) in
-    let* account_status =
-      Trading_api.Accounts.get_account ()
-      (* | Ok x -> x *)
-      (* | Error e -> *)
-      (*     Eio.traceln "alpaca_backend: error getting account status"; *)
-      (*     invalid_arg e *)
-    in
+    let* account_status = Trading_api.Accounts.get_account () in
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     let account_cash = account_status.cash in
@@ -76,9 +70,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
          latest = Bars.Latest.empty ();
          content;
          stats = Stats.empty;
-         order_history = Vector.create ();
+         order_history = Order_history.empty;
          indicators = Indicators.empty ();
-         (* active_orders = []; *)
        }
 
   let next_market_open () =

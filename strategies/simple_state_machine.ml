@@ -3,28 +3,24 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
 
   let shutdown = Backend.shutdown
 
-  type state = unit State.t
-
-  let init_state : state =
-    {
-      State.current = `Initialize;
-      bars = Bars.empty ();
-      latest = Bars.Latest.empty ();
-      content = ();
-      tick = 0;
-      stats = Stats.empty;
-      order_history = Vector.create ();
-      active_orders = [];
-      indicators = Indicators.empty ();
-    }
+  let init_state =
+    Result.return
+    @@ {
+         State.current = Initialize;
+         bars = Bars.empty ();
+         latest = Bars.Latest.empty ();
+         content = ();
+         tick = 0;
+         stats = Stats.empty;
+         order_history = Order_history.empty;
+         indicators = Indicators.empty ();
+       }
 
   module SU = Strategy_utils.Make (Backend)
 
   let step (state : 'a State.t) =
     match state.current with
-    | #State.nonlogical_state as current ->
-        SU.handle_nonlogical_state current state
-    | `Ordering ->
+    | Ordering ->
         let msft = Bars.Latest.get state.latest "MSFT" in
         let nvda = Bars.Latest.get state.latest "NVDA" in
         let cash_available = Backend.get_cash () in
@@ -55,7 +51,8 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
             let _json_resp = Backend.place_order state order in
             ()
         in
-        Result.return @@ { state with current = `Listening }
+        Result.return @@ { state with current = Listening }
+    | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step
 end
