@@ -20,3 +20,13 @@ let add (order_history : t) order = Vector.push order_history order
 (*   let times = Vector.to_list @@ Vector.map Order.timestamp x in *)
 (*   let closest_time = Time.find_closest time times in *)
 (*   Vector.find (fun order -> Ptime.equal (Order.timestamp order) closest_time) x *)
+
+module V2 = struct
+
+  type t =
+    {
+      inactive : Order.t list;
+      active : Order.t list;
+    }
+
+end
