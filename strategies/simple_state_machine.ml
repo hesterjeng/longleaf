@@ -12,7 +12,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
          content = ();
          tick = 0;
          stats = Stats.empty;
-         order_history = Order_history.empty;
+         order_history = Order.History.empty;
          indicators = Indicators.empty ();
        }
 

@@ -15,8 +15,8 @@ let compare x y = Ptime.compare x.time y.time
 let sort (x : t) = List.sort compare x
 
 (* FIXME: This seems strange, why are we converting to an array and then unconverting? *)
-let add_orders (h : Order_history.t) (x : t) =
-  let orders = Order_history.all h in
+let add_orders (h : Order.History.t) (x : t) =
+  let orders = Order.History.all h in
   let stats_array = Array.of_list x in
   let stats_times = Array.map (fun x -> x.time) stats_array |> Array.to_list in
   let () =
