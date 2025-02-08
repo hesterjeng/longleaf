@@ -17,6 +17,7 @@ type 'a t = {
   order_history : Order.History.t;
   (* List of statistics about portfolio value in reverse order *)
   stats : Stats.t;
+  positions : Backend_position.t;
   (* These are mutable hashtables tracking data *)
   indicators : Indicators.t;
   (* Historical data *)

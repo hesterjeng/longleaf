@@ -2,7 +2,7 @@ open Backend_intf
 
 module Make (Input : BACKEND_INPUT) : S = struct
   (* module Ticker = Ticker.Instant *)
-  module Backend_position = Backend_position.Generative ()
+  (* module Backend_position = Backend_position.Generative () *)
   module Input = Input
 
   let get_trading_client _ = Result.fail @@ `MissingClient "Trading"
@@ -19,7 +19,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          stats = Stats.empty;
          order_history = Order.History.empty;
          indicators = Indicators.empty ();
-         (* active_orders = []; *)
+         positions = Backend_position.make () (* active_orders = []; *);
        }
 
   let context = Input.options.context
@@ -33,11 +33,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let overnight = Input.options.overnight
   let save_received = context.save_received
 
-  let place_order _state (order : Order.t) =
+  let place_order (state : 'a State.t) (order : Order.t) =
     let ( let* ) = Result.( let* ) in
     Eio.traceln "@[%a@]@." Order.pp order;
-    let* () = Backend_position.execute_order order in
-    Result.return ()
+    let* new_state = Backend_position.execute_order state.positions order in
+    Result.return new_state
 
   (* Ordered in reverse time order when INPUT is created *)
   let data_remaining =
@@ -103,6 +103,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let* last = last_data_bar in
-    let* () = Backend_position.liquidate state.tick last in
+    let* new_state = Backend_position.liquidate state.positions last in
     Ok ()
 end
