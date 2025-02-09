@@ -84,7 +84,7 @@ module Make (Backend : Backend_intf.S) = struct
           match prev.current with
           | Liquidate | Finished _ ->
               Eio.traceln "@[Exiting run.@]@.";
-              Backend.get_cash ()
+              Backend_position.get_cash prev.positions
           | _ -> try_liquidating ())
     in
     match init_state with
@@ -140,7 +140,7 @@ module Make (Backend : Backend_intf.S) = struct
             Eio.traceln "Tick time: %a" Time.pp time;
             Indicators.add_latest Input.options.indicators_config time
               state.bars latest state.indicators;
-            let value = Backend.Backend_position.value latest in
+            let value = Backend_position.value state.positions latest in
             let risk_free_value =
               Stats.risk_free_value state.stats Input.options.tick
             in
@@ -157,7 +157,7 @@ module Make (Backend : Backend_intf.S) = struct
                        value;
                        orders = [];
                        risk_free_value;
-                       cash = Backend.get_cash ();
+                       cash = Backend_position.get_cash state.positions;
                      }
                      state.stats;
                }
@@ -172,11 +172,11 @@ module Make (Backend : Backend_intf.S) = struct
               "Strategies.handle_nonlogical_state: unhandled return value from \
                listen_tick")
     | Liquidate ->
-        let* () = Backend.liquidate state in
+        let* state = Backend.liquidate state in
         Result.return
         @@ { state with current = Finished "Liquidation finished" }
     | LiquidateContinue ->
-        let* () = Backend.liquidate state in
+        let* state = Backend.liquidate state in
         Ticker.tick ~runtype Backend.env 600.0;
         Result.return { state with current = Listening }
     | Finished code ->

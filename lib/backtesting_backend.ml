@@ -29,15 +29,14 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let symbols = Input.options.symbols
   let is_backtest = true
   let shutdown () = ()
-  let get_cash = Backend_position.get_cash
   let overnight = Input.options.overnight
   let save_received = context.save_received
 
   let place_order (state : 'a State.t) (order : Order.t) =
     let ( let* ) = Result.( let* ) in
     Eio.traceln "@[%a@]@." Order.pp order;
-    let* new_state = Backend_position.execute_order state.positions order in
-    Result.return new_state
+    let* new_positions = Backend_position.execute_order state.positions order in
+    Result.return { state with positions = new_positions }
 
   (* Ordered in reverse time order when INPUT is created *)
   let data_remaining =
@@ -103,6 +102,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let* last = last_data_bar in
-    let* new_state = Backend_position.liquidate state.positions last in
-    Ok ()
+    let* new_positions = Backend_position.liquidate state.positions last in
+    Result.return @@ { state with positions = new_positions }
 end

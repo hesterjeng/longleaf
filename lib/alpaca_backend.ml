@@ -6,11 +6,9 @@ let apca_api_data_url = Uri.of_string "https://data.alpaca.markets/v2"
 module Make (Input : BACKEND_INPUT) : S = struct
   open Trading_types
   module Backtesting = Backtesting_backend.Make (Input)
-  module Backend_position = Backtesting.Backend_position
   module Input = Input
 
   let context = Input.options.context
-  let get_cash = Backend_position.get_cash
   let env = context.eio_env
   let runtype = context.runtype
   let overnight = Input.options.overnight
@@ -61,12 +59,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     let account_cash = account_status.cash in
-    Backend_position.set_cash account_cash;
+    let positions = Backend_position.make () |> fun p -> Backend_position.set_cash p account_cash in
     Result.return
     @@ {
          State.current = Initialize;
          bars = Input.bars;
          tick = 0;
+         positions;
          latest = Bars.Latest.empty ();
          content;
          stats = Stats.empty;
@@ -102,7 +101,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let latest_bars symbols =
     let ( let* ) = Result.( let* ) in
     let* account = Trading_api.Accounts.get_account () in
-    let backend_cash = Backend_position.get_cash () in
+    let backend_cash = Backend_position.get_cash in
     if not @@ Float.equal backend_cash account.cash then
       Eio.traceln "[alpaca_backend] Backend cash: %f Alpaca cash: %f"
         (Backend_position.get_cash ())
