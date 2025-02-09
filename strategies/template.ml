@@ -55,7 +55,7 @@ module Make
 
   let buy (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    let held_symbols = Backend.Backend_position.symbols () in
+    let held_symbols = Backend_position.symbols state.positions in
     let potential_buys =
       (* Get the potential symbols to purchase and don't rebuy into ones we already hold *)
       Buy.make state Backend.symbols
@@ -74,7 +74,7 @@ module Make
       match selected with
       | [] -> Result.return state
       | selected ->
-          let current_cash = Backend.get_cash () in
+          let current_cash = Backend_position.get_cash state.positions in
           let pct =
             match List.length selected with
             | 1 -> 1.0
@@ -97,8 +97,8 @@ module Make
                     ~tick:state.tick ~order_type:Market ~qty ~price ~reason
                     ~timestamp ~profit:None
                 in
-                let* () = Backend.place_order state order in
-                Result.return state
+                let* new_state = Backend.place_order state order in
+                Result.return new_state
           in
           List.fold_left place_order (Ok state) selected
     in
@@ -124,7 +124,7 @@ module Make
               @@ (Float.of_int buying_order.qty *. (price -. buying_order.price))
               )
         in
-        let* () = Backend.place_order state order in
+        let* state = Backend.place_order state order in
         Result.return @@ State.listen state
 
   let sell_fold state buying_order =
