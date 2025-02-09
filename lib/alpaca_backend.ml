@@ -59,7 +59,10 @@ module Make (Input : BACKEND_INPUT) : S = struct
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
     let account_cash = account_status.cash in
-    let positions = Backend_position.make () |> fun p -> Backend_position.set_cash p account_cash in
+    let positions =
+      Backend_position.make () |> fun p ->
+      Backend_position.set_cash p account_cash
+    in
     Result.return
     @@ {
          State.current = Initialize;
@@ -100,13 +103,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let latest_bars symbols =
     let ( let* ) = Result.( let* ) in
-    let* account = Trading_api.Accounts.get_account () in
-    let backend_cash = Backend_position.get_cash in
-    if not @@ Float.equal backend_cash account.cash then
-      Eio.traceln "[alpaca_backend] Backend cash: %f Alpaca cash: %f"
-        (Backend_position.get_cash ())
-        account.cash;
-    Backend_position.set_cash account.cash;
+    (* let* account = Trading_api.Accounts.get_account () in *)
+    (* let backend_cash = Backend_position.get_cash in *)
+    (* if not @@ Float.equal backend_cash account.cash then *)
+    (*   Eio.traceln "[alpaca_backend] Backend cash: %f Alpaca cash: %f" *)
+    (*     (Backend_position.get_cash ()) *)
+    (*     account.cash; *)
+    (* Backend_position.set_cash account.cash; *)
     match symbols with
     | [] ->
         Eio.traceln "No symbols in latest bars request.";
