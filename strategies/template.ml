@@ -62,6 +62,7 @@ module Make
       |> Buy.make state
     in
     let num_held_currently = List.length @@ state.order_history.active in
+    Eio.traceln "%d %d" Buy.num_positions num_held_currently;
     assert (Buy.num_positions >= 0);
     assert (Buy.num_positions >= num_held_currently);
     let selected =
@@ -125,7 +126,7 @@ module Make
               )
         in
         let* state = Backend.place_order state order in
-        let state = State.deactivate_order state order in
+        let state = State.deactivate_order state buying_order in
         Result.return @@ State.listen state
 
   let sell_fold state buying_order =
