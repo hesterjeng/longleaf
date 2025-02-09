@@ -10,6 +10,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
          bars = Bars.empty ();
          latest = Bars.Latest.empty ();
          content = ();
+         positions = Backend_position.make ();
          tick = 0;
          stats = Stats.empty;
          order_history = Order.History.empty;
@@ -23,7 +24,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
     | Ordering ->
         let msft = Bars.Latest.get state.latest "MSFT" in
         let nvda = Bars.Latest.get state.latest "NVDA" in
-        let cash_available = Backend.get_cash () in
+        let cash_available = Backend_position.get_cash state.positions in
         let qty =
           match cash_available >=. 0.0 with
           | true ->

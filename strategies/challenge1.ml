@@ -65,7 +65,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
       let ( let+ ) = Option.( let+ ) in
       match x with
       | { symbol; _ } ->
-          let current_cash = Backend.get_cash () in
+          let current_cash = Backend_position.get_cash state.positions in
           let item = Bars.Latest.get state.latest symbol in
           let side = Side.Buy in
           let tif = TimeInForce.GoodTillCanceled in
@@ -131,14 +131,14 @@ module Make (Backend : Backend.S) : Strategy.S = struct
         None passes
       |> fun selection -> Option.bind selection (Order.of_buy_reason state)
     in
-    let+ content =
+    let+ state =
       match selected with
-      | None -> Ok state.content
+      | None -> Ok state
       | Some choice ->
-          let* () = Backend.place_order state choice in
-          Result.return @@ (choice :: state.content)
+          let* state = Backend.place_order state choice in
+          Result.return @@ { state with content = choice :: state.content }
     in
-    { state with State.current = Listening; content }
+    { state with State.current = Listening }
 
   let sell (state : state) ~(buying_order : Order.t) =
     let open Result.Infix in
@@ -148,7 +148,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
         @@ { state with State.current = Listening; content = [ buying_order ] }
     | Some reason ->
         let order = Order.of_sell_reason ~buying_order state reason in
-        let* () = Backend.place_order state order in
+        let* state = Backend.place_order state order in
         let new_content =
           List.filter (fun x -> not @@ Order.equal x buying_order) state.content
         in

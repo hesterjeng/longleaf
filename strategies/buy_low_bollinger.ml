@@ -171,7 +171,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
   (* The maximum amount of a share that can be purchased at the current price with *)
   (*  pct of cash available *)
   let qty (state : state) pct symbol =
-    let cash_available = Backend.get_cash () in
+    let cash_available = Backend_position.get_cash state.positions in
     match cash_available >=. 0.0 with
     | true ->
         let tenp = cash_available *. pct in
@@ -204,15 +204,14 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
           possibilities
     in
     let choice = List.head_opt random_drop in
-    let* new_status =
+    let* state =
       match choice with
-      | None -> Ok state.content
+      | None -> Ok state
       | Some (order, _) ->
-          let* () = Backend.place_order state order in
-          Result.return @@ DT_Status.Placed (0, order)
+          let* state = Backend.place_order state order in
+          Result.return @@ { state with content = DT_Status.Placed (0, order) }
     in
-    Result.return
-    @@ { state with State.current = Listening; content = new_status }
+    Result.return @@ { state with State.current = Listening }
 
   let exit_position ~(state : state) time_held (buying_order : Order.t) =
     let ( let* ) = Result.( let* ) in
@@ -235,7 +234,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
           :: buying_order.reason
         in
         (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
-        let* () =
+        let* state =
           Backend.place_order state
           @@ Order.make ~symbol:buying_order.symbol ~side:Side.Sell
                ~tick:state.tick ~tif:buying_order.tif
