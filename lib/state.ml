@@ -34,7 +34,24 @@ let record_order state order =
   let new_h = Order.History.add state.order_history order in
   { state with order_history = new_h }
 
-let active_orders state = state.order_history.active
+let activate_order state order =
+  let new_h =
+    { state.order_history with active = order :: state.order_history.active }
+  in
+  { state with order_history = new_h }
+
+let deactivate_order state order =
+  let new_h =
+    {
+      state.order_history with
+      active =
+        List.filter
+          (fun x -> not @@ Order.equal x order)
+          state.order_history.active;
+    }
+  in
+  { state with order_history = new_h }
+
 let map (f : 'a -> 'b) (x : 'a t) = { x with content = f x.content }
 let ( >|= ) x f = map f x
 let ( let+ ) = ( >|= )
