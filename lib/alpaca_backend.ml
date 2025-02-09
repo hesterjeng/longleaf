@@ -141,12 +141,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    let symbols = Backend_position.symbols () in
+    let symbols = Backend_position.symbols state.positions in
     let* last_data_bar = latest_bars symbols in
-    let _ =
-      List.iter
-        (fun symbol ->
-          let qty = Backend_position.qty symbol in
+    let* liquidated_state =
+      List.fold_left
+        (fun prev symbol ->
+          let* prev = prev in
+          let qty = Backend_position.qty state.positions symbol in
           assert (qty <> 0);
           let latest_info = Bars.Latest.get last_data_bar symbol in
           let order : Order.t =
@@ -159,13 +160,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
             Order.make ~symbol ~tick:state.tick ~side ~tif ~order_type ~qty
               ~price ~timestamp ~profit:None ~reason:[ "Liquidate" ]
           in
-          (* Eio.traceln "%a" Order.pp order; *)
-          let _json_resp = place_order state order in
-          ())
-        symbols
+          place_order prev order)
+        (Ok state) symbols
     in
     let* account_status = Trading_api.Accounts.get_account () in
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
-    Ok ()
+    Ok liquidated_state
 end
