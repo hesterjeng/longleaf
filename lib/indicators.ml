@@ -391,7 +391,9 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     Bars.get bars symbol |> function
     | Some x -> x
     | None ->
-        Eio.traceln "No bars for %s when making indicators?" symbol;
+        let stats = Hashtbl.length bars in
+        Eio.traceln "No bars for %s when making indicators? %d" symbol stats;
+        Eio.traceln "%a" Bars.pp bars;
         Vector.create ()
   in
   let indicators_vector =
