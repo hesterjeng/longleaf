@@ -49,7 +49,7 @@ let average_trade_net (h : Order.History.t) =
       (fun (x : Order.t) ->
         let+ profit = x.profit in
         profit)
-      h.inactive
+      h.all
     |> Array.of_list
   in
   Owl_stats.mean nets
@@ -61,7 +61,7 @@ let average_profit (h : Order.History.t) =
       (fun (x : Order.t) ->
         let* profit = x.profit in
         match profit >=. 0.0 with true -> Some profit | false -> None)
-      h.inactive
+      h.all
     |> Array.of_list
   in
   Owl_stats.mean nets
@@ -73,7 +73,7 @@ let average_loss (h : Order.History.t) =
       (fun (x : Order.t) ->
         let* profit = x.profit in
         match profit <=. 0.0 with true -> Some profit | false -> None)
-      h.inactive
+      h.all
     |> Array.of_list
   in
   Owl_stats.mean nets
@@ -92,7 +92,7 @@ let profit_factor (h : Order.History.t) =
         | None -> acc
         | Some f when f >=. 0.0 -> acc +. f
         | _ -> acc)
-      0.0 h.inactive
+      0.0 h.all
   in
   let losses =
     List.fold_left
@@ -101,13 +101,13 @@ let profit_factor (h : Order.History.t) =
         | None -> acc
         | Some f when f <=. 0.0 -> acc +. f
         | _ -> acc)
-      0.0 h.inactive
+      0.0 h.all
   in
   profits /. (-1.0 *. losses)
 
 let biggest (h : Order.History.t) =
   let sorted =
-    h.inactive
+    h.all
     |> List.filter_map (fun (o : Order.t) ->
            match o.profit with Some _ -> Some o | None -> None)
     |> List.sort Order.cmp_profit
