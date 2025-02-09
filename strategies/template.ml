@@ -61,7 +61,7 @@ module Make
         Backend.symbols
       |> Buy.make state
     in
-    let num_held_currently = List.length @@ State.active_orders state in
+    let num_held_currently = List.length @@ state.order_history.active in
     assert (Buy.num_positions >= 0);
     assert (Buy.num_positions >= num_held_currently);
     let selected =
@@ -96,8 +96,9 @@ module Make
                     ~tick:state.tick ~order_type:Market ~qty ~price ~reason
                     ~timestamp ~profit:None
                 in
-                let* new_state = Backend.place_order state order in
-                Result.return new_state
+                let* state = Backend.place_order state order in
+                let state = State.activate_order state order in
+                Result.return state
           in
           List.fold_left place_order (Ok state) selected
     in
@@ -124,6 +125,7 @@ module Make
               )
         in
         let* state = Backend.place_order state order in
+        let state = State.deactivate_order state order in
         Result.return @@ State.listen state
 
   let sell_fold state buying_order =
@@ -137,7 +139,7 @@ module Make
     match state.current with
     | Ordering ->
         let* sold_state =
-          List.fold_left sell_fold (Ok state) @@ State.active_orders state
+          List.fold_left sell_fold (Ok state) state.order_history.active
         in
         let* complete = buy sold_state in
         Result.return { complete with tick = complete.tick + 1 }
