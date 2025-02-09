@@ -55,12 +55,11 @@ module Make
 
   let buy (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    let held_symbols = Backend_position.symbols state.positions in
     let potential_buys =
-      (* Get the potential symbols to purchase and don't rebuy into ones we already hold *)
-      Buy.make state Backend.symbols
-      |> List.filter (fun (x : Signal.t) ->
-             not @@ List.mem x.symbol held_symbols)
+      List.filter
+        (fun s -> not @@ Backend_position.mem state.positions s)
+        Backend.symbols
+      |> Buy.make state
     in
     let num_held_currently = List.length @@ State.active_orders state in
     assert (Buy.num_positions >= 0);

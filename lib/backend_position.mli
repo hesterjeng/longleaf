@@ -8,3 +8,4 @@ val set_cash : t -> float -> t
 val symbols : t -> string list
 val qty : t -> string -> int
 val value : t -> Bars.Latest.t -> float
+val mem : t -> string -> bool

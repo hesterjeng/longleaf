@@ -182,7 +182,7 @@ module Make (Backend : Backend_intf.S) = struct
     | Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
         List.iter (fun order -> Bars.add_order order state.bars)
-        @@ Order.History.all (Pmutex.get mutices.orders_mutex);
+        @@ (Pmutex.get mutices.orders_mutex).all;
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
         in
