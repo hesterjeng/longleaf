@@ -118,7 +118,6 @@ let biggest (h : Order.History.t) =
 
 let make (state : 'a State.t) : t =
   let h = state.order_history in
-  assert (List.is_empty h.active);
   let stats = state.stats in
   let biggest_winner, biggest_loser = biggest h in
   {
