@@ -116,6 +116,30 @@ module Make (Backend : Backend_intf.S) = struct
       close_out oc)
     else ()
 
+  let update_continue (state : 'a State.t) =
+    let ( let* ) = Result.( let* ) in
+    let* latest = Backend.latest_bars Backend.symbols in
+    let* time = Bars.Latest.timestamp latest in
+    Eio.traceln "Tick time: %a" Time.pp time;
+    Indicators.add_latest Input.options.indicators_config time state.bars latest
+      state.indicators;
+    let value = Backend_position.value state.positions latest in
+    let risk_free_value =
+      Stats.risk_free_value state.stats Input.options.tick
+    in
+    let new_stats =
+      Stats.append
+        {
+          time;
+          value;
+          orders = [];
+          risk_free_value;
+          cash = Backend_position.get_cash state.positions;
+        }
+        state.stats
+    in
+    Result.return @@ { state with latest; stats = new_stats }
+
   let handle_nonlogical_state (state : _ State.t) =
     let ( let* ) = Result.( let* ) in
     (* Eio.traceln "There are %d bindings in state.bars" *)
@@ -135,32 +159,8 @@ module Make (Backend : Backend_intf.S) = struct
         let* listened = listen_tick () in
         match listened with
         | Continue ->
-            let* latest = Backend.latest_bars Backend.symbols in
-            let* time = Bars.Latest.timestamp latest in
-            Eio.traceln "Tick time: %a" Time.pp time;
-            Indicators.add_latest Input.options.indicators_config time
-              state.bars latest state.indicators;
-            let value = Backend_position.value state.positions latest in
-            let risk_free_value =
-              Stats.risk_free_value state.stats Input.options.tick
-            in
-            Bars.append latest state.bars;
-            Result.return
-            @@ {
-                 state with
-                 current = Ordering;
-                 latest;
-                 stats =
-                   Stats.append
-                     {
-                       time;
-                       value;
-                       orders = [];
-                       risk_free_value;
-                       cash = Backend_position.get_cash state.positions;
-                     }
-                     state.stats;
-               }
+            let* state = update_continue state in
+            Result.return @@ { state with current = Ordering }
         | BeginShutdown ->
             Eio.traceln "Attempting to liquidate positions before shutting down";
             Result.return { state with current = Liquidate }
@@ -194,6 +194,7 @@ module Make (Backend : Backend_intf.S) = struct
         output_order_history state filename;
         let tearsheet = Tearsheet.make state in
         Eio.traceln "%a" Tearsheet.pp tearsheet;
+        assert (Backend_position.is_empty state.positions);
         Result.fail @@ `Finished code
     | _ ->
         invalid_arg
