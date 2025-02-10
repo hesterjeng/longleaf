@@ -33,7 +33,6 @@ let sharpe_ratio (stats : Stats.t) =
     |> Option.get_exn_or
          "stats.ml: Expected to get final element of stats in backtest"
   in
-  Eio.traceln "%a" Stats.pp_item final;
   let values =
     List.map (fun (x : Stats.item) -> x.value -. x.risk_free_value) stats
     |> Array.of_list
