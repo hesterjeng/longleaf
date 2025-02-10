@@ -73,7 +73,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
   (* let lower_bb = I.get_indicator state.indicators symbol P.lower_bollinger in *)
   (* lower_bb /. price *)
 
-  let num_positions = 1
+  let num_positions = 3
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)

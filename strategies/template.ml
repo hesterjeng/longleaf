@@ -62,8 +62,8 @@ module Make
       |> Buy.make state
     in
     let num_held_currently = List.length @@ state.order_history.active in
-    Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp)
-      state.order_history.active;
+    (* Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp) *)
+    (*   state.order_history.active; *)
     assert (Buy.num_positions >= 0);
     assert (Buy.num_positions >= num_held_currently);
     let selected =
