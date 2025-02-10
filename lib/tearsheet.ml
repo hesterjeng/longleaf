@@ -115,6 +115,16 @@ let biggest (h : Order.History.t) =
   let biggest_winner = List.last_opt sorted in
   (biggest_winner, biggest_loser)
 
+let annualized_value (state : 'a State.t) =
+  (* 23400 seconds per trading day *)
+  (* 251 trading days per year *)
+  (* ~ 5873400 trading seconds per year *)
+  let ticks_per_year = 5873400 |> Float.of_int in
+  let ending_tick = state.tick |> Float.of_int in
+  let cash = Backend_position.get_cash state.positions in
+  assert (Backend_position.is_empty state.positions);
+  cash /. ending_tick *. ticks_per_year
+
 let make (state : 'a State.t) : t =
   let h = state.order_history in
   let stats = state.stats in
