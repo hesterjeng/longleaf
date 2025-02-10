@@ -28,6 +28,9 @@ let value pos (latest : Bars.Latest.t) =
   let symbol_value = Float.of_int qty *. symbol_price in
   symbol_value +. previous_value
 
+let is_empty (x : t) =
+  Hashtbl.fold (fun _ qty acc -> acc && qty = 0) x.position true
+
 let mem (x : t) symbol =
   let found = Hashtbl.get x.position symbol in
   match found with Some 0 | None -> false | Some _ -> true
