@@ -7,6 +7,8 @@ type t = {
   average_loss : float;
   stddev_returns : float;
   profit_factor : float;
+  annualized_value_naive : float;
+  compound_growth_rate : float;
   biggest_winner : Order.t option;
   biggest_loser : Order.t option;
 }
@@ -115,7 +117,7 @@ let biggest (h : Order.History.t) =
   let biggest_winner = List.last_opt sorted in
   (biggest_winner, biggest_loser)
 
-let annualized_value (state : 'a State.t) =
+let annualized_value_naive (state : 'a State.t) =
   (* 23400 seconds per trading day *)
   (* 251 trading days per year *)
   (* ~ 5873400 trading seconds per year *)
@@ -124,6 +126,18 @@ let annualized_value (state : 'a State.t) =
   let cash = Backend_position.get_cash state.positions in
   assert (Backend_position.is_empty state.positions);
   cash /. ending_tick *. ticks_per_year
+
+let compound_growth_rate (state : 'a State.t) =
+  (* 23400 seconds per trading day *)
+  (* 251 trading days per year *)
+  (* ~ 5873400 trading seconds per year *)
+  let _ticks_per_year = 5873400 |> Float.of_int in
+  let ending_tick = state.tick |> Float.of_int in
+  let cash = Backend_position.get_cash state.positions in
+  let ( ^ ) = Owl_maths.pow in
+  let cgr = ((cash /. 100000.0) ^ (1.0 /. ending_tick)) -. 1.0 in
+  assert (Backend_position.is_empty state.positions);
+  cgr
 
 let make (state : 'a State.t) : t =
   let h = state.order_history in
@@ -136,6 +150,8 @@ let make (state : 'a State.t) : t =
     average_trade_net = average_trade_net h;
     average_profit = average_profit h;
     average_loss = average_loss h;
+    annualized_value_naive = annualized_value_naive state;
+    compound_growth_rate = compound_growth_rate state;
     profit_factor = profit_factor h;
     stddev_returns = stddev_returns stats;
     biggest_winner;
