@@ -59,7 +59,7 @@ module History = struct
     let l = h.all in
     `List (List.map yojson_of_t l)
 
-  let add x order = { x with active = order :: x.active }
+  let add x order = { x with all = order :: x.all }
   let empty = { all = []; active = [] }
   let length h = List.length h.all
 end

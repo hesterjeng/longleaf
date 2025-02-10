@@ -5,8 +5,5 @@ elisp/flycheck_top.el
 lib/javascript/css.css
 lib/javascript/plotly_latest.css
 dune-odep.svg
-data/sp100-12-2023.json
-data/sp100-2024.json
-data/24.json
-data/dec23.json
+data/*.json
 _html/
