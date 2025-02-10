@@ -114,6 +114,7 @@ module Make (Alpaca : Util.CLIENT) = struct
     [@@yojson.allow_extra_fields]
 
     let create_market_order (order : Order.t) =
+      let ( let+ ) = Result.( let+ ) in
       let endpoint = "/v2/orders" in
       let body =
         `Assoc
@@ -146,7 +147,16 @@ module Make (Alpaca : Util.CLIENT) = struct
               @@ `FatalError
                    "Error converting create_market_order response body to \
                     string")
-      | _ ->
+      | s ->
+          Eio.traceln "@[[error] Status %a in create_market_order@]@."
+            Status.pp_hum s;
+          Eio.traceln "@[Order: %a@]@." Order.pp order;
+          let _ =
+            let+ account = Accounts.get_account () in
+            Eio.traceln "@[Account: %a@]@." Accounts.pp account;
+            let+ body = Response.body response |> Piaf.Body.to_string in
+            Eio.traceln "@[Body: %s@]@." body
+          in
           Eio.traceln "@[Response: %a@]@." Response.pp_hum response;
           Result.fail @@ `FatalError "Bad response in create_market_order"
 
