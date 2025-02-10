@@ -106,7 +106,7 @@ module Sell : Template.Sell_trigger.S = struct
     (* in *)
     let conditions =
       [
-        (match i.fast_stochastic_oscillator_d >=. 60.0 with
+        (match i.fast_stochastic_oscillator_d >=. 80.0 with
         | true -> F.Pass [ "high %D" ]
         | false -> F.Fail [ "low %D" ]);
         (* (match price <=. Param.stop_loss_multiplier *. buying_order.price with *)
