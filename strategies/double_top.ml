@@ -219,7 +219,7 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
   (* The maximum amount of a share that can be purchased at the current price with *)
   (*  pct of cash available *)
   let qty (state : state) pct symbol =
-    let cash_available = Backend.get_cash () in
+    let cash_available = Backend_position.get_cash state.positions in
     match cash_available >=. 0.0 with
     | true ->
         let tenp = cash_available *. pct in
@@ -237,15 +237,14 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
     in
     let possibilities = List.map short_opt Backend.symbols in
     let choice = Option.choice possibilities in
-    let* new_status =
+    let* state =
       match choice with
-      | None -> Ok state.content
+      | None -> Ok state
       | Some order ->
-          let* () = Backend.place_order state order in
-          Result.return @@ DT_Status.Placed (0, order)
+          let* state = Backend.place_order state order in
+          Result.return @@ { state with content = DT_Status.Placed (0, order) }
     in
-    Result.return
-    @@ { state with State.current = `Listening; content = new_status }
+    Result.return @@ State.listen state
 
   let cover_position ~(state : state) time_held (shorting_order : Order.t) =
     let ( let* ) = Result.( let* ) in
@@ -269,7 +268,7 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
           :: shorting_order.reason
         in
         (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
-        let* () =
+        let* state =
           Backend.place_order state
           @@ Order.make ~tick:state.tick ~symbol:shorting_order.symbol
                ~side:Side.Buy ~tif:shorting_order.tif
@@ -277,17 +276,13 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
                ~price:current_price ~timestamp ~reason ~profit:(Some profit)
         in
         Result.return
-        @@ {
-             state with
-             State.current = `Listening;
-             content = DT_Status.Waiting;
-           }
+        @@ { state with State.current = Listening; content = DT_Status.Waiting }
     | Hold ->
         (* Eio.traceln "@[Holding...@]@."; *)
         Result.return
         @@ {
              state with
-             State.current = `Listening;
+             State.current = Listening;
              content = DT_Status.Placed (time_held + 1, shorting_order);
            }
 
@@ -295,13 +290,12 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
     let current = state.current in
     (* Eio.traceln "@[%a@]@." State.pp_state current; *)
     match current with
-    | #State.nonlogical_state as current ->
-        SU.handle_nonlogical_state current state
-    | `Ordering -> (
+    | Ordering -> (
         (* Eio.traceln "@[%a@]@." DT_Status.pp state.content; *)
         match state.content with
         | Waiting -> place_short ~state
         | Placed (time_held, order) -> cover_position ~state time_held order)
+    | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step
 end

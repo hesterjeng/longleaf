@@ -2,7 +2,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
   module SU = Strategy_utils.Make (Backend)
 
   let qty (state : _ State.t) pct symbol =
-    let cash_available = Backend.get_cash () in
+    let cash_available = Backend_position.get_cash state.positions in
     match cash_available >=. 0.0 with
     | true ->
         let tenp = cash_available *. pct in
@@ -19,12 +19,10 @@ module Make (Backend : Backend.S) : Strategy.S = struct
 
   let step (state : _ State.t) =
     match state.current with
-    | #State.nonlogical_state as current ->
-        SU.handle_nonlogical_state current state
-    | `Ordering -> (
+    | Ordering -> (
         let most_recent_price = Bars.Latest.get state.latest "SPY" in
         match state.content with
-        | Some () -> Result.return @@ { state with current = `Listening }
+        | Some () -> Result.return @@ State.listen state
         | None ->
             let ( let* ) = Result.( let* ) in
             let order =
@@ -35,9 +33,9 @@ module Make (Backend : Backend.S) : Strategy.S = struct
                 ~qty:(qty state 0.5 "SPY") ~profit:None ~order_type:Market
                 ~reason:[ "Buy and hold SPY" ]
             in
-            let* () = Backend.place_order state order in
-            Result.return
-            @@ { state with current = `Listening; content = Some () })
+            let* state = Backend.place_order state order in
+            Result.return @@ State.listen state)
+    | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step
 end

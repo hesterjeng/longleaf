@@ -17,22 +17,24 @@ type item = {
 
 let item_of_yojson x =
   match x with
-  | `Null -> Error "tiingo_api: received null in item_of_yojson"
+  | `Null ->
+      Result.fail @@ `JsonError "tiingo_api: received null in item_of_yojson"
   | _ -> (
       try Result.return @@ item_of_yojson x
       with s ->
         Eio.traceln "[tiingo_api] %a" Yojson.Safe.pp x;
         let e = Printexc.to_string s in
         Eio.traceln "[tiingo_api] %s" e;
-        Error "Error while decoding json of Tiingo_api.item")
+        Result.fail @@ `JsonError "Error while decoding json of Tiingo_api.item"
+      )
 
 type t = item list [@@deriving show { with_path = false }]
 
 let t_of_yojson (l : Yojson.Safe.t) =
   match l with
   | `List l -> Result.map_l item_of_yojson l
-  | `Null -> Error "Got `Null from Tiingo_api"
-  | _ -> Error "Expected a list in Tiingo_api.t_of_yojson"
+  | `Null -> Result.fail @@ `JsonError "Got `Null from Tiingo_api"
+  | _ -> Result.fail @@ `JsonError "Expected a list in Tiingo_api.t_of_yojson"
 
 let item_to_bar_item (x : item) : Item.t =
   let open_ = x.open_ in
@@ -145,8 +147,8 @@ module Make (Tiingo : Util.CLIENT) = struct
           | Ok x -> x
           | Error e ->
               Eio.traceln
-                "tiingo_api.ml: Error while getting historical Tiingo data: %s"
-                e;
+                "tiingo_api.ml: Error while getting historical Tiingo data: %a"
+                Error.pp e;
               invalid_arg "Bad data when getting Tiingo historical bars"
         in
         (* Eio.traceln "%a" Yojson.Safe.pp resp; *)
@@ -183,7 +185,8 @@ module Make (Tiingo : Util.CLIENT) = struct
           | Ok x -> x
           | Error e ->
               Eio.traceln
-                "tiingo_api.ml: Error while getting historical EOD data: %s" e;
+                "tiingo_api.ml: Error while getting historical EOD data: %a"
+                Error.pp e;
               invalid_arg "Bad data in Tiingo_api.historical_eod"
         in
         (* Eio.traceln "%a" Yojson.Safe.pp resp; *)

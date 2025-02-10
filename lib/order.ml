@@ -43,25 +43,23 @@ let make ~symbol ~tick ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
     status = Pmutex.make Status.New;
   }
 
-(* let default_buy ?profit ~current_cash ~price ~reason ~timestamp symbol = *)
-(*   let ( let+ ) = Option.( let+ ) in *)
-(*   let+ qty = *)
-(*     Util.qty ~current_cash ~pct:1.0 ~price |> function *)
-(*     | 0 -> None *)
-(*     | qty -> Some qty *)
-(*   in *)
-(*   make ~price ~qty ~reason ~timestamp ~symbol ~side:Buy ~tif:GoodTillCanceled *)
-(*     ~order_type:Market ~profit *)
-
-(* let default_sell ?profit ~current_cash ~price ~reason ~timestamp symbol = *)
-(*   let ( let+ ) = Option.( let+ ) in *)
-(*   let+ qty = *)
-(*     Util.qty ~current_cash ~pct:1.0 ~price |> function *)
-(*     | 0 -> None *)
-(*     | qty -> Some qty *)
-(*   in *)
-(*   make ~price ~qty ~reason ~timestamp ~symbol ~side:Sell ~tif:GoodTillCanceled *)
-(*     ~order_type:Market ~profit *)
-
 let cmp_profit x y =
   match (x.profit, y.profit) with Some x, Some y -> Float.compare x y | _ -> 0
+
+let cmp_timestamp x y = Ptime.compare x.timestamp y.timestamp
+
+module History = struct
+  type nonrec t = { all : t list; active : t list }
+
+  let sort h = List.sort cmp_timestamp h
+  let inactive h = h.all
+  let active h = h.active
+
+  let yojson_of_t (h : t) : Yojson.Safe.t =
+    let l = h.all in
+    `List (List.map yojson_of_t l)
+
+  let add x order = { x with all = order :: x.all }
+  let empty = { all = []; active = [] }
+  let length h = List.length h.all
+end

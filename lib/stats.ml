@@ -14,11 +14,13 @@ let append (x : item) (l : t) = x :: l
 let compare x y = Ptime.compare x.time y.time
 let sort (x : t) = List.sort compare x
 
-let add_orders (orders : Order_history.t) (x : t) =
+(* FIXME: This seems strange, why are we converting to an array and then unconverting? *)
+let add_orders (h : Order.History.t) (x : t) =
+  let orders = h.all in
   let stats_array = Array.of_list x in
   let stats_times = Array.map (fun x -> x.time) stats_array |> Array.to_list in
   let () =
-    Vector.iter
+    List.iter
       (fun order ->
         let closest_stat_time =
           Time.find_closest (Order.timestamp order) stats_times

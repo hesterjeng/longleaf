@@ -3,20 +3,22 @@ module Hashtbl = Hashtbl.Make (String)
 module Latest = struct
   type t = Item.t Hashtbl.t
 
-  let get x symbol : Item.t =
-    match Hashtbl.find_opt x symbol with
-    | Some x -> x
-    | None ->
-        Eio.traceln "Missing symbol %s?" symbol;
-        invalid_arg "Unable to find price of symbol (Bars.Latest)"
-
+  let get_opt = Hashtbl.find_opt
   let empty () : t = Hashtbl.create 0
 
   let pp : t Format.printer =
    fun fmt x ->
     let seq = Hashtbl.to_seq x in
     let pp = Seq.pp @@ Pair.pp String.pp Item.pp in
+    Format.fprintf fmt "@[%d@]@." (Seq.length seq);
     Format.fprintf fmt "@[%a@]@." pp seq
+
+  let get x symbol : Item.t =
+    match Hashtbl.find_opt x symbol with
+    | Some x -> x
+    | None ->
+        Eio.traceln "%a" pp x;
+        invalid_arg "Unable to find price of symbol (Bars.Latest)"
 
   let timestamp (x : t) =
     ( (fun f -> Hashtbl.fold f x (Ok None)) @@ fun _ item prev ->
@@ -36,13 +38,13 @@ module Latest = struct
     |> function
     | Ok None ->
         Eio.traceln "Current latest: %a" pp x;
-        Error "No values in Bars.Latest.t"
+        Result.fail @@ `MissingData "No values in Bars.Latest.t"
     | Ok (Some res) ->
         (* Eio.traceln "Ok Bars.Latest.t"; *)
         Ok res
     | Error e ->
         Eio.traceln "%a" pp x;
-        Error e
+        Result.fail @@ `MissingData e
 end
 
 type symbol_history = Item.t Vector.vector

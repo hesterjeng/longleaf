@@ -2,39 +2,42 @@ open Backend_intf
 
 module Make (Input : BACKEND_INPUT) : S = struct
   (* module Ticker = Ticker.Instant *)
-  module Backend_position = Backend_position.Generative ()
+  (* module Backend_position = Backend_position.Generative () *)
   module Input = Input
 
-  let get_trading_client _ = Error "Backtesting does not have a trading client"
-  let get_data_client _ = Error "Backtesting does not have a data client"
+  let get_trading_client _ = Result.fail @@ `MissingClient "Trading"
+  let get_data_client _ = Result.fail @@ `MissingClient "Data"
 
   let init_state content =
-    {
-      State.current = `Initialize;
-      bars = Input.bars;
-      latest = Bars.Latest.empty ();
-      content;
-      tick = 0;
-      stats = Stats.empty;
-      order_history = Vector.create ();
-      indicators = Indicators.empty ();
-      active_orders = [];
-    }
+    Result.return
+    @@ {
+         State.current = Initialize;
+         bars = Input.bars;
+         latest = Bars.Latest.empty ();
+         content;
+         tick = 0;
+         stats = Stats.empty;
+         order_history = Order.History.empty;
+         indicators = Indicators.empty ();
+         positions = Backend_position.make () (* active_orders = []; *);
+       }
 
   let context = Input.options.context
-  let next_market_open _ = None
-  let next_market_close _ = Ptime.max
+  let next_market_open _ = Ok None
+  let next_market_close _ = Ok Ptime.max
   let env = context.eio_env
   let symbols = Input.options.symbols
   let is_backtest = true
   let shutdown () = ()
-  let get_cash = Backend_position.get_cash
   let overnight = Input.options.overnight
   let save_received = context.save_received
 
-  let place_order state (order : Order.t) =
+  let place_order (state : 'a State.t) (order : Order.t) =
+    let ( let* ) = Result.( let* ) in
     Eio.traceln "@[%a@]@." Order.pp order;
-    Backend_position.execute_order state order
+    let state = State.record_order state order in
+    let* new_positions = Backend_position.execute_order state.positions order in
+    Result.return { state with positions = new_positions }
 
   (* Ordered in reverse time order when INPUT is created *)
   let data_remaining =
@@ -55,10 +58,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Hashtbl.to_seq data_remaining
       |> Seq.find_map @@ fun (symbol, vector) ->
          Vector.pop vector |> function
-         | None -> Some "Empty vector when trying to collect data"
+         | None ->
+             Option.return @@ `MissingData "backtesting_backend.ml:latest_bars"
          | Some value ->
-             (* Eio.traceln "There are %d members remaining in bar %s." *)
-             (*   (Vector.length vector) symbol; *)
              Hashtbl.replace latest symbol value;
              None
     in
@@ -69,7 +71,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let module Hashtbl = Bars.Hashtbl in
     let ( let* ) = Result.( let* ) in
     let tbl : Bars.Latest.t = Hashtbl.create 20 in
-    let* target = Option.to_result "No target for last data bar" Input.target in
+    let* target =
+      match Input.target with
+      | Some x -> Ok x
+      | None -> Result.fail @@ `MissingData "No target to create last data bar"
+    in
     let res =
       Hashtbl.to_seq target
       |>
@@ -78,7 +84,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
       let* _ = ok in
       let l = Vector.length vector in
       match l with
-      | 0 -> Error "No data for symbol in last_data_bar?"
+      | 0 ->
+          Error (`MissingData symbol)
+          (* "No data for symbol in last_data_bar?" *)
       | _ ->
           (* Eio.traceln "@[%a@]@." (Vector.pp Item.pp) vector; *)
           Result.return
@@ -92,9 +100,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
     (* invalid_arg "debug" *)
     res
 
-  let liquidate state =
+  let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let* last = last_data_bar in
-    let* () = Backend_position.liquidate state last in
-    Ok ()
+    let* new_positions = Backend_position.liquidate state.positions last in
+    Result.return @@ { state with positions = new_positions }
 end
