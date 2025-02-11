@@ -24,6 +24,7 @@ type 'a t = {
   bars : Bars.t;
   (* The current tick the state machine is on *)
   tick : int;
+  tick_length : float;
   (* Wildcard content for individual strategies to use *)
   content : 'a;
 }
