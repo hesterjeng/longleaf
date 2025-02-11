@@ -120,6 +120,7 @@ module Make (Backend : Backend_intf.S) = struct
     let ( let* ) = Result.( let* ) in
     let* latest = Backend.latest_bars Backend.symbols in
     let* time = Bars.Latest.timestamp latest in
+    Bars.append latest state.bars;
     Eio.traceln "Tick time: %a" Time.pp time;
     Indicators.add_latest Input.options.indicators_config time state.bars latest
       state.indicators;
