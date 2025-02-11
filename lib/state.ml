@@ -32,9 +32,10 @@ type 'a t = {
 let listen (x : _ t) = { x with current = Listening }
 
 let record_order state order =
-  Bars.add_order order state.bars;
+  let ( let* ) = Result.( let* ) in
+  let* () = Bars.add_order order state.bars in
   let new_h = Order.History.add state.order_history order in
-  { state with order_history = new_h }
+  Result.return @@ { state with order_history = new_h }
 
 let activate_order state order =
   let new_h =
