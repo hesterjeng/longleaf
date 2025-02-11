@@ -110,41 +110,40 @@ let split ~midpoint ~target_length ~combined_length (x : t) : t * t =
   (Hashtbl.of_seq first_part, Hashtbl.of_seq second_part)
 
 let get (x : t) symbol = Hashtbl.find_opt x symbol
+
 let get_err (x : t) symbol =
   match get x symbol with
-  | None -> Result.fail @@ `MissingData (Format.asprintf "[error: Bars.get_err] Symbol history for %s" symbol)
+  | None ->
+      Result.fail
+      @@ `MissingData
+           (Format.asprintf "[error: Bars.get_err] Symbol history for %s" symbol)
   | Some x -> Result.return x
 
 let sort cmp (x : t) = Hashtbl.iter (fun _ vector -> Vector.sort' cmp vector) x
 let empty () : t = Hashtbl.create 100
-(* let original_received_of_yojson = Received.t_of_yojson *)
-
-(* let add_order (order : Order.t) (data : t) = *)
-(*   let symbol_history = *)
-(*     get data order.symbol *)
-(*     |> Option.get_exn_or "Expected to find symbol history in Bars.add_order" *)
-(*   in *)
-(*   let found = ref false in *)
-(*   let time = Order.timestamp order in *)
-(*   let res = *)
-(*     Vector.map_in_place *)
-(*       (fun bar_item -> *)
-(*         if Ptime.equal (Item.timestamp bar_item) time then ( *)
-(*           found := true; *)
-(*           Item.add_order order bar_item) *)
-(*         else bar_item) *)
-(*       symbol_history *)
-(*   in *)
-(*   if not @@ !found then ( *)
-(*     Eio.traceln "@[[ERROR]@] %a@." pp_symbol_history symbol_history; *)
-(*     Eio.traceln "@[[ERROR] Could not place order in data! %a@]@.@[%a@]@." *)
-(*       Time.pp time Order.pp order; *)
-(*     assert false); *)
-(*   res *)
 
 let add_order (order : Order.t) (data : t) =
+  let ( let* ) = Result.( let* ) in
   let symbol = order.symbol in
-  let sh = get
+  let* symbol_history = get_err data symbol in
+  let* top =
+    Vector.pop symbol_history |> function
+    | Some x -> Result.return x
+    | None ->
+        Result.fail
+        @@ `MissingData
+             (Format.asprintf "[error: Bars.add_order] No data for %s in bars"
+                symbol)
+  in
+  let* _ =
+    match Ptime.equal order.timestamp @@ Item.timestamp top with
+    | true -> Ok ()
+    | false -> Result.fail @@ `FatalError "[error: bars.ml] Timestamp mismatch"
+  in
+  let* order_added = Item.add_order order top in
+  Vector.push symbol_history order_added;
+  Ok ()
+(* assert (Ptime.equal order.timestamp @@ ) *)
 
 let t_of_yojson (json : Yojson.Safe.t) : t =
   let bars = Yojson.Safe.Util.member "bars" json in
