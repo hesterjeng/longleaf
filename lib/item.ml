@@ -34,10 +34,10 @@ let order x = x.order
 let add_order (order : Order.t) (x : t) =
   match x.order with
   | None -> { x with order = Some order }
-  | Some _ ->
-      (* Eio.traceln "@[Warning: trying to replace: %a with %a@]@." Order.pp *)
-      (* prev_order Order.pp order; *)
-      x
+  | Some prev_order ->
+      Eio.traceln "@[[error: item.ml]: trying to replace: %a with %a@]@."
+        Order.pp prev_order Order.pp order;
+      assert false
 
 let timestamp (x : t) = x.timestamp
 let close x = x.close
