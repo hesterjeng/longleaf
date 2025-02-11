@@ -45,15 +45,6 @@ let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1") ~data
     in
     List.map mk_plotly_x data
   in
-  (* let x = *)
-  (*   Vector.map *)
-  (*     (fun (p : Indicators.Point.t) -> *)
-  (*       let time = p.timestamp in *)
-  (*       let res = Ptime.to_rfc3339 time in *)
-  (*       `String res) *)
-  (*     indicators_vec *)
-  (*   |> Vector.to_list |> List.drop 1 *)
-  (* in *)
   let y =
     Vector.map
       (fun (p : Indicators.Point.t) ->
@@ -66,9 +57,10 @@ let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1") ~data
     |> Vector.to_list
     |> List.mapi (fun i b -> if i <= drop then `Null else b)
   in
-  if List.length x <> List.length y then
+  if List.length x <> List.length y then (
     Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
       (List.length y);
+    ());
   let visible = if show then "true" else "legendonly" in
   (* if String.equal "SMA 5" indicator_name && String.equal symbol "NVDA" then *)
   (*   Eio.traceln "@[%a@]@." (List.pp ~pp_sep:Format.newline Yojson.Safe.pp) y; *)
