@@ -53,12 +53,10 @@ module Make
 
   let init_state = Backend.init_state []
 
-  let buy (state : 'a State.t) =
+  let buy ~held_symbols (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let potential_buys =
-      List.filter
-        (fun s -> not @@ Backend_position.mem state.positions s)
-        Backend.symbols
+      List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
       |> Buy.make state
     in
     let num_held_currently = List.length @@ state.order_history.active in
@@ -140,10 +138,11 @@ module Make
     let ( let* ) = Result.( let* ) in
     match state.current with
     | Ordering ->
+        let held_symbols = Backend_position.symbols state.positions in
         let* sold_state =
           List.fold_left sell_fold (Ok state) state.order_history.active
         in
-        let* complete = buy sold_state in
+        let* complete = buy ~held_symbols sold_state in
         Result.return { complete with tick = complete.tick + 1 }
     | _ -> SU.handle_nonlogical_state state
 
