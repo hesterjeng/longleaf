@@ -37,25 +37,22 @@ let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1") ~data
         Eio.traceln "Could not get indicators for %s from mutex?" symbol;
         None
   in
-  let x =
-    let mk_plotly_x x =
-      let time = Item.timestamp x in
-      let res = Ptime.to_rfc3339 time in
-      `String res
-    in
-    List.map mk_plotly_x data
+  let time (p : Indicators.Point.t) : Yojson.Safe.t =
+    let timestamp = Ptime.to_rfc3339 p.timestamp in
+    `String timestamp
   in
-  let y =
+  let value (p : Indicators.Point.t) : Yojson.Safe.t =
+    `Float
+      (let res = indicator_get p in
+       if Float.is_nan res then
+         Eio.traceln "ERROR: NaN in data for indicator %s!" indicator_name;
+       res)
+  in
+  let x, y =
     Vector.map
-      (fun (p : Indicators.Point.t) ->
-        `Float
-          (let res = indicator_get p in
-           if Float.is_nan res then
-             Eio.traceln "ERROR: NaN in data for indicator %s!" indicator_name;
-           res))
+      (fun (p : Indicators.Point.t) -> Pair.make (time p) (value p))
       indicators_vec
-    |> Vector.to_list
-    |> List.mapi (fun i b -> if i <= drop then `Null else b)
+    |> Vector.to_list |> List.drop drop |> List.split
   in
   if List.length x <> List.length y then (
     Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
