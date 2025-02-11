@@ -1,41 +1,33 @@
-module Make (Backend : Backend.S) : Strategy.S = struct
-  module SU = Strategy_utils.Make (Backend)
+module S = Signal
+module SI = S.Indicator
+module I = Indicators
+module P = I.Point
+module F = S.Flag
 
-  let qty (state : _ State.t) pct symbol =
-    let cash_available = Backend_position.get_cash state.positions in
-    match cash_available >=. 0.0 with
-    | true ->
-        let tenp = cash_available *. pct in
-        let current_price = Item.last @@ Bars.Latest.get state.latest symbol in
-        let max_amt = tenp /. current_price in
-        if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
-    | false -> 0
+(* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
+module Buy_inp : Template.Buy_trigger.INPUT = struct
+  let num_positions = 1
+  let ready_to_buy = ref true
 
-  let init_state = Backend.init_state None
+  let pass _ symbol =
+    match symbol with
+    | "SPY" when !ready_to_buy ->
+        ready_to_buy := false;
+        F.Pass [ "Buy SPY" ]
+    | _ -> F.Fail []
 
-  let shutdown () =
-    Eio.traceln "Shutdown command NYI";
-    ()
-
-  let step (state : _ State.t) =
-    match state.current with
-    | Ordering -> (
-        let most_recent_price = Bars.Latest.get state.latest "SPY" in
-        match state.content with
-        | Some () -> Result.return @@ State.listen state
-        | None ->
-            let ( let* ) = Result.( let* ) in
-            let order =
-              Order.make ~symbol:"SPY" ~side:Buy ~tif:GoodTillCanceled
-                ~tick:state.tick
-                ~price:(Item.last most_recent_price)
-                ~timestamp:(Item.timestamp most_recent_price)
-                ~qty:(qty state 0.5 "SPY") ~profit:None ~order_type:Market
-                ~reason:[ "Buy and hold SPY" ]
-            in
-            let* state = Backend.place_order state order in
-            Result.return @@ State.listen state)
-    | _ -> SU.handle_nonlogical_state state
-
-  let run () = SU.run ~init_state step
+  let score _ symbol = match symbol with "SPY" -> 1.0 | _ -> 0.0
 end
+
+(* The functor uses the score to choose the symbol with the highest score *)
+module Buy = Template.Buy_trigger.Make (Buy_inp)
+
+(* We will sell any symbol that meets the requirement *)
+module Sell : Template.Sell_trigger.S = struct
+  let make _ ~buying_order =
+    let _ = buying_order in
+    F.Fail [ "Never sell" ]
+end
+
+(* Create a strategy with our parameters *)
+module Make : Strategy.BUILDER = Template.Make (Buy) (Sell)
