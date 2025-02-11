@@ -16,6 +16,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          latest = Bars.Latest.empty ();
          content;
          tick = 0;
+         tick_length = Input.options.tick;
          stats = Stats.empty;
          order_history = Order.History.empty;
          indicators = Indicators.empty ();
@@ -35,7 +36,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let place_order (state : 'a State.t) (order : Order.t) =
     let ( let* ) = Result.( let* ) in
     Eio.traceln "@[%a@]@." Order.pp order;
-    let state = State.record_order state order in
+    let* state = State.record_order state order in
     let* new_positions = Backend_position.execute_order state.positions order in
     Result.return { state with positions = new_positions }
 

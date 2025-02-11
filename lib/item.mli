@@ -21,5 +21,5 @@ val low : t -> float
 val close : t -> float
 val volume : t -> int
 val order : t -> Order.t option
-val add_order : Order.t -> t -> t
+val add_order : Order.t -> t -> (t, Error.t) result
 val eq_timestamp : t -> t -> bool
