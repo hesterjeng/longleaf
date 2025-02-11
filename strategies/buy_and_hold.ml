@@ -9,7 +9,8 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
   let num_positions = 1
   let ready_to_buy = ref true
 
-  let pass _ symbol =
+  let pass (state : 'a State.t) symbol =
+    let _ = state in
     match symbol with
     | "SPY" when !ready_to_buy ->
         ready_to_buy := false;
@@ -24,8 +25,8 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
-  let make _ ~buying_order =
-    let _ = buying_order in
+  let make (state : 'a State.t) ~buying_order =
+    let _ = (state, buying_order) in
     F.Fail [ "Never sell" ]
 end
 

@@ -29,7 +29,7 @@ module Sell : Template.Sell_trigger.S = struct
     let i = Indicators.get_top state.indicators buying_order.symbol in
     let conditions =
       [
-        (match i.fast_stochastic_oscillator_k >=. 90.0 with
+        (match i.fast_stochastic_oscillator_d >=. 90.0 with
         | true -> F.Pass [ "Get out! High FSO %K" ]
         | false -> F.Fail [ "OK" ]);
       ]
