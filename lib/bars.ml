@@ -130,9 +130,11 @@ let add_order (order : Order.t) (data : t) =
         else bar_item)
       symbol_history
   in
-  if not @@ !found then
+  if not @@ !found then (
+    Eio.traceln "@[[ERROR]@] %a@." pp_symbol_history symbol_history;
     Eio.traceln "@[[ERROR] Could not place order in data! %a@]@.@[%a@]@."
       Time.pp time Order.pp order;
+    assert false);
   res
 
 let t_of_yojson (json : Yojson.Safe.t) : t =

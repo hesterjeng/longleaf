@@ -181,8 +181,6 @@ module Make (Backend : Backend_intf.S) = struct
         Result.return { state with current = Listening }
     | Finished code ->
         Eio.traceln "@[Reached finished state.@]@.";
-        List.iter (fun order -> Bars.add_order order state.bars)
-        @@ (Pmutex.get mutices.orders_mutex).all;
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
         in
@@ -196,7 +194,7 @@ module Make (Backend : Backend_intf.S) = struct
         Eio.traceln "%a" Tearsheet.pp tearsheet;
         assert (Backend_position.is_empty state.positions);
         Result.fail @@ `Finished code
-    | _ ->
+    | Ordering | Continue | BeginShutdown ->
         invalid_arg
           "Strategies.handle_nonlogical_state: unhandled nonlogical state"
 end
