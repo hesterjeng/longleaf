@@ -2,55 +2,27 @@
  (name longleaf_strategies)
  (modules :standard)
  (public_name longleaf-strategies)
-<<<<<<< HEAD
-<<<<<<< HEAD
  (instrumentation
   (backend landmarks))
-=======
->>>>>>> d9e8192 (chore: move strategies)
-=======
- (instrumentation
-  (backend landmarks))
->>>>>>> 737c594 (feat: backend instrumentation)
  (libraries
   fmt
   containers
   containers-data
   ptime
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-  dream
->>>>>>> d9e8192 (chore: move strategies)
-=======
->>>>>>> 6aaf5cc (feat: remove dream dependency)
   eio_main
   iter
   cmdliner
   landmarks
   owl
-<<<<<<< HEAD
-<<<<<<< HEAD
   longleaf-lib
-=======
-  longleaf
->>>>>>> d9e8192 (chore: move strategies)
-=======
-  longleaf-lib
->>>>>>> 7d8f167 (fix: try renaming libraries)
   piaf)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 ; landmarks-ppx
 ; --auto)))
+;
 
->>>>>>> d9e8192 (chore: move strategies)
-=======
->>>>>>> 3754ed6 (wip: landsmarks profiles)
 (env
  (_
   (flags
@@ -62,15 +34,7 @@
    -open
    Containers
    -open
-<<<<<<< HEAD
-<<<<<<< HEAD
    Longleaf_lib
-=======
-   Longleaf
->>>>>>> d9e8192 (chore: move strategies)
-=======
-   Longleaf_lib
->>>>>>> 7d8f167 (fix: try renaming libraries)
    -open
    Ppx_yojson_conv_lib.Yojson_conv.Primitives
    -strict-sequence
