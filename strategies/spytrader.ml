@@ -26,10 +26,14 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
+    let price = State.price state buying_order.symbol in
     let i = Indicators.get_top state.indicators buying_order.symbol in
     let conditions =
       [
-        (match i.fast_stochastic_oscillator_d >=. 90.0 with
+        (match
+           i.fast_stochastic_oscillator_d >=. 90.0
+           && price >=. buying_order.price
+         with
         | true -> F.Pass [ "Get out! High FSO %K" ]
         | false -> F.Fail [ "OK" ]);
       ]
