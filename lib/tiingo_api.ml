@@ -122,16 +122,30 @@ module Make (Tiingo : Util.CLIENT) = struct
     let historical_bars ?(afterhours = false) (request : Request.t) =
       let get_data symbol =
         let endpoint =
-          Uri.of_string ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices")
+          (match request.timeframe with
+          | Day ->
+              Uri.of_string
+                ("/tiingo/daily/" ^ String.lowercase_ascii symbol ^ "/prices")
+          | _ ->
+              Uri.of_string ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices"))
           |> fun e ->
           Uri.add_query_params' e
-          @@ [
-               ("ticker", symbol);
-               ("resampleFreq", Timeframe.to_string_tiingo request.timeframe);
-               ("startDate", Time.to_ymd request.start);
-               ("forceFill", "true");
-               ("columns", "open,high,low,close,volume");
-             ]
+          @@ ([
+                ("ticker", Option.return @@ symbol);
+                ( "resampleFreq",
+                  match request.timeframe with
+                  | Day -> None
+                  | x -> Option.return @@ Timeframe.to_string_tiingo x );
+                ("startDate", Option.return @@ Time.to_ymd request.start);
+                ( "forceFill",
+                  match request.timeframe with Day -> None | _ -> Some "true" );
+                ( "columns",
+                  match request.timeframe with
+                  | Day -> None
+                  | _ -> Option.return @@ "open,high,low,close,volume" );
+              ]
+             |> List.filter_map (fun (x, y) ->
+                    match y with None -> None | Some y -> Some (x, y)))
           |> (fun uri ->
           match request.end_ with
           | Some end_t -> Uri.add_query_param' uri ("endDate", Time.to_ymd end_t)
@@ -159,47 +173,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       let hashtbl : Bars.t = Hashtbl.of_seq items_assoc in
       hashtbl
 
-    let historical_eod (request : Request.t) =
-      let get_data symbol =
-        let endpoint =
-          Uri.of_string
-            ("/tiingo/daily/" ^ String.lowercase_ascii symbol ^ "/prices")
-          |> fun e ->
-          Uri.add_query_params' e
-          @@ [
-               ("ticker", symbol);
-               (* ("resampleFreq", Timeframe.to_string_tiingo request.timeframe); *)
-               ("startDate", Time.to_ymd request.start);
-               (* ("forceFill", "true"); *)
-               (* ("columns", "open,high,low,close,volume"); *)
-             ]
-          |> (fun uri ->
-          match request.end_ with
-          | Some end_t -> Uri.add_query_param' uri ("endDate", Time.to_ymd end_t)
-          | None -> uri)
-          |> Uri.to_string
-        in
-        Eio.traceln "%s" endpoint;
-        let resp =
-          get ~headers ~endpoint |> function
-          | Ok x -> x
-          | Error e ->
-              Eio.traceln
-                "tiingo_api.ml: Error while getting historical EOD data: %a"
-                Error.pp e;
-              invalid_arg "Bad data in Tiingo_api.historical_eod"
-        in
-        (* Eio.traceln "%a" Yojson.Safe.pp resp; *)
-        resp |> resp_of_yojson |> List.map item_of |> fun l ->
-        (symbol, Vector.of_list l)
-      in
-      let items_assoc = List.map get_data request.symbols |> Seq.of_list in
-      let hashtbl : Bars.t = Hashtbl.of_seq items_assoc in
-      hashtbl
-
     let top ?(afterhours = false) (request : Request.t) =
-      match request.timeframe with
-      | Day -> historical_eod request
-      | _ -> historical_bars ~afterhours request
+      historical_bars ~afterhours request
   end
 end
