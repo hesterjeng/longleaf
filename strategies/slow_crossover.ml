@@ -41,12 +41,6 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
         (match i.relative_strength_index <=. 40.0 with
         | true -> F.Pass [ "Small RSI" ]
         | false -> Fail [ "RSI too large to buy" ]);
-        (* confirmed_crossover state symbol; *)
-        (* ( *)
-        (*   match price >=. i.sma_34 with *)
-        (*   | true -> F.Pass [ "Confirm SMA" ] *)
-        (*   | false -> F.Fail [ "Low" ] *)
-        (* ); *)
         (match i.fast_stochastic_oscillator_d <=. 20.0 with
         | true -> F.Pass [ "FSO %D <= 20" ]
         | false -> F.Fail [ "FSO %D is too high" ]);
@@ -58,9 +52,6 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
          match crossover with
          | true -> F.Pass [ "Bullish Crossover" ]
          | false -> F.Fail [ "No Crossover" ]);
-        (* (match price <=. i.sma_233 with *)
-        (* | true -> F.Pass [ "Below SMA confirm" ] *)
-        (* | false -> F.Fail [ "price above SMA" ]); *)
       ]
     in
     List.fold_left F.and_fold (Pass []) conditions
@@ -82,47 +73,26 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
+    let buying_price = State.price state buying_order.symbol in
     let price = State.price state buying_order.symbol in
     let i = Indicators.get_top state.indicators buying_order.symbol in
-    (* let* prev = i.previous in *)
-    (* This strategy also seems to do OK if we sell no matter what after 6 ticks *)
-    (* let conditions = *)
-    (*   [ *)
-    (*     (match state.tick >= buying_order.tick + Param.max_holding_period with *)
-    (*     | true -> *)
-    (*       ( *)
-    (*         match price >=. buying_order.price with *)
-    (*         | false -> F.Pass [ "Price hasn't increased, exit" ] *)
-    (*         | true -> *)
-    (*           ( *)
-    (*             match i.fast_stochastic_oscillator_d >=. 20.0 with *)
-    (*             | true -> F.Pass [ "FSO %D greater than 20" ] *)
-    (*             | false -> F.Fail [ "FSO %K not high enough" ] *)
-    (*           ) *)
-    (*       ) *)
-    (*       (\* F.Pass [ "Holding period exceeded" ] *\) *)
-    (*     | false -> F.Fail [ "Holding period OK" ]); *)
-    (*   ] *)
-    (* in *)
     let conditions =
       [
-        (match i.fast_stochastic_oscillator_d >=. 80.0 with
-        | true -> F.Pass [ "high %D" ]
-        | false -> F.Fail [ "low %D" ]);
-        (* (match price <=. Param.stop_loss_multiplier *. buying_order.price with *)
-        (* | true -> F.Pass [ "Price when down after a day" ] *)
-        (* | false -> F.Fail [ "Price OK" ]); *)
-        (match state.tick >= buying_order.tick + Param.max_holding_period with
-        | true -> F.Pass [ "Get out! An hour!!" ]
-        | false -> F.Fail [ "Holding period OK" ]);
-        (match state.tick >= buying_order.tick + 35 with
-        | true -> (
-            match
-              price <=. Param.stop_loss_multiplier *. buying_order.price
-            with
-            | true -> F.Pass [ "Price when down after a day" ]
-            | false -> F.Fail [ "Price OK" ])
-        | false -> F.Fail [ "Holding period OK" ]);
+        (match i.fast_stochastic_oscillator_k >=. 80.0 with
+        | true -> F.Pass [ "high %K" ]
+        | false -> F.Fail [ "nope" ]);
+        (* (match price <=. Param.stop_loss_multiplier *. buying_price with *)
+        (* | true -> F.Pass [ "stoploss" ] *)
+        (* | false -> F.Fail [ "ok" ]); *)
+        (let range = state.tick - buying_order.tick in
+         let high_since_purchase =
+           Bars.get state.bars buying_order.symbol
+           |> Option.get_exn_or "Must have bars in slow crossover"
+           |> Util.last_n range |> Math.max_close |> Item.last
+         in
+         match price <=. Param.stop_loss_multiplier *. high_since_purchase with
+         | true -> F.Pass [ "high since purchase" ]
+         | false -> F.Fail [ "ok" ]);
       ]
     in
     List.fold_left F.or_fold (Fail []) conditions
