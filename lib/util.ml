@@ -92,7 +92,7 @@ let handle_output output =
       Unix.close fd
 
 let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
-  assert ( n >= 0 );
+  assert (n >= 0);
   let length = Vector.length vec in
   Vector.slice_iter vec (Int.max (length - n) 0) (Int.min n length)
 

@@ -7,7 +7,9 @@ module F = S.Flag
 [@@@warning "-26"]
 
 module Param = struct
-  let stop_loss_multiplier = 0.98
+  let trailing_loss = 0.96
+  let stop_loss_multiplier = 0.96
+  let min_holding_period = 40
 
   (* let profit_multiplier = 1.03 *)
   let max_holding_period = 546
@@ -64,7 +66,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
   (* let lower_bb = I.get_indicator state.indicators symbol P.lower_bollinger in *)
   (* lower_bb /. price *)
 
-  let num_positions = 1
+  let num_positions = 3
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
@@ -73,26 +75,40 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
-    let buying_price = State.price state buying_order.symbol in
+    let buying_price = buying_order.price in
     let price = State.price state buying_order.symbol in
     let i = Indicators.get_top state.indicators buying_order.symbol in
+    let ticks_held = state.tick - buying_order.tick in
+    let high_since_purchase =
+      Bars.get state.bars buying_order.symbol
+      |> Option.get_exn_or "Must have bars in slow crossover"
+      |> Util.last_n ticks_held |> Math.max_close |> Item.last
+    in
     let conditions =
       [
-        (match i.fast_stochastic_oscillator_k >=. 80.0 with
-        | true -> F.Pass [ "high %K" ]
+        (match
+           i.fast_stochastic_oscillator_d >=. 80.0
+           && ticks_held >= Param.min_holding_period
+           (* && (i.sma_5 <=. i.sma_34 || price <=. buying_price) *)
+         with
+        | true -> F.Pass [ "high %D" ]
         | false -> F.Fail [ "nope" ]);
         (* (match price <=. Param.stop_loss_multiplier *. buying_price with *)
         (* | true -> F.Pass [ "stoploss" ] *)
         (* | false -> F.Fail [ "ok" ]); *)
-        (let range = state.tick - buying_order.tick in
-         let high_since_purchase =
-           Bars.get state.bars buying_order.symbol
-           |> Option.get_exn_or "Must have bars in slow crossover"
-           |> Util.last_n range |> Math.max_close |> Item.last
-         in
-         match price <=. Param.stop_loss_multiplier *. high_since_purchase with
-         | true -> F.Pass [ "high since purchase" ]
-         | false -> F.Fail [ "ok" ]);
+        (match
+           price <=. Param.stop_loss_multiplier *. high_since_purchase
+           && ticks_held >= Param.min_holding_period
+         with
+        | true -> F.Pass [ "high since purchase" ]
+        | false -> F.Fail [ "ok" ]);
+        (* (match *)
+        (*    price <=. buying_price *)
+        (*    && high_since_purchase <=. 1.02 *. buying_price *)
+        (*    && i.fast_stochastic_oscillator_k >=. 20.0 *)
+        (*  with *)
+        (* | false -> F.Pass [ "escape a losing asset" ] *)
+        (* | true -> F.Fail [ "holding..." ]); *)
       ]
     in
     List.fold_left F.or_fold (Fail []) conditions
