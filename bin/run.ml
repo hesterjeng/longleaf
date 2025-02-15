@@ -22,7 +22,7 @@ let save_received_check ~runtype ~save_received : unit =
         exit 1
 
 let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
-    ~strategy_arg ~save_to_file ~nowait_market_open =
+    ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg =
   runtype_target_check ~runtype ~target;
   save_received_check ~runtype ~save_received;
   let _ = stacktrace in
@@ -45,6 +45,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
         nowait_market_open;
         mutices;
         save_to_file;
+        print_tick_arg;
       }
     in
     Eio.traceln "@[Context: %a@]@." Options.Context.pp context;
