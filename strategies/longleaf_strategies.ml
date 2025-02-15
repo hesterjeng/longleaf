@@ -49,6 +49,8 @@ type t =
   | SlowCrossover
 [@@deriving show, eq, yojson, variants]
 
+let all = List.map fst Variants.descriptions
+
 let strats =
   let ( --> ) x y = (x, run_generic y) in
   [
