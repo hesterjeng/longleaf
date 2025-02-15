@@ -30,7 +30,12 @@ module Args = struct
       "The data used to \"warmup\" indicators.  This data should be just \
        before the target data.  Valid choices are \"none\", \"download\", or \
        \"%s\" where %s is the file you want preloaded as bars.  This data will \
-       be in the background, as historical information."
+       be in the background, as historical information.  If this value is \
+       None, the strategy will run on the target data as if there were no \
+       preloaded data.  If the argument is Download, an attempt to download \
+       some market data will be made.  Otherwise, `--preload $file will` \
+       attempt to use $file, which is expects to be a file in Alpaca market \
+       data JSON format."
     in
     Cmdliner.Arg.(value & opt preload_conv None & info [ "p"; "preload" ] ~doc)
 
@@ -89,10 +94,11 @@ module Cmd = struct
     in
     let doc =
       "This is the OCaml algorithmic trading platform longleaf.  It relies on \
-       having a backend instantiated, with appropriate strategies.  The \
-       overall structure of the project is very functor heavy.  For an example \
-       of how to create a new strategy, look at double_top.ml and run.ml.  In \
-       longleaf.ml, you can instantiate the functors to create your strategy."
+       having a backend instantiated, with an appropriate.  The user must \
+       select a backend and a strategy to run.  For an example of how to \
+       create a new strategy, look at template_example.ml.  In \
+       longleaf_strategies.ml, you can instantiate the functors to create your \
+       strategy."
     in
     let info = Cmdliner.Cmd.info ~doc "longleaf" in
     Cmdliner.Cmd.v info term

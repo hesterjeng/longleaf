@@ -34,6 +34,9 @@ let run_generic ?(run_options = run_options) (module Strat : Strategy.BUILDER)
   Backend.shutdown ();
   res
 
+(** Type of strategies that have been defined. To add a new strategy, you must
+    first add a corresponding variant to this type. Afterwards, you must add a
+    handler for your strategy in the strats value below. *)
 type t =
   | BuyAndHold
   | Listener
@@ -51,6 +54,8 @@ type t =
 
 let all = List.map fst Variants.descriptions
 
+(** Add a handler for your strategy here, imitating the styles of the others.
+    There must be a handler or your strategy will not work. *)
 let strats =
   let ( --> ) x y = (x, run_generic y) in
   [
