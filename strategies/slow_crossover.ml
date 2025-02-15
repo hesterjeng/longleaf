@@ -78,6 +78,7 @@ module Sell : Template.Sell_trigger.S = struct
     let buying_price = buying_order.price in
     let price = State.price state buying_order.symbol in
     let i = Indicators.get_top state.indicators buying_order.symbol in
+    let* prev = i.previous in
     let ticks_held = state.tick - buying_order.tick in
     let high_since_purchase =
       Bars.get state.bars buying_order.symbol
@@ -89,7 +90,10 @@ module Sell : Template.Sell_trigger.S = struct
         (match
            i.fast_stochastic_oscillator_d >=. 80.0
            && ticks_held >= Param.min_holding_period
-           (* && (i.sma_5 <=. i.sma_34 || price <=. buying_price) *)
+           &&
+           match price >=. buying_price with
+           | true -> prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
+           | false -> true
          with
         | true -> F.Pass [ "high %D" ]
         | false -> F.Fail [ "nope" ]);
