@@ -1,23 +1,37 @@
-(* This module contains a functor for making strategies that buy at most n stock at a time. *)
-(* The stocks to buy will be filtered by a pass function, then the n with the highest score will *)
-(* be selected for purchase. *)
-(* Any held stock that meets the sell criterion will be sold. *)
-(* This template will only hold n at a time. *)
+(** This module contains a functor for making strategies that buy at most n
+    stock at a time. This strategy will only buy symbols and sell them. It will
+    not reenter positions that are currently active. The stocks to buy will be
+    filtered by a pass function, then the n with the highest score will be
+    selected for purchase. Any held stock that meets the sell criterion will be
+    sold. This template will only hold n at a time. *)
 
+(** Used as a functor argument to instantiate the strategy tmeplate. *)
 module Buy_trigger = struct
+  (** Module type for result of the Buy_trigger Make functor. This is used by
+      the Template.Make functor. *)
   module type S = sig
     val make : 'a State.t -> string list -> Signal.t list
     val num_positions : int
   end
 
+  (** The user provides a module of this type in their strategy. *)
   module type INPUT = sig
     val pass : 'a State.t -> string -> Signal.Flag.t
+    (** Return Pass for a symbol if we want to buy it. Otherwise it returns Fail
+        and we do nothing.*)
+
     val score : 'a State.t -> string -> float
+    (** Used to determine the symbol(s) to buy if multiple Pass. Higher is
+        better. *)
+
     val num_positions : int
+    (** The maximum number of positions the strategy will hold. If there are
+        multiple positions that can be taken at a give tick, those with the best
+        score are selected and cash is allocated equally to each symbol to take
+        the position.*)
   end
 
-  (* Using the Input module, create a module with a function to select the stocks *)
-  (* with the highest score for buying. *)
+  (** Functor whose result is used to instantiate the strategy template. *)
   module Make (Input : INPUT) = struct
     let make state symbols =
       List.filter_map
@@ -35,12 +49,19 @@ module Buy_trigger = struct
 end
 
 module Sell_trigger = struct
-  (* Pass if we meet the sell conditions, sell otherwise *)
+  (** The user provides a module of this type to determine when to exit a
+      position *)
   module type S = sig
     val make : 'a State.t -> buying_order:Order.t -> Signal.Flag.t
+    (** Return Pass if we want to exit the position corresponding to
+        buying_order. If we return Fail, do nothing.*)
   end
 end
 
+(** Partially instantiate this functor with a Buy_trigger.S and Sell_trigger.S
+    in your strategy file (see template_example.ml). Afterwards, a hook/handler
+    must be added using the partially instantiated functor to start the strategy
+    with any backend. See longleaf_strategies.ml.*)
 module Make
     (Buy : Buy_trigger.S)
     (Sell : Sell_trigger.S)

@@ -1,6 +1,6 @@
-(* This is an example of how to use the templates to easily make strategies. *)
-(* Once the Make functor is instantiated with a backend, the strategy is ready to run. *)
-(* Add a hook for it in longleaf_strategies.ml *)
+(** This is an example of how to use the templates to easily make strategies.
+    Once the Make functor is instantiated with a backend, the strategy is ready
+    to run. Add a hook for it in longleaf_strategies.ml *)
 
 module S = Signal
 module SI = S.Indicator
