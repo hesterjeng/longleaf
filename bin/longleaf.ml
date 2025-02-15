@@ -1,12 +1,15 @@
 module Longleaf = Longleaf_lib
 
 module Args = struct
+  module Runtype = Longleaf.Options.Runtype
+  module Preload = Longleaf.Options.Preload
+
   (* Define the CLI arguments *)
   let runtype_arg =
-    let runtype_conv = Longleaf.Options.Runtype.conv in
+    let runtype_conv = Runtype.conv in
     let doc =
-      "The type of run.  Valid choices are \"live\", \"paper\", \"listener\" \
-       or \"backtest\"."
+      Format.asprintf "The type of run.  Valid choices are %a"
+        (List.pp String.pp) Runtype.all
     in
     Cmdliner.Arg.(
       required & pos 0 (some runtype_conv) None & info [] ~docv:"runtype" ~doc)
@@ -22,7 +25,7 @@ module Args = struct
       & info [] ~docv:"selected strategy" ~doc)
 
   let preload_arg =
-    let preload_conv = Longleaf.Options.Preload.conv in
+    let preload_conv = Preload.conv in
     let doc =
       "The type of preloading.  Valid choices are \"none\", \"download\", or \
        \"%s\" where %s is the file you want preloaded as bars.  This data will \
