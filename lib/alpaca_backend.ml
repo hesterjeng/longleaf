@@ -80,6 +80,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let next_market_open () =
     let ( let* ) = Result.( let* ) in
     let* clock = Trading_api.Clock.get () in
+    Eio.traceln "Market is open: %b" clock.is_open;
     if clock.is_open || context.nowait_market_open then Result.return None
     else Result.return @@ Some clock.next_open
 
