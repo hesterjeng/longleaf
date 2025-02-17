@@ -16,6 +16,9 @@ module Make (Backend : Backend_intf.S) = struct
                Ticker.tick ~runtype Backend.env Input.options.tick;
                Result.return State.Continue
            | Some open_time -> (
+               Eio.traceln "@[Current time: %a@]@." (Option.pp Time.pp)
+                 (Eio.Time.now Backend.env#clock |> Ptime.of_float_s);
+               Eio.traceln "@[Open time: %a@]@." Time.pp open_time;
                let open_time = Ptime.to_float_s open_time in
                Eio.traceln "@[Waiting until market open...@]@.";
                Eio.Time.sleep_until Backend.env#clock open_time;
