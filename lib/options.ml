@@ -59,6 +59,7 @@ module Context = struct
     nowait_market_open : bool;
     mutices : Longleaf_mutex.t;
     save_to_file : bool;
+    print_tick_arg : bool;
   }
   [@@deriving show]
 end

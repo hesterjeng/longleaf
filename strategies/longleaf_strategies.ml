@@ -1,6 +1,9 @@
 module Context = Options.Context
 module Collections = Ticker_collections
 
+(** Function for creating the options given a context, it has some sensible
+    defaults. If you want to use other options, you may need to create your own
+    Options.t value. *)
 let run_options (context : Context.t) : Options.t =
   let symbols =
     match context.runtype with
@@ -23,6 +26,7 @@ let run_options (context : Context.t) : Options.t =
     context;
   }
 
+(** Helper function to reduce code duplication. *)
 let run_generic ?(run_options = run_options) (module Strat : Strategy.BUILDER)
     context =
   Eio.traceln "@[Starting Doubletop@]@.";
@@ -34,6 +38,9 @@ let run_generic ?(run_options = run_options) (module Strat : Strategy.BUILDER)
   Backend.shutdown ();
   res
 
+(** Type of strategies that have been defined. To add a new strategy, you must
+    first add a corresponding variant to this type. Afterwards, you must add a
+    handler for your strategy in the strats value below. *)
 type t =
   | BuyAndHold
   | Listener
@@ -51,6 +58,9 @@ type t =
 
 let all = List.map fst Variants.descriptions
 
+(** Add a handler for your strategy here, imitating the styles of the others.
+    There must be a handler or your strategy will not work. Note that this
+    function gets the Options.t used value in run_generic.*)
 let strats =
   let ( --> ) x y = (x, run_generic y) in
   [
@@ -68,6 +78,7 @@ let strats =
     SpyTrader --> (module Spytrader.Make);
   ]
 
+(** Based on the context, select and run the strategy. *)
 let run_strat (context : Context.t) strategy =
   let f = List.Assoc.get ~eq:equal strategy strats in
   match f with
@@ -77,6 +88,7 @@ let run_strat (context : Context.t) strategy =
       @@ Format.asprintf "Did not find a strategy implementation for %a" pp
            strategy
 
+(** Function for Cmdliner use. *)
 let of_string_res x =
   let j = `List [ `String x ] in
   try Result.return @@ t_of_yojson j
@@ -88,11 +100,14 @@ let of_string_res x =
             "@[Unknown runtype selected: %s@]@.@[Valid options are: %a@]@." x
             (List.pp String.pp) all)
 
+(** Function for Cmdliner use. *)
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
 
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
+(** Track some statistics if we are doing multiple backtests. *)
 
+(** Top level function for running strategies based on a context.*)
 let run (context : Context.t) strategy =
   match context.runtype with
   | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest
