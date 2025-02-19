@@ -256,7 +256,7 @@ module Stats = struct
   let of_item (item : Stats.item) =
     let filter (x : Order.t) =
       let hovertext =
-        Format.asprintf "%s<br>%s" x.symbol (String.concat "<br>" x.reason)
+        Format.asprintf "* %s<br>%s" x.symbol (String.concat "<br>" x.reason)
       in
       match x.side with Buy -> `Left hovertext | Sell -> `Right hovertext
     in
