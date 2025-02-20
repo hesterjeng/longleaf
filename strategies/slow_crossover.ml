@@ -62,10 +62,6 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let i = Indicators.get_top state.indicators symbol in
     -1.0 *. i.relative_strength_index
 
-  (* let price = State.price state symbol in *)
-  (* let lower_bb = I.get_indicator state.indicators symbol P.lower_bollinger in *)
-  (* lower_bb /. price *)
-
   let num_positions = 3
 end
 
@@ -97,22 +93,12 @@ module Sell : Template.Sell_trigger.S = struct
          with
         | true -> F.Pass [ "high %D" ]
         | false -> F.Fail [ "nope" ]);
-        (* (match price <=. Param.stop_loss_multiplier *. buying_price with *)
-        (* | true -> F.Pass [ "stoploss" ] *)
-        (* | false -> F.Fail [ "ok" ]); *)
         (match
            price <=. Param.stop_loss_multiplier *. high_since_purchase
            && ticks_held >= Param.min_holding_period
          with
         | true -> F.Pass [ "high since purchase" ]
         | false -> F.Fail [ "ok" ]);
-        (* (match *)
-        (*    price <=. buying_price *)
-        (*    && high_since_purchase <=. 1.02 *. buying_price *)
-        (*    && i.fast_stochastic_oscillator_k >=. 20.0 *)
-        (*  with *)
-        (* | false -> F.Pass [ "escape a losing asset" ] *)
-        (* | true -> F.Fail [ "holding..." ]); *)
       ]
     in
     List.fold_left F.or_fold (Fail []) conditions
