@@ -74,8 +74,9 @@ module Make (Alpaca : Util.CLIENT) = struct
     let t_of_yojson x =
       try t_of_yojson x
       with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
+        Eio.traceln "@[%a]@." Yojson.Safe.pp x;
         let err = Printexc.to_string e in
-        invalid_arg @@ Format.asprintf "%s" err
+        invalid_arg @@ Format.asprintf "[account error] %s" err
 
     let get_account () =
       let endpoint = "/v2/account" in
