@@ -96,9 +96,8 @@ let make (options : Options.t) =
   let module Input = (val make_backend_input options) in
   let res =
     match options.context.runtype with
-    | Live -> invalid_arg "Live trading not implemented"
     | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
-    | Paper ->
+    | Paper | Live ->
         Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
         (module Alpaca_backend.Make (Input) : S)
     | Backtest | Multitest | Montecarlo | MultiMontecarlo | RandomSliceBacktest

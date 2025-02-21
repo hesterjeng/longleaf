@@ -1,6 +1,12 @@
 open Backend_intf
 
-let apca_api_base_url = Uri.of_string "https://paper-api.alpaca.markets/v2"
+type runtype = Live | Paper
+
+let apca_api_base_url ty =
+  match ty with
+  | Live -> Uri.of_string "https://api.alpaca.markets/v2"
+  | Paper -> Uri.of_string "https://paper-api.alpaca.markets/v2"
+
 let apca_api_data_url = Uri.of_string "https://data.alpaca.markets/v2"
 
 module Make (Input : BACKEND_INPUT) : S = struct
@@ -17,7 +23,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let trading_client =
     let res =
-      Piaf.Client.create ~sw:context.switch context.eio_env apca_api_base_url
+      let ty =
+        match Input.options.context.runtype with Live -> Live | _ -> Paper
+      in
+      Piaf.Client.create ~sw:context.switch context.eio_env
+      @@ apca_api_base_url ty
     in
     match res with
     | Ok x -> x

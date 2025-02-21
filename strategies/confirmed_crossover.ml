@@ -38,18 +38,23 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let price = State.price state symbol in
     let i = Indicators.get_top state.indicators symbol in
     let* prev = i.previous in
+    let* prev_prev = prev.previous in
     let conditions =
       [
-        (match i.relative_strength_index <=. 40.0 with
-        | true -> F.Pass [ "Small RSI" ]
-        | false -> Fail [ "RSI too large to buy" ]);
-        (match i.fast_stochastic_oscillator_d <=. 20.0 with
-        | true -> F.Pass [ "FSO %D <= 20" ]
-        | false -> F.Fail [ "FSO %D is too high" ]);
+        (* (match prev.relative_strength_index <=. 40.0 with *)
+        (* | true -> F.Pass [ "Small RSI" ] *)
+        (* | false -> Fail [ "RSI too large to buy" ]); *)
+        (* (match prev.fast_stochastic_oscillator_d <=. 20.0 with *)
+        (* | true -> F.Pass [ "FSO %D <= 20" ] *)
+        (* | false -> F.Fail [ "FSO %D is too high" ]); *)
+        (* (if i.awesome_slow >=. 0.0 then F.Pass [ "awesome" ] *)
+        (*  else F.Fail [ "not awesome" ]); *)
         (let crossover =
-           prev.fast_stochastic_oscillator_k
-           <=. prev.fast_stochastic_oscillator_d
-           && i.fast_stochastic_oscillator_k >=. i.fast_stochastic_oscillator_d
+           prev_prev.fast_stochastic_oscillator_k
+           <=. prev_prev.fast_stochastic_oscillator_d
+           && prev.fast_stochastic_oscillator_k
+              >=. prev.fast_stochastic_oscillator_d
+           && i.price >=. prev.price
          in
          match crossover with
          | true -> F.Pass [ "Bullish Crossover" ]
@@ -62,7 +67,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let i = Indicators.get_top state.indicators symbol in
     -1.0 *. i.relative_strength_index
 
-  let num_positions = 1
+  let num_positions = 3
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
