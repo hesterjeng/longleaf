@@ -194,14 +194,10 @@ let combine (l : t list) : t =
   new_table
 
 let append (latest : Latest.t) (x : t) =
-  (* Eio.traceln "Bars.append: %a" Latest.pp latest; *)
-  (* Eio.traceln "Bars.append: There are %d bindings" (Hashtbl.length x); *)
   Hashtbl.to_seq latest
   |> Seq.iter @@ fun (symbol, item) ->
      match get x symbol with
-     | None ->
-         (* Eio.traceln "Creating symbol_history for %s" symbol; *)
-         Hashtbl.replace x symbol @@ Vector.create ()
+     | None -> Hashtbl.replace x symbol @@ Vector.return item
      | Some h -> Vector.push h item
 
 (* let price (bars : t) ticker = *)
