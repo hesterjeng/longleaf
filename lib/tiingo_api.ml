@@ -110,17 +110,19 @@ module Make (Tiingo : Util.CLIENT) = struct
       close : float;
       volume : float;
     }
-    [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+    [@@deriving show, yojson]
+    (* [@@yojson.allow_extra_fields] *)
 
     type resp = t list [@@deriving yojson]
 
-    let item_of (x : t) =
+    let item_of (x : t) : Item.t =
       let { date; open_; high; low; close; volume } = x in
       Item.make ~timestamp:date ~open_ ~high ~low ~close
         ~volume:(Int.of_float volume) ~last:close ~order:None ()
 
-    let historical_bars ?(afterhours = false) (request : Request.t) =
-      let get_data symbol =
+    let top ?(afterhours = false) (starting_request : Request.t) =
+      let split_requests = Request.split starting_request in
+      let get_data (request : Request.t) symbol =
         let endpoint =
           (match request.timeframe with
           | Day ->
@@ -165,15 +167,18 @@ module Make (Tiingo : Util.CLIENT) = struct
                 Error.pp e;
               invalid_arg "Bad data when getting Tiingo historical bars"
         in
-        (* Eio.traceln "%a" Yojson.Safe.pp resp; *)
+        (* Eio.traceln "keys: %a" Yojson.Safe.pp resp; *)
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
         (symbol, Vector.of_list l)
       in
-      let items_assoc = List.map get_data request.symbols |> Seq.of_list in
-      let hashtbl : Bars.t = Hashtbl.of_seq items_assoc in
-      hashtbl
-
-    let top ?(afterhours = false) (request : Request.t) =
-      historical_bars ~afterhours request
+      let r : Bars.t list =
+        List.map
+          (fun request ->
+            List.map (get_data request) starting_request.symbols
+            |> Seq.of_list |> Hashtbl.of_seq)
+          split_requests
+      in
+      let final = Bars.combine r in
+      final
   end
 end

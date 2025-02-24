@@ -52,6 +52,7 @@ module Timeframe : sig
   type t = Min of int | Hour of int | Day | Week | Month of int
   type conv = int option -> t
 
+  val to_float : t -> float
   val conv : conv Cmdliner.Arg.conv
   val t_of_yojson : Yojson.Safe.t -> t
   val yojson_of_t : t -> Yojson.Safe.t
@@ -66,6 +67,13 @@ module Timeframe : sig
 end = struct
   type t = Min of int | Hour of int | Day | Week | Month of int
   [@@deriving show, yojson]
+
+  let to_float = function
+    | Min i -> 60.0 *. Float.of_int i *. 3.7 *. 1.1
+    | Hour i -> 60.0 *. 60.0 *. Float.of_int i
+    | Day -> 60.0 *. 60.0 *. 24.0
+    | Week -> invalid_arg "week timeframe to_float NYI"
+    | Month _ -> invalid_arg "month timeframe to_float NYI"
 
   let to_string = function
     | Min i -> Format.asprintf "%dMin" i

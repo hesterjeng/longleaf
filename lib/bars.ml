@@ -171,19 +171,18 @@ let yojson_of_t (x : t) : Yojson.Safe.t =
                  `List l)) );
     ]
 
+let keys (x : t) = Hashtbl.to_seq_keys x |> Seq.to_list
+
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
-  let keys =
-    List.flat_map (fun x -> Hashtbl.to_seq_keys x |> Seq.to_list) l
-    |> List.uniq ~eq:String.equal
-  in
-  let get_data key =
+  let keys = List.flat_map keys l |> List.uniq ~eq:String.equal in
+  let get_data key : symbol_history =
     let data =
       Vector.flat_map
         (fun (x : t) ->
           match Hashtbl.find_opt x key with
           | Some found -> found
-          | None -> Vector.of_array [||])
+          | None -> Vector.create ())
         (Vector.of_list l)
     in
     Vector.sort' Item.compare data;
@@ -194,23 +193,11 @@ let combine (l : t list) : t =
   new_table
 
 let append (latest : Latest.t) (x : t) =
-  (* Eio.traceln "Bars.append: %a" Latest.pp latest; *)
-  (* Eio.traceln "Bars.append: There are %d bindings" (Hashtbl.length x); *)
   Hashtbl.to_seq latest
   |> Seq.iter @@ fun (symbol, item) ->
      match get x symbol with
-     | None ->
-         (* Eio.traceln "Creating symbol_history for %s" symbol; *)
-         Hashtbl.replace x symbol @@ Vector.create ()
+     | None -> Hashtbl.replace x symbol @@ Vector.return item
      | Some h -> Vector.push h item
-
-(* let price (bars : t) ticker = *)
-(*   match List.Assoc.get ~eq:String.equal ticker bars with *)
-(*   | Some vec when Vector.length vec = 1 -> Vector.get vec 0 *)
-(*   | Some _ -> invalid_arg "Multiple bar items on latest bar?" *)
-(*   | None -> *)
-(*       invalid_arg *)
-(*       @@ Format.asprintf "Unable to get price info for ticker %s" ticker *)
 
 let print_to_file ?(filename : string option) bars prefix =
   let bars_json = yojson_of_t bars in

@@ -91,7 +91,6 @@ module Downloader = struct
       | None ->
           invalid_arg "Need to specify downloader type for data_downloader."
     in
-    Eio.traceln "Trying infill";
     (* Bars.Infill.top bars; *)
     Eio.traceln "%a" Bars.pp_stats bars;
     Bars.sort Longleaf_lib.Item.compare bars;
@@ -106,7 +105,7 @@ module Cmd = struct
       downloader_arg afterhours_arg =
     Fmt_tty.setup_std_outputs ();
     let prefix = if today then "download_today" else "download" in
-    let collection = Collections.sp100_spy in
+    let collection = Collections.sp100 in
     let request =
       match
         Market_data_api.Request.of_data_downloader collection begin_arg end_arg
@@ -114,6 +113,8 @@ module Cmd = struct
       with
       | Some r -> r
       | None ->
+          Eio.traceln
+            "Creating default download request because of missing arguments";
           let start =
             if today then Time.get_todays_date () else Time.of_ymd "2024-11-01"
           in

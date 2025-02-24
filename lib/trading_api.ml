@@ -68,7 +68,7 @@ module Make (Alpaca : Util.CLIENT) = struct
         daytrade_count = 0;
         pattern_day_trader = false;
         (* margin_enabled = true; *)
-        status = "Not sure what should go here";
+        status = "Default account";
       }
 
     let t_of_yojson x =
