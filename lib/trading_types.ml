@@ -69,7 +69,7 @@ end = struct
   [@@deriving show, yojson]
 
   let to_float = function
-    | Min i -> 60.0 *. Float.of_int i
+    | Min i -> 60.0 *. Float.of_int i *. 3.7 *. 1.1
     | Hour i -> 60.0 *. 60.0 *. Float.of_int i
     | Day -> 60.0 *. 60.0 *. 24.0
     | Week -> invalid_arg "week timeframe to_float NYI"

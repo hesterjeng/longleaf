@@ -120,8 +120,19 @@ module Make (Tiingo : Util.CLIENT) = struct
       Item.make ~timestamp:date ~open_ ~high ~low ~close
         ~volume:(Int.of_float volume) ~last:close ~order:None ()
 
-    let top ?(afterhours = false) (request : Request.t) =
-      let get_data symbol =
+    let top ?(afterhours = false) (starting_request : Request.t) =
+      let get_data (request : Request.t) symbol =
+        let _ = Request.split request in
+        (* let request_start = request.start in *)
+        (* let request_end = request.end_ in *)
+        (* (\* let rsp = Ptime.to_span request_start in *\) *)
+        (* (\* let rep = Option.map Ptime.to_span request_end in *\) *)
+        (* (\* Eio.traceln "@[start: %a@]@.@[end: %a@]@." (Ptime.pp_human ()) *\) *)
+        (* (\*   request_start *\) *)
+        (* (\*   (Option.pp (Ptime.pp_human ())) *\) *)
+        (* (\*   request_end; *\) *)
+        (* (\* Eio.traceln "start span: %a" Ptime.Span.pp rsp; *\) *)
+        (* (\* Eio.traceln "end span: %a" (Option.pp Ptime.Span.pp) rep; *\) *)
         let endpoint =
           (match request.timeframe with
           | Day ->
@@ -170,7 +181,9 @@ module Make (Tiingo : Util.CLIENT) = struct
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
         (symbol, Vector.of_list l)
       in
-      let items_assoc = List.map get_data request.symbols in
+      let items_assoc =
+        List.map (get_data starting_request) starting_request.symbols
+      in
       let hashtbl : Bars.t = Hashtbl.of_seq @@ Seq.of_list items_assoc in
       hashtbl
   end
