@@ -105,7 +105,7 @@ module Cmd = struct
       downloader_arg afterhours_arg =
     Fmt_tty.setup_std_outputs ();
     let prefix = if today then "download_today" else "download" in
-    let collection = Collections.spy in
+    let collection = Collections.sp100 in
     let request =
       match
         Market_data_api.Request.of_data_downloader collection begin_arg end_arg
