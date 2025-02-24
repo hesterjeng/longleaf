@@ -91,7 +91,6 @@ module Downloader = struct
       | None ->
           invalid_arg "Need to specify downloader type for data_downloader."
     in
-    Eio.traceln "Trying infill";
     (* Bars.Infill.top bars; *)
     Eio.traceln "%a" Bars.pp_stats bars;
     Bars.sort Longleaf_lib.Item.compare bars;

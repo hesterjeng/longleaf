@@ -110,11 +110,12 @@ module Make (Tiingo : Util.CLIENT) = struct
       close : float;
       volume : float;
     }
-    [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+    [@@deriving show, yojson]
+    (* [@@yojson.allow_extra_fields] *)
 
     type resp = t list [@@deriving yojson]
 
-    let item_of (x : t) =
+    let item_of (x : t) : Item.t =
       let { date; open_; high; low; close; volume } = x in
       Item.make ~timestamp:date ~open_ ~high ~low ~close
         ~volume:(Int.of_float volume) ~last:close ~order:None ()
@@ -165,12 +166,12 @@ module Make (Tiingo : Util.CLIENT) = struct
                 Error.pp e;
               invalid_arg "Bad data when getting Tiingo historical bars"
         in
-        (* Eio.traceln "%a" Yojson.Safe.pp resp; *)
+        (* Eio.traceln "keys: %a" Yojson.Safe.pp resp; *)
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
         (symbol, Vector.of_list l)
       in
-      let items_assoc = List.map get_data request.symbols |> Seq.of_list in
-      let hashtbl : Bars.t = Hashtbl.of_seq items_assoc in
+      let items_assoc = List.map get_data request.symbols in
+      let hashtbl : Bars.t = Hashtbl.of_seq @@ Seq.of_list items_assoc in
       hashtbl
   end
 end

@@ -19,7 +19,11 @@ let get_piaf ~client ~headers ~endpoint : (Yojson.Safe.t, Error.t) result =
   let _status = Response.status resp in
   let body = Response.body resp in
   let* json = Body.to_string body in
-  try Result.return (Yojson.Safe.from_string json)
+  try
+    let res = Result.return (Yojson.Safe.from_string json) in
+    (* let resp_headers = Response.headers resp in *)
+    (* Eio.traceln "response headers: %a" Headers.pp_hum resp_headers; *)
+    res
   with Yojson.Json_error s as e ->
     let resp_headers = Response.headers resp in
     Eio.traceln "@[%s@]@." json;
