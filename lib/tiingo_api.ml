@@ -119,7 +119,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       Item.make ~timestamp:date ~open_ ~high ~low ~close
         ~volume:(Int.of_float volume) ~last:close ~order:None ()
 
-    let historical_bars ?(afterhours = false) (request : Request.t) =
+    let top ?(afterhours = false) (request : Request.t) =
       let get_data symbol =
         let endpoint =
           (match request.timeframe with
@@ -172,8 +172,5 @@ module Make (Tiingo : Util.CLIENT) = struct
       let items_assoc = List.map get_data request.symbols |> Seq.of_list in
       let hashtbl : Bars.t = Hashtbl.of_seq items_assoc in
       hashtbl
-
-    let top ?(afterhours = false) (request : Request.t) =
-      historical_bars ~afterhours request
   end
 end
