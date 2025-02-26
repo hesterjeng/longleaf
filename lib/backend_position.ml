@@ -6,11 +6,18 @@ type pos = (string, int) Hashtbl.t [@@deriving show]
 (* TODO: *)
 (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
 
-type t = { position : pos; cash : float } [@@deriving show]
+type t = { position : pos; cash : float; live_orders : Order.t list }
+[@@deriving show]
 
-let make () = { position = Hashtbl.create 5; cash = 100000.0 }
+let make () = { position = Hashtbl.create 5; cash = 100000.0; live_orders = [] }
 let set_cash x cash = { x with cash }
-let get_cash pos = pos.cash
+
+let get_cash pos =
+  pos.cash
+  +. List.fold_left
+       (fun value (o : Order.t) -> value +. (o.price *. Int.to_float o.qty))
+       0.0 pos.live_orders
+
 let get_position pos = pos.position
 
 let symbols pos =
@@ -35,6 +42,8 @@ let mem (x : t) symbol =
   let found = Hashtbl.get x.position symbol in
   match found with Some 0 | None -> false | Some _ -> true
 
+(* let update (x : t) = *)
+
 let execute_order pos (order : Order.t) =
   let symbol = order.symbol in
   let qty = order.qty in
@@ -51,6 +60,8 @@ let execute_order pos (order : Order.t) =
       Hashtbl.replace pos.position symbol (current_amt - qty);
       let res = set_cash pos @@ (pos.cash +. (price *. Float.of_int qty)) in
       Ok res
+  | Buy, Stop | Sell, Stop ->
+      Result.return @@ { pos with live_orders = order :: pos.live_orders }
   | _ -> Result.fail @@ `UnsupportedOrder order
 
 let liquidate pos (bars : Bars.Latest.t) =
