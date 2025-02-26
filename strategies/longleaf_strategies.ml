@@ -26,12 +26,27 @@ let run_options (context : Context.t) : Options.t =
     context;
   }
 
+let original_bars = ref None
+let original_target = ref None
+
+let check_bars options =
+  match (!original_bars, !original_target) with
+  | Some _, Some _ -> ()
+  | _ ->
+      let bars, target = Backend.make_bars options in
+      original_bars := Some bars;
+      original_target := Some target;
+      ()
+
 (** Helper function to reduce code duplication. *)
 let run_generic ?(run_options = run_options) (module Strat : Strategy.BUILDER)
     context =
   Eio.traceln "@[Starting Doubletop@]@.";
   let options = run_options context in
-  let module Backend = (val Backend.make options) in
+  let () = check_bars options in
+  let module Backend =
+    (val Backend.make options !original_bars !original_target)
+  in
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running.";
   let res = S.run () in

@@ -84,16 +84,28 @@ let make_bars (options : Options.t) =
   | RandomTickerBacktest | MultiRandomTickerBacktest ->
       (bars, target)
 
-let make_backend_input (options : Options.t) =
-  let bars, target = make_bars options in
+let make_backend_input (options : Options.t) bars target =
+  let bars, target =
+    match (bars, target) with
+    | Some b, Some t -> (Bars.Hashtbl.copy b, (Option.map Bars.Hashtbl.copy) t)
+    | _ -> make_bars options
+
+(* let make_indicators (options : Options.t) bars target = *)
+(*   let x = Indicators.initialize Indicators.Config.{ fft = false } () in *)
+  (* let bars, target = *)
+
+  (*   match (bars, target) with *)
+  (*   | Some b, Some t -> (Bars.Hashtbl.copy b, (Option.map Bars.Hashtbl.copy) t) *)
+  (*   | _ -> make_bars options *)
+  in
   (module struct
     let options = options
     let bars = bars
     let target = target
   end : BACKEND_INPUT)
 
-let make (options : Options.t) =
-  let module Input = (val make_backend_input options) in
+let make (options : Options.t) bars target =
+  let module Input = (val make_backend_input options bars target) in
   let res =
     match options.context.runtype with
     | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
