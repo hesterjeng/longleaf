@@ -26,7 +26,7 @@ end
 
 module OrderType = struct
   type t = Market | Limit | Stop | StopLimit | TrailingStop
-  [@@deriving show, yojson]
+  [@@deriving show, yojson, eq]
 
   let to_string = function
     | Market -> "market"
