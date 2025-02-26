@@ -15,7 +15,10 @@ let set_cash x cash = { x with cash }
 let get_cash pos =
   pos.cash
   +. List.fold_left
-       (fun value (o : Order.t) -> value +. (o.price *. Int.to_float o.qty))
+       (fun value (o : Order.t) ->
+         match o.side with
+         | Buy -> value +. (o.price *. Int.to_float o.qty)
+         | Sell -> value)
        0.0 pos.live_orders
 
 let get_position pos = pos.position
@@ -42,7 +45,26 @@ let mem (x : t) symbol =
   let found = Hashtbl.get x.position symbol in
   match found with Some 0 | None -> false | Some _ -> true
 
-(* let update (x : t) = *)
+let update (x : t) (latest : Bars.Latest.t) =
+  let triggered_orders, live_orders =
+    List.partition
+      (fun (o : Order.t) ->
+        let price = o.price in
+        let symbol = o.symbol in
+        let current_price =
+          Bars.Latest.get_opt latest symbol |> function
+          | Some x -> x
+          | None ->
+              invalid_arg
+              @@ Format.asprintf
+                   "Missing data for symbol %s when updating backend position"
+                   symbol
+        in
+        let previous_price = 0.0 in
+        false)
+      x.live_orders
+  in
+  ()
 
 let execute_order pos (order : Order.t) =
   let symbol = order.symbol in
