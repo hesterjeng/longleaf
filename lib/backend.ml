@@ -79,6 +79,10 @@ let make_bars (options : Options.t) =
   match context.runtype with
   | RandomSliceBacktest | MultiRandomSliceBacktest ->
       let bars, target = SliceBacktesting.top ~options bars target in
+
+      let indicators =
+        Indicators.initialize { fft = false } bars
+      in
       (bars, Some target)
   | Live | Manual | Paper | Backtest | Multitest | Montecarlo | MultiMontecarlo
   | RandomTickerBacktest | MultiRandomTickerBacktest ->
