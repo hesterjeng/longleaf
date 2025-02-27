@@ -182,3 +182,58 @@ module Make (Tiingo : Util.CLIENT) = struct
       final
   end
 end
+
+let make_bars (options : Options.t) =
+  let context = options.context in
+  let preload = context.preload in
+  let target = context.target in
+  let symbols = options.symbols in
+  let bars =
+    match preload with
+    | None -> Bars.empty ()
+    | Download ->
+        Eio.traceln "Downloading data from tiingo for preload";
+        let module Param = struct
+          let longleaf_env = context.longleaf_env
+          let client = tiingo_client context.eio_env context.switch
+        end in
+        let module Tiingo = Make (Param) in
+        let request : Market_data_api.Request.t =
+          let end_ = Time.get_todays_date () in
+          let start = Time.subtract_30_days end_ in
+          let tick_mins = Int.of_float (options.tick /. 60.0) in
+          {
+            timeframe = Trading_types.Timeframe.min tick_mins;
+            symbols;
+            start;
+            end_ = Some end_;
+          }
+        in
+        let res = Tiingo.Data.top request in
+        Bars.sort Item.compare res;
+        res
+    | File file ->
+        Eio.traceln "Preloading bars from %s" file;
+        let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
+        Bars.sort Item.compare res;
+        res
+  in
+  let target =
+    let ( let+ ) = Option.( let+ ) in
+    let+ res =
+      let+ target = target in
+      Yojson.Safe.from_file target |> Bars.t_of_yojson
+    in
+    Bars.sort (Ord.opp Item.compare) res;
+    match context.runtype with
+    | Options.Runtype.Montecarlo | MultiMontecarlo ->
+        Monte_carlo.Bars.of_bars ~preload:bars ~target:res
+    | _ -> res
+  in
+  match context.runtype with
+  | RandomSliceBacktest | MultiRandomSliceBacktest ->
+      let bars, target = Slice_backtesting.top ~options bars target in
+      (bars, Some target)
+  | Live | Manual | Paper | Backtest | Multitest | Montecarlo | MultiMontecarlo
+  | RandomTickerBacktest | MultiRandomTickerBacktest ->
+      (bars, target)
