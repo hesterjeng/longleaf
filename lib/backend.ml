@@ -79,8 +79,6 @@ let make_bars (options : Options.t) =
   match context.runtype with
   | RandomSliceBacktest | MultiRandomSliceBacktest ->
       let bars, target = SliceBacktesting.top ~options bars target in
-
-      let indicators = Indicators.initialize { fft = false } bars in
       (bars, Some target)
   | Live | Manual | Paper | Backtest | Multitest | Montecarlo | MultiMontecarlo
   | RandomTickerBacktest | MultiRandomTickerBacktest ->
@@ -89,7 +87,7 @@ let make_bars (options : Options.t) =
 let make_backend_input (options : Options.t) bars target =
   let bars, target =
     match (bars, target) with
-    | Some b, Some t -> (Bars.Hashtbl.copy b, (Option.map Bars.Hashtbl.copy) t)
+    | Some b, Some t -> (Bars.copy b, Option.map Bars.copy t)
     | _ -> make_bars options
     (* let make_indicators (options : Options.t) bars target = *)
     (*   let x = Indicators.initialize Indicators.Config.{ fft = false } () in *)

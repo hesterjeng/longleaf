@@ -382,10 +382,10 @@ let initialize_single config bars symbol =
   in
   initial_stats_vector
 
-let initialize config bars symbols : t =
-  let symbols_seq = Seq.of_list symbols in
-  Seq.map (fun s -> (s, initialize_single config bars s)) symbols_seq
-  |> Hashtbl.of_seq
+(* let initialize config bars symbols : t = *)
+(*   let symbols_seq = Seq.of_list symbols in *)
+(*   Seq.map (fun s -> (s, initialize_single config bars s)) symbols_seq *)
+(*   |> Hashtbl.of_seq *)
 
 let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     (x : t) =
@@ -403,10 +403,9 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     match get x symbol with
     | Some i -> i
     | None ->
-        (* let new_vector = initialize config bars symbol in *)
-        (* Hashtbl.replace x symbol new_vector; *)
-        (* new_vector *)
-        invalid_arg "WIP: need to have indicators vector initialized"
+        let new_vector = initialize_single config bars symbol in
+        Hashtbl.replace x symbol new_vector;
+        new_vector
   in
   let previous =
     match Vector.top indicators_vector with
