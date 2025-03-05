@@ -348,7 +348,7 @@ let get_indicator (x : t) symbol f =
        symbol)
     res
 
-let initialize config bars symbol =
+let initialize_single config bars symbol =
   let initial_stats_vector = Vector.create () in
   let bars_vec =
     Bars.get bars symbol |> function
@@ -382,6 +382,11 @@ let initialize config bars symbol =
   in
   initial_stats_vector
 
+(* let initialize config bars symbols : t = *)
+(*   let symbols_seq = Seq.of_list symbols in *)
+(*   Seq.map (fun s -> (s, initialize_single config bars s)) symbols_seq *)
+(*   |> Hashtbl.of_seq *)
+
 let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     (x : t) =
   Hashtbl.to_seq latest_bars |> fun seq ->
@@ -398,9 +403,7 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     match get x symbol with
     | Some i -> i
     | None ->
-        (* Eio.traceln "\rCreating initial indicators for %s..." symbol; *)
-        (* flush stderr; *)
-        let new_vector = initialize config bars symbol in
+        let new_vector = initialize_single config bars symbol in
         Hashtbl.replace x symbol new_vector;
         new_vector
   in

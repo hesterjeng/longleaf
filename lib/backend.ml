@@ -1,34 +1,6 @@
 module type S = Backend_intf.S
 module type BACKEND_INPUT = Backend_intf.BACKEND_INPUT
 
-module SliceBacktesting = struct
-  let select_midpoint length =
-    assert (length >= 8000);
-    let start_range = 1000 in
-    let end_range = length - 1000 in
-    Int.random_range start_range end_range Util.random_state
-
-  (* let top target_length (module Input : BACKEND_INPUT) = *)
-  let top ~(options : Options.t) bars target =
-    Eio.traceln "Selecting and creating random slice...";
-    let preload = bars in
-    let target =
-      target |> Option.get_exn_or "Must have target for slice backtesting"
-    in
-    let combined = Bars.combine [ preload; target ] in
-    let combined_length = Bars.length combined in
-    let midpoint = select_midpoint combined_length in
-    let new_bars, new_target =
-      Bars.split ~midpoint ~target_length:options.randomized_backtest_length
-        ~combined_length combined
-    in
-    Eio.traceln "Sorting random slices...";
-    Bars.sort Item.compare new_bars;
-    Bars.sort (Ord.opp Item.compare) new_target;
-    Eio.traceln "Finished creating random slice...";
-    (new_bars, new_target)
-end
-
 let make_bars (options : Options.t) =
   let context = options.context in
   let preload = context.preload in
@@ -78,22 +50,26 @@ let make_bars (options : Options.t) =
   in
   match context.runtype with
   | RandomSliceBacktest | MultiRandomSliceBacktest ->
-      let bars, target = SliceBacktesting.top ~options bars target in
+      let bars, target = Slice_backtesting.top ~options bars target in
       (bars, Some target)
   | Live | Manual | Paper | Backtest | Multitest | Montecarlo | MultiMontecarlo
   | RandomTickerBacktest | MultiRandomTickerBacktest ->
       (bars, target)
 
-let make_backend_input (options : Options.t) =
-  let bars, target = make_bars options in
+let make_backend_input (options : Options.t) bars target =
+  let bars, target =
+    match (bars, target) with
+    | Some b, Some t -> (Bars.copy b, Option.map Bars.copy t)
+    | _ -> make_bars options
+  in
   (module struct
     let options = options
     let bars = bars
     let target = target
   end : BACKEND_INPUT)
 
-let make (options : Options.t) =
-  let module Input = (val make_backend_input options) in
+let make (options : Options.t) bars target =
+  let module Input = (val make_backend_input options bars target) in
   let res =
     match options.context.runtype with
     | Manual -> invalid_arg "Cannot create a strategy with manual runtype"

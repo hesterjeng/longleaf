@@ -121,13 +121,15 @@ module Make (Backend : Backend_intf.S) = struct
 
   let update_continue (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
+    let previous = state.latest in
     let* latest = Backend.latest_bars Backend.symbols in
+    let* position = Backend_position.update state.positions ~previous latest in
     let* time = Bars.Latest.timestamp latest in
     Bars.append latest state.bars;
     if context.print_tick_arg then Eio.traceln "Tick time: %a" Time.pp time;
     Indicators.add_latest Input.options.indicators_config time state.bars latest
       state.indicators;
-    let value = Backend_position.value state.positions latest in
+    let value = Backend_position.value position latest in
     let risk_free_value =
       Stats.risk_free_value state.stats Input.options.tick
     in
@@ -142,7 +144,8 @@ module Make (Backend : Backend_intf.S) = struct
         }
         state.stats
     in
-    Result.return @@ { state with latest; stats = new_stats }
+    Result.return
+    @@ { state with latest; stats = new_stats; positions = position }
 
   let handle_nonlogical_state (state : _ State.t) =
     let ( let* ) = Result.( let* ) in

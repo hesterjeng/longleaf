@@ -43,6 +43,13 @@ let activate_order state order =
   in
   { state with order_history = new_h }
 
+let place_order (state : 'a t) (order : Order.t) =
+  let ( let* ) = Result.( let* ) in
+  Eio.traceln "@[%a@]@." Order.pp order;
+  let* state = record_order state order in
+  let* new_positions = Backend_position.execute_order state.positions order in
+  Result.return { state with positions = new_positions }
+
 let deactivate_order state order =
   let new_h =
     {

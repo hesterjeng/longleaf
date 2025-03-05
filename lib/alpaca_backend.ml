@@ -11,7 +11,8 @@ let apca_api_data_url = Uri.of_string "https://data.alpaca.markets/v2"
 
 module Make (Input : BACKEND_INPUT) : S = struct
   open Trading_types
-  module Backtesting = Backtesting_backend.Make (Input)
+
+  (* module Backtesting = Backtesting_backend.Make (Input) *)
   module Input = Input
 
   let context = Input.options.context
@@ -126,7 +127,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
         Eio.traceln "No symbols in latest bars request.";
         Result.return @@ Bars.Latest.empty ()
     | _ ->
-        let _ = Backtesting.latest_bars symbols in
+        (* let _ = Backtesting.latest_bars symbols in *)
         (* let res = Market_data_api.Stock.latest_bars symbols in *)
         let* res =
           match Tiingo.latest symbols with
@@ -147,7 +148,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let ( let* ) = Result.( let* ) in
     assert (not @@ Input.options.dropout);
     let* () = Trading_api.Orders.create_market_order order in
-    let* state = Backtesting.place_order state order in
+    let* state = State.place_order state order in
     Result.return state
 
   let liquidate (state : 'a State.t) =

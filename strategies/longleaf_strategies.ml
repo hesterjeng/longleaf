@@ -26,12 +26,25 @@ let run_options (context : Context.t) : Options.t =
     context;
   }
 
+(* let original_bars = ref None *)
+(* let original_target = ref None *)
+
+(* let check_bars options = *)
+(*   match (!original_bars, !original_target) with *)
+(*   | Some _, Some _ -> () *)
+(*   | _ -> *)
+(*       let bars, target = Backend.make_bars options in *)
+(*       original_bars := Some bars; *)
+(*       original_target := Some target; *)
+(*       () *)
+
 (** Helper function to reduce code duplication. *)
-let run_generic ?(run_options = run_options) (module Strat : Strategy.BUILDER)
-    context =
+let run_generic ?(run_options = run_options) ?bars ?target
+    (module Strat : Strategy.BUILDER) context =
   Eio.traceln "@[Starting Doubletop@]@.";
   let options = run_options context in
-  let module Backend = (val Backend.make options) in
+  (* let () = check_bars options in *)
+  let module Backend = (val Backend.make options bars target) in
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running.";
   let res = S.run () in
@@ -55,6 +68,7 @@ type t =
   | SpyTrader
   | SlowCrossover
   | ConfirmedCrossover
+  | ThrowingCrossover
 [@@deriving show, eq, yojson, variants]
 
 let all = List.map fst Variants.descriptions
@@ -77,6 +91,7 @@ let strats =
     Crossover --> (module Crossover.Make);
     SlowCrossover --> (module Slow_crossover.Make);
     ConfirmedCrossover --> (module Confirmed_crossover.Make);
+    ThrowingCrossover --> (module Throwing_crossover.Make);
     SpyTrader --> (module Spytrader.Make);
   ]
 

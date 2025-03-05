@@ -192,6 +192,11 @@ let combine (l : t list) : t =
   List.iter (fun key -> Hashtbl.replace new_table key (get_data key)) keys;
   new_table
 
+let copy (x : t) : t =
+  let seq = Hashtbl.to_seq x in
+  let tbl = Seq.map (fun (symbol, h) -> (symbol, Vector.copy h)) seq in
+  Hashtbl.of_seq tbl
+
 let append (latest : Latest.t) (x : t) =
   Hashtbl.to_seq latest
   |> Seq.iter @@ fun (symbol, item) ->

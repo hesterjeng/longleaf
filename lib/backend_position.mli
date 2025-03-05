@@ -10,3 +10,6 @@ val qty : t -> string -> int
 val value : t -> Bars.Latest.t -> float
 val mem : t -> string -> bool
 val is_empty : t -> bool
+
+val update :
+  t -> previous:Bars.Latest.t -> Bars.Latest.t -> (t, Error.t) Result.t
