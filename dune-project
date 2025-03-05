@@ -31,7 +31,9 @@
   eio_main
   piaf
   fileutils
-  ocamlformat))
+  ocamlformat
+  (alcotest :with-test)
+))
 
 (package
  (name longleaf-strategies)
@@ -56,4 +58,6 @@
   eio_main
   piaf
   fileutils
-  ocamlformat))
+  ocamlformat
+  (alcotest :with-test)
+))

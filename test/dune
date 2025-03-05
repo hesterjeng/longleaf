@@ -1,0 +1,13 @@
+(executable
+ (name test)
+ (modes exe)
+ (libraries alcotest astring longleaf-lib))
+
+; This fails at runtime, so just build the executable
+
+(rule
+ (alias runtest)
+ ; (context default)
+ (package longleaf-lib)
+ (action
+  (run %{dep:test.exe})))
