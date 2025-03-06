@@ -24,6 +24,7 @@ depends: [
   "piaf"
   "fileutils"
   "ocamlformat"
+  "alcotest" {with-test}
   "odoc" {with-doc}
 ]
 build: [
