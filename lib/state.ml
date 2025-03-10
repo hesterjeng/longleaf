@@ -62,11 +62,7 @@ let deactivate_order state order =
   in
   { state with order_history = new_h }
 
-let replace_stats x stats =
-  {
-    x with stats = stats
-  }
-
+let replace_stats x stats = { x with stats }
 let map (f : 'a -> 'b) (x : 'a t) = { x with content = f x.content }
 let ( >|= ) x f = map f x
 let ( let+ ) = ( >|= )

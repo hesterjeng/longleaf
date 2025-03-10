@@ -76,6 +76,10 @@ module Make
 
   let buy ~held_symbols (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
+    let state =
+      State.replace_stats state
+      @@ Stats.add_possible_positions state.stats Backend.symbols
+    in
     let potential_buys =
       List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
       |> Buy.make state
