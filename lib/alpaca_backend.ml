@@ -83,7 +83,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          positions;
          latest = Bars.Latest.empty ();
          content;
-         stats = Stats.empty;
+         stats = Stats.empty ();
          order_history = Order.History.empty;
          indicators = Indicators.empty ();
        }

@@ -31,12 +31,14 @@ let win_percentage (h : Order.History.t) =
 
 let sharpe_ratio (stats : Stats.t) =
   let final : Stats.item =
-    List.head_opt stats
+    List.head_opt stats.history
     |> Option.get_exn_or
          "stats.ml: Expected to get final element of stats in backtest"
   in
   let values =
-    List.map (fun (x : Stats.item) -> x.value -. x.risk_free_value) stats
+    List.map
+      (fun (x : Stats.item) -> x.value -. x.risk_free_value)
+      stats.history
     |> Array.of_list
   in
   let std = Owl_stats.std values in
@@ -81,7 +83,7 @@ let average_loss (h : Order.History.t) =
 
 let stddev_returns (stats : Stats.t) =
   let returns =
-    List.map (fun (x : Stats.item) -> x.value) stats |> Array.of_list
+    List.map (fun (x : Stats.item) -> x.value) stats.history |> Array.of_list
   in
   Owl_stats.std returns
 

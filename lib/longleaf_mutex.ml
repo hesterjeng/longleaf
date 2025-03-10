@@ -12,7 +12,7 @@ let create () =
   let data_mutex = Pmutex.make @@ Bars.empty () in
   let orders_mutex = Pmutex.make Order.History.empty in
   let symbols_mutex = Pmutex.make None in
-  let stats_mutex = Pmutex.make [] in
+  let stats_mutex = Pmutex.make @@ Stats.empty () in
   let indicators_mutex = Pmutex.make @@ Indicators.empty () in
   {
     shutdown_mutex;

@@ -95,11 +95,7 @@ module Make
       | [] -> Result.return state
       | selected ->
           let current_cash = Backend_position.get_cash state.positions in
-          let pct =
-            match List.length selected with
-            | 1 -> 1.0
-            | n -> 1.0 /. Float.of_int n
-          in
+          let pct = 1.0 /. Float.of_int (List.length selected) in
           assert (pct >=. 0.0 && pct <=. 1.0);
           let place_order state (signal : Signal.t) =
             let* state = state in
