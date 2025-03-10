@@ -1,9 +1,17 @@
+module PositionRatio = struct
+  type t = { positions_taken : int; positions_possible : int }
+  [@@deriving yojson, show]
+
+  let none = { positions_taken = 0; positions_possible = 0 }
+end
+
 type item = {
   time : Time.t;
   value : float;
   cash : float;
   risk_free_value : float;
   orders : Order.t list;
+  position_ratio : PositionRatio.t;
 }
 [@@deriving yojson, show]
 

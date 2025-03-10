@@ -141,6 +141,7 @@ module Make (Backend : Backend_intf.S) = struct
           orders = [];
           risk_free_value;
           cash = Backend_position.get_cash state.positions;
+          position_ratio = Stats.PositionRatio.none;
         }
         state.stats
     in
