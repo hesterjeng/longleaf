@@ -1,4 +1,5 @@
 type t = {
+  position_taken_ratio : float;
   num_orders : int;
   sharpe_ratio : float;
   win_percentage : float;
@@ -155,6 +156,10 @@ let annualized_value (state : 'a State.t) =
 let make (state : 'a State.t) : t =
   let h = state.order_history in
   let stats = state.stats in
+  let position_taken_ratio =
+    Float.of_int state.stats.position_ratio.positions_taken
+    /. Float.of_int state.stats.position_ratio.positions_possible
+  in
   let biggest_winner, biggest_loser = biggest h in
   {
     num_orders = Order.History.length h;
@@ -169,4 +174,5 @@ let make (state : 'a State.t) : t =
     stddev_returns = stddev_returns stats;
     biggest_winner;
     biggest_loser;
+    position_taken_ratio;
   }
