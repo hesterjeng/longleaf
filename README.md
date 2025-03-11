@@ -32,13 +32,17 @@ export TIINGO_KEY=mytiingokey
 * Paper trade the configured strategy on Alpaca:
 `./main.exe Paper --preload download -o papertrading.log`
 
+# Make your own strategy
+
+Take a look at `strategies/template_example.ml`.  The easiest way to write a `longleaf` strategy is to use the strategy templates.  At the time of writing, this is limited to strategies that will only buy and sell stocks, meaning that there is no support for options, futures, etc. yet.
+
 # View data
 
 Go to `http://localhost:8080/` to see some visualizations, statistics, and indicators about the behavior of your strategy.
 
 # Emacs usage
 
-This is a small thing that probably won't be improved any further.
+This is a small thing that probably won't be improved any further, and I probably won't update it as the program changes.
 
 In the `elisp` directory, there is an Emacs Lisp file that allows you to select a preload and/or a target file and run backtests quickly.  To use use this, open the file and then load the buffer. In Doom Emacs:
 
