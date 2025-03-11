@@ -70,5 +70,8 @@ let ( let+ ) = ( >|= )
 let price (state : 'a t) symbol =
   Bars.Latest.get state.latest symbol |> Item.last
 
+let volume (state : 'a t) symbol =
+  Bars.Latest.get state.latest symbol |> Item.volume
+
 let timestamp (state : 'a t) symbol =
   Bars.Latest.get state.latest symbol |> Item.timestamp

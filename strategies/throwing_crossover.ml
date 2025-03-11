@@ -57,6 +57,8 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
          match crossover with
          | true -> F.Pass [ "Bullish Crossover" ]
          | false -> F.Fail [ "No Crossover" ]);
+        (
+        );
       ]
     in
     let res = List.fold_left F.and_fold (Pass []) conditions in
