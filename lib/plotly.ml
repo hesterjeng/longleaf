@@ -316,7 +316,7 @@ module Stats = struct
 
   let make (stats : Stats.t) : Yojson.Safe.t =
     let ( = ) = fun x y -> (x, y) in
-    let l = List.map of_item stats in
+    let l = List.map of_item stats.history in
     let x = List.map (fun x -> `String x.x) l in
     let y = List.map (fun x -> `Float x.y) l in
     let cash = List.map (fun x -> `Float x.cash) l in

@@ -34,7 +34,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     | true -> F.Pass [ "Bullish Crossover" ]
     | false -> F.Fail [ "No Crossover" ]
 
-  let num_hits = ref 0
+  (* let num_hits = ref 0 *)
 
   let pass (state : 'a State.t) symbol =
     let price = State.price state symbol in
@@ -60,9 +60,9 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
       ]
     in
     let res = List.fold_left F.and_fold (Pass []) conditions in
-    if F.is_pass res then num_hits := !num_hits + 1;
-    if F.is_pass res && !num_hits mod 10 = 0 then
-      Eio.traceln "[throwing] hit %d" !num_hits;
+    (* if F.is_pass res then num_hits := !num_hits + 1; *)
+    (* if F.is_pass res && !num_hits mod 10 = 0 then *)
+    (*   Eio.traceln "[throwing] hit %d" !num_hits; *)
     res
 
   let score (state : 'a State.t) symbol =

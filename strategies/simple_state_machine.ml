@@ -13,7 +13,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
          positions = Backend_position.make ();
          tick = 0;
          tick_length = 0.0;
-         stats = Stats.empty;
+         stats = Stats.empty ();
          order_history = Order.History.empty;
          indicators = Indicators.empty ();
        }

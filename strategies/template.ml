@@ -80,6 +80,10 @@ module Make
       List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
       |> Buy.make state
     in
+    let state =
+      State.replace_stats state
+      @@ Stats.add_possible_positions state.stats potential_buys
+    in
     let num_held_currently = List.length @@ state.order_history.active in
     (* Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp) *)
     (*   state.order_history.active; *)
@@ -95,11 +99,7 @@ module Make
       | [] -> Result.return state
       | selected ->
           let current_cash = Backend_position.get_cash state.positions in
-          let pct =
-            match List.length selected with
-            | 1 -> 1.0
-            | n -> 1.0 /. Float.of_int n
-          in
+          let pct = 1.0 /. Float.of_int (List.length selected) in
           assert (pct >=. 0.0 && pct <=. 1.0);
           let place_order state (signal : Signal.t) =
             let* state = state in
@@ -116,6 +116,10 @@ module Make
                   Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
                     ~tick:state.tick ~order_type:Market ~qty ~price ~reason
                     ~timestamp ~profit:None
+                in
+                let state =
+                  State.replace_stats state
+                  @@ Stats.increment_position_ratio state.stats
                 in
                 let* state = Backend.place_order state order in
                 let state = State.activate_order state order in

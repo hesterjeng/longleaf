@@ -17,7 +17,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          content;
          tick = 0;
          tick_length = Input.options.tick;
-         stats = Stats.empty;
+         stats = Stats.empty ();
          order_history = Order.History.empty;
          indicators = Indicators.empty ();
          positions = Backend_position.make () (* active_orders = []; *);
