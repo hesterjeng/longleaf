@@ -189,6 +189,7 @@ module Point = struct
   type t = {
     timestamp : Time.t;
     price : float;
+    volume : int;
     accumulation_distribution_line : float;
     ema_12 : float;
     ema_26 : float;
@@ -225,6 +226,7 @@ module Point = struct
       ema_26 = 0.0;
       macd = 0.0;
       price = 0.0;
+      volume = 0;
       sma_5 = 0.0;
       sma_34 = 0.0;
       sma_75 = 0.0;
@@ -305,6 +307,7 @@ module Point = struct
         awesome_oscillator;
         awesome_slow = mk_awesome sma_34 sma_233;
         price;
+        volume = Item.volume latest;
         average_gain;
         average_loss;
         relative_strength_index;
