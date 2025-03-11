@@ -8,7 +8,7 @@ module F = S.Flag
 
 module Param = struct
   let trailing_loss = 0.96
-  let stop_loss_multiplier = 0.96
+  let stop_loss_multiplier = 0.99
   let min_holding_period = 40
 
   (* let profit_multiplier = 1.03 *)
@@ -40,6 +40,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let price = State.price state symbol in
     let i = Indicators.get_top state.indicators symbol in
     let* prev = i.previous in
+    let* prev_prev = i.previous in
     let conditions =
       [
         (* (match i.relative_strength_index <=. 50.0 with *)
@@ -57,6 +58,9 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
          match crossover with
          | true -> F.Pass [ "Bullish Crossover" ]
          | false -> F.Fail [ "No Crossover" ]);
+        (match i.volume >= prev.volume && i.volume >= prev_prev.volume with
+        | true -> F.Pass [ "Volume increased" ]
+        | false -> F.Fail [ "No volume increase" ]);
       ]
     in
     let res = List.fold_left F.and_fold (Pass []) conditions in
