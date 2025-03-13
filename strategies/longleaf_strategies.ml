@@ -74,8 +74,7 @@ type t =
 let all = List.map fst Variants.descriptions
 
 (** Add a handler for your strategy here, imitating the styles of the others.
-    There must be a handler or your strategy will not work. Note that this
-    function gets the Options.t used value in run_generic.*)
+    There must be a handler or your strategy will not work. *)
 let strats =
   let ( --> ) x y = (x, run_generic y) in
   [
