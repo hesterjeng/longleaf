@@ -21,3 +21,5 @@ let int_of_string (x : string) =
       Result.fail @@ `FatalError (Format.asprintf "Expected %s to be an int" x)
 
 let fatal (x : string) = Result.fail @@ `FatalError x
+let json (x : string) = Result.fail @@ `JsonError x
+let missing_data (x : string) = Result.fail @@ `MissingData x
