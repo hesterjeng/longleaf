@@ -19,3 +19,5 @@ let int_of_string (x : string) =
   | Some x -> Ok x
   | None ->
       Result.fail @@ `FatalError (Format.asprintf "Expected %s to be an int" x)
+
+let fatal (x : string) = Result.fail @@ `FatalError x

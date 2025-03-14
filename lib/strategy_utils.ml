@@ -175,7 +175,7 @@ module Make (Backend : Backend_intf.S) = struct
             Eio.traceln "Strategies.listen_tick resturned LiquidateContinue";
             Result.return { state with current = LiquidateContinue }
         | _ ->
-            invalid_arg
+            Error.fatal
               "Strategies.handle_nonlogical_state: unhandled return value from \
                listen_tick")
     | Liquidate ->
@@ -202,6 +202,6 @@ module Make (Backend : Backend_intf.S) = struct
         assert (Backend_position.is_empty state.positions);
         Result.fail @@ `Finished code
     | Ordering | Continue | BeginShutdown ->
-        invalid_arg
+        Error.fatal
           "Strategies.handle_nonlogical_state: unhandled nonlogical state"
 end
