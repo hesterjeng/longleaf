@@ -51,25 +51,16 @@ type single_position = {
 
 type t = single_position list [@@deriving show, yojson]
 
-let single_position_of_raw (x : raw) : single_position =
+let single_position_of_raw (x : raw) =
+  let ( let* ) = Result.( let* ) in
   let symbol = x.symbol in
-  let qty =
-    x.qty |> Int.of_string |> function
-    | Some x -> x
-    | None -> invalid_arg "expected int in position.ml"
-  in
+  let* qty = x.qty |> Error.int_of_string in
   let side = x.side in
-  let current_price =
-    x.current_price |> Float.of_string_opt |> function
-    | Some x -> x
-    | None -> invalid_arg "expected float in position.ml"
-  in
-  let avg_entry_price =
-    x.avg_entry_price |> Float.of_string_opt |> function
-    | Some x -> x
-    | None -> invalid_arg "expected float in position.ml"
-  in
-  { symbol; qty; side; current_price; avg_entry_price }
+  let* current_price = x.current_price |> Error.float_of_string in
+  let* avg_entry_price = x.avg_entry_price |> Error.float_of_string in
+  Result.return @@ { symbol; qty; side; current_price; avg_entry_price }
 
-let t_of_yojson x : t =
-  alpaca_position_response_of_yojson x |> List.map single_position_of_raw
+let t_of_yojson x : (t, _) result =
+  let ok = alpaca_position_response_of_yojson x in
+  let res = Result.map_l single_position_of_raw ok in
+  res
