@@ -161,7 +161,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
           let* prev = prev in
           let qty = Backend_position.qty state.positions symbol in
           assert (qty <> 0);
-          let latest_info = Bars.Latest.get last_data_bar symbol in
+          let* latest_info = Bars.Latest.get last_data_bar symbol in
           let order : Order.t =
             let side = if qty >= 0 then Side.Sell else Side.Buy in
             let tif = TimeInForce.GoodTillCanceled in

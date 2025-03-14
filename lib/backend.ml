@@ -2,6 +2,7 @@ module type S = Backend_intf.S
 module type BACKEND_INPUT = Backend_intf.BACKEND_INPUT
 
 let make_bars (options : Options.t) =
+  let ( let* ) = Result.( let* ) in
   let context = options.context in
   let preload = context.preload in
   let target = context.target in

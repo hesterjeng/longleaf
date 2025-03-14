@@ -7,7 +7,7 @@ val get_cash : t -> float
 val set_cash : t -> float -> t
 val symbols : t -> string list
 val qty : t -> string -> int
-val value : t -> Bars.Latest.t -> float
+val value : t -> Bars.Latest.t -> (float, Error.t) Result.t
 val mem : t -> string -> bool
 val is_empty : t -> bool
 

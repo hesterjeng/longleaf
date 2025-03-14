@@ -68,10 +68,16 @@ let ( >|= ) x f = map f x
 let ( let+ ) = ( >|= )
 
 let price (state : 'a t) symbol =
-  Bars.Latest.get state.latest symbol |> Item.last
+  let ( let* ) = Result.( let* ) in
+  let* item = Bars.Latest.get state.latest symbol in
+  Result.return @@ Item.last item
 
 let volume (state : 'a t) symbol =
-  Bars.Latest.get state.latest symbol |> Item.volume
+  let ( let* ) = Result.( let* ) in
+  let* item = Bars.Latest.get state.latest symbol in
+  Result.return @@ Item.volume item
 
 let timestamp (state : 'a t) symbol =
-  Bars.Latest.get state.latest symbol |> Item.timestamp
+  let ( let* ) = Result.( let* ) in
+  let* item = Bars.Latest.get state.latest symbol in
+  Result.return @@ Item.timestamp item
