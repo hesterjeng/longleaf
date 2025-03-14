@@ -13,12 +13,15 @@ module Latest = struct
     Format.fprintf fmt "@[%d@]@." (Seq.length seq);
     Format.fprintf fmt "@[%a@]@." pp seq
 
-  let get x symbol : Item.t =
+  let get x symbol : (Item.t, Error.t) result =
     match Hashtbl.find_opt x symbol with
-    | Some x -> x
+    | Some x -> Ok x
     | None ->
+        let err =
+          Format.asprintf "Unable to find price data for %s in Bars.get" symbol
+        in
         Eio.traceln "%a" pp x;
-        invalid_arg "Unable to find price of symbol (Bars.Latest)"
+        Error.missing_data err
 
   let timestamp (x : t) =
     ( (fun f -> Hashtbl.fold f x (Ok None)) @@ fun _ item prev ->
@@ -145,18 +148,25 @@ let add_order (order : Order.t) (data : t) =
   Ok ()
 (* assert (Ptime.equal order.timestamp @@ ) *)
 
-let t_of_yojson (json : Yojson.Safe.t) : t =
+let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
+  let ( let* ) = Result.( let* ) in
   let bars = Yojson.Safe.Util.member "bars" json in
   let assoc = Yojson.Safe.Util.to_assoc bars in
   let res =
-    List.Assoc.map_values
-      (function
-        | `List datapoints ->
-            (* Eio.traceln "@[%a@]@." (List.pp Yojson.Safe.pp) datapoints; *)
-            List.map Item.t_of_yojson datapoints |> Vector.of_list
-        | _ -> invalid_arg "Expected a list of datapoints")
-      assoc
-    |> Seq.of_list |> Hashtbl.of_seq
+    let* mapped =
+      Result.map_l
+        (fun (sym, data) ->
+          match data with
+          | `List datapoints ->
+              let res =
+                List.map Item.t_of_yojson datapoints |> Vector.of_list
+              in
+              Result.return (sym, res)
+          | _ -> Error.json "Expected a list of datapoints in Bars.t_of_yojson")
+        assoc
+    in
+    let seq = Seq.of_list mapped in
+    Result.return @@ Hashtbl.of_seq seq
   in
   res
 
