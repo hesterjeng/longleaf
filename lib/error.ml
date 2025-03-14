@@ -7,3 +7,15 @@ type t =
   | `Finished of string
   | `FatalError of string ]
 [@@deriving show { with_path = false }]
+
+let float_of_string (x : string) =
+  match Float.of_string_opt x with
+  | Some x -> Ok x
+  | None ->
+      Result.fail @@ `FatalError (Format.asprintf "Expected %s to be a float" x)
+
+let int_of_string (x : string) =
+  match Int.of_string x with
+  | Some x -> Ok x
+  | None ->
+      Result.fail @@ `FatalError (Format.asprintf "Expected %s to be an int" x)
