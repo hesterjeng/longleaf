@@ -18,7 +18,8 @@ module Latest = struct
     | Some x -> Ok x
     | None ->
         let err =
-          Format.asprintf "Unable to find price data for %s in Bars.get" symbol
+          Format.asprintf "[error] Unable to find price data for %s in Bars.get"
+            symbol
         in
         Eio.traceln "%a" pp x;
         Error.missing_data err
