@@ -105,8 +105,8 @@ module Make
             let* state = state in
             let symbol = signal.symbol in
             let reason = signal.reason in
-            let* price = State.price state symbol in
-            let* timestamp = State.timestamp state symbol in
+            let price = State.price state symbol in
+            let timestamp = State.timestamp state symbol in
             let qty = Util.qty ~current_cash ~price ~pct in
             (* assert (qty <> 0); *)
             match qty with
@@ -134,8 +134,8 @@ module Make
     match Sell.make state ~buying_order with
     | Fail _ -> Result.return @@ State.listen state
     | Pass reason ->
-        let* price = State.price state buying_order.symbol in
-        let* timestamp = State.timestamp state buying_order.symbol in
+        let price = State.price state buying_order.symbol in
+        let timestamp = State.timestamp state buying_order.symbol in
         assert (buying_order.qty <> 0);
         let reason =
           ("Sell reason:" :: reason) @ ("Buy reason:" :: buying_order.reason)

@@ -44,7 +44,11 @@ let run_generic ?(run_options = run_options) ?bars ?target
   Eio.traceln "@[Starting Doubletop@]@.";
   let options = run_options context in
   (* let () = check_bars options in *)
-  let module Backend = (val Backend.make options bars target) in
+  let module Backend =
+    (val Backend.make options bars target |> function
+         | Ok x -> x
+         | Error _ -> invalid_arg "Error while creating backend")
+  in
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running.";
   let res = S.run () in

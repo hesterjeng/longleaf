@@ -136,7 +136,11 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
   let consider_buying ~(state : state) ~(qty : string -> int) symbol =
     let open Option.Infix in
     (* let* price_history = Bars.get history symbol in *)
-    let most_recent_price = Bars.Latest.get state.latest symbol in
+    let* most_recent_price =
+      Bars.Latest.get state.latest symbol |> function
+      | Ok x -> Some x
+      | Error _ -> None
+    in
     let* amt_below_bollinger =
       let* _ =
         Conditions.crash_block state.indicators symbol most_recent_price
@@ -175,7 +179,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     match cash_available >=. 0.0 with
     | true ->
         let tenp = cash_available *. pct in
-        let current_price = Item.last @@ Bars.Latest.get state.latest symbol in
+        let current_price = State.price state symbol in
         let max_amt = tenp /. current_price in
         if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
     | false -> 0
@@ -215,8 +219,8 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
 
   let exit_position ~(state : state) time_held (buying_order : Order.t) =
     let ( let* ) = Result.( let* ) in
-    let current_bar = Bars.Latest.get state.latest buying_order.symbol in
-    let current_price = Item.last current_bar in
+    let* current_bar = Bars.Latest.get state.latest buying_order.symbol in
+    let current_price = State.price state buying_order.symbol in
     let timestamp = Item.timestamp current_bar in
     let price_difference = buying_order.price -. current_price in
     let cover_reason =

@@ -154,7 +154,11 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
       ~(qty : string -> int) symbol : Order.t option =
     let open Option.Infix in
     let* price_history = Bars.get history symbol in
-    let most_recent_price = Bars.Latest.get state.latest symbol in
+    let* most_recent_price =
+      Bars.Latest.get state.latest symbol |> function
+      | Ok x -> Some x
+      | Error _ -> None
+    in
     let+ (previous_maximum : Item.t) =
       (* Make sure that we are above the bollinger band *)
       let* most_recent_price =
@@ -223,7 +227,7 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
     match cash_available >=. 0.0 with
     | true ->
         let tenp = cash_available *. pct in
-        let current_price = Item.last @@ Bars.Latest.get state.latest symbol in
+        let current_price = State.price state symbol in
         let max_amt = tenp /. current_price in
         if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
     | false -> 0
@@ -248,9 +252,9 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
 
   let cover_position ~(state : state) time_held (shorting_order : Order.t) =
     let ( let* ) = Result.( let* ) in
-    let current_bar = Bars.Latest.get state.latest shorting_order.symbol in
-    let current_price = Item.last current_bar in
-    let timestamp = Item.timestamp current_bar in
+    (* let current_bar = Bars.Latest.get state.latest shorting_order.symbol in *)
+    let current_price = State.price state shorting_order.symbol in
+    let timestamp = State.timestamp state shorting_order.symbol in
     let price_difference = current_price -. shorting_order.price in
     let cover_reason =
       Conditions.Cover_reason.make ~time_held ~current_price ~shorting_order
