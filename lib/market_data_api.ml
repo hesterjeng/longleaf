@@ -96,6 +96,7 @@ module Make (Alpaca : Util.CLIENT) = struct
 
   module Stock = struct
     let historical_bars (request : Request.t) =
+      let ( let* ) = Result.( let* ) in
       let symbols = String.concat "," request.symbols in
       let headers = headers () in
       let endpoint =
@@ -135,8 +136,8 @@ module Make (Alpaca : Util.CLIENT) = struct
             collect_data ~endpoint ~headers acc
         | None -> acc
       in
-      let paginated = collect_data ~endpoint ~headers [] in
-      Bars.combine paginated
+      let* paginated = collect_data ~endpoint ~headers [] |> Result.flatten_l in
+      Result.return @@ Bars.combine paginated
 
     let latest_bars (symbols : string list) =
       let symbols = String.concat "," symbols in

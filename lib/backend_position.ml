@@ -32,11 +32,14 @@ let symbols pos =
 let qty pos symbol = Hashtbl.get_or pos.position ~default:0 symbol
 
 let value pos (latest : Bars.Latest.t) =
-  (fun f -> Hashtbl.fold f pos.position pos.cash)
+  let ( let* ) = Result.( let* ) in
+  (fun f -> Hashtbl.fold f pos.position (Ok pos.cash))
   @@ fun symbol qty previous_value ->
-  let symbol_price = Item.last @@ Bars.Latest.get latest symbol in
+  let* previous_value = previous_value in
+  let* item = Bars.Latest.get latest symbol in
+  let symbol_price = Item.last item in
   let symbol_value = Float.of_int qty *. symbol_price in
-  symbol_value +. previous_value
+  Result.return @@ (symbol_value +. previous_value)
 
 let is_empty (x : t) =
   Hashtbl.fold (fun _ qty acc -> acc && qty = 0) x.position true
@@ -115,7 +118,7 @@ let liquidate pos (bars : Bars.Latest.t) =
   | 0 -> Ok pos
   | qty ->
       let side = if qty >= 0 then Side.Sell else Side.Buy in
-      let latest = Bars.Latest.get bars symbol in
+      let* latest = Bars.Latest.get bars symbol in
       let order : Order.t =
         let tif = TimeInForce.GoodTillCanceled in
         let order_type = OrderType.Market in

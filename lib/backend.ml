@@ -2,13 +2,14 @@ module type S = Backend_intf.S
 module type BACKEND_INPUT = Backend_intf.BACKEND_INPUT
 
 let make_bars (options : Options.t) =
+  let ( let* ) = Result.( let* ) in
   let context = options.context in
   let preload = context.preload in
   let target = context.target in
   let symbols = options.symbols in
-  let bars =
+  let* bars =
     match preload with
-    | None -> Bars.empty ()
+    | None -> Result.return @@ Bars.empty ()
     | Download ->
         Eio.traceln "Downloading data from tiingo for preload";
         let module Param = struct
@@ -29,47 +30,52 @@ let make_bars (options : Options.t) =
         in
         let res = Tiingo.Data.top request in
         Bars.sort Item.compare res;
-        res
+        Result.return res
     | File file ->
         Eio.traceln "Preloading bars from %s" file;
-        let res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
+        let* res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
         Bars.sort Item.compare res;
-        res
+        Result.return res
   in
-  let target =
-    let ( let+ ) = Option.( let+ ) in
-    let+ res =
-      let+ target = target in
-      Yojson.Safe.from_file target |> Bars.t_of_yojson
+  let* target =
+    (fun f -> match target with None -> Ok None | Some t -> f t) @@ fun t ->
+    let* res =
+      let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in
+      conv
     in
     Bars.sort (Ord.opp Item.compare) res;
     match context.runtype with
     | Options.Runtype.Montecarlo | MultiMontecarlo ->
-        Monte_carlo.Bars.of_bars ~preload:bars ~target:res
-    | _ -> res
+        Result.return @@ Option.some
+        @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res
+    | _ -> Result.return @@ Some res
   in
   match context.runtype with
   | RandomSliceBacktest | MultiRandomSliceBacktest ->
       let bars, target = Slice_backtesting.top ~options bars target in
-      (bars, Some target)
+      Result.return @@ (bars, Some target)
   | Live | Manual | Paper | Backtest | Multitest | Montecarlo | MultiMontecarlo
   | RandomTickerBacktest | MultiRandomTickerBacktest ->
-      (bars, target)
+      Result.return @@ (bars, target)
 
 let make_backend_input (options : Options.t) bars target =
-  let bars, target =
+  let ( let* ) = Result.( let* ) in
+  let* bars, target =
     match (bars, target) with
-    | Some b, Some t -> (Bars.copy b, Option.map Bars.copy t)
+    | Some b, Some t -> Result.return @@ (Bars.copy b, Option.map Bars.copy t)
     | _ -> make_bars options
   in
-  (module struct
-    let options = options
-    let bars = bars
-    let target = target
-  end : BACKEND_INPUT)
+  Result.return
+  @@ (module struct
+       let options = options
+       let bars = bars
+       let target = target
+     end : BACKEND_INPUT)
 
 let make (options : Options.t) bars target =
-  let module Input = (val make_backend_input options bars target) in
+  let ( let* ) = Result.( let* ) in
+  let* mod_ = make_backend_input options bars target in
+  let module Input = (val mod_) in
   let res =
     match options.context.runtype with
     | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
@@ -83,4 +89,4 @@ let make (options : Options.t) bars target =
         (module Backtesting_backend.Make (Input))
   in
   Eio.traceln "Finished creating backend";
-  res
+  Result.return @@ res

@@ -21,10 +21,11 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
   module SU = Strategy_utils.Make (Backend)
 
   let step (state : 'a State.t) =
+    let ( let* ) = Result.( let* ) in
     match state.current with
     | Ordering ->
-        let msft = Bars.Latest.get state.latest "MSFT" in
-        let nvda = Bars.Latest.get state.latest "NVDA" in
+        let* msft = Bars.Latest.get state.latest "MSFT" in
+        let* nvda = Bars.Latest.get state.latest "NVDA" in
         let cash_available = Backend_position.get_cash state.positions in
         let qty =
           match cash_available >=. 0.0 with

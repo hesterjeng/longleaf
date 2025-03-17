@@ -68,10 +68,22 @@ let ( >|= ) x f = map f x
 let ( let+ ) = ( >|= )
 
 let price (state : 'a t) symbol =
-  Bars.Latest.get state.latest symbol |> Item.last
+  Result.map Item.last @@ Bars.Latest.get state.latest symbol |> function
+  | Ok x -> x
+  | Error e ->
+      Eio.traceln "%a" Error.pp e;
+      invalid_arg "Missing data"
 
 let volume (state : 'a t) symbol =
-  Bars.Latest.get state.latest symbol |> Item.volume
+  Result.map Item.volume @@ Bars.Latest.get state.latest symbol |> function
+  | Ok x -> x
+  | Error e ->
+      Eio.traceln "%a" Error.pp e;
+      invalid_arg "Missing data"
 
 let timestamp (state : 'a t) symbol =
-  Bars.Latest.get state.latest symbol |> Item.timestamp
+  Result.map Item.timestamp @@ Bars.Latest.get state.latest symbol |> function
+  | Ok x -> x
+  | Error e ->
+      Eio.traceln "%a" Error.pp e;
+      invalid_arg "Missing data"

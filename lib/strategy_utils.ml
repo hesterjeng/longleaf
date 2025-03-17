@@ -129,7 +129,7 @@ module Make (Backend : Backend_intf.S) = struct
     if context.print_tick_arg then Eio.traceln "Tick time: %a" Time.pp time;
     Indicators.add_latest Input.options.indicators_config time state.bars latest
       state.indicators;
-    let value = Backend_position.value position latest in
+    let* value = Backend_position.value position latest in
     let risk_free_value =
       Stats.risk_free_value state.stats Input.options.tick
     in
@@ -175,7 +175,7 @@ module Make (Backend : Backend_intf.S) = struct
             Eio.traceln "Strategies.listen_tick resturned LiquidateContinue";
             Result.return { state with current = LiquidateContinue }
         | _ ->
-            invalid_arg
+            Error.fatal
               "Strategies.handle_nonlogical_state: unhandled return value from \
                listen_tick")
     | Liquidate ->
@@ -202,6 +202,6 @@ module Make (Backend : Backend_intf.S) = struct
         assert (Backend_position.is_empty state.positions);
         Result.fail @@ `Finished code
     | Ordering | Continue | BeginShutdown ->
-        invalid_arg
+        Error.fatal
           "Strategies.handle_nonlogical_state: unhandled nonlogical state"
 end

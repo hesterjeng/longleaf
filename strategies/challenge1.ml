@@ -11,7 +11,7 @@ module BuyReason = struct
   type t = { symbol : string; amt_above : float }
 
   let make (state : state) symbol =
-    let current_price = Bars.Latest.get state.latest symbol |> Item.last in
+    let current_price = State.price state symbol in
     let is_owned =
       state.content
       |> List.map (fun (x : Order.t) -> x.symbol)
@@ -26,7 +26,7 @@ module BuyReason = struct
     let sma75spy =
       Indicators.get_indicator state.indicators "SPY" Indicators.Point.sma_75
     in
-    let spy_price = Bars.Latest.get state.latest "SPY" |> Item.last in
+    let spy_price = State.price state "SPY" in
     let amt_above = current_price -. upper_bb in
     let pass =
       current_price >=. upper_bb
@@ -41,7 +41,7 @@ module SellReason = struct
   [@@deriving show { with_path = false }]
 
   let make (state : state) symbol =
-    let current_price = Bars.Latest.get state.latest symbol |> Item.last in
+    let current_price = State.price state symbol in
     let lower_bb =
       Indicators.get_indicator state.indicators symbol
         Indicators.Point.lower_bollinger_100_1
@@ -50,7 +50,7 @@ module SellReason = struct
     let sma75spy =
       Indicators.get_indicator state.indicators "SPY" Indicators.Point.sma_75
     in
-    let spy_price = Bars.Latest.get state.latest "SPY" |> Item.last in
+    let spy_price = State.price state "SPY" in
     let pass = current_price <=. lower_bb && not (spy_price <=. sma75spy) in
     match pass with true -> Some (Below1StdBollinger symbol) | false -> None
 end
@@ -66,17 +66,17 @@ module Make (Backend : Backend.S) : Strategy.S = struct
       match x with
       | { symbol; _ } ->
           let current_cash = Backend_position.get_cash state.positions in
-          let item = Bars.Latest.get state.latest symbol in
+          (* let item = Bars.Latest.get state.latest symbol in *)
+          let price = State.price state symbol in
+          let timestamp = State.timestamp state symbol in
           let side = Side.Buy in
           let tif = TimeInForce.GoodTillCanceled in
           let order_type = OrderType.Market in
-          let price = Item.last item in
           let+ qty =
             match Util.qty ~current_cash ~pct:1.0 ~price with
             | 0 -> None
             | qty -> Some qty
           in
-          let timestamp = Item.timestamp item in
           let reason =
             [
               Format.asprintf "Buying %d (%a): Above 3 std bollinger band" qty
@@ -90,13 +90,13 @@ module Make (Backend : Backend.S) : Strategy.S = struct
         (x : SellReason.t) =
       match x with
       | Below1StdBollinger symbol ->
-          let item = Bars.Latest.get state.latest symbol in
+          (* let item = Bars.Latest.get state.latest symbol in *)
+          let price = State.price state symbol in
           let side = Side.Sell in
           let tif = TimeInForce.GoodTillCanceled in
           let order_type = OrderType.Market in
-          let price = Item.last item in
           let qty = buying_order.qty in
-          let timestamp = Item.timestamp item in
+          let timestamp = State.timestamp state symbol in
           let profit =
             Float.of_int buying_order.qty *. (price -. buying_order.price)
           in

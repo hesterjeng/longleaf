@@ -178,5 +178,5 @@ let qty ~current_cash ~pct ~price =
   | true ->
       let tenp = current_cash *. pct in
       let max_amt = tenp /. price in
-      if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+      if max_amt >=. 1.0 then floor max_amt |> Float.to_int else 0
   | false -> 0
