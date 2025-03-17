@@ -139,6 +139,18 @@ module Make (Input : BACKEND_INPUT) : S = struct
               Ticker.tick ~runtype env 5.0;
               Tiingo.latest symbols
         in
+        let* () =
+          Result.fold_l
+            (fun acc x ->
+              match Bars.Latest.get res x with
+              | Ok _ -> Result.return acc
+              | Error _ as e ->
+                  Eio.traceln
+                    "[error] Missing data in Alpaca_backend.latest_bars for %s"
+                    x;
+                  e)
+            () symbols
+        in
         if save_received then Bars.append res received_data;
         Ok res
 
