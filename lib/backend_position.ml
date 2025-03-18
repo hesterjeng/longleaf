@@ -78,16 +78,13 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
         let order_price = o.price in
         let symbol = o.symbol in
         let current_price latest =
-          Bars.Latest.get_opt latest symbol |> function
-          | Some x -> x
-          | None ->
-              invalid_arg
-              @@ Format.asprintf
-                   "Missing data for symbol %s when updating backend position"
-                   symbol
+          Bars.Latest.get_opt latest symbol
+          |> Option.get_exn_or
+               "Missing data for symbol %s when updating backend position"
+          |> Item.last
         in
-        let previous_price = current_price previous |> Item.last in
-        let current_price = current_price latest |> Item.last in
+        let previous_price = current_price previous in
+        let current_price = current_price latest in
         let crossing x0 x1 =
           (x0 <=. order_price && x1 >=. order_price)
           || (x0 >=. order_price && x1 <=. order_price)
