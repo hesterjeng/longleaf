@@ -3,7 +3,7 @@ module Hashtbl = Hashtbl.Make (String)
 module Latest = struct
   type t = Item.t Hashtbl.t
 
-  let get_opt = Hashtbl.find_opt
+  let get_opt : t -> string -> Item.t option = Hashtbl.find_opt
   let empty () : t = Hashtbl.create 0
 
   let pp : t Format.printer =

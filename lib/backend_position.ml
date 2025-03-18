@@ -71,42 +71,35 @@ let execute_order pos (order : Order.t) =
 (* Execute Stop/Limit orders in the live field.  Market orders should not be in the live field. *)
 let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
   let ( let* ) = Result.( let* ) in
-  let triggered_orders, live_orders =
-    List.partition
-      (fun (o : Order.t) ->
-        assert (not @@ Trading_types.OrderType.equal o.order_type Market);
-        let order_price = o.price in
-        let symbol = o.symbol in
-        let current_price latest =
-          Bars.Latest.get_opt latest symbol |> function
-          | Some x -> x
-          | None ->
-              invalid_arg
-              @@ Format.asprintf
-                   "Missing data for symbol %s when updating backend position"
-                   symbol
-        in
-        let previous_price = current_price previous |> Item.last in
-        let current_price = current_price latest |> Item.last in
-        let crossing x0 x1 =
-          (x0 <=. order_price && x1 >=. order_price)
-          || (x0 >=. order_price && x1 <=. order_price)
-        in
-        let triggered = crossing previous_price current_price in
-        triggered)
-      x.live_orders
+  (* Fold with an empty list of live orders as the accumulator. *)
+  let fold f =
+    List.fold_left f (Ok { x with live_orders = [] }) x.live_orders
   in
-  let* orders_executed =
-    List.fold_left
-      (fun acc o ->
-        Eio.traceln "[backend_position] Converting order to Market order.";
-        let market_order : Order.t = { o with order_type = Market } in
-        let* acc = acc in
-        let acc = execute_order acc market_order in
-        acc)
-      (Ok x) triggered_orders
+  fold @@ fun position order ->
+  assert (not @@ Trading_types.OrderType.equal order.order_type Market);
+  let* position = position in
+  let order_price = order.price in
+  let symbol = order.symbol in
+  let* current_price = Bars.Latest.get latest symbol |> Result.map Item.last in
+  let* previous_price =
+    Bars.Latest.get previous symbol |> Result.map Item.last
   in
-  Result.return { orders_executed with live_orders }
+  let crossing x0 x1 =
+    (x0 <=. order_price && x1 >=. order_price)
+    || (x0 >=. order_price && x1 <=. order_price)
+  in
+  (* Check to see if we have crossed the stop/limit order price threshold. *)
+  (*  If so, execute the order as a market order.  Otherwise, add the order to the live order list.*)
+  match crossing previous_price current_price with
+  | true ->
+      (* The order has been triggered, execute it now *)
+      let market_order : Order.t = { order with order_type = Market } in
+      let* position = execute_order position market_order in
+      Result.return position
+  | false ->
+      (* The order was not activated, put it in the live orders list *)
+      Result.return
+        { position with live_orders = order :: position.live_orders }
 
 let liquidate pos (bars : Bars.Latest.t) =
   let open Trading_types in
