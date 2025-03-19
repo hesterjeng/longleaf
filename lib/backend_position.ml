@@ -7,7 +7,9 @@ module Securities = struct
   let set = List.Assoc.set ~eq:String.equal
 end
 
-module Derivatives = struct end
+module Derivatives = struct
+  type t = (string * Contract.t) list [@@deriving show]
+end
 
 (* A module for containing the information about the current position for backtesting *)
 (* Maybe also for keeping track of things during live trading, but ideally we should *)
