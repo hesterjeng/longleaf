@@ -1,4 +1,4 @@
-type pos = (string, int) Hashtbl.t [@@deriving show]
+type securities = (string, int) Hashtbl.t [@@deriving show]
 
 (* A module for containing the information about the current position for backtesting *)
 (* Maybe also for keeping track of things during live trading, but ideally we should *)
@@ -6,10 +6,12 @@ type pos = (string, int) Hashtbl.t [@@deriving show]
 (* TODO: *)
 (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
 
-type t = { position : pos; cash : float; live_orders : Order.t list }
+type t = { securities : securities; cash : float; live_orders : Order.t list }
 [@@deriving show]
 
-let make () = { position = Hashtbl.create 5; cash = 100000.0; live_orders = [] }
+let make () =
+  { securities = Hashtbl.create 5; cash = 100000.0; live_orders = [] }
+
 let set_cash x cash = { x with cash }
 
 let get_cash pos =
@@ -21,19 +23,19 @@ let get_cash pos =
          | Sell -> 0.0)
        0.0 pos.live_orders
 
-let get_position pos = pos.position
+let get_securities pos = pos.securities
 
 let symbols pos =
-  Hashtbl.to_iter pos.position
+  Hashtbl.to_iter pos.securities
   |> Iter.filter_map (fun (symbol, value) ->
          if value <> 0 then Some symbol else None)
   |> Iter.to_list
 
-let qty pos symbol = Hashtbl.get_or pos.position ~default:0 symbol
+let qty pos symbol = Hashtbl.get_or pos.securities ~default:0 symbol
 
 let value pos (latest : Bars.Latest.t) =
   let ( let* ) = Result.( let* ) in
-  (fun f -> Hashtbl.fold f pos.position (Ok pos.cash))
+  (fun f -> Hashtbl.fold f pos.securities (Ok pos.cash))
   @@ fun symbol qty previous_value ->
   let* previous_value = previous_value in
   let* item = Bars.Latest.get latest symbol in
@@ -42,10 +44,10 @@ let value pos (latest : Bars.Latest.t) =
   Result.return @@ (symbol_value +. previous_value)
 
 let is_empty (x : t) =
-  Hashtbl.fold (fun _ qty acc -> acc && qty = 0) x.position true
+  Hashtbl.fold (fun _ qty acc -> acc && qty = 0) x.securities true
 
 let mem (x : t) symbol =
-  let found = Hashtbl.get x.position symbol in
+  let found = Hashtbl.get x.securities symbol in
   match found with Some 0 | None -> false | Some _ -> true
 
 let execute_order pos (order : Order.t) =
@@ -53,15 +55,15 @@ let execute_order pos (order : Order.t) =
   let qty = order.qty in
   let price = order.price in
   let current_amt =
-    Hashtbl.get pos.position symbol |> Option.get_or ~default:0
+    Hashtbl.get pos.securities symbol |> Option.get_or ~default:0
   in
   match (order.side, order.order_type) with
   | Buy, Market ->
-      Hashtbl.replace pos.position symbol (current_amt + qty);
+      Hashtbl.replace pos.securities symbol (current_amt + qty);
       let res = set_cash pos @@ (pos.cash -. (price *. Float.of_int qty)) in
       Ok res
   | Sell, Market ->
-      Hashtbl.replace pos.position symbol (current_amt - qty);
+      Hashtbl.replace pos.securities symbol (current_amt - qty);
       let res = set_cash pos @@ (pos.cash +. (price *. Float.of_int qty)) in
       Ok res
   | Buy, Stop | Sell, Stop ->
@@ -75,9 +77,9 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
   let fold f =
     List.fold_left f (Ok { x with live_orders = [] }) x.live_orders
   in
-  fold @@ fun position order ->
+  fold @@ fun securities order ->
   assert (not @@ Trading_types.OrderType.equal order.order_type Market);
-  let* position = position in
+  let* securities = securities in
   let order_price = order.price in
   let symbol = order.symbol in
   let* current_price = Bars.Latest.get latest symbol |> Result.map Item.last in
@@ -94,17 +96,17 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
   | true ->
       (* The order has been triggered, execute it now *)
       let market_order : Order.t = { order with order_type = Market } in
-      let* position = execute_order position market_order in
-      Result.return position
+      let* securities = execute_order securities market_order in
+      Result.return securities
   | false ->
       (* The order was not activated, put it in the live orders list *)
       Result.return
-        { position with live_orders = order :: position.live_orders }
+        { securities with live_orders = order :: securities.live_orders }
 
 let liquidate pos (bars : Bars.Latest.t) =
   let open Trading_types in
   let ( let* ) = Result.( let* ) in
-  let fold f = Hashtbl.fold f pos.position (Ok pos) in
+  let fold f = Hashtbl.fold f pos.securities (Ok pos) in
   fold @@ fun symbol qty ok ->
   let* pos = ok in
   match qty with
