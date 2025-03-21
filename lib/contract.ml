@@ -63,3 +63,5 @@ type t = {
   deliverables : Deliverable.t list;
 }
 [@@deriving show, yojson]
+
+let get client symbols = invalid_arg "NYI get contracts"
