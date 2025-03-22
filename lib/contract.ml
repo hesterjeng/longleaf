@@ -45,10 +45,53 @@ module Deliverable = struct
   [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 end
 
-(* Response item from https://paper-api.alpaca.markets/v2/options/contracts endpoint*)
-(* The actual response is an array of these *)
+module Request = struct
+  type t = {
+    underlying_symbols : string;
+    (* show_deliverables : bool; *)
+    expiration_date : Time.t option; [@yojson.option]
+    expiration_date_gte : Time.t option; [@yojson.option]
+    expiration_date_lte : Time.t option; [@yojson.option]
+        (* default next weekend *)
+    ty : Type.t; [@key "type"]
+    style : Style.t;
+    strike_price_gte : float option; [@yojson.option]
+    strike_price_lte : float option; [@yojson.option]
+    page_token : string option; [@yojson.option]
+  }
+  [@@deriving show, yojson]
+
+  let to_query_params (x : t) =
+    [
+      Some ("underlying_symbols", x.underlying_symbols);
+      (match x.expiration_date with
+      | Some x -> Some ("expiration_date", Time.to_string x)
+      | None -> None);
+      (match x.expiration_date_gte with
+      | Some x -> Some ("expiration_date_gte", Time.to_string x)
+      | None -> None);
+      (match x.expiration_date_lte with
+      | Some x -> Some ("expiration_date_lte", Time.to_string x)
+      | None -> None);
+      (match x.strike_price_gte with
+      | Some x -> Some ("strike_price_gte", Float.to_string x)
+      | None -> None);
+      (match x.strike_price_lte with
+      | Some x -> Some ("strike_price_lte", Float.to_string x)
+      | None -> None);
+      (match x.page_token with
+      | Some x -> Some ("page_token", x)
+      | None -> None);
+      Some ("type", Type.show x.ty);
+      Some ("style", Style.show x.style);
+    ]
+    |> List.filter_map Fun.id
+end
 
 module Response = struct
+  (* Response item from https://paper-api.alpaca.markets/v2/options/contracts endpoint*)
+  (* The actual response is an array of these *)
+
   type t = {
     id : string;
     symbol : string;
@@ -65,21 +108,55 @@ module Response = struct
     deliverables : Deliverable.t list;
   }
   [@@deriving show, yojson] [@@yojson.allow_extra_fields]
-end
 
-module Request = struct
-  type t = {
-    underlying_symbols : string;
-    show_deliverables : bool;
-    expiration_date : Time.t option; [@yojson.option]
-    expiration_date_gte : Time.t option; [@yojson.option]
-    expiration_date_lte : Time.t option; [@yojson.option]
-        (* default next weekend *)
-    ty : Type.t; [@key "type"]
-    style : Style.t;
-    strike_price_gte : float option; [@yojson.option]
-    strike_price_lte : float option; [@yojson.option]
+  type response = {
+    option_contracts : t list;
     next_page_token : string option; [@yojson.option]
   }
   [@@deriving show, yojson]
+
+  let t_of_yojson_res x =
+    try Result.return @@ t_of_yojson x
+    with _ ->
+      let msg =
+        Format.asprintf
+          "[error] Unable to construct Contract.Response.t from @[%a@]@."
+          Yojson.Safe.pp x
+      in
+      Error.json msg
+
+  let response_of_yojson_res x =
+    try Result.return @@ response_of_yojson x
+    with _ ->
+      let msg =
+        Format.asprintf
+          "[error] Unable to construct Contract.Response.response from @[%a@]@."
+          Yojson.Safe.pp x
+      in
+      Error.json msg
+
+  let rec top (longleaf_env : Environment.t) client (request : Request.t) =
+    let ( let* ) = Result.( let* ) in
+    let headers =
+      Piaf.Headers.of_list
+        [
+          ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
+          ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);
+        ]
+    in
+    let endpoint =
+      Uri.of_string "/v2/positions" |> fun u ->
+      Uri.add_query_params' u (Request.to_query_params request) |> Uri.to_string
+    in
+    let* res = Util.get_piaf ~client ~headers ~endpoint in
+    let* response = response_of_yojson_res res in
+    let* next =
+      match response.next_page_token with
+      | None -> Result.return []
+      | Some page_token ->
+          let next_request = { request with page_token = Some page_token } in
+          let* res = top longleaf_env client next_request in
+          Result.return res
+    in
+    Result.return @@ response.option_contracts @ next
 end
