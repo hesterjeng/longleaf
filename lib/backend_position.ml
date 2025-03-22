@@ -8,7 +8,7 @@ module Securities = struct
 end
 
 module Derivatives = struct
-  type t = (string * Contract.t option) list [@@deriving show]
+  type t = (string * Contract.Response.t option) list [@@deriving show]
 
   let get (l : t) (x : string) = List.Assoc.get ~eq:String.equal x l
   let set = List.Assoc.set ~eq:String.equal

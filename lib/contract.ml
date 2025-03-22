@@ -42,26 +42,44 @@ module Deliverable = struct
     settlement_type : Settlement_type.t;
     settlement_method : Settlement_method.t;
   }
-  [@@deriving show, yojson]
+  [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 end
 
 (* Response item from https://paper-api.alpaca.markets/v2/options/contracts endpoint*)
 (* The actual response is an array of these *)
-type t = {
-  id : string;
-  symbol : string;
-  name : string;
-  underlying_symbol : string;
-  ty : Type.t; [@key "type"]
-  status : Status.t;
-  tradable : bool;
-  expiration_date : string;
-  underlying_asset_id : string;
-  strike_price : float;
-  multiplier : float;
-  size : float;
-  deliverables : Deliverable.t list;
-}
-[@@deriving show, yojson]
 
-let get client symbols = invalid_arg "NYI get contracts"
+module Response = struct
+  type t = {
+    id : string;
+    symbol : string;
+    name : string;
+    underlying_symbol : string;
+    ty : Type.t; [@key "type"]
+    status : Status.t;
+    tradable : bool;
+    expiration_date : string;
+    underlying_asset_id : string;
+    strike_price : float;
+    multiplier : float;
+    size : float;
+    deliverables : Deliverable.t list;
+  }
+  [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+end
+
+module Request = struct
+  type t = {
+    underlying_symbols : string;
+    show_deliverables : bool;
+    expiration_date : Time.t option; [@yojson.option]
+    expiration_date_gte : Time.t option; [@yojson.option]
+    expiration_date_lte : Time.t option; [@yojson.option]
+        (* default next weekend *)
+    ty : Type.t; [@key "type"]
+    style : Style.t;
+    strike_price_gte : float option; [@yojson.option]
+    strike_price_lte : float option; [@yojson.option]
+    next_page_token : string option; [@yojson.option]
+  }
+  [@@deriving show, yojson]
+end
