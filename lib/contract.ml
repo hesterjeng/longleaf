@@ -135,6 +135,9 @@ module Response = struct
       in
       Error.json msg
 
+  (* Get all of the contracts available corresponding to the request. *)
+  (*  The important thing is the symbol of the contract you want. *)
+  (*   You can then buy/sell this option normally, like other securities.  *)
   let rec top (longleaf_env : Environment.t) client (request : Request.t) =
     let ( let* ) = Result.( let* ) in
     let headers =
