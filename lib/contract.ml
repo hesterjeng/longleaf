@@ -138,6 +138,7 @@ module Response = struct
   (* Get all of the contracts available corresponding to the request. *)
   (*  The important thing is the symbol of the contract you want. *)
   (*   You can then buy/sell this option normally, like other securities.  *)
+  (* i/e using a function of type Backend_intf.place_order *)
   let rec top (longleaf_env : Environment.t) client (request : Request.t) =
     let ( let* ) = Result.( let* ) in
     let headers =
@@ -162,4 +163,12 @@ module Response = struct
           Result.return res
     in
     Result.return @@ response.option_contracts @ next
+end
+
+module Position = struct
+  module Single = struct
+    type 'a t = { qty : int; content : 'a } [@@deriving show]
+  end
+
+  type t = Response.t Single.t list [@@deriving show]
 end

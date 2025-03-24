@@ -20,10 +20,17 @@ end
 (* TODO: *)
 (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
 
-type t = { securities : Securities.t; cash : float; live_orders : Order.t list }
+type t = {
+  securities : Securities.t;
+  cash : float;
+  live_orders : Order.t list;
+  contracts : Contract.Position.t list;
+}
 [@@deriving show]
 
-let make () = { securities = []; cash = 100000.0; live_orders = [] }
+let make () =
+  { securities = []; cash = 100000.0; live_orders = []; contracts = [] }
+
 let set_cash x cash = { x with cash }
 
 let get_cash pos =
