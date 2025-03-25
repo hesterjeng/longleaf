@@ -161,6 +161,6 @@ module Make (Alpaca : Util.CLIENT) = struct
   end
 
   module Contract = struct
-    let get_contracts = Contract.Response.top longleaf_env client
+    let get_all = Contract.get_all longleaf_env client
   end
 end

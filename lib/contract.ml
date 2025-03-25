@@ -94,87 +94,85 @@ module Request = struct
     |> List.filter_map Fun.id
 end
 
-module Response = struct
-  (* Response item from https://paper-api.alpaca.markets/v2/options/contracts endpoint*)
-  (* The actual response is an array of these *)
+(* Response item from https://paper-api.alpaca.markets/v2/options/contracts endpoint*)
+(* The actual response is an array of these *)
 
-  type t = {
-    id : string;
-    symbol : Symbol.t;
-    name : string;
-    underlying_symbol : string;
-    ty : Type.t; [@key "type"]
-    status : Status.t;
-    tradable : bool;
-    expiration_date : string;
-    underlying_asset_id : string;
-    strike_price : float;
-    multiplier : float;
-    size : float;
-    deliverables : Deliverable.t list;
-  }
-  [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+type t = {
+  id : string;
+  symbol : Symbol.t;
+  name : string;
+  underlying_symbol : string;
+  ty : Type.t; [@key "type"]
+  status : Status.t;
+  tradable : bool;
+  expiration_date : string;
+  underlying_asset_id : string;
+  strike_price : float;
+  multiplier : float;
+  size : float;
+  deliverables : Deliverable.t list;
+}
+[@@deriving show, yojson] [@@yojson.allow_extra_fields]
 
-  type response = {
-    option_contracts : t list;
-    next_page_token : string option; [@yojson.option]
-  }
-  [@@deriving show, yojson]
+type response = {
+  option_contracts : t list;
+  next_page_token : string option; [@yojson.option]
+}
+[@@deriving show, yojson]
 
-  let t_of_yojson_res x =
-    try Result.return @@ t_of_yojson x
-    with _ ->
-      let msg =
-        Format.asprintf
-          "[error] Unable to construct Contract.Response.t from @[%a@]@."
-          Yojson.Safe.pp x
-      in
-      Error.json msg
-
-  let response_of_yojson_res x =
-    try Result.return @@ response_of_yojson x
-    with _ ->
-      let msg =
-        Format.asprintf
-          "[error] Unable to construct Contract.Response.response from @[%a@]@."
-          Yojson.Safe.pp x
-      in
-      Error.json msg
-
-  (* Get all of the contracts available corresponding to the request. *)
-  (*  The important thing is the symbol of the contract you want. *)
-  (*   You can then buy/sell this option normally, like other securities.  *)
-  (* i/e using a function of type Backend_intf.place_order *)
-  let rec top (longleaf_env : Environment.t) client (request : Request.t) =
-    let ( let* ) = Result.( let* ) in
-    let headers =
-      Piaf.Headers.of_list
-        [
-          ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
-          ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);
-        ]
+let t_of_yojson_res x =
+  try Result.return @@ t_of_yojson x
+  with _ ->
+    let msg =
+      Format.asprintf
+        "[error] Unable to construct Contract.Response.t from @[%a@]@."
+        Yojson.Safe.pp x
     in
-    let endpoint =
-      Uri.of_string "/v2/positions" |> fun u ->
-      Uri.add_query_params' u (Request.to_query_params request) |> Uri.to_string
-    in
-    let* res = Util.get_piaf ~client ~headers ~endpoint in
-    let* response = response_of_yojson_res res in
-    let* next =
-      match response.next_page_token with
-      | None -> Result.return []
-      | Some page_token ->
-          let next_request = { request with page_token = Some page_token } in
-          let* res = top longleaf_env client next_request in
-          Result.return res
-    in
-    Result.return @@ response.option_contracts @ next
-end
+    Error.json msg
 
-module Position = struct
-  module Single = struct
-    type 'a t = { qty : int; content : 'a } [@@deriving show]
-  end
+let response_of_yojson_res x =
+  try Result.return @@ response_of_yojson x
+  with _ ->
+    let msg =
+      Format.asprintf
+        "[error] Unable to construct Contract.Response.response from @[%a@]@."
+        Yojson.Safe.pp x
+    in
+    Error.json msg
 
-  type t = Response.t Single.t list [@@deriving show]
-end
+(* Get all of the contracts available corresponding to the request. *)
+(*  The important thing is the symbol of the contract you want. *)
+(*   You can then buy/sell this option normally, like other securities.  *)
+(* i/e using a function of type Backend_intf.place_order *)
+let rec get_all (longleaf_env : Environment.t) client (request : Request.t) =
+  let ( let* ) = Result.( let* ) in
+  let headers =
+    Piaf.Headers.of_list
+      [
+        ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
+        ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);
+      ]
+  in
+  let endpoint =
+    Uri.of_string "/v2/positions" |> fun u ->
+    Uri.add_query_params' u (Request.to_query_params request) |> Uri.to_string
+  in
+  let* res = Util.get_piaf ~client ~headers ~endpoint in
+  let* response = response_of_yojson_res res in
+  let* next =
+    match response.next_page_token with
+    | None -> Result.return []
+    | Some page_token ->
+        let next_request = { request with page_token = Some page_token } in
+        let* res = get_all longleaf_env client next_request in
+        Result.return res
+  in
+  Result.return @@ response.option_contracts @ next
+
+(* module Position = struct *)
+(*   module Single = struct *)
+(*     type 'a t = { qty : int; content : 'a } [@@deriving show] *)
+(*   end *)
+
+(*   type t = Response.t Single.t list [@@deriving show] *)
+(* end *)
