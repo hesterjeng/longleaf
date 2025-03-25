@@ -45,6 +45,12 @@ module Deliverable = struct
   [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 end
 
+module Symbol : sig
+  type t [@@deriving show, yojson]
+end = struct
+  type t = string [@@deriving show, yojson]
+end
+
 module Request = struct
   type t = {
     underlying_symbols : string;
@@ -94,7 +100,7 @@ module Response = struct
 
   type t = {
     id : string;
-    symbol : string;
+    symbol : Symbol.t;
     name : string;
     underlying_symbol : string;
     ty : Type.t; [@key "type"]
