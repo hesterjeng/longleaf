@@ -1,18 +1,18 @@
-module Securities = struct
-  type t = (string * int) list [@@deriving show]
+(* module Securities = struct *)
+(*   type t = (string * int) list [@@deriving show] *)
 
-  let get (l : t) (x : string) =
-    match List.Assoc.get ~eq:String.equal x l with Some x -> x | None -> 0
+(*   let get (l : t) (x : string) = *)
+(*     match List.Assoc.get ~eq:String.equal x l with Some x -> x | None -> 0 *)
 
-  let set = List.Assoc.set ~eq:String.equal
-end
+(*   let set = List.Assoc.set ~eq:String.equal *)
+(* end *)
 
-module Derivatives = struct
-  type t = (string * Contract.Response.t option) list [@@deriving show]
+(* module Derivatives = struct *)
+(*   type t = (string * Contract.Response.t option) list [@@deriving show] *)
 
-  let get (l : t) (x : string) = List.Assoc.get ~eq:String.equal x l
-  let set = List.Assoc.set ~eq:String.equal
-end
+(*   let get (l : t) (x : string) = List.Assoc.get ~eq:String.equal x l *)
+(*   let set = List.Assoc.set ~eq:String.equal *)
+(* end *)
 
 (* A module for containing the information about the current position for backtesting *)
 (* Maybe also for keeping track of things during live trading, but ideally we should *)
@@ -21,15 +21,14 @@ end
 (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
 
 type t = {
-  securities : Securities.t;
+  securities : (string * Instrument.t) list;
   cash : float;
-  live_orders : Order.t list;
-  contracts : Contract.Position.t list;
+  live_orders : Order.t list; (* contracts : Contract.Position.t list; *)
 }
 [@@deriving show]
 
 let make () =
-  { securities = []; cash = 100000.0; live_orders = []; contracts = [] }
+  { securities = []; cash = 100000.0; live_orders = []; }
 
 let set_cash x cash = { x with cash }
 
