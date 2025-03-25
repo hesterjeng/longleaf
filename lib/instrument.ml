@@ -1,1 +1,1 @@
-type t = Stock of string | Option of string
+type t = Security of string | Contract of Contract.t
