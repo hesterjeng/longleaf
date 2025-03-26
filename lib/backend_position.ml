@@ -3,6 +3,9 @@ module Portfolio = struct
 
   let qty p symbol =
     List.Assoc.get ~eq:Instrument.equal symbol p |> Option.get_or ~default:0
+
+  let set_qty (portfolio : t) symbol qty =
+    List.Assoc.set ~eq:Instrument.equal symbol qty portfolio
 end
 
 (* A module for containing the information about the current position for backtesting *)
@@ -21,6 +24,16 @@ type t = {
 let make () = { portfolio = []; cash = 100000.0; live_orders = [] }
 let set_cash x cash = { x with cash }
 
+let qty (pos : t) symbol =
+  List.find_map
+    (fun (instrument, qty) ->
+      let instrument_symbol = Instrument.symbol instrument in
+      match String.equal instrument_symbol symbol with
+      | true -> Some qty
+      | false -> None)
+    pos.portfolio
+  |> Option.get_or ~default:0
+
 let get_cash pos =
   pos.cash
   -. List.fold_left
@@ -32,46 +45,47 @@ let get_cash pos =
 
 let symbols pos =
   List.filter_map
-    (fun (sym, (p : Position.t)) ->
-      match p.qty with 0 -> None | _ -> Some sym)
-    pos.positions
+    (fun (sym, qty) -> match qty with 0 -> None | _ -> Some sym)
+    pos.portfolio
 
 let value pos (latest : Bars.Latest.t) =
   let ( let* ) = Result.( let* ) in
-  (fun f -> List.fold_left f (Ok pos.cash) pos.positions)
-  @@ fun previous_value (symbol, p) ->
+  (fun f -> List.fold_left f (Ok pos.cash) pos.portfolio)
+  @@ fun previous_value (instrument, qty) ->
+  let symbol = Instrument.symbol instrument in
   let* previous_value = previous_value in
   let* item = Bars.Latest.get latest symbol in
   let symbol_price = Item.last item in
-  let symbol_value = Float.of_int p.qty *. symbol_price in
+  let symbol_value = Float.of_int qty *. symbol_price in
   Result.return @@ (symbol_value +. previous_value)
 
 let is_empty (x : t) =
-  List.fold_left
-    (fun acc (_, (p : Position.t)) -> acc && p.qty = 0)
-    true x.positions
+  List.fold_left (fun acc (_, qty) -> acc && qty = 0) true x.portfolio
 
 let execute_order (pos : t) (order : Order.t) =
-  let symbol = order.symbol in
+  Eio.traceln
+    "FIXME: Orders need to know if they are for a security or contract";
+  let symbol = Instrument.Security order.symbol in
   let price = order.price in
-  (* let current_amt = Positions.get pos.positions symbol in *)
-  let current_amt = Portfolio.qty pos.positions symbol in
+  let current_amt = Portfolio.qty pos.portfolio symbol in
   let order_qty = order.qty in
   match (order.side, order.order_type) with
   | Buy, Market ->
-      let positions = set_qty pos symbol (current_amt + order_qty) in
+      let portfolio =
+        Portfolio.set_qty pos.portfolio symbol (current_amt + order_qty)
+      in
       let res =
         set_cash pos @@ (pos.cash -. (price *. Float.of_int order_qty))
       in
-      Ok { res with positions }
+      Ok { res with portfolio }
   | Sell, Market ->
-      let positions =
-        Positions.set symbol (current_amt - order_qty) pos.positions
+      let portfolio =
+        Portfolio.set_qty pos.portfolio symbol (current_amt - order_qty)
       in
       let res =
         set_cash pos @@ (pos.cash +. (price *. Float.of_int order_qty))
       in
-      Ok { res with positions }
+      Ok { res with portfolio }
   | Buy, Stop | Sell, Stop ->
       Result.return @@ { pos with live_orders = order :: pos.live_orders }
   | _ -> Result.fail @@ `UnsupportedOrder order
@@ -112,13 +126,15 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
 let liquidate pos (bars : Bars.Latest.t) =
   let open Trading_types in
   let ( let* ) = Result.( let* ) in
-  let fold f = List.fold_left f (Ok pos) pos.positions in
-  fold @@ fun ok (symbol, qty) ->
+  let fold f = List.fold_left f (Ok pos) pos.portfolio in
+  fold @@ fun ok (instrument, qty) ->
   let* pos = ok in
   match qty with
   | 0 -> Ok pos
   | qty ->
       let side = if qty >= 0 then Side.Sell else Side.Buy in
+      let symbol = Instrument.symbol instrument in
+      Eio.traceln "FIXME: Handle instruments in Liquidate";
       let* latest = Bars.Latest.get bars symbol in
       let order : Order.t =
         let tif = TimeInForce.GoodTillCanceled in
