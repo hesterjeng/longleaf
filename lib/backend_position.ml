@@ -47,6 +47,7 @@ let symbols pos =
   List.filter_map
     (fun (sym, qty) -> match qty with 0 -> None | _ -> Some sym)
     pos.portfolio
+  |> List.map Instrument.symbol
 
 let value pos (latest : Bars.Latest.t) =
   let ( let* ) = Result.( let* ) in
