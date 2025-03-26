@@ -21,15 +21,13 @@
 (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
 
 type t = {
-  securities : (string * Instrument.t) list;
+  positions : (string * Position.t) list;
   cash : float;
   live_orders : Order.t list; (* contracts : Contract.Position.t list; *)
 }
 [@@deriving show]
 
-let make () =
-  { securities = []; cash = 100000.0; live_orders = []; }
-
+let make () = { positions = []; cash = 100000.0; live_orders = [] }
 let set_cash x cash = { x with cash }
 
 let get_cash pos =
@@ -41,46 +39,45 @@ let get_cash pos =
          | Sell -> 0.0)
        0.0 pos.live_orders
 
-let get_securities pos = pos.securities
+let get_positions pos = pos.positions
 
 let symbols pos =
   List.filter_map
-    (fun (sym, qty) -> match qty with 0 -> None | _ -> Some sym)
-    pos.securities
+    (fun (sym, (p : Position.t)) ->
+      match p.qty with 0 -> None | _ -> Some sym)
+    pos.positions
 
-let qty pos symbol = Securities.get pos.securities symbol
+let qty pos symbol = List.Assoc.get ~eq:String.equal symbol pos.positions
 
 let value pos (latest : Bars.Latest.t) =
   let ( let* ) = Result.( let* ) in
-  (fun f -> List.fold_left f (Ok pos.cash) pos.securities)
-  @@ fun previous_value (symbol, qty) ->
+  (fun f -> List.fold_left f (Ok pos.cash) pos.positions)
+  @@ fun previous_value (symbol, p) ->
   let* previous_value = previous_value in
   let* item = Bars.Latest.get latest symbol in
   let symbol_price = Item.last item in
-  let symbol_value = Float.of_int qty *. symbol_price in
+  let symbol_value = Float.of_int p.qty *. symbol_price in
   Result.return @@ (symbol_value +. previous_value)
 
 let is_empty (x : t) =
-  List.fold_left (fun acc (_, qty) -> acc && qty = 0) true x.securities
+  List.fold_left
+    (fun acc (_, (p : Position.t)) -> acc && p.qty = 0)
+    true x.positions
 
 let execute_order pos (order : Order.t) =
   let symbol = order.symbol in
   let qty = order.qty in
   let price = order.price in
-  let current_amt = Securities.get pos.securities symbol in
+  let current_amt = Positions.get pos.positions symbol in
   match (order.side, order.order_type) with
   | Buy, Market ->
-      let securities =
-        Securities.set symbol (current_amt + qty) pos.securities
-      in
+      let positions = Positions.set symbol (current_amt + qty) pos.positions in
       let res = set_cash pos @@ (pos.cash -. (price *. Float.of_int qty)) in
-      Ok { res with securities }
+      Ok { res with positions }
   | Sell, Market ->
-      let securities =
-        Securities.set symbol (current_amt - qty) pos.securities
-      in
+      let positions = Positions.set symbol (current_amt - qty) pos.positions in
       let res = set_cash pos @@ (pos.cash +. (price *. Float.of_int qty)) in
-      Ok { res with securities }
+      Ok { res with positions }
   | Buy, Stop | Sell, Stop ->
       Result.return @@ { pos with live_orders = order :: pos.live_orders }
   | _ -> Result.fail @@ `UnsupportedOrder order
@@ -92,9 +89,9 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
   let fold f =
     List.fold_left f (Ok { x with live_orders = [] }) x.live_orders
   in
-  fold @@ fun securities order ->
+  fold @@ fun positions order ->
   assert (not @@ Trading_types.OrderType.equal order.order_type Market);
-  let* securities = securities in
+  let* positions = positions in
   let order_price = order.price in
   let symbol = order.symbol in
   let* current_price = Bars.Latest.get latest symbol |> Result.map Item.last in
@@ -111,17 +108,17 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
   | true ->
       (* The order has been triggered, execute it now *)
       let market_order : Order.t = { order with order_type = Market } in
-      let* securities = execute_order securities market_order in
-      Result.return securities
+      let* positions = execute_order positions market_order in
+      Result.return positions
   | false ->
       (* The order was not activated, put it in the live orders list *)
       Result.return
-        { securities with live_orders = order :: securities.live_orders }
+        { positions with live_orders = order :: positions.live_orders }
 
 let liquidate pos (bars : Bars.Latest.t) =
   let open Trading_types in
   let ( let* ) = Result.( let* ) in
-  let fold f = List.fold_left f (Ok pos) pos.securities in
+  let fold f = List.fold_left f (Ok pos) pos.positions in
   fold @@ fun ok (symbol, qty) ->
   let* pos = ok in
   match qty with

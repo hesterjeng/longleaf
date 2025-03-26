@@ -8,6 +8,7 @@ type t = {
   qty : int;
   tick : int;
   price : float;
+  (* instrument : Instrument.t; *)
   timestamp : Time.t;
   reason : string list;
   (* This is the expected profit of this trade, if it is closing a known position *)
