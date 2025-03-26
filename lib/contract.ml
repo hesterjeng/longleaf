@@ -45,12 +45,6 @@ module Deliverable = struct
   [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 end
 
-module Symbol : sig
-  type t [@@deriving show, yojson]
-end = struct
-  type t = string [@@deriving show, yojson]
-end
-
 module Request = struct
   type t = {
     underlying_symbols : string;
@@ -99,7 +93,7 @@ end
 
 type t = {
   id : string;
-  symbol : Symbol.t;
+  symbol : string;
   name : string;
   underlying_symbol : string;
   ty : Type.t; [@key "type"]
@@ -113,6 +107,8 @@ type t = {
   deliverables : Deliverable.t list;
 }
 [@@deriving show, yojson] [@@yojson.allow_extra_fields]
+
+let equal (x : t) (y : t) = String.equal x.symbol y.symbol
 
 type response = {
   option_contracts : t list;
@@ -168,11 +164,3 @@ let rec get_all (longleaf_env : Environment.t) client (request : Request.t) =
         Result.return res
   in
   Result.return @@ response.option_contracts @ next
-
-(* module Position = struct *)
-(*   module Single = struct *)
-(*     type 'a t = { qty : int; content : 'a } [@@deriving show] *)
-(*   end *)
-
-(*   type t = Response.t Single.t list [@@deriving show] *)
-(* end *)

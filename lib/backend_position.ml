@@ -1,18 +1,9 @@
-(* module Securities = struct *)
-(*   type t = (string * int) list [@@deriving show] *)
+module Portfolio = struct
+  type t = (Instrument.t * int) list [@@deriving show]
 
-(*   let get (l : t) (x : string) = *)
-(*     match List.Assoc.get ~eq:String.equal x l with Some x -> x | None -> 0 *)
-
-(*   let set = List.Assoc.set ~eq:String.equal *)
-(* end *)
-
-(* module Derivatives = struct *)
-(*   type t = (string * Contract.Response.t option) list [@@deriving show] *)
-
-(*   let get (l : t) (x : string) = List.Assoc.get ~eq:String.equal x l *)
-(*   let set = List.Assoc.set ~eq:String.equal *)
-(* end *)
+  let qty p symbol =
+    List.Assoc.get ~eq:Instrument.equal symbol p |> Option.get_or ~default:0
+end
 
 (* A module for containing the information about the current position for backtesting *)
 (* Maybe also for keeping track of things during live trading, but ideally we should *)
@@ -21,13 +12,13 @@
 (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
 
 type t = {
-  positions : (string * Position.t) list;
+  portfolio : Portfolio.t;
   cash : float;
   live_orders : Order.t list; (* contracts : Contract.Position.t list; *)
 }
 [@@deriving show]
 
-let make () = { positions = []; cash = 100000.0; live_orders = [] }
+let make () = { portfolio = []; cash = 100000.0; live_orders = [] }
 let set_cash x cash = { x with cash }
 
 let get_cash pos =
@@ -39,15 +30,11 @@ let get_cash pos =
          | Sell -> 0.0)
        0.0 pos.live_orders
 
-let get_positions pos = pos.positions
-
 let symbols pos =
   List.filter_map
     (fun (sym, (p : Position.t)) ->
       match p.qty with 0 -> None | _ -> Some sym)
     pos.positions
-
-let qty pos symbol = List.Assoc.get ~eq:String.equal symbol pos.positions
 
 let value pos (latest : Bars.Latest.t) =
   let ( let* ) = Result.( let* ) in
@@ -64,19 +51,26 @@ let is_empty (x : t) =
     (fun acc (_, (p : Position.t)) -> acc && p.qty = 0)
     true x.positions
 
-let execute_order pos (order : Order.t) =
+let execute_order (pos : t) (order : Order.t) =
   let symbol = order.symbol in
-  let qty = order.qty in
   let price = order.price in
-  let current_amt = Positions.get pos.positions symbol in
+  (* let current_amt = Positions.get pos.positions symbol in *)
+  let current_amt = Portfolio.qty pos.positions symbol in
+  let order_qty = order.qty in
   match (order.side, order.order_type) with
   | Buy, Market ->
-      let positions = Positions.set symbol (current_amt + qty) pos.positions in
-      let res = set_cash pos @@ (pos.cash -. (price *. Float.of_int qty)) in
+      let positions = set_qty pos symbol (current_amt + order_qty) in
+      let res =
+        set_cash pos @@ (pos.cash -. (price *. Float.of_int order_qty))
+      in
       Ok { res with positions }
   | Sell, Market ->
-      let positions = Positions.set symbol (current_amt - qty) pos.positions in
-      let res = set_cash pos @@ (pos.cash +. (price *. Float.of_int qty)) in
+      let positions =
+        Positions.set symbol (current_amt - order_qty) pos.positions
+      in
+      let res =
+        set_cash pos @@ (pos.cash +. (price *. Float.of_int order_qty))
+      in
       Ok { res with positions }
   | Buy, Stop | Sell, Stop ->
       Result.return @@ { pos with live_orders = order :: pos.live_orders }
