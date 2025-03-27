@@ -27,8 +27,7 @@ let set_cash x cash = { x with cash }
 let qty (pos : t) symbol =
   List.find_map
     (fun (instrument, qty) ->
-      let instrument_symbol = Instrument.symbol instrument in
-      match String.equal instrument_symbol symbol with
+      match Instrument.equal instrument symbol with
       | true -> Some qty
       | false -> None)
     pos.portfolio
@@ -47,7 +46,6 @@ let symbols pos =
   List.filter_map
     (fun (sym, qty) -> match qty with 0 -> None | _ -> Some sym)
     pos.portfolio
-  |> List.map Instrument.symbol
 
 let value pos (latest : Bars.Latest.t) =
   let ( let* ) = Result.( let* ) in

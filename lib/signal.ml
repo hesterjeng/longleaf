@@ -103,7 +103,7 @@ module Indicator = struct
 end
 
 type t = {
-  symbol : string; [@compare fun _ _ -> 0]
+  symbol : Instrument.t; [@compare fun _ _ -> 0]
   reason : string list; [@compare fun _ _ -> 0]
   score : float;
 }
