@@ -13,7 +13,8 @@ module Latest = struct
     Format.fprintf fmt "@[%d@]@." (Seq.length seq);
     Format.fprintf fmt "@[%a@]@." pp seq
 
-  let get x symbol : (Item.t, Error.t) result =
+  let get x (symbol : Instrument.t) : (Item.t, Error.t) result =
+    let symbol = Instrument.symbol symbol in
     match Hashtbl.find_opt x symbol with
     | Some x -> Ok x
     | None ->

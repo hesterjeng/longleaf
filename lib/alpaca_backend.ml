@@ -142,13 +142,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
         let* () =
           Result.fold_l
             (fun acc x ->
-              let symbol = Instrument.symbol x in
-              match Bars.Latest.get res symbol with
+              match Bars.Latest.get res x with
               | Ok _ -> Result.return acc
               | Error _ as e ->
                   Eio.traceln
-                    "[error] Missing data in Alpaca_backend.latest_bars for %s"
-                    symbol;
+                    "[error] Missing data in Alpaca_backend.latest_bars for %a"
+                    Instrument.pp x;
                   e)
             () symbols
         in
@@ -173,9 +172,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
         (fun prev symbol ->
           let* prev = prev in
           let qty = Backend_position.qty state.positions symbol in
-          let symbol_str = Instrument.symbol symbol in
           assert (qty <> 0);
-          let* latest_info = Bars.Latest.get last_data_bar symbol_str in
+          let* latest_info = Bars.Latest.get last_data_bar symbol in
           let order : Order.t =
             let side = if qty >= 0 then Side.Sell else Side.Buy in
             let tif = TimeInForce.GoodTillCanceled in
@@ -183,9 +181,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
             let qty = Int.abs qty in
             let price = Item.last latest_info in
             let timestamp = Item.timestamp latest_info in
-            Order.make ~symbol:symbol_str ~tick:state.tick ~side ~tif
-              ~order_type ~qty ~price ~timestamp ~profit:None
-              ~reason:[ "Liquidate" ]
+            Order.make ~symbol ~tick:state.tick ~side ~tif ~order_type ~qty
+              ~price ~timestamp ~profit:None ~reason:[ "Liquidate" ]
           in
           place_order prev order)
         (Ok state) symbols
