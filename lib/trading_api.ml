@@ -116,10 +116,10 @@ module Make (Alpaca : Util.CLIENT) = struct
     let create_market_order (order : Order.t) =
       let ( let+ ) = Result.( let+ ) in
       let endpoint = "/v2/orders" in
-      let body =
+      let body : Yojson.Safe.t =
         `Assoc
           [
-            ("symbol", `String order.symbol);
+            ("symbol", `String (Instrument.symbol order.symbol));
             ("type", `String (OrderType.to_string order.order_type));
             ("time_in_force", `String (TimeInForce.to_string order.tif));
             ("side", `String (Side.to_string order.side));

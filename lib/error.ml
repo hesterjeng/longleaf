@@ -1,7 +1,7 @@
 type t =
   [ `MissingData of string
   | `MissingClient of string
-  | `UnsupportedOrder of Order.t
+  | `UnsupportedOrder of string
   | (Piaf.Error.t[@printer Piaf.Error.pp_hum])
   | `JsonError of string
   | `Finished of string

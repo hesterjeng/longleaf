@@ -114,14 +114,16 @@ let split ~midpoint ~target_length ~combined_length (x : t) : t * t =
   in
   (Hashtbl.of_seq first_part, Hashtbl.of_seq second_part)
 
-let get (x : t) symbol = Hashtbl.find_opt x symbol
+let get (x : t) symbol = Hashtbl.find_opt x @@ Instrument.symbol symbol
+let get_str (x : t) symbol = Hashtbl.find_opt x symbol
 
 let get_err (x : t) symbol =
   match get x symbol with
   | None ->
       Result.fail
       @@ `MissingData
-           (Format.asprintf "[error: Bars.get_err] Symbol history for %s" symbol)
+           (Format.asprintf "[error: Bars.get_err] Symbol history for %a"
+              Instrument.pp symbol)
   | Some x -> Result.return x
 
 let sort cmp (x : t) = Hashtbl.iter (fun _ vector -> Vector.sort' cmp vector) x
@@ -137,8 +139,8 @@ let add_order (order : Order.t) (data : t) =
     | None ->
         Result.fail
         @@ `MissingData
-             (Format.asprintf "[error: Bars.add_order] No data for %s in bars"
-                symbol)
+             (Format.asprintf "[error: Bars.add_order] No data for %a in bars"
+                Instrument.pp symbol)
   in
   let* _ =
     match Ptime.equal order.timestamp @@ Item.timestamp top with
@@ -212,7 +214,7 @@ let copy (x : t) : t =
 let append (latest : Latest.t) (x : t) =
   Hashtbl.to_seq latest
   |> Seq.iter @@ fun (symbol, item) ->
-     match get x symbol with
+     match get_str x symbol with
      | None -> Hashtbl.replace x symbol @@ Vector.return item
      | Some h -> Vector.push h item
 
