@@ -11,13 +11,14 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) symbol =
     let i = Indicators.get_top state.indicators symbol in
     match symbol with
-    | "SPY" -> (
+    | Security "SPY" -> (
         match i.fast_stochastic_oscillator_k <=. 10.0 with
         | true -> F.Pass [ "Small K" ]
         | false -> F.Fail [ "Don't buy" ])
     | _ -> F.Fail []
 
-  let score _ symbol = match symbol with "SPY" -> 1.0 | _ -> 0.0
+  let score _ symbol =
+    match symbol with Instrument.Security "SPY" -> 1.0 | _ -> 0.0
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)

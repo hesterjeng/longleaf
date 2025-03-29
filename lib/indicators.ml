@@ -332,9 +332,10 @@ let pp : t Format.printer =
 
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
+let get_instrument (x : t) instrument = get x @@ Instrument.symbol instrument
 
 let get_top (x : t) symbol =
-  get x symbol
+  get x (Instrument.symbol symbol)
   |> Option.get_exn_or "indicators.ml: unable to get vector for symbol"
   |> Vector.top
   |> Option.get_exn_or "inidcators.ml: vector doesn't have a top"
