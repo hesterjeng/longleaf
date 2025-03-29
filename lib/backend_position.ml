@@ -51,9 +51,8 @@ let value pos (latest : Bars.Latest.t) =
   let ( let* ) = Result.( let* ) in
   (fun f -> List.fold_left f (Ok pos.cash) pos.portfolio)
   @@ fun previous_value (instrument, qty) ->
-  let symbol = Instrument.symbol instrument in
   let* previous_value = previous_value in
-  let* item = Bars.Latest.get latest symbol in
+  let* item = Bars.Latest.get latest instrument in
   let symbol_price = Item.last item in
   let symbol_value = Float.of_int qty *. symbol_price in
   Result.return @@ (symbol_value +. previous_value)
@@ -61,10 +60,10 @@ let value pos (latest : Bars.Latest.t) =
 let is_empty (x : t) =
   List.fold_left (fun acc (_, qty) -> acc && qty = 0) true x.portfolio
 
-let execute_order (pos : t) (order : Order.t) =
+let execute_order (pos : t) (order : Order.t) : (t, Error.t) result =
   Eio.traceln
     "FIXME: Orders need to know if they are for a security or contract";
-  let symbol = Instrument.Security order.symbol in
+  let symbol = order.symbol in
   let price = order.price in
   let current_amt = Portfolio.qty pos.portfolio symbol in
   let order_qty = order.qty in
@@ -87,7 +86,7 @@ let execute_order (pos : t) (order : Order.t) =
       Ok { res with portfolio }
   | Buy, Stop | Sell, Stop ->
       Result.return @@ { pos with live_orders = order :: pos.live_orders }
-  | _ -> Result.fail @@ `UnsupportedOrder order
+  | _ -> Result.fail @@ `UnsupportedOrder (Order.show order)
 
 (* Execute Stop/Limit orders in the live field.  Market orders should not be in the live field. *)
 let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
@@ -132,17 +131,16 @@ let liquidate pos (bars : Bars.Latest.t) =
   | 0 -> Ok pos
   | qty ->
       let side = if qty >= 0 then Side.Sell else Side.Buy in
-      let symbol = Instrument.symbol instrument in
       Eio.traceln "FIXME: Handle instruments in Liquidate";
-      let* latest = Bars.Latest.get bars symbol in
+      let* latest = Bars.Latest.get bars instrument in
       let order : Order.t =
         let tif = TimeInForce.GoodTillCanceled in
         let order_type = OrderType.Market in
         let qty = Int.abs qty in
         let price = Item.last latest in
         let timestamp = Item.timestamp latest in
-        Order.make ~tick:(-1) ~symbol ~side ~tif ~order_type ~qty ~price
-          ~timestamp ~profit:None ~reason:[ "Liquidating" ]
+        Order.make ~tick:(-1) ~symbol:instrument ~side ~tif ~order_type ~qty
+          ~price ~timestamp ~profit:None ~reason:[ "Liquidating" ]
       in
       Eio.traceln "@[%a@]@." Order.pp order;
       let* res = execute_order pos order in
