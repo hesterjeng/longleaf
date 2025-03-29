@@ -137,7 +137,7 @@ module Bars = struct
     Hashtbl.to_seq target
     |> Seq.map (fun (symbol, target) ->
            let preload =
-             Bars.get preload symbol
+             Bars.get_str preload symbol
              |> Option.get_exn_or "Must have preload in monte carlo"
            in
            (symbol, Item.of_item_vector ~print:false ~preload ~target))
