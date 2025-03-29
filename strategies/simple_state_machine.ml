@@ -24,8 +24,8 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
     let ( let* ) = Result.( let* ) in
     match state.current with
     | Ordering ->
-        let* msft = Bars.Latest.get state.latest "MSFT" in
-        let* nvda = Bars.Latest.get state.latest "NVDA" in
+        let* msft = Bars.Latest.get state.latest @@ Security "MSFT" in
+        let* nvda = Bars.Latest.get state.latest @@ Security "NVDA" in
         let cash_available = Backend_position.get_cash state.positions in
         let qty =
           match cash_available >=. 0.0 with
@@ -42,7 +42,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
           if msft_last <. nvda_last then ()
           else
             let order : Order.t =
-              let symbol = "NVDA" in
+              let symbol = Instrument.Security "NVDA" in
               let side = Side.Buy in
               let tif = TimeInForce.Day in
               let order_type = OrderType.Market in

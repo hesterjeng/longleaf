@@ -343,13 +343,13 @@ let get_top (x : t) symbol =
 let get_indicator (x : t) symbol f =
   let res =
     let open Option.Infix in
-    let* ind = get x symbol in
+    let* ind = get_instrument x symbol in
     let+ top = Vector.top ind in
     f top
   in
   Option.get_exn_or
-    (Format.asprintf "indicators.ml: Unable to get indicator for symbol %s"
-       symbol)
+    (Format.asprintf "indicators.ml: Unable to get indicator for symbol %a"
+       Instrument.pp symbol)
     res
 
 let initialize_single config bars symbol =
