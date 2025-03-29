@@ -112,7 +112,8 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
       (fun (x : Order.t) ->
         let symbol = x.symbol in
         `String
-          (Format.asprintf "%s<br>%s" symbol (String.concat "<br>" x.reason)))
+          (Format.asprintf "%s<br>%s" (Instrument.symbol symbol)
+             (String.concat "<br>" x.reason)))
       orders
   in
   let color = Trading_types.Side.to_color side in
@@ -143,7 +144,7 @@ let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
   order_trace side orders
 
 let of_bars bars indicators symbol : Yojson.Safe.t option =
-  let* data_vec = Bars.get bars symbol in
+  let* data_vec = Bars.get_str bars symbol in
   let data = Vector.to_list data_vec in
   let* ema_12_trace =
     indicator_trace ~data ~drop:12 indicators "EMA(12)" IP.ema_12 symbol
@@ -256,7 +257,9 @@ module Stats = struct
   let of_item (item : Stats.item) =
     let filter (x : Order.t) =
       let hovertext =
-        Format.asprintf "* %s<br>%s" x.symbol (String.concat "<br>" x.reason)
+        Format.asprintf "* %s<br>%s"
+          (Instrument.symbol x.symbol)
+          (String.concat "<br>" x.reason)
       in
       match x.side with Buy -> `Left hovertext | Sell -> `Right hovertext
     in

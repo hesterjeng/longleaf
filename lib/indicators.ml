@@ -354,7 +354,7 @@ let get_indicator (x : t) symbol f =
 let initialize_single config bars symbol =
   let initial_stats_vector = Vector.create () in
   let bars_vec =
-    Bars.get bars symbol |> function
+    Bars.get_str bars symbol |> function
     | Some x -> x
     | None ->
         invalid_arg "Expected to have bars data when initializing indicators"
@@ -396,7 +396,7 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
   let iter f = Seq.iter f seq in
   iter @@ fun (symbol, latest) ->
   let symbol_history =
-    Bars.get bars symbol |> function Some x -> x | None -> assert false
+    Bars.get_str bars symbol |> function Some x -> x | None -> assert false
     (* let stats = Hashtbl.length bars in *)
     (* Eio.traceln "No bars for %s when making indicators? %d" symbol stats; *)
     (* Eio.traceln "%a" Bars.pp bars; *)
