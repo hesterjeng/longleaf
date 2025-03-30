@@ -1,13 +1,14 @@
 open Trading_types
 
 type t = {
-  symbol : string;
+  symbol : Instrument.t;
   side : Side.t;
   tif : TimeInForce.t;
   order_type : OrderType.t;
   qty : int;
   tick : int;
   price : float;
+  (* instrument : Instrument.t; *)
   timestamp : Time.t;
   reason : string list;
   (* This is the expected profit of this trade, if it is closing a known position *)
@@ -20,7 +21,7 @@ type t = {
 let timestamp x = x.timestamp
 
 let equal x y =
-  String.equal x.symbol y.symbol
+  Instrument.equal x.symbol y.symbol
   && x.qty = y.qty
   && Float.equal x.price y.price
   && Side.equal x.side y.side

@@ -66,13 +66,13 @@ module Flag = struct
 end
 
 module Indicator = struct
-  type 'a t = string -> Direction.t -> 'a -> Flag.t
+  type 'a t = Instrument.t -> Direction.t -> 'a -> Flag.t
 
   let of_indicator (state : _ State.t) (indicator : Indicators.Point.t -> float)
       name : 'a t =
    fun symbol direction target ->
     let indicators =
-      Indicators.get state.indicators symbol
+      Indicators.get_instrument state.indicators symbol
       |> Option.get_exn_or "signal.ml: Unable to get indicators for symbol"
     in
     let point =
@@ -103,7 +103,7 @@ module Indicator = struct
 end
 
 type t = {
-  symbol : string; [@compare fun _ _ -> 0]
+  symbol : Instrument.t; [@compare fun _ _ -> 0]
   reason : string list; [@compare fun _ _ -> 0]
   score : float;
 }

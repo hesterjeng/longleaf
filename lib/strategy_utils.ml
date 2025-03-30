@@ -154,7 +154,9 @@ module Make (Backend : Backend_intf.S) = struct
     match state.current with
     | Initialize ->
         Eio.traceln "Initialize state...";
-        let symbols_str = String.concat "," Backend.symbols in
+        let symbols_str =
+          List.map Instrument.symbol Backend.symbols |> String.concat ","
+        in
         Pmutex.set mutices.symbols_mutex (Some symbols_str);
         Result.return @@ { state with current = Listening }
     | Listening -> (

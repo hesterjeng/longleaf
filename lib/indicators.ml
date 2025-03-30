@@ -332,9 +332,10 @@ let pp : t Format.printer =
 
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
+let get_instrument (x : t) instrument = get x @@ Instrument.symbol instrument
 
 let get_top (x : t) symbol =
-  get x symbol
+  get x (Instrument.symbol symbol)
   |> Option.get_exn_or "indicators.ml: unable to get vector for symbol"
   |> Vector.top
   |> Option.get_exn_or "inidcators.ml: vector doesn't have a top"
@@ -342,19 +343,19 @@ let get_top (x : t) symbol =
 let get_indicator (x : t) symbol f =
   let res =
     let open Option.Infix in
-    let* ind = get x symbol in
+    let* ind = get_instrument x symbol in
     let+ top = Vector.top ind in
     f top
   in
   Option.get_exn_or
-    (Format.asprintf "indicators.ml: Unable to get indicator for symbol %s"
-       symbol)
+    (Format.asprintf "indicators.ml: Unable to get indicator for symbol %a"
+       Instrument.pp symbol)
     res
 
 let initialize_single config bars symbol =
   let initial_stats_vector = Vector.create () in
   let bars_vec =
-    Bars.get bars symbol |> function
+    Bars.get_str bars symbol |> function
     | Some x -> x
     | None ->
         invalid_arg "Expected to have bars data when initializing indicators"
@@ -396,7 +397,7 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
   let iter f = Seq.iter f seq in
   iter @@ fun (symbol, latest) ->
   let symbol_history =
-    Bars.get bars symbol |> function Some x -> x | None -> assert false
+    Bars.get_str bars symbol |> function Some x -> x | None -> assert false
     (* let stats = Hashtbl.length bars in *)
     (* Eio.traceln "No bars for %s when making indicators? %d" symbol stats; *)
     (* Eio.traceln "%a" Bars.pp bars; *)

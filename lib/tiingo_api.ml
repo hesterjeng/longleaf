@@ -86,9 +86,9 @@ module Make (Tiingo : Util.CLIENT) = struct
   let latest tickers =
     let ( let+ ) = Result.( let+ ) in
     let ( let* ) = Result.( let* ) in
+    let symbols = List.map Instrument.symbol tickers |> String.concat "," in
     let endpoint =
-      Uri.add_query_params' iex_endpoint
-        [ ("tickers", String.concat "," tickers) ]
+      Uri.add_query_params' iex_endpoint [ ("tickers", symbols) ]
       |> Uri.to_string
     in
     (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)

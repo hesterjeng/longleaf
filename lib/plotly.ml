@@ -27,7 +27,7 @@ let layout title =
           ];
     ]
 
-let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1") ~data
+let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1")
     (indicators : Indicators.t) indicator_name indicator_get symbol :
     Yojson.Safe.t option =
   let+ indicators_vec =
@@ -112,7 +112,8 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
       (fun (x : Order.t) ->
         let symbol = x.symbol in
         `String
-          (Format.asprintf "%s<br>%s" symbol (String.concat "<br>" x.reason)))
+          (Format.asprintf "%s<br>%s" (Instrument.symbol symbol)
+             (String.concat "<br>" x.reason)))
       orders
   in
   let color = Trading_types.Side.to_color side in
@@ -143,68 +144,68 @@ let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
   order_trace side orders
 
 let of_bars bars indicators symbol : Yojson.Safe.t option =
-  let* data_vec = Bars.get bars symbol in
+  let* data_vec = Bars.get_str bars symbol in
   let data = Vector.to_list data_vec in
   let* ema_12_trace =
-    indicator_trace ~data ~drop:12 indicators "EMA(12)" IP.ema_12 symbol
+    indicator_trace ~drop:12 indicators "EMA(12)" IP.ema_12 symbol
   in
   let* ema_26_trace =
-    indicator_trace ~data ~drop:26 indicators "EMA(26)" IP.ema_26 symbol
+    indicator_trace ~drop:26 indicators "EMA(26)" IP.ema_26 symbol
   in
   let* macd_trace =
-    indicator_trace ~show:false ~drop:26 ~yaxis:"y2" ~data indicators "MACD"
-      IP.macd symbol
+    indicator_trace ~show:false ~drop:26 ~yaxis:"y2" indicators "MACD" IP.macd
+      symbol
   in
   let* sma_5_trace =
-    indicator_trace ~drop:5 ~data indicators "SMA(5)" IP.sma_5 symbol
+    indicator_trace ~drop:5 indicators "SMA(5)" IP.sma_5 symbol
   in
   let* sma_34_trace =
-    indicator_trace ~data ~drop:34 indicators "SMA(34)" IP.sma_34 symbol
+    indicator_trace ~drop:34 indicators "SMA(34)" IP.sma_34 symbol
   in
   let* sma_233_trace =
-    indicator_trace ~data ~drop:233 ~show:false indicators "SMA(233)" IP.sma_233
+    indicator_trace ~drop:233 ~show:false indicators "SMA(233)" IP.sma_233
       symbol
   in
   let* awesome_slow =
-    indicator_trace ~data ~drop:233 ~show:false indicators "Awesome Slow"
+    indicator_trace ~drop:233 ~show:false indicators "Awesome Slow"
       IP.awesome_slow symbol
   in
   let* upper_bollinger =
-    indicator_trace ~data indicators "Upper BB(34)" IP.upper_bollinger symbol
+    indicator_trace indicators "Upper BB(34)" IP.upper_bollinger symbol
   in
   let* lower_bollinger =
-    indicator_trace ~data indicators "Lower BB(34)" IP.lower_bollinger symbol
+    indicator_trace indicators "Lower BB(34)" IP.lower_bollinger symbol
   in
   let* rsi =
-    indicator_trace ~data ~show:false indicators "Relative Strength Index"
+    indicator_trace ~show:false indicators "Relative Strength Index"
       IP.relative_strength_index symbol
   in
   let* awesome =
-    indicator_trace ~data ~show:false indicators "Awesome Oscillator"
+    indicator_trace ~show:false indicators "Awesome Oscillator"
       IP.awesome_oscillator symbol
   in
   let* fso_pk =
-    indicator_trace ~data ~show:false indicators "FSO %K"
+    indicator_trace ~show:false indicators "FSO %K"
       IP.fast_stochastic_oscillator_k symbol
   in
   let* fso_pd =
-    indicator_trace ~data ~show:false indicators "FSO %D"
+    indicator_trace ~show:false indicators "FSO %D"
       IP.fast_stochastic_oscillator_d symbol
   in
   let* fft_thing =
-    indicator_trace ~data ~show:false indicators
+    indicator_trace ~show:false indicators
       "Fourier Transform Normalized Magnitude" IP.ft_normalized_magnitude symbol
   in
   let* fft_mse =
-    indicator_trace ~data ~show:false indicators
+    indicator_trace ~show:false indicators
       "Fourier Transform Mean Squared Error" IP.fft_mean_squared_error symbol
   in
   let* u3b =
-    indicator_trace ~data ~show:false indicators "Upper 3 Bollinger"
+    indicator_trace ~show:false indicators "Upper 3 Bollinger"
       IP.upper_bollinger_100_3 symbol
   in
   let* l1b =
-    indicator_trace ~data ~show:false indicators "Lower 1 Bollinger"
+    indicator_trace ~show:false indicators "Lower 1 Bollinger"
       IP.lower_bollinger_100_1 symbol
   in
   let buy_trace = order_trace_side Buy data in
@@ -256,7 +257,9 @@ module Stats = struct
   let of_item (item : Stats.item) =
     let filter (x : Order.t) =
       let hovertext =
-        Format.asprintf "* %s<br>%s" x.symbol (String.concat "<br>" x.reason)
+        Format.asprintf "* %s<br>%s"
+          (Instrument.symbol x.symbol)
+          (String.concat "<br>" x.reason)
       in
       match x.side with Buy -> `Left hovertext | Sell -> `Right hovertext
     in

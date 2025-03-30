@@ -26,14 +26,14 @@ module type S = sig
   val get_data_client : unit -> (Piaf.Client.t, Error.t) result
   val env : Eio_unix.Stdenv.base
   val init_state : 'a -> ('a State.t, Error.t) result
-  val symbols : string list
+  val symbols : Instrument.t list
   val shutdown : unit -> unit
 
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> (Time.t option, Error.t) result
   val next_market_close : unit -> (Time.t, Error.t) result
   val place_order : 'a State.t -> Order.t -> ('a State.t, Error.t) result
-  val latest_bars : string list -> (Bars.Latest.t, Error.t) result
+  val latest_bars : Instrument.t list -> (Bars.Latest.t, Error.t) result
   val last_data_bar : (Bars.Latest.t, Error.t) result
   val liquidate : 'a State.t -> ('a State.t, Error.t) Result.t
 end

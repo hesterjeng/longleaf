@@ -28,7 +28,7 @@ module Conditions = struct
       (current_price : Item.t) =
     let last_price = Item.last current_price in
     let lower_bollinger =
-      Indicators.get indicators symbol
+      Indicators.get_instrument indicators symbol
       |> Option.get_exn_or "low_bollinger: expected to get indicators"
       |> Vector.top
       |> Option.get_exn_or
@@ -41,7 +41,7 @@ module Conditions = struct
 
   let crash_block (indicators : Indicators.t) symbol most_recent_price =
     let open Option in
-    let* indicators = Indicators.get indicators symbol in
+    let* indicators = Indicators.get_instrument indicators symbol in
     let* point = Vector.top indicators in
     let current_price = Item.last most_recent_price in
     if current_price /. Indicators.Point.sma_5 point >=. 0.95 then Some `Pass
@@ -50,28 +50,28 @@ module Conditions = struct
   (* Only buy if RSI is less than 40 *)
   let small_rsi (indicators : Indicators.t) symbol =
     let open Option in
-    let* indicators = Indicators.get indicators symbol in
+    let* indicators = Indicators.get_instrument indicators symbol in
     let* point = Vector.top indicators in
     if Indicators.Point.relative_strength_index point <=. 40.0 then Some `Pass
     else None
 
   let above_awesome (indicators : Indicators.t) symbol =
     let open Option in
-    let* indicators = Indicators.get indicators symbol in
+    let* indicators = Indicators.get_instrument indicators symbol in
     let* point = Vector.top indicators in
     if Indicators.Point.awesome_oscillator point >=. 1.0 then Some `Pass
     else None
 
   let above_awesome_slow (indicators : Indicators.t) symbol =
     let open Option in
-    let* indicators = Indicators.get indicators symbol in
+    let* indicators = Indicators.get_instrument indicators symbol in
     let* point = Vector.top indicators in
     if Indicators.Point.awesome_slow point >=. 1.0 then Some `Pass else None
 
   (* We only want to buy if FSO %K is less than 50 *)
   let small_fso (indicators : Indicators.t) symbol =
     let open Option in
-    let* indicators = Indicators.get indicators symbol in
+    let* indicators = Indicators.get_instrument indicators symbol in
     let* point = Vector.top indicators in
     if Indicators.Point.fast_stochastic_oscillator_k point >=. 50.0 then None
     else Some `Pass
@@ -96,7 +96,7 @@ module Conditions = struct
       (*   | None -> false *)
       (* in *)
       let fso_pd =
-        Indicators.get state.indicators buying_order.symbol
+        Indicators.get_instrument state.indicators buying_order.symbol
         |> Option.get_exn_or "bollinger: Sell_reason.make"
         |> Vector.top
         |> Option.get_exn_or "boll: Sell_reason.make"
@@ -133,7 +133,7 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
   module SU = Strategy_utils.Make (Backend)
   module P = Conditions.P
 
-  let consider_buying ~(state : state) ~(qty : string -> int) symbol =
+  let consider_buying ~(state : state) ~(qty : Instrument.t -> int) symbol =
     let open Option.Infix in
     (* let* price_history = Bars.get history symbol in *)
     let* most_recent_price =

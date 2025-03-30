@@ -12,12 +12,13 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) symbol =
     let _ = state in
     match symbol with
-    | "SPY" when !ready_to_buy ->
+    | Instrument.Security "SPY" when !ready_to_buy ->
         ready_to_buy := false;
         F.Pass [ "Buy SPY" ]
     | _ -> F.Fail []
 
-  let score _ symbol = match symbol with "SPY" -> 1.0 | _ -> 0.0
+  let score _ symbol =
+    match symbol with Instrument.Security "SPY" -> 1.0 | _ -> 0.0
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)

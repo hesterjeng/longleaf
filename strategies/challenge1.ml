@@ -8,7 +8,7 @@ type state = Status.t State.t
 
 module BuyReason = struct
   (* Above 3 std bollingers *)
-  type t = { symbol : string; amt_above : float }
+  type t = { symbol : Instrument.t; amt_above : float }
 
   let make (state : state) symbol =
     let current_price = State.price state symbol in
@@ -24,9 +24,10 @@ module BuyReason = struct
         Indicators.Point.upper_bollinger
     in
     let sma75spy =
-      Indicators.get_indicator state.indicators "SPY" Indicators.Point.sma_75
+      Indicators.get_indicator state.indicators (Security "SPY")
+        Indicators.Point.sma_75
     in
-    let spy_price = State.price state "SPY" in
+    let spy_price = State.price state @@ Security "SPY" in
     let amt_above = current_price -. upper_bb in
     let pass =
       current_price >=. upper_bb
@@ -37,7 +38,7 @@ module BuyReason = struct
 end
 
 module SellReason = struct
-  type t = Below1StdBollinger of string
+  type t = Below1StdBollinger of Instrument.t
   [@@deriving show { with_path = false }]
 
   let make (state : state) symbol =
@@ -48,9 +49,10 @@ module SellReason = struct
       (* Indicators.Point.lower_bollinger *)
     in
     let sma75spy =
-      Indicators.get_indicator state.indicators "SPY" Indicators.Point.sma_75
+      Indicators.get_indicator state.indicators (Security "SPY")
+        Indicators.Point.sma_75
     in
-    let spy_price = State.price state "SPY" in
+    let spy_price = State.price state (Security "SPY") in
     let pass = current_price <=. lower_bb && not (spy_price <=. sma75spy) in
     match pass with true -> Some (Below1StdBollinger symbol) | false -> None
 end

@@ -106,14 +106,14 @@ module Make (Input : BACKEND_INPUT) : S = struct
     Piaf.Client.shutdown tiingo_client;
     ()
 
-  let symbols = Input.options.symbols
+  let symbols = List.map Instrument.security Input.options.symbols
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
 
   let last_data_bar =
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
-  let latest_bars symbols =
+  let latest_bars (symbols : Instrument.t list) =
     let ( let* ) = Result.( let* ) in
     (* let* account = Trading_api.Accounts.get_account () in *)
     (* let backend_cash = Backend_position.get_cash in *)
@@ -146,8 +146,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
               | Ok _ -> Result.return acc
               | Error _ as e ->
                   Eio.traceln
-                    "[error] Missing data in Alpaca_backend.latest_bars for %s"
-                    x;
+                    "[error] Missing data in Alpaca_backend.latest_bars for %a"
+                    Instrument.pp x;
                   e)
             () symbols
         in

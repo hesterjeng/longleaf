@@ -7,7 +7,7 @@ end
 type state = Status.t State.t
 
 module BuyReason = struct
-  type t = { symbol : string; amt_above : float }
+  type t = { symbol : Instrument.t; amt_above : float }
 
   let make (state : state) symbol =
     let current_price = State.price state symbol in
@@ -28,7 +28,7 @@ module BuyReason = struct
 end
 
 module SellReason = struct
-  type t = Below1StdBollinger of string
+  type t = Below1StdBollinger of Instrument.t
   [@@deriving show { with_path = false }]
 
   let make ~(buying_order : Order.t) (state : state) =

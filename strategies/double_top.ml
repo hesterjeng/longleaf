@@ -33,7 +33,7 @@ module Conditions = struct
       (current_price : Item.t) =
     let last_price = Item.last current_price in
     let upper_bollinger =
-      Indicators.get indicators symbol
+      Indicators.get_instrument indicators symbol
       |> Option.get_exn_or "double_top: expected to get indicators"
       |> Vector.top
       |> Option.get_exn_or
@@ -151,7 +151,7 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
   module P = Conditions.P
 
   let consider_shorting ~(history : Bars.t) ~(state : state)
-      ~(qty : string -> int) symbol : Order.t option =
+      ~(qty : Instrument.t -> int) symbol : Order.t option =
     let open Option.Infix in
     let* price_history = Bars.get history symbol in
     let* most_recent_price =

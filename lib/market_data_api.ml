@@ -159,4 +159,8 @@ module Make (Alpaca : Util.CLIENT) = struct
       let resp_body_json = get ~headers ~endpoint in
       resp_body_json
   end
+
+  module Contract = struct
+    let get_all = Contract.get_all longleaf_env client
+  end
 end
