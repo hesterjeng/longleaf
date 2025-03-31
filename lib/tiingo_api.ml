@@ -2,7 +2,7 @@ module Headers = Piaf.Headers
 module Hashtbl = Bars.Hashtbl
 
 type item = {
-  ticker : string;
+  ticker : Instrument.t;
   timestamp : Time.t;
   last : float; [@key "tngoLast"]
   open_ : float; [@key "open"]
@@ -48,8 +48,11 @@ let item_to_bar_item (x : item) : Item.t =
   Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume ~order ()
 
 let to_latest (l : t) : Bars.Latest.t =
-  List.map (fun (x : item) -> (x.ticker, item_to_bar_item x)) l
-  |> Seq.of_list |> Hashtbl.of_seq
+  let res =
+    List.map (fun (x : item) -> (x.ticker, item_to_bar_item x)) l
+    |> Seq.of_list |> Hashtbl.of_seq
+  in
+  res
 
 let tiingo_client eio_env sw =
   let res =
@@ -122,7 +125,8 @@ module Make (Tiingo : Util.CLIENT) = struct
 
     let top ?(afterhours = false) (starting_request : Request.t) =
       let split_requests = Request.split starting_request in
-      let get_data (request : Request.t) symbol =
+      let get_data (request : Request.t) instrument =
+        let symbol = Instrument.symbol instrument in
         let endpoint =
           (match request.timeframe with
           | Day ->
@@ -169,13 +173,18 @@ module Make (Tiingo : Util.CLIENT) = struct
         in
         (* Eio.traceln "keys: %a" Yojson.Safe.pp resp; *)
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
-        (symbol, Vector.of_list l)
+        (instrument, Vector.of_list l)
       in
       let r : Bars.t list =
+        let request_symbols =
+          List.map Instrument.of_string starting_request.symbols
+        in
         List.map
           (fun request ->
-            List.map (get_data request) starting_request.symbols
-            |> Seq.of_list |> Hashtbl.of_seq)
+            let res =
+              List.map (get_data request) request_symbols |> Seq.of_list
+            in
+            Hashtbl.of_seq res)
           split_requests
       in
       let final = Bars.combine r in
