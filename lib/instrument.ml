@@ -54,6 +54,11 @@ let of_string (x : string) =
           strike_price;
         }
 
+let of_string_res x =
+  try Result.return @@ of_string x
+  with _ ->
+    Error.json @@ Format.asprintf "Unable to create instrument from %s" x
+
 let t_of_yojson (json : Yojson.Safe.t) =
   match json with
   | `String s -> of_string s
