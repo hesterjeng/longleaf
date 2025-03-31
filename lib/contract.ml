@@ -1,5 +1,10 @@
 module Type = struct
   type t = Put [@name "put"] | Call [@name "call"] [@@deriving show, yojson]
+
+  let of_string = function
+    | "P" | "put" | "Put" -> Put
+    | "C" | "Call" | "call" -> Call
+    | x -> invalid_arg (Format.asprintf "Not P or C for call: %s" x)
 end
 
 module Style = struct
