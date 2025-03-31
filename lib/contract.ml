@@ -15,6 +15,8 @@ end
 module Status = struct
   type t = Active [@name "active"] | Inactive [@name "inactive"]
   [@@deriving show, yojson]
+
+  let active = Active
 end
 
 module Deliverable = struct

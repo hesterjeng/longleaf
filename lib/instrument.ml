@@ -11,47 +11,52 @@ let equal x y = String.equal (symbol x) (symbol y)
 let hash x = String.hash @@ symbol x
 let yojson_of_t (x : t) : Yojson.Safe.t = `String (symbol x)
 
-module Parsing : sig end = struct
-  (* type p1 = *)
-  (*   | Contract_parsing of (int * string) *)
-  (*   | Regular of string *)
+let of_string (x : string) =
+  let l = String.to_list x |> List.map Char.to_string in
+  let first_int =
+    List.find_mapi
+      (fun i s -> match Int.of_string s with Some _ -> Some i | _ -> None)
+      l
+  in
+  match first_int with
+  | None -> Security x
+  | Some i ->
+      let underlying, rest = String.take_drop i x in
+      let underlying_symbol =
+        String.filter (fun x -> not @@ Char.equal x ' ') underlying
+      in
+      let yy, rest = String.take_drop 2 rest in
+      let mm, rest = String.take_drop 2 rest in
+      let dd, rest = String.take_drop 2 rest in
+      let expiration_date = Format.asprintf "20%s-%s-%s" yy mm dd in
+      let ty, rest = String.take_drop 1 rest in
+      let ty = Contract.Type.of_string ty in
+      let strike_price =
+        String.drop_while (fun c -> not @@ Char.equal c '0') rest
+        |> Float.of_string_opt
+        |> Option.get_exn_or
+             "Expected to get a float in Instrument.Parsing.t_of_yojson"
+      in
+      Contract
+        {
+          symbol = x;
+          name = x;
+          underlying_symbol;
+          multiplier = 100.0;
+          deliverables = [];
+          underlying_asset_id = "Unknown";
+          id = "Unknown";
+          ty;
+          size = 100.0;
+          tradable = true;
+          status = Active;
+          expiration_date;
+          strike_price;
+        }
 
-  type parsed = {
-    symbol : string;
-    underlying : string;
-    yy : string;
-    mm : string;
-    dd : string;
-    ty : string;
-    strike : float option;
-  }
+let t_of_yojson (json : Yojson.Safe.t) =
+  match json with
+  | `String s -> of_string s
+  | _ -> invalid_arg "Instrument.t_of_yojson NYI"
 
-  type wip = Regular of string | Contract of parsed
-
-  let of_string (x : string) =
-    let l = String.to_list x |> List.map Char.to_string in
-    let first_int =
-      List.find_mapi
-        (fun i s -> match Int.of_string s with Some _ -> Some i | _ -> None)
-        l
-    in
-    match first_int with
-    | None -> Regular x
-    | Some i ->
-        let underlying, rest = String.take_drop i x in
-        let underlying =
-          String.filter (fun x -> not @@ Char.equal x ' ') underlying
-        in
-        let yy, rest = String.take_drop 2 rest in
-        let mm, rest = String.take_drop 2 rest in
-        let dd, rest = String.take_drop 2 rest in
-        let ty, rest = String.take_drop 1 rest in
-        let strike =
-          String.drop_while (fun c -> not @@ Char.equal c '0') rest
-          |> Float.of_string_opt
-        in
-        Contract { symbol = x; underlying; yy; mm; dd; ty; strike }
-end
-
-let t_of_yojson (_ : Yojson.Safe.t) = invalid_arg "Instrument.t_of_yojson NYI"
 let security x = Security x
