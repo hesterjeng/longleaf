@@ -160,10 +160,11 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
         (fun (sym, data) ->
           match data with
           | `List datapoints ->
+              let* instrument = Instrument.of_string_res sym in
               let res =
                 List.map Item.t_of_yojson datapoints |> Vector.of_list
               in
-              Result.return (sym, res)
+              Result.return (instrument, res)
           | _ -> Error.json "Expected a list of datapoints in Bars.t_of_yojson")
         assoc
     in
@@ -178,16 +179,17 @@ let yojson_of_t (x : t) : Yojson.Safe.t =
       ( "bars",
         `Assoc
           (Hashtbl.to_seq x |> Seq.to_list
-          |> List.Assoc.map_values (fun data ->
-                 Vector.to_list data |> List.map Item.yojson_of_t |> fun l ->
-                 `List l)) );
+          |> List.map (fun (sym, data) ->
+                 ( Instrument.symbol sym,
+                   Vector.to_list data |> List.map Item.yojson_of_t |> fun l ->
+                   `List l ))) );
     ]
 
 let keys (x : t) = Hashtbl.to_seq_keys x |> Seq.to_list
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
-  let keys = List.flat_map keys l |> List.uniq ~eq:String.equal in
+  let keys = List.flat_map keys l |> List.uniq ~eq:Instrument.equal in
   let get_data key : symbol_history =
     let data =
       Vector.flat_map
@@ -212,7 +214,7 @@ let copy (x : t) : t =
 let append (latest : Latest.t) (x : t) =
   Hashtbl.to_seq latest
   |> Seq.iter @@ fun (symbol, item) ->
-     match get_str x symbol with
+     match get x symbol with
      | None -> Hashtbl.replace x symbol @@ Vector.return item
      | Some h -> Vector.push h item
 
@@ -240,12 +242,13 @@ module Infill = struct
   (* Alpaca market data api can have missing data. *)
   (* Try to fill it in with the most recent bar indicating no change if it happens. *)
   (* FIXME:  This is too big for a single function. *)
+  (* FIXME: This function abuses Instrument.security to get a string hashtable rather than instrument hashtable *)
 
   let top (original_bars : t) =
     Eio.traceln "Infill.top";
     let _, most_used_vector =
       let fold f =
-        Seq.fold f ("Bars.Infill.init", Vector.create ())
+        Seq.fold f (Instrument.Security "Bars.Infill.init", Vector.create ())
         @@ Hashtbl.to_seq original_bars
       in
       fold @@ fun (best_symbol, best_vector) (current_symbol, current_vector) ->
@@ -262,7 +265,9 @@ module Infill = struct
         let tbl = Hashtbl.create @@ Vector.length vec in
         Vector.iter
           (fun item ->
-            let timestamp = Item.timestamp item |> Time.to_string in
+            let timestamp =
+              Item.timestamp item |> Time.to_string |> Instrument.security
+            in
             Hashtbl.replace tbl timestamp item)
           vec;
         (* At this point, we have a hashtable of times to items *)
@@ -271,19 +276,22 @@ module Infill = struct
         (* present.  The first found value will fill in the missing one. *)
         Vector.iteri
           (fun i item ->
-            let current_time = Item.timestamp item |> Time.to_string in
+            let current_time =
+              Item.timestamp item |> Time.to_string |> Instrument.security
+            in
             match Hashtbl.find_opt tbl current_time with
             | Some _ -> ()
             | None ->
                 let previous_time =
                   if i > 0 then
                     Vector.get most_used_vector (i - 1)
-                    |> Item.timestamp |> Time.to_string
+                    |> Item.timestamp |> Time.to_string |> Instrument.security
                   else (
                     Eio.traceln "Lacking initial value, using first value.";
                     let found = Hashtbl.find original_bars symbol in
                     assert (not @@ Vector.is_empty found);
-                    Vector.get found 0 |> Item.timestamp |> Time.to_string)
+                    Vector.get found 0 |> Item.timestamp |> Time.to_string
+                    |> Instrument.security)
                 in
                 (* Eio.traceln "Creating value for %d: %s" i current_time; *)
                 let previous_value =
