@@ -1,26 +1,25 @@
-module Hashtbl = Hashtbl.Make (String)
+module Hashtbl = Hashtbl.Make (Instrument)
 
 module Latest = struct
   type t = Item.t Hashtbl.t
 
-  let get_opt : t -> string -> Item.t option = Hashtbl.find_opt
+  let get_opt : t -> Instrument.t -> Item.t option = Hashtbl.find_opt
   let empty () : t = Hashtbl.create 0
 
   let pp : t Format.printer =
    fun fmt x ->
     let seq = Hashtbl.to_seq x in
-    let pp = Seq.pp @@ Pair.pp String.pp Item.pp in
+    let pp = Seq.pp @@ Pair.pp Instrument.pp Item.pp in
     Format.fprintf fmt "@[%d@]@." (Seq.length seq);
     Format.fprintf fmt "@[%a@]@." pp seq
 
   let get x (symbol : Instrument.t) : (Item.t, Error.t) result =
-    let symbol = Instrument.symbol symbol in
     match Hashtbl.find_opt x symbol with
     | Some x -> Ok x
     | None ->
         let err =
-          Format.asprintf "[error] Unable to find price data for %s in Bars.get"
-            symbol
+          Format.asprintf "[error] Unable to find price data for %a in Bars.get"
+            Instrument.pp symbol
         in
         Eio.traceln "%a" pp x;
         Error.missing_data err
@@ -61,13 +60,13 @@ type t = symbol_history Hashtbl.t
 let pp : t Format.printer =
  fun fmt x ->
   let seq = Hashtbl.to_seq x in
-  let pp = Seq.pp @@ Pair.pp String.pp pp_symbol_history in
+  let pp = Seq.pp @@ Pair.pp Instrument.pp pp_symbol_history in
   Format.fprintf fmt "@[%a@]@." pp seq
 
 let pp_stats : t Format.printer =
  fun fmt x ->
   let seq = Hashtbl.to_seq x in
-  let pp = Pair.pp String.pp Int.pp in
+  let pp = Pair.pp Instrument.pp Int.pp in
   Seq.iter
     (fun (symbol, v) ->
       Format.fprintf fmt "@[%a@]@." pp (symbol, Vector.length v))
@@ -84,9 +83,9 @@ let length (x : t) =
         | true -> length
         | false ->
             Eio.traceln
-              "error: bars.ml: Length mistmatch at symbol %s: previous length: \
+              "error: bars.ml: Length mistmatch at symbol %a: previous length: \
                %d current length: %d"
-              symbol length new_length;
+              Instrument.pp symbol length new_length;
             Int.min length new_length)
   in
   Seq.fold folder 0 seq
@@ -114,8 +113,7 @@ let split ~midpoint ~target_length ~combined_length (x : t) : t * t =
   in
   (Hashtbl.of_seq first_part, Hashtbl.of_seq second_part)
 
-let get (x : t) symbol = Hashtbl.find_opt x @@ Instrument.symbol symbol
-let get_str (x : t) symbol = Hashtbl.find_opt x symbol
+let get (x : t) symbol = Hashtbl.find_opt x symbol
 
 let get_err (x : t) symbol =
   match get x symbol with
