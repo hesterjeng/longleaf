@@ -1,4 +1,4 @@
-module Hashtbl = Hashtbl.Make (String)
+module Hashtbl = Hashtbl.Make (Instrument)
 
 module Config = struct
   type t = { fft : bool }
@@ -327,15 +327,15 @@ type t = Point.t Vector.vector Hashtbl.t
 let pp : t Format.printer =
  fun fmt x ->
   let seq = Hashtbl.to_seq x in
-  let pp = Seq.pp @@ Pair.pp String.pp (Vector.pp Point.pp) in
+  let pp = Seq.pp @@ Pair.pp Instrument.pp (Vector.pp Point.pp) in
   Format.fprintf fmt "@[%a@]@." pp seq
 
 let empty () = Hashtbl.create 100
 let get (x : t) symbol = Hashtbl.find_opt x symbol
-let get_instrument (x : t) instrument = get x @@ Instrument.symbol instrument
+let get_instrument (x : t) instrument = get x instrument
 
 let get_top (x : t) symbol =
-  get x (Instrument.symbol symbol)
+  get x symbol
   |> Option.get_exn_or "indicators.ml: unable to get vector for symbol"
   |> Vector.top
   |> Option.get_exn_or "inidcators.ml: vector doesn't have a top"
@@ -355,7 +355,7 @@ let get_indicator (x : t) symbol f =
 let initialize_single config bars symbol =
   let initial_stats_vector = Vector.create () in
   let bars_vec =
-    Bars.get_str bars symbol |> function
+    Bars.get bars symbol |> function
     | Some x -> x
     | None ->
         invalid_arg "Expected to have bars data when initializing indicators"
@@ -393,15 +393,11 @@ let initialize_single config bars symbol =
 
 let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     (x : t) =
-  Hashtbl.to_seq latest_bars |> fun seq ->
+  let seq = Hashtbl.to_seq latest_bars in
   let iter f = Seq.iter f seq in
   iter @@ fun (symbol, latest) ->
   let symbol_history =
-    Bars.get_str bars symbol |> function Some x -> x | None -> assert false
-    (* let stats = Hashtbl.length bars in *)
-    (* Eio.traceln "No bars for %s when making indicators? %d" symbol stats; *)
-    (* Eio.traceln "%a" Bars.pp bars; *)
-    (* Vector.create () *)
+    Bars.get bars symbol |> function Some x -> x | None -> assert false
   in
   let indicators_vector =
     match get x symbol with

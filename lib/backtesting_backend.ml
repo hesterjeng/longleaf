@@ -69,7 +69,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let* target =
       match Input.target with
       | Some x -> Ok x
-      | None -> Result.fail @@ `MissingData "No target to create last data bar"
+      | None -> Error.missing_data "No target to create last data bar"
     in
     let res =
       Hashtbl.to_seq target
@@ -79,20 +79,14 @@ module Make (Input : BACKEND_INPUT) : S = struct
       let* _ = ok in
       let l = Vector.length vector in
       match l with
-      | 0 ->
-          Error (`MissingData symbol)
-          (* "No data for symbol in last_data_bar?" *)
+      | 0 -> Error.missing_data @@ Instrument.symbol symbol
       | _ ->
-          (* Eio.traceln "@[%a@]@." (Vector.pp Item.pp) vector; *)
           Result.return
           @@
           let item = Vector.get vector 0 in
           Hashtbl.replace tbl symbol item;
           tbl
     in
-    (* Eio.traceln "@[Result last data bar.@]"; *)
-    (* Eio.traceln "@[last: %a@]@." (Result.pp Bars.Latest.pp) res; *)
-    (* invalid_arg "debug" *)
     res
 
   let liquidate (state : 'a State.t) =
