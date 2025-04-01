@@ -1,4 +1,5 @@
-module Hashtbl = Hashtbl.Make (Instrument)
+module Hashtbl_make = Hashtbl.Make
+module Hashtbl = Hashtbl_make (Instrument)
 
 module Latest = struct
   type t = Item.t Hashtbl.t
@@ -244,6 +245,8 @@ module Infill = struct
   (* FIXME:  This is too big for a single function. *)
   (* FIXME: This function abuses Instrument.security to get a string hashtable rather than instrument hashtable *)
 
+  module Timetbl = Hashtbl_make (Time)
+
   let top (original_bars : t) =
     Eio.traceln "Infill.top";
     let _, most_used_vector =
@@ -262,13 +265,11 @@ module Infill = struct
        fun symbol ->
         (* Eio.traceln "Iterating over %s" symbol; *)
         let vec = Hashtbl.find original_bars symbol in
-        let tbl = Hashtbl.create @@ Vector.length vec in
+        let tbl = Timetbl.create @@ Vector.length vec in
         Vector.iter
           (fun item ->
-            let timestamp =
-              Item.timestamp item |> Time.to_string |> Instrument.security
-            in
-            Hashtbl.replace tbl timestamp item)
+            let timestamp = Item.timestamp item in
+            Timetbl.replace tbl timestamp item)
           vec;
         (* At this point, we have a hashtable of times to items *)
         (* We need to iterate over the longest vector.  If its time is present in the table, *)
@@ -276,33 +277,29 @@ module Infill = struct
         (* present.  The first found value will fill in the missing one. *)
         Vector.iteri
           (fun i item ->
-            let current_time =
-              Item.timestamp item |> Time.to_string |> Instrument.security
-            in
-            match Hashtbl.find_opt tbl current_time with
+            let current_time = Item.timestamp item in
+            match Timetbl.find_opt tbl current_time with
             | Some _ -> ()
             | None ->
                 let previous_time =
                   if i > 0 then
-                    Vector.get most_used_vector (i - 1)
-                    |> Item.timestamp |> Time.to_string |> Instrument.security
+                    Vector.get most_used_vector (i - 1) |> Item.timestamp
                   else (
                     Eio.traceln "Lacking initial value, using first value.";
                     let found = Hashtbl.find original_bars symbol in
                     assert (not @@ Vector.is_empty found);
-                    Vector.get found 0 |> Item.timestamp |> Time.to_string
-                    |> Instrument.security)
+                    Vector.get found 0 |> Item.timestamp)
                 in
                 (* Eio.traceln "Creating value for %d: %s" i current_time; *)
                 let previous_value =
-                  Hashtbl.find_opt tbl previous_time
+                  Timetbl.find_opt tbl previous_time
                   |> Option.get_exn_or "Expected to find previous time"
                 in
-                Hashtbl.replace tbl current_time @@ previous_value)
+                Timetbl.replace tbl current_time @@ previous_value)
           most_used_vector;
         (* Now, we should have good tables whose lengths are appropriate. *)
         (* We need to convert the current table back to a vector. *)
-        let new_vector = Hashtbl.to_seq_values tbl |> Vector.of_seq in
+        let new_vector = Timetbl.to_seq_values tbl |> Vector.of_seq in
         Vector.sort' Item.compare new_vector;
         (* Replace the old, sparse, vector with the new sorted and infilled one. *)
         Hashtbl.replace original_bars symbol new_vector;

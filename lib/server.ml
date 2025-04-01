@@ -13,16 +13,10 @@ let serve_favicon () =
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let bars = Pmutex.get mutices.data_mutex in
   let indicators = Pmutex.get mutices.indicators_mutex in
-  let bars_json_opt =
-    ( Plotly.of_bars bars indicators target,
-      Plotly.of_bars bars indicators
-      @@ Instrument.security @@ String.uppercase_ascii
-      @@ Instrument.symbol target )
-  in
+  let bars_json_opt = Plotly.of_bars bars indicators target in
   match bars_json_opt with
-  | Some bars, _ | None, Some bars ->
-      Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
-  | None, None ->
+  | Some bars -> Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
+  | None ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Not_found
         ~body:
