@@ -61,8 +61,6 @@ let is_empty (x : t) =
   List.fold_left (fun acc (_, qty) -> acc && qty = 0) true x.portfolio
 
 let execute_order (pos : t) (order : Order.t) : (t, Error.t) result =
-  Eio.traceln
-    "FIXME: Orders need to know if they are for a security or contract";
   let symbol = order.symbol in
   let price = order.price in
   let current_amt = Portfolio.qty pos.portfolio symbol in
@@ -131,7 +129,6 @@ let liquidate pos (bars : Bars.Latest.t) =
   | 0 -> Ok pos
   | qty ->
       let side = if qty >= 0 then Side.Sell else Side.Buy in
-      Eio.traceln "FIXME: Handle instruments in Liquidate";
       let* latest = Bars.Latest.get bars instrument in
       let order : Order.t =
         let tif = TimeInForce.GoodTillCanceled in

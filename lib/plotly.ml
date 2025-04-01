@@ -28,13 +28,14 @@ let layout title =
     ]
 
 let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1")
-    (indicators : Indicators.t) indicator_name indicator_get symbol :
-    Yojson.Safe.t option =
+    (indicators : Indicators.t) indicator_name indicator_get
+    (symbol : Instrument.t) : Yojson.Safe.t option =
   let+ indicators_vec =
     match Indicators.get indicators symbol with
     | Some indicators -> Some indicators
     | None ->
-        Eio.traceln "Could not get indicators for %s from mutex?" symbol;
+        Eio.traceln "Could not get indicators for %a from mutex?" Instrument.pp
+          symbol;
         None
   in
   let time (p : Indicators.Point.t) : Yojson.Safe.t =
@@ -79,7 +80,7 @@ let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1")
           ] );
     ]
 
-let price_trace (data : Item.t list) (symbol : string) : Yojson.Safe.t =
+let price_trace (data : Item.t list) (symbol : Instrument.t) : Yojson.Safe.t =
   let x =
     let mk_plotly_x x =
       let time = Item.timestamp x in
@@ -88,13 +89,14 @@ let price_trace (data : Item.t list) (symbol : string) : Yojson.Safe.t =
     in
     List.map mk_plotly_x data
   in
+  let symbol_str = Instrument.symbol symbol in
   let y = List.map (fun x -> `Float (Item.last x)) data in
   `Assoc
     [
       ("x", `List x);
       ("y", `List y);
-      ("text", `String symbol);
-      ("name", `String symbol);
+      ("text", `String symbol_str);
+      ("name", `String symbol_str);
       ("type", `String "scatter");
     ]
 
@@ -144,7 +146,7 @@ let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
   order_trace side orders
 
 let of_bars bars indicators symbol : Yojson.Safe.t option =
-  let* data_vec = Bars.get_str bars symbol in
+  let* data_vec = Bars.get bars symbol in
   let data = Vector.to_list data_vec in
   let* ema_12_trace =
     indicator_trace ~drop:12 indicators "EMA(12)" IP.ema_12 symbol
@@ -239,7 +241,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                u3b;
                l1b;
              ];
-         "layout" = layout symbol;
+         "layout" = layout @@ Instrument.symbol symbol;
        ]
 
 module Stats = struct

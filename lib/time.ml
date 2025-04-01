@@ -38,7 +38,9 @@ let of_string x =
       with _ ->
         invalid_arg @@ Format.asprintf "Invalid time in my time module? %s" x)
 
+let equal = Ptime.equal
 let to_string x = Ptime.to_rfc3339 x
+let hash x = String.hash @@ to_string x
 let t_of_yojson (x : Yojson.Safe.t) = string_of_yojson x |> of_string
 let yojson_of_t x = yojson_of_string @@ to_string x
 

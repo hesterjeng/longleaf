@@ -1,26 +1,26 @@
-module Hashtbl = Hashtbl.Make (String)
+module Hashtbl_make = Hashtbl.Make
+module Hashtbl = Hashtbl_make (Instrument)
 
 module Latest = struct
   type t = Item.t Hashtbl.t
 
-  let get_opt : t -> string -> Item.t option = Hashtbl.find_opt
+  let get_opt : t -> Instrument.t -> Item.t option = Hashtbl.find_opt
   let empty () : t = Hashtbl.create 0
 
   let pp : t Format.printer =
    fun fmt x ->
     let seq = Hashtbl.to_seq x in
-    let pp = Seq.pp @@ Pair.pp String.pp Item.pp in
+    let pp = Seq.pp @@ Pair.pp Instrument.pp Item.pp in
     Format.fprintf fmt "@[%d@]@." (Seq.length seq);
     Format.fprintf fmt "@[%a@]@." pp seq
 
   let get x (symbol : Instrument.t) : (Item.t, Error.t) result =
-    let symbol = Instrument.symbol symbol in
     match Hashtbl.find_opt x symbol with
     | Some x -> Ok x
     | None ->
         let err =
-          Format.asprintf "[error] Unable to find price data for %s in Bars.get"
-            symbol
+          Format.asprintf "[error] Unable to find price data for %a in Bars.get"
+            Instrument.pp symbol
         in
         Eio.traceln "%a" pp x;
         Error.missing_data err
@@ -61,13 +61,13 @@ type t = symbol_history Hashtbl.t
 let pp : t Format.printer =
  fun fmt x ->
   let seq = Hashtbl.to_seq x in
-  let pp = Seq.pp @@ Pair.pp String.pp pp_symbol_history in
+  let pp = Seq.pp @@ Pair.pp Instrument.pp pp_symbol_history in
   Format.fprintf fmt "@[%a@]@." pp seq
 
 let pp_stats : t Format.printer =
  fun fmt x ->
   let seq = Hashtbl.to_seq x in
-  let pp = Pair.pp String.pp Int.pp in
+  let pp = Pair.pp Instrument.pp Int.pp in
   Seq.iter
     (fun (symbol, v) ->
       Format.fprintf fmt "@[%a@]@." pp (symbol, Vector.length v))
@@ -84,9 +84,9 @@ let length (x : t) =
         | true -> length
         | false ->
             Eio.traceln
-              "error: bars.ml: Length mistmatch at symbol %s: previous length: \
+              "error: bars.ml: Length mistmatch at symbol %a: previous length: \
                %d current length: %d"
-              symbol length new_length;
+              Instrument.pp symbol length new_length;
             Int.min length new_length)
   in
   Seq.fold folder 0 seq
@@ -114,8 +114,7 @@ let split ~midpoint ~target_length ~combined_length (x : t) : t * t =
   in
   (Hashtbl.of_seq first_part, Hashtbl.of_seq second_part)
 
-let get (x : t) symbol = Hashtbl.find_opt x @@ Instrument.symbol symbol
-let get_str (x : t) symbol = Hashtbl.find_opt x symbol
+let get (x : t) symbol = Hashtbl.find_opt x symbol
 
 let get_err (x : t) symbol =
   match get x symbol with
@@ -162,10 +161,11 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
         (fun (sym, data) ->
           match data with
           | `List datapoints ->
+              let* instrument = Instrument.of_string_res sym in
               let res =
                 List.map Item.t_of_yojson datapoints |> Vector.of_list
               in
-              Result.return (sym, res)
+              Result.return (instrument, res)
           | _ -> Error.json "Expected a list of datapoints in Bars.t_of_yojson")
         assoc
     in
@@ -180,16 +180,17 @@ let yojson_of_t (x : t) : Yojson.Safe.t =
       ( "bars",
         `Assoc
           (Hashtbl.to_seq x |> Seq.to_list
-          |> List.Assoc.map_values (fun data ->
-                 Vector.to_list data |> List.map Item.yojson_of_t |> fun l ->
-                 `List l)) );
+          |> List.map (fun (sym, data) ->
+                 ( Instrument.symbol sym,
+                   Vector.to_list data |> List.map Item.yojson_of_t |> fun l ->
+                   `List l ))) );
     ]
 
 let keys (x : t) = Hashtbl.to_seq_keys x |> Seq.to_list
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
-  let keys = List.flat_map keys l |> List.uniq ~eq:String.equal in
+  let keys = List.flat_map keys l |> List.uniq ~eq:Instrument.equal in
   let get_data key : symbol_history =
     let data =
       Vector.flat_map
@@ -214,7 +215,7 @@ let copy (x : t) : t =
 let append (latest : Latest.t) (x : t) =
   Hashtbl.to_seq latest
   |> Seq.iter @@ fun (symbol, item) ->
-     match get_str x symbol with
+     match get x symbol with
      | None -> Hashtbl.replace x symbol @@ Vector.return item
      | Some h -> Vector.push h item
 
@@ -242,12 +243,15 @@ module Infill = struct
   (* Alpaca market data api can have missing data. *)
   (* Try to fill it in with the most recent bar indicating no change if it happens. *)
   (* FIXME:  This is too big for a single function. *)
+  (* FIXME: This function abuses Instrument.security to get a string hashtable rather than instrument hashtable *)
+
+  module Timetbl = Hashtbl_make (Time)
 
   let top (original_bars : t) =
     Eio.traceln "Infill.top";
     let _, most_used_vector =
       let fold f =
-        Seq.fold f ("Bars.Infill.init", Vector.create ())
+        Seq.fold f (Instrument.Security "Bars.Infill.init", Vector.create ())
         @@ Hashtbl.to_seq original_bars
       in
       fold @@ fun (best_symbol, best_vector) (current_symbol, current_vector) ->
@@ -261,11 +265,11 @@ module Infill = struct
        fun symbol ->
         (* Eio.traceln "Iterating over %s" symbol; *)
         let vec = Hashtbl.find original_bars symbol in
-        let tbl = Hashtbl.create @@ Vector.length vec in
+        let tbl = Timetbl.create @@ Vector.length vec in
         Vector.iter
           (fun item ->
-            let timestamp = Item.timestamp item |> Time.to_string in
-            Hashtbl.replace tbl timestamp item)
+            let timestamp = Item.timestamp item in
+            Timetbl.replace tbl timestamp item)
           vec;
         (* At this point, we have a hashtable of times to items *)
         (* We need to iterate over the longest vector.  If its time is present in the table, *)
@@ -273,30 +277,29 @@ module Infill = struct
         (* present.  The first found value will fill in the missing one. *)
         Vector.iteri
           (fun i item ->
-            let current_time = Item.timestamp item |> Time.to_string in
-            match Hashtbl.find_opt tbl current_time with
+            let current_time = Item.timestamp item in
+            match Timetbl.find_opt tbl current_time with
             | Some _ -> ()
             | None ->
                 let previous_time =
                   if i > 0 then
-                    Vector.get most_used_vector (i - 1)
-                    |> Item.timestamp |> Time.to_string
+                    Vector.get most_used_vector (i - 1) |> Item.timestamp
                   else (
                     Eio.traceln "Lacking initial value, using first value.";
                     let found = Hashtbl.find original_bars symbol in
                     assert (not @@ Vector.is_empty found);
-                    Vector.get found 0 |> Item.timestamp |> Time.to_string)
+                    Vector.get found 0 |> Item.timestamp)
                 in
                 (* Eio.traceln "Creating value for %d: %s" i current_time; *)
                 let previous_value =
-                  Hashtbl.find_opt tbl previous_time
+                  Timetbl.find_opt tbl previous_time
                   |> Option.get_exn_or "Expected to find previous time"
                 in
-                Hashtbl.replace tbl current_time @@ previous_value)
+                Timetbl.replace tbl current_time @@ previous_value)
           most_used_vector;
         (* Now, we should have good tables whose lengths are appropriate. *)
         (* We need to convert the current table back to a vector. *)
-        let new_vector = Hashtbl.to_seq_values tbl |> Vector.of_seq in
+        let new_vector = Timetbl.to_seq_values tbl |> Vector.of_seq in
         Vector.sort' Item.compare new_vector;
         (* Replace the old, sparse, vector with the new sorted and infilled one. *)
         Hashtbl.replace original_bars symbol new_vector;

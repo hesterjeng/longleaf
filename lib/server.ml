@@ -13,17 +13,15 @@ let serve_favicon () =
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let bars = Pmutex.get mutices.data_mutex in
   let indicators = Pmutex.get mutices.indicators_mutex in
-  let bars_json_opt =
-    ( Plotly.of_bars bars indicators target,
-      Plotly.of_bars bars indicators @@ String.uppercase_ascii target )
-  in
+  let bars_json_opt = Plotly.of_bars bars indicators target in
   match bars_json_opt with
-  | Some bars, _ | None, Some bars ->
-      Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
-  | None, None ->
+  | Some bars -> Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
+  | None ->
       let headers = Headers.of_list [ ("connection", "close") ] in
       Response.of_string ~headers `Not_found
-        ~body:(Format.asprintf "Could not find bars for symbol: %S" target)
+        ~body:
+          (Format.asprintf "Could not find bars for symbol: %a" Instrument.pp
+             target)
 
 let connection_handler ~(mutices : Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
@@ -72,11 +70,17 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       let bars = Pmutex.get mutices.data_mutex in
       let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
-  | { Request.meth = `GET; target = "/graphs"; _ } ->
-      plotly_response_of_symbol ~mutices "NVDA"
-  | { Request.meth = `GET; target; _ } ->
+  (* | { Request.meth = `GET; target = "/graphs"; _ } -> *)
+  (*     plotly_response_of_symbol ~mutices "NVDA" *)
+  | { Request.meth = `GET; target; _ } -> (
       let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
-      plotly_response_of_symbol ~mutices target
+      let instrument = Instrument.of_string_res target in
+      match instrument with
+      | Ok targ -> plotly_response_of_symbol ~mutices targ
+      | Error _ ->
+          Response.of_string
+            ~body:("Unable to create Instrument.t from " ^ target)
+            `Internal_server_error)
   | r ->
       Eio.traceln "@[Unknown request: %a@]@." Request.pp_hum r;
       let headers = Headers.of_list [ ("connection", "close") ] in
