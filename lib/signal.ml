@@ -58,10 +58,18 @@ module Flag = struct
     | None -> Result.return @@ Fail [ "Expected a Some value in bind" ]
     | Some x -> f x
 
+  let bind_res o f =
+    match o with
+    | Error e ->
+        Eio.traceln "[error] %a" Error.pp e;
+        Result.return @@ Fail [ Format.asprintf "Error %a" Error.pp e ]
+    | Ok x -> f x
+
   module Infix = struct
     let ( let&& ) = and_
     let ( let|| ) = or_
     let ( let* ) = bind_opt
+    let ( let** ) = bind_res
   end
 end
 

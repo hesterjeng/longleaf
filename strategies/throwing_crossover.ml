@@ -4,7 +4,7 @@ module I = Indicators
 module P = I.Point
 module F = S.Flag
 
-[@@@warning "-26"]
+(* [@@@warning "-26"] *)
 
 module Param = struct
   let trailing_loss = 0.96
@@ -16,6 +16,7 @@ module Param = struct
 end
 
 let ( let* ) = F.Infix.( let* )
+let ( let** ) = F.Infix.( let** )
 
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
@@ -37,7 +38,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
   (* let num_hits = ref 0 *)
 
   let pass (state : 'a State.t) symbol =
-    let price = State.price state symbol in
+    (* let price = State.price state symbol in *)
     let i = Indicators.get_top state.indicators symbol in
     let* prev = i.previous in
     let* prev_prev = i.previous in
@@ -83,7 +84,7 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
     let buying_price = buying_order.price in
-    let* price = State.price state buying_order.symbol in
+    let** price = State.price state buying_order.symbol in
     let i = Indicators.get_top state.indicators buying_order.symbol in
     let* prev = i.previous in
     let ticks_held = state.tick - buying_order.tick in
@@ -122,7 +123,7 @@ module Sell : Template.Sell_trigger.S = struct
         (* | false -> F.Fail [ "OK" ]); *);
       ]
     in
-    List.fold_left F.or_fold (Fail []) conditions
+    Result.return @@ List.fold_left F.or_fold (Fail []) conditions
 end
 
 (* Create a strategy with our parameters *)
