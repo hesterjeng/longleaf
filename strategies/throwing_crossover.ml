@@ -19,20 +19,20 @@ let ( let* ) = F.Infix.( let* )
 
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
-  let confirmed_crossover (state : 'a State.t) symbol =
-    let indicator = Indicators.get_top state.indicators symbol in
-    let* prev = indicator.previous in
-    let* prev_prev = prev.previous in
-    let crossover =
-      prev_prev.fast_stochastic_oscillator_k
-      <=. prev_prev.fast_stochastic_oscillator_d
-      && prev.fast_stochastic_oscillator_k >=. prev.fast_stochastic_oscillator_d
-      && indicator.fast_stochastic_oscillator_k
-         >=. indicator.fast_stochastic_oscillator_d
-    in
-    match crossover with
-    | true -> F.Pass [ "Bullish Crossover" ]
-    | false -> F.Fail [ "No Crossover" ]
+  (* let confirmed_crossover (state : 'a State.t) symbol = *)
+  (*   let indicator = Indicators.get_top state.indicators symbol in *)
+  (*   let* prev = indicator.previous in *)
+  (*   let* prev_prev = prev.previous in *)
+  (*   let crossover = *)
+  (*     prev_prev.fast_stochastic_oscillator_k *)
+  (*     <=. prev_prev.fast_stochastic_oscillator_d *)
+  (*     && prev.fast_stochastic_oscillator_k >=. prev.fast_stochastic_oscillator_d *)
+  (*     && indicator.fast_stochastic_oscillator_k *)
+  (*        >=. indicator.fast_stochastic_oscillator_d *)
+  (*   in *)
+  (*   match crossover with *)
+  (*   | true -> F.Pass [ "Bullish Crossover" ] *)
+  (*   | false -> F.Fail [ "No Crossover" ] *)
 
   (* let num_hits = ref 0 *)
 
@@ -67,7 +67,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     (* if F.is_pass res then num_hits := !num_hits + 1; *)
     (* if F.is_pass res && !num_hits mod 10 = 0 then *)
     (*   Eio.traceln "[throwing] hit %d" !num_hits; *)
-    res
+    Result.return @@ res
 
   let score (state : 'a State.t) symbol =
     let i = Indicators.get_top state.indicators symbol in
@@ -83,7 +83,7 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
     let buying_price = buying_order.price in
-    let price = State.price state buying_order.symbol in
+    let* price = State.price state buying_order.symbol in
     let i = Indicators.get_top state.indicators buying_order.symbol in
     let* prev = i.previous in
     let ticks_held = state.tick - buying_order.tick in
