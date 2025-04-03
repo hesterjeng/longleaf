@@ -5,6 +5,8 @@
     selected for purchase. Any held stock that meets the sell criterion will be
     sold. This template will only hold n at a time. *)
 
+module Error = Longleaf_lib.Error
+
 (** Used as a functor argument to instantiate the strategy tmeplate. *)
 module Buy_trigger = struct
   (** Module type for result of the Buy_trigger Make functor. This is used by
@@ -16,7 +18,7 @@ module Buy_trigger = struct
 
   (** The user provides a module of this type in their strategy. *)
   module type INPUT = sig
-    val pass : 'a State.t -> Instrument.t -> Signal.Flag.t
+    val pass : 'a State.t -> Instrument.t -> (Signal.Flag.t, Error.t) result
     (** Return Pass for a symbol if we want to buy it. Otherwise it returns Fail
         and we do nothing.*)
 
@@ -32,15 +34,18 @@ module Buy_trigger = struct
   end
 
   (** Functor whose result is used to instantiate the strategy template. *)
-  module Make (Input : INPUT) = struct
+  module Make (Input : INPUT) : S = struct
     let make state symbols =
       List.filter_map
         (fun symbol ->
           match Input.pass state symbol with
-          | Pass reason ->
+          | Ok (Pass reason) ->
               let score = Input.score state symbol in
               Some { Signal.symbol; reason; score }
-          | Fail _ -> None)
+          | Ok (Fail _) -> None
+          | Error e ->
+              Eio.traceln "[error] %a" Error.pp e;
+              None)
         symbols
       |> List.sort Signal.compare |> List.rev
 
@@ -52,7 +57,8 @@ module Sell_trigger = struct
   (** The user provides a module of this type to determine when to exit a
       position *)
   module type S = sig
-    val make : 'a State.t -> buying_order:Order.t -> Signal.Flag.t
+    val make :
+      'a State.t -> buying_order:Order.t -> (Signal.Flag.t, Error.t) result
     (** Return Pass if we want to exit the position corresponding to
         buying_order. If we return Fail, do nothing.*)
   end
@@ -132,8 +138,11 @@ module Make
   let sell (state : 'a State.t) ~(buying_order : Order.t) =
     let open Result.Infix in
     match Sell.make state ~buying_order with
-    | Fail _ -> Result.return @@ State.listen state
-    | Pass reason ->
+    | Ok (Fail _) -> Result.return @@ State.listen state
+    | Error e ->
+        Eio.traceln "[error] %a" Error.pp e;
+        Result.return @@ State.listen state
+    | Ok (Pass reason) ->
         let* price = State.price state buying_order.symbol in
         let* timestamp = State.timestamp state buying_order.symbol in
         assert (buying_order.qty <> 0);

@@ -55,7 +55,7 @@ module Flag = struct
 
   let bind_opt o f =
     match o with
-    | None -> Fail [ "Expected a Some value in bind" ]
+    | None -> Result.return @@ Fail [ "Expected a Some value in bind" ]
     | Some x -> f x
 
   module Infix = struct
