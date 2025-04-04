@@ -18,7 +18,7 @@ module Buy_trigger = struct
 
   (** The user provides a module of this type in their strategy. *)
   module type INPUT = sig
-    val pass : 'a State.t -> Instrument.t -> (Signal.Flag.t, Error.t) result
+    val pass : 'a State.t -> Instrument.t -> (Signal.t, Error.t) result
     (** Return Pass for a symbol if we want to buy it. Otherwise it returns Fail
         and we do nothing.*)
 
@@ -36,18 +36,18 @@ module Buy_trigger = struct
   (** Functor whose result is used to instantiate the strategy template. *)
   module Make (Input : INPUT) : S = struct
     let make state symbols =
-      List.filter_map
-        (fun symbol ->
-          match Input.pass state symbol with
-          | Ok (Pass reason) ->
-              let score = Input.score state symbol in
-              Some { Signal.symbol; reason; score }
-          | Ok (Fail _) -> None
-          | Error e ->
-              Eio.traceln "[error] %a" Error.pp e;
-              None)
-        symbols
-      |> List.sort Signal.compare |> List.rev
+      let ( let* ) = Result.( let* ) in
+      let fold = fun f -> Result.fold_l f [] symbols in
+      let* l =
+        fold @@ fun acc symbol ->
+        let* pass = Input.pass state symbol in
+        match pass with
+        | Pass _ ->
+            let* score = Input.score state symbol in
+            Result.return @@ ({ symbol; score } :: acc)
+        | Fail _ -> Result.return acc
+      in
+      Result.return @@ List.rev @@ List.sort compare l
 
     let num_positions = Input.num_positions
   end
