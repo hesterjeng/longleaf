@@ -39,15 +39,13 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
         | false -> F.Pass [ "FSO %K is low enough" ]);
       ]
     in
-    Result.return @@
-    List.fold_left F.and_fold (Pass []) conditions
+    Result.return @@ List.fold_left F.and_fold (Pass []) conditions
 
   let score (state : 'a State.t) symbol =
     let ( let* ) = Result.( let* ) in
     let* price = State.price state symbol in
     let lower_bb = I.get_indicator state.indicators symbol P.lower_bollinger in
-    Result.return @@
-    lower_bb /. price
+    Result.return @@ (lower_bb /. price)
 
   let num_positions = 1
 end
