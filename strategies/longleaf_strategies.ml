@@ -41,7 +41,6 @@ let run_options (context : Context.t) : Options.t =
 (** Helper function to reduce code duplication. *)
 let run_generic ?(run_options = run_options) ?bars ?target
     (module Strat : Strategy.BUILDER) context =
-  Eio.traceln "@[Starting Doubletop@]@.";
   let options = run_options context in
   (* let () = check_bars options in *)
   let module Backend =

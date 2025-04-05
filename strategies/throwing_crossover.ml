@@ -56,30 +56,28 @@ module Sell : Template.Sell_trigger.S = struct
     let ( let* ) = Result.( let* ) in
     let ( let$ ) = Signal.( let$ ) in
     let ( let&& ) = Signal.( let&& ) in
-    let buying_price = buying_order.price in
     let* price = State.price state buying_order.symbol in
     let* i = Indicators.get_top state.indicators buying_order.symbol in
+    let* price_history = Bars.get_res state.bars buying_order.symbol in
     let$ prev = i.previous in
     let ticks_held = state.tick - buying_order.tick in
-    let* price_history = Bars.get_res state.bars buying_order.symbol in
     let high_since_purchase =
       Util.last_n ticks_held price_history |> Math.max_close |> Item.last
     in
+    let holding_period = ticks_held >= Param.min_holding_period in
+    let price_decreasing =
+      prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
+    in
+    let profited = price >=. buying_order.price in
+    let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
+    let stoploss =
+      price <=. Param.stop_loss_multiplier *. high_since_purchase
+    in
+    let&& () = holding_period in
     let&& () =
-      [
-        (i.fast_stochastic_oscillator_d >=. 80.0
-        && ticks_held >= Param.min_holding_period
-        &&
-        match price >=. buying_price with
-        | true -> prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
-        | false -> true);
-        price <=. Param.stop_loss_multiplier *. high_since_purchase
-        && ticks_held >= Param.min_holding_period;
-        price <=. buying_price
-        && ticks_held >= Param.min_holding_period
-        && i.ema_12 <=. prev.ema_12;
-      ]
-      |> List.exists Fun.id
+      (high_fso && if profited then price_decreasing else true)
+      || stoploss
+      || ((not profited) && i.ema_12 <=. prev.ema_12)
     in
     Result.return @@ Option.return
     @@ {
