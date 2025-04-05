@@ -21,17 +21,17 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) instrument =
     (* let price = State.price state symbol in *)
     let ( let$ ) = Signal.( let$ ) in
-    let ( let& ) = Signal.( let& ) in
+    let ( let&& ) = Signal.( let&& ) in
     let ( let* ) = Result.( let* ) in
     let* i = Indicators.get_top state.indicators instrument in
     let$ prev = i.previous in
     let$ prev_prev = i.previous in
-    let& () =
+    let&& () =
       prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d
       && i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d
          >=. 20.0
     in
-    let& () = i.volume >= prev.volume && i.volume >= prev_prev.volume in
+    let&& () = i.volume >= prev.volume && i.volume >= prev_prev.volume in
     Result.return @@ Option.return
     @@ {
          Signal.instrument;
@@ -55,16 +55,15 @@ module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
     let ( let* ) = Result.( let* ) in
     let ( let$ ) = Signal.( let$ ) in
-    let ( let& ) = Signal.( let& ) in
+    (* let ( let& ) = Signal.( let& ) in *)
     let buying_price = buying_order.price in
     let* price = State.price state buying_order.symbol in
     let* i = Indicators.get_top state.indicators buying_order.symbol in
     let$ prev = i.previous in
     let ticks_held = state.tick - buying_order.tick in
+    let* price_history = Bars.get_res state.bars buying_order.symbol in
     let high_since_purchase =
-      Bars.get state.bars buying_order.symbol
-      |> Option.get_exn_or "Must have bars in slow crossover"
-      |> Util.last_n ticks_held |> Math.max_close |> Item.last
+      Util.last_n ticks_held price_history |> Math.max_close |> Item.last
     in
     let conditions =
       [
@@ -90,10 +89,7 @@ module Sell : Template.Sell_trigger.S = struct
            && i.ema_12 <=. prev.ema_12
          with
         | true -> F.Pass [ "EMA down" ]
-        | false -> F.Fail [ "EMA OK" ])
-        (* (match price <=. i.lower_bollinger with *)
-        (* | true -> F.Pass [ "Price below lower bollinger" ] *)
-        (* | false -> F.Fail [ "OK" ]); *);
+        | false -> F.Fail [ "EMA OK" ]);
       ]
     in
     Result.return @@ List.fold_left F.or_fold (Fail []) conditions
