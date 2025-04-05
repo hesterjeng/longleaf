@@ -55,7 +55,7 @@ module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
     let ( let* ) = Result.( let* ) in
     let ( let$ ) = Signal.( let$ ) in
-    (* let ( let& ) = Signal.( let& ) in *)
+    let ( let&& ) = Signal.( let&& ) in
     let buying_price = buying_order.price in
     let* price = State.price state buying_order.symbol in
     let* i = Indicators.get_top state.indicators buying_order.symbol in
@@ -65,34 +65,28 @@ module Sell : Template.Sell_trigger.S = struct
     let high_since_purchase =
       Util.last_n ticks_held price_history |> Math.max_close |> Item.last
     in
-    let conditions =
+    let&& () =
       [
-        (match
-           i.fast_stochastic_oscillator_d >=. 80.0
-           && ticks_held >= Param.min_holding_period
-           &&
-           match price >=. buying_price with
-           | true -> prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
-           | false -> true
-         with
-        | true -> F.Pass [ "high %D" ]
-        | false -> F.Fail [ "nope" ]);
-        (match
-           price <=. Param.stop_loss_multiplier *. high_since_purchase
-           && ticks_held >= Param.min_holding_period
-         with
-        | true -> F.Pass [ "high since purchase" ]
-        | false -> F.Fail [ "OK" ]);
-        (match
-           price <=. buying_price
-           && ticks_held >= Param.min_holding_period
-           && i.ema_12 <=. prev.ema_12
-         with
-        | true -> F.Pass [ "EMA down" ]
-        | false -> F.Fail [ "EMA OK" ]);
+        (i.fast_stochastic_oscillator_d >=. 80.0
+        && ticks_held >= Param.min_holding_period
+        &&
+        match price >=. buying_price with
+        | true -> prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
+        | false -> true);
+        price <=. Param.stop_loss_multiplier *. high_since_purchase
+        && ticks_held >= Param.min_holding_period;
+        price <=. buying_price
+        && ticks_held >= Param.min_holding_period
+        && i.ema_12 <=. prev.ema_12;
       ]
+      |> List.exists Fun.id
     in
-    Result.return @@ List.fold_left F.or_fold (Fail []) conditions
+    Result.return @@ Option.return
+    @@ {
+         Signal.instrument = buying_order.symbol;
+         side = Trading_types.Side.Sell;
+         reason = [ "Passed sell condition in Throwing_crossover.sell" ];
+       }
 end
 
 (* Create a strategy with our parameters *)

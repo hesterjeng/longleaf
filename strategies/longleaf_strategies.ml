@@ -82,20 +82,20 @@ let all = List.map fst Variants.descriptions
 let strats =
   let ( --> ) x y = (x, run_generic y) in
   [
-    BuyAndHold --> (module Buy_and_hold.Make);
+    (* BuyAndHold --> (module Buy_and_hold.Make); *)
     Listener --> (module Listener.Make);
-    DoubleTop --> (module Double_top.DoubleTop);
-    LowBoll --> (module Buy_low_bollinger.BuyLowBollinger);
-    LowBoll2 --> (module Lowboll2.Make);
-    Challenge1 --> (module Challenge1.Make);
-    Scalper --> (module Scalper.Make);
-    TemplateExample --> (module Template_example.Make);
-    TemplateExample2 --> (module Template_example2.Make);
-    Crossover --> (module Crossover.Make);
-    SlowCrossover --> (module Slow_crossover.Make);
-    ConfirmedCrossover --> (module Confirmed_crossover.Make);
+    (* DoubleTop --> (module Double_top.DoubleTop); *)
+    (* LowBoll --> (module Buy_low_bollinger.BuyLowBollinger); *)
+    (* LowBoll2 --> (module Lowboll2.Make); *)
+    (* Challenge1 --> (module Challenge1.Make); *)
+    (* Scalper --> (module Scalper.Make); *)
+    (* TemplateExample --> (module Template_example.Make); *)
+    (* TemplateExample2 --> (module Template_example2.Make); *)
+    (* Crossover --> (module Crossover.Make); *)
+    (* SlowCrossover --> (module Slow_crossover.Make); *)
+    (* ConfirmedCrossover --> (module Confirmed_crossover.Make); *)
     ThrowingCrossover --> (module Throwing_crossover.Make);
-    SpyTrader --> (module Spytrader.Make);
+    (* SpyTrader --> (module Spytrader.Make); *)
   ]
 
 (** Based on the context, select and run the strategy. *)
