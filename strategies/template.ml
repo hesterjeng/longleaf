@@ -13,14 +13,14 @@ module Buy_trigger = struct
       the Template.Make functor. *)
   module type S = sig
     val make :
-      'a State.t -> Instrument.t list -> (Signal.t list, Error.t) result
+      'a State.t -> Instrument.t list -> (Instrument.t list, Error.t) result
 
     val num_positions : int
   end
 
   (** The user provides a module of this type in their strategy. *)
   module type INPUT = sig
-    val pass : 'a State.t -> Instrument.t -> (Signal.t option, Error.t) result
+    val pass : 'a State.t -> Instrument.t -> (bool, Error.t) result
     (** Return Pass for a symbol if we want to buy it. Otherwise it returns Fail
         and we do nothing.*)
 
@@ -44,10 +44,13 @@ module Buy_trigger = struct
         fold @@ fun acc symbol ->
         let* signal = Input.pass state symbol in
         match signal with
-        | Some s -> Result.return @@ (s :: acc)
-        | None -> Result.return acc
+        | true ->
+            let* score = Input.score state symbol in
+            Result.return @@ ((symbol, score) :: acc)
+        | false -> Result.return acc
       in
-      Result.return @@ List.rev @@ List.sort Signal.compare l
+      List.sort (Pair.compare (fun _ _ -> 0) Float.compare) l
+      |> List.map fst |> List.rev |> Result.return
 
     let num_positions = Input.num_positions
   end
@@ -58,7 +61,7 @@ module Sell_trigger = struct
       position *)
   module type S = sig
     val make :
-      'a State.t -> buying_order:Order.t -> (Signal.Flag.t, Error.t) result
+      'a State.t -> buying_order:Order.t -> (bool, Error.t) result
     (** Return Pass if we want to exit the position corresponding to
         buying_order. If we return Fail, do nothing.*)
   end
