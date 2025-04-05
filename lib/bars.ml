@@ -116,7 +116,7 @@ let split ~midpoint ~target_length ~combined_length (x : t) : t * t =
 
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
-let get_err (x : t) symbol =
+let get_res (x : t) symbol =
   match get x symbol with
   | None ->
       Result.fail
@@ -131,7 +131,7 @@ let empty () : t = Hashtbl.create 100
 let add_order (order : Order.t) (data : t) =
   let ( let* ) = Result.( let* ) in
   let symbol = order.symbol in
-  let* symbol_history = get_err data symbol in
+  let* symbol_history = get_res data symbol in
   let* top =
     Vector.pop symbol_history |> function
     | Some x -> Result.return x

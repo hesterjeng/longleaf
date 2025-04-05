@@ -40,7 +40,8 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
        }
 
   let score (state : 'a State.t) symbol =
-    let i = Indicators.get_top state.indicators symbol in
+    let ( let* ) = Result.( let* ) in
+    let* i = Indicators.get_top state.indicators symbol in
     Result.return @@ (-1.0 *. i.relative_strength_index)
 
   let num_positions = 5
@@ -52,10 +53,13 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
+    let ( let* ) = Result.( let* ) in
+    let ( let$ ) = Signal.( let$ ) in
+    let ( let& ) = Signal.( let& ) in
     let buying_price = buying_order.price in
-    let** price = State.price state buying_order.symbol in
-    let i = Indicators.get_top state.indicators buying_order.symbol in
-    let* prev = i.previous in
+    let* price = State.price state buying_order.symbol in
+    let* i = Indicators.get_top state.indicators buying_order.symbol in
+    let$ prev = i.previous in
     let ticks_held = state.tick - buying_order.tick in
     let high_since_purchase =
       Bars.get state.bars buying_order.symbol
