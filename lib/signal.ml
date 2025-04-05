@@ -10,7 +10,7 @@ type t = {
   reason : string list; [@compare fun _ _ -> 0]
   score : float;
 }
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, ord]
 
 (* type t = Pass of Instrument.t * Reason.t | Fail of Instrument.t * Reason.t *)
 (* [@@deriving show { with_path = false }] *)
