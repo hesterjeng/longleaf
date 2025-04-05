@@ -4,13 +4,5 @@ end
 
 module Side = Trading_types.Side
 
-type t = {
-  instrument : Instrument.t; [@compare fun _ _ -> 0]
-  side : Side.t; [@compare fun _ _ -> 0]
-  reason : string list; [@compare fun _ _ -> 0]
-  score : float;
-}
-[@@deriving show { with_path = false }, ord]
-
-(* type t = Pass of Instrument.t * Reason.t | Fail of Instrument.t * Reason.t *)
-(* [@@deriving show { with_path = false }] *)
+type t = { instrument : Instrument.t; side : Side.t; reason : string list }
+[@@deriving show { with_path = false }]
