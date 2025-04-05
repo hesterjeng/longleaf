@@ -1,8 +1,9 @@
 module S = Signal
-module SI = S.Indicator
+
+(* module SI = S.Indicator *)
 module I = Indicators
 module P = I.Point
-module F = S.Flag
+(* module F = S.Flag *)
 
 (* [@@@warning "-26"] *)
 
@@ -15,64 +16,32 @@ module Param = struct
   let max_holding_period = 546
 end
 
-let ( let* ) = F.Infix.( let* )
-let ( let** ) = F.Infix.( let** )
-
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
-  (* let confirmed_crossover (state : 'a State.t) symbol = *)
-  (*   let indicator = Indicators.get_top state.indicators symbol in *)
-  (*   let* prev = indicator.previous in *)
-  (*   let* prev_prev = prev.previous in *)
-  (*   let crossover = *)
-  (*     prev_prev.fast_stochastic_oscillator_k *)
-  (*     <=. prev_prev.fast_stochastic_oscillator_d *)
-  (*     && prev.fast_stochastic_oscillator_k >=. prev.fast_stochastic_oscillator_d *)
-  (*     && indicator.fast_stochastic_oscillator_k *)
-  (*        >=. indicator.fast_stochastic_oscillator_d *)
-  (*   in *)
-  (*   match crossover with *)
-  (*   | true -> F.Pass [ "Bullish Crossover" ] *)
-  (*   | false -> F.Fail [ "No Crossover" ] *)
-
-  (* let num_hits = ref 0 *)
-
-  let pass (state : 'a State.t) symbol =
+  let pass (state : 'a State.t) instrument =
     (* let price = State.price state symbol in *)
-    let i = Indicators.get_top state.indicators symbol in
-    let* prev = i.previous in
-    let* prev_prev = i.previous in
-    let conditions =
-      [
-        (* (match i.relative_strength_index <=. 50.0 with *)
-        (* | true -> F.Pass [ "Small RSI" ] *)
-        (* | false -> Fail [ "RSI too large to buy" ]); *)
-        (* (match i.fast_stochastic_oscillator_d <=. 10.0 with *)
-        (* | true -> F.Pass [ "FSO %D <= 20" ] *)
-        (* | false -> F.Fail [ "FSO %D is too high" ]); *)
-        (let crossover =
-           prev.fast_stochastic_oscillator_k
-           <=. prev.fast_stochastic_oscillator_d
-           && i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d
-              >=. 20.0
-         in
-         match crossover with
-         | true -> F.Pass [ "Bullish Crossover" ]
-         | false -> F.Fail [ "No Crossover" ]);
-        (match i.volume >= prev.volume && i.volume >= prev_prev.volume with
-        | true -> F.Pass [ "Volume increased" ]
-        | false -> F.Fail [ "No volume increase" ]);
-      ]
+    let ( let$ ) = Signal.( let$ ) in
+    let ( let& ) = Signal.( let& ) in
+    let ( let* ) = Result.( let* ) in
+    let* i = Indicators.get_top state.indicators instrument in
+    let$ prev = i.previous in
+    let$ prev_prev = i.previous in
+    let& () =
+      prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d
+      && i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d
+         >=. 20.0
     in
-    let res = List.fold_left F.and_fold (Pass []) conditions in
-    (* if F.is_pass res then num_hits := !num_hits + 1; *)
-    (* if F.is_pass res && !num_hits mod 10 = 0 then *)
-    (*   Eio.traceln "[throwing] hit %d" !num_hits; *)
-    Result.return @@ res
+    let& () = i.volume >= prev.volume && i.volume >= prev_prev.volume in
+    Result.return @@ Option.return
+    @@ {
+         Signal.instrument;
+         side = Trading_types.Side.Buy;
+         reason = [ "Passed condition in Throwing_crossover.pass" ];
+       }
 
   let score (state : 'a State.t) symbol =
     let i = Indicators.get_top state.indicators symbol in
-    -1.0 *. i.relative_strength_index
+    Result.return @@ (-1.0 *. i.relative_strength_index)
 
   let num_positions = 5
 end
