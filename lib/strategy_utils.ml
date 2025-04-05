@@ -126,7 +126,8 @@ module Make (Backend : Backend_intf.S) = struct
     let* position = Backend_position.update state.positions ~previous latest in
     let* time = Bars.Latest.timestamp latest in
     Bars.append latest state.bars;
-    if context.print_tick_arg then Eio.traceln "Tick time: %a" Time.pp time;
+    if context.print_tick_arg then
+      Eio.traceln "[ %a ] Update and continue" Time.pp time;
     Indicators.add_latest Input.options.indicators_config time state.bars latest
       state.indicators;
     let* value = Backend_position.value position latest in

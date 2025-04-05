@@ -12,7 +12,9 @@ module Buy_trigger = struct
   (** Module type for result of the Buy_trigger Make functor. This is used by
       the Template.Make functor. *)
   module type S = sig
-    val make : 'a State.t -> Instrument.t list -> (Signal.t list, Error.t) result
+    val make :
+      'a State.t -> Instrument.t list -> (Signal.t list, Error.t) result
+
     val num_positions : int
   end
 
@@ -42,8 +44,7 @@ module Buy_trigger = struct
         fold @@ fun acc symbol ->
         let* signal = Input.pass state symbol in
         match signal with
-        | Some s ->
-            Result.return @@ s :: acc
+        | Some s -> Result.return @@ (s :: acc)
         | None -> Result.return acc
       in
       Result.return @@ List.rev @@ List.sort Signal.compare l
