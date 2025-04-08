@@ -83,6 +83,36 @@ module Make
 
   let init_state = Backend.init_state []
 
+  let buy_ (state : 'a State.t) selected =
+    let ( let@ ) = Fun.( let@ ) in
+    let ( let* ) = Result.( let* ) in
+    let current_cash = Backend_position.get_cash state.positions in
+    let pct = 1.0 /. Float.of_int (List.length selected) in
+    assert (pct >=. 0.0 && pct <=. 1.0);
+    let@ state f = List.fold_left f (Ok state) selected in
+    fun (signal : Signal.t) ->
+      let* state = state in
+      let symbol = signal.instrument in
+      let reason = signal.reason in
+      let* price = State.price state symbol in
+      let* timestamp = State.timestamp state symbol in
+      let qty = Util.qty ~current_cash ~price ~pct in
+      (* assert (qty <> 0); *)
+      match qty with
+      | 0 -> Result.return state
+      | qty ->
+          let order : Order.t =
+            Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled ~tick:state.tick
+              ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
+          in
+          let state =
+            State.replace_stats state
+            @@ Stats.increment_position_ratio state.stats
+          in
+          let* state = Backend.place_order state order in
+          let state = State.activate_order state order in
+          Result.return state
+
   let buy ~held_symbols (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let* potential_buys =
@@ -106,35 +136,7 @@ module Make
     let* res =
       match selected with
       | [] -> Result.return state
-      | selected ->
-          let current_cash = Backend_position.get_cash state.positions in
-          let pct = 1.0 /. Float.of_int (List.length selected) in
-          assert (pct >=. 0.0 && pct <=. 1.0);
-          let place_order state (signal : Signal.t) =
-            let* state = state in
-            let symbol = signal.instrument in
-            let reason = signal.reason in
-            let* price = State.price state symbol in
-            let* timestamp = State.timestamp state symbol in
-            let qty = Util.qty ~current_cash ~price ~pct in
-            (* assert (qty <> 0); *)
-            match qty with
-            | 0 -> Result.return state
-            | qty ->
-                let order : Order.t =
-                  Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled
-                    ~tick:state.tick ~order_type:Market ~qty ~price ~reason
-                    ~timestamp ~profit:None
-                in
-                let state =
-                  State.replace_stats state
-                  @@ Stats.increment_position_ratio state.stats
-                in
-                let* state = Backend.place_order state order in
-                let state = State.activate_order state order in
-                Result.return state
-          in
-          List.fold_left place_order (Ok state) selected
+      | selected -> buy_ state selected
     in
     Result.return @@ State.listen res
 
