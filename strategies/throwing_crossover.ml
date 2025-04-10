@@ -19,25 +19,28 @@ end
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) instrument =
-    (* let price = State.price state symbol in *)
-    let ( let$ ) = Signal.( let$ ) in
-    let ( let&& ) = Signal.( let&& ) in
+    let signal = Signal.make instrument Buy true in
+    let ( let$ ) = Signal.( let$ ) signal in
+    let ( let&& ) = Signal.( let&& ) signal in
     let ( let* ) = Result.( let* ) in
     let* i = Indicators.get_top state.indicators instrument in
-    let$ prev = i.previous in
-    let$ prev_prev = i.previous in
-    let&& () =
-      prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d
-      && i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d
-         >=. 20.0
+    let res =
+      let$ prev = i.previous in
+      let$ prev_prev = prev.previous in
+      let&& () =
+        ( prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d,
+          "k >= d" )
+      in
+      let&& () =
+        ( i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d
+          >=. 20.0,
+          " k >= d by 20" )
+      in
+      let&& () = (i.volume >= prev.volume, "first volume confirm") in
+      let&& () = (i.volume >= prev_prev.volume, "second volume confirm") in
+      signal
     in
-    let&& () = i.volume >= prev.volume && i.volume >= prev_prev.volume in
-    Result.return @@ Option.return
-    @@ {
-         Signal.instrument;
-         side = Trading_types.Side.Buy;
-         reason = [ "Passed condition in Throwing_crossover.pass" ];
-       }
+    Result.return res
 
   let score (state : 'a State.t) symbol =
     let ( let* ) = Result.( let* ) in
