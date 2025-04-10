@@ -44,11 +44,11 @@ module Make (Backend : Backend_intf.S) = struct
            Result.return @@ State.BeginShutdown);
          (fun () ->
            let* close_time = Backend.next_market_close () in
-           let now =
+           let* now =
              Eio.Time.now Backend.env#clock |> Ptime.of_float_s |> function
-             | Some t -> t
+             | Some t -> Result.return t
              | None ->
-                 invalid_arg
+                 Error.fatal
                    "Unable to get clock time in listen_tick for market close"
            in
            let time_until_close =
@@ -126,7 +126,8 @@ module Make (Backend : Backend_intf.S) = struct
     let* position = Backend_position.update state.positions ~previous latest in
     let* time = Bars.Latest.timestamp latest in
     Bars.append latest state.bars;
-    if context.print_tick_arg then Eio.traceln "Tick time: %a" Time.pp time;
+    if context.print_tick_arg then
+      Eio.traceln "[ %a ] Update and continue" Time.pp time;
     Indicators.add_latest Input.options.indicators_config time state.bars latest
       state.indicators;
     let* value = Backend_position.value position latest in

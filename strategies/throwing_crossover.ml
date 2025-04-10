@@ -1,10 +1,14 @@
 module S = Signal
-module SI = S.Indicator
+
+(* module SI = S.Indicator *)
 module I = Indicators
 module P = I.Point
-module F = S.Flag
+(* module F = S.Flag *)
 
-[@@@warning "-26"]
+(* [@@@warning "-26"] *)
+
+let ( let* ) = Result.( let* )
+let ( let+ ) = Result.( let+ )
 
 module Param = struct
   let trailing_loss = 0.96
@@ -15,62 +19,30 @@ module Param = struct
   let max_holding_period = 546
 end
 
-let ( let* ) = F.Infix.( let* )
-
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
-  let confirmed_crossover (state : 'a State.t) symbol =
-    let indicator = Indicators.get_top state.indicators symbol in
-    let* prev = indicator.previous in
-    let* prev_prev = prev.previous in
-    let crossover =
-      prev_prev.fast_stochastic_oscillator_k
-      <=. prev_prev.fast_stochastic_oscillator_d
-      && prev.fast_stochastic_oscillator_k >=. prev.fast_stochastic_oscillator_d
-      && indicator.fast_stochastic_oscillator_k
-         >=. indicator.fast_stochastic_oscillator_d
+  let pass (state : 'a State.t) instrument =
+    let signal = Signal.make instrument Buy true in
+    let ( let&& ) = Signal.let_and signal in
+    let ( let$ ) = Signal.let_get_opt signal in
+    let+ i = Indicators.get_top state.indicators instrument in
+    let$ prev = i.previous in
+    (* let$ prev_prev = prev.previous in *)
+    let&& () =
+      ( prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d,
+        "prev k <= d" )
     in
-    match crossover with
-    | true -> F.Pass [ "Bullish Crossover" ]
-    | false -> F.Fail [ "No Crossover" ]
-
-  (* let num_hits = ref 0 *)
-
-  let pass (state : 'a State.t) symbol =
-    let price = State.price state symbol in
-    let i = Indicators.get_top state.indicators symbol in
-    let* prev = i.previous in
-    let* prev_prev = i.previous in
-    let conditions =
-      [
-        (* (match i.relative_strength_index <=. 50.0 with *)
-        (* | true -> F.Pass [ "Small RSI" ] *)
-        (* | false -> Fail [ "RSI too large to buy" ]); *)
-        (* (match i.fast_stochastic_oscillator_d <=. 10.0 with *)
-        (* | true -> F.Pass [ "FSO %D <= 20" ] *)
-        (* | false -> F.Fail [ "FSO %D is too high" ]); *)
-        (let crossover =
-           prev.fast_stochastic_oscillator_k
-           <=. prev.fast_stochastic_oscillator_d
-           && i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d
-              >=. 20.0
-         in
-         match crossover with
-         | true -> F.Pass [ "Bullish Crossover" ]
-         | false -> F.Fail [ "No Crossover" ]);
-        (match i.volume >= prev.volume && i.volume >= prev_prev.volume with
-        | true -> F.Pass [ "Volume increased" ]
-        | false -> F.Fail [ "No volume increase" ]);
-      ]
+    let&& () =
+      ( i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d >=. 20.0,
+        " k >= d by 20" )
     in
-    let res = List.fold_left F.and_fold (Pass []) conditions in
-    (* if F.is_pass res then num_hits := !num_hits + 1; *)
-    (* if F.is_pass res && !num_hits mod 10 = 0 then *)
-    (*   Eio.traceln "[throwing] hit %d" !num_hits; *)
-    res
+    let&& () = (i.volume >= prev.volume, "first volume confirm") in
+    (* let&& () = (i.volume >= prev_prev.volume, "second volume confirm") in *)
+    signal
 
   let score (state : 'a State.t) symbol =
-    let i = Indicators.get_top state.indicators symbol in
+    let ( let+ ) = Result.( let+ ) in
+    let+ i = Indicators.get_top state.indicators symbol in
     -1.0 *. i.relative_strength_index
 
   let num_positions = 5
@@ -82,47 +54,37 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
-    let buying_price = buying_order.price in
-    let price = State.price state buying_order.symbol in
-    let i = Indicators.get_top state.indicators buying_order.symbol in
-    let* prev = i.previous in
+    let signal = Signal.make buying_order.symbol Sell false in
+    let ( let$ ) = Signal.let_get_opt signal in
+    let ( let|| ) = Signal.let_or signal in
+    let* price = State.price state buying_order.symbol in
+    let* i = Indicators.get_top state.indicators buying_order.symbol in
+    let+ price_history = Bars.get_res state.bars buying_order.symbol in
+    let$ prev = i.previous in
     let ticks_held = state.tick - buying_order.tick in
     let high_since_purchase =
-      Bars.get state.bars buying_order.symbol
-      |> Option.get_exn_or "Must have bars in slow crossover"
-      |> Util.last_n ticks_held |> Math.max_close |> Item.last
+      Util.last_n ticks_held price_history |> Math.max_close |> Item.last
     in
-    let conditions =
-      [
-        (match
-           i.fast_stochastic_oscillator_d >=. 80.0
-           && ticks_held >= Param.min_holding_period
-           &&
-           match price >=. buying_price with
-           | true -> prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
-           | false -> true
-         with
-        | true -> F.Pass [ "high %D" ]
-        | false -> F.Fail [ "nope" ]);
-        (match
-           price <=. Param.stop_loss_multiplier *. high_since_purchase
-           && ticks_held >= Param.min_holding_period
-         with
-        | true -> F.Pass [ "high since purchase" ]
-        | false -> F.Fail [ "OK" ]);
-        (match
-           price <=. buying_price
-           && ticks_held >= Param.min_holding_period
-           && i.ema_12 <=. prev.ema_12
-         with
-        | true -> F.Pass [ "EMA down" ]
-        | false -> F.Fail [ "EMA OK" ])
-        (* (match price <=. i.lower_bollinger with *)
-        (* | true -> F.Pass [ "Price below lower bollinger" ] *)
-        (* | false -> F.Fail [ "OK" ]); *);
-      ]
+    let holding_period = ticks_held >= Param.min_holding_period in
+    let price_decreasing =
+      prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
     in
-    List.fold_left F.or_fold (Fail []) conditions
+    let profited = price >=. buying_order.price in
+    let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
+    let stoploss =
+      price <=. Param.stop_loss_multiplier *. high_since_purchase
+    in
+    let|| () =
+      ( (holding_period && high_fso
+        && if profited then price_decreasing else true),
+        "high_fso" )
+    in
+    let|| () = (holding_period && stoploss, "stoploss") in
+    let|| () =
+      ( holding_period && (not profited) && i.ema_12 <=. prev.ema_12,
+        "unprofitable exit" )
+    in
+    signal
 end
 
 (* Create a strategy with our parameters *)

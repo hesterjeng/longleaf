@@ -14,7 +14,8 @@ end
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) symbol =
-    let price = State.price state symbol in
+    let ( let** ) = F.Infix.( let** ) in
+    let** price = State.price state symbol in
     let i = Indicators.get_top state.indicators symbol in
     let conditions =
       [
@@ -38,12 +39,13 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
         | false -> F.Pass [ "FSO %K is low enough" ]);
       ]
     in
-    List.fold_left F.and_fold (Pass []) conditions
+    Result.return @@ List.fold_left F.and_fold (Pass []) conditions
 
   let score (state : 'a State.t) symbol =
-    let price = State.price state symbol in
+    let ( let* ) = Result.( let* ) in
+    let* price = State.price state symbol in
     let lower_bb = I.get_indicator state.indicators symbol P.lower_bollinger in
-    lower_bb /. price
+    Result.return @@ (lower_bb /. price)
 
   let num_positions = 1
 end

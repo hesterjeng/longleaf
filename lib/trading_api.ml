@@ -34,13 +34,6 @@ module Make (Alpaca : Util.CLIENT) = struct
   end
 
   module Accounts = struct
-    let float_of_yojson yojson =
-      match yojson with
-      | `Float v -> v
-      | `Int i -> float_of_int i
-      | `Intlit str | `String str -> float_of_string str
-      | _ -> invalid_arg "float_of_yojson: float needed"
-
     type t = {
       cash : float;
       long_market_value : float;

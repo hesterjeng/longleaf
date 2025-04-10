@@ -335,10 +335,17 @@ let get (x : t) symbol = Hashtbl.find_opt x symbol
 let get_instrument (x : t) instrument = get x instrument
 
 let get_top (x : t) symbol =
-  get x symbol
-  |> Option.get_exn_or "indicators.ml: unable to get vector for symbol"
-  |> Vector.top
-  |> Option.get_exn_or "inidcators.ml: vector doesn't have a top"
+  match get x symbol with
+  | None ->
+      Error.missing_data
+      @@ Format.asprintf "Missing indicators vector for %a" Instrument.pp symbol
+  | Some vec -> (
+      match Vector.top vec with
+      | Some top -> Ok top
+      | None ->
+          Error.missing_data
+          @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
+               symbol)
 
 let get_indicator (x : t) symbol f =
   let res =
