@@ -69,7 +69,7 @@ type t = {
   tick : float;
   overnight : bool;
   resume_after_liquidate : bool;
-  indicators_config : Indicators.Config.t;
+  indicators_config : Indicator_config.t;
   dropout : bool;
   randomized_backtest_length : int;
   context : Context.t;
