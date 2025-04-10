@@ -115,17 +115,10 @@ module Make (Alpaca : Util.CLIENT) = struct
       in
       let rec collect_data ~endpoint ~headers acc =
         Eio.traceln "Sending a get request";
-        let resp_body_json =
-          get ~headers ~endpoint |> function
-          | Ok x -> x
-          | Error e ->
-              Eio.traceln
-                "market_data_api.ml: error while getting historical data with \
-                 alpaca: %a"
-                Error.pp e;
-              invalid_arg "Bad JSON while getting historical bars"
-        in
-        let acc = Bars.t_of_yojson resp_body_json :: acc in
+        let* acc = acc in
+        let* resp_body_json = get ~headers ~endpoint in
+        let* new_bars = Bars.t_of_yojson resp_body_json in
+        let acc = new_bars :: acc in
         match Util.get_next_page_token resp_body_json with
         | Some npt ->
             let endpoint =
@@ -133,10 +126,11 @@ module Make (Alpaca : Util.CLIENT) = struct
               Uri.remove_query_param u "page_token" |> fun u ->
               Uri.add_query_param' u ("page_token", npt) |> Uri.to_string
             in
-            collect_data ~endpoint ~headers acc
-        | None -> acc
+            let res = collect_data ~endpoint ~headers (Ok acc) in
+            res
+        | None -> Ok acc
       in
-      let* paginated = collect_data ~endpoint ~headers [] |> Result.flatten_l in
+      let* paginated = collect_data ~endpoint ~headers (Ok []) in
       Result.return @@ Bars.combine paginated
 
     let latest_bars (symbols : string list) =
