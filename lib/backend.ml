@@ -76,17 +76,17 @@ let make (options : Options.t) bars target =
   let ( let* ) = Result.( let* ) in
   let* mod_ = make_backend_input options bars target in
   let module Input = (val mod_) in
-  let res =
+  let* res =
     match options.context.runtype with
-    | Manual -> invalid_arg "Cannot create a strategy with manual runtype"
+    | Manual -> Error.fatal "Cannot create a strategy with manual runtype"
     | Paper | Live ->
         Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
-        (module Alpaca_backend.Make (Input) : S)
+        Result.return @@ (module Alpaca_backend.Make (Input) : S)
     | Backtest | Multitest | Montecarlo | MultiMontecarlo | RandomSliceBacktest
     | RandomTickerBacktest | MultiRandomTickerBacktest
     | MultiRandomSliceBacktest ->
         Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
-        (module Backtesting_backend.Make (Input))
+        Result.return @@ (module Backtesting_backend.Make (Input) : S)
   in
   Eio.traceln "Finished creating backend";
   Result.return @@ res
