@@ -58,7 +58,6 @@ module Sell : Template.Sell_trigger.S = struct
     let signal = Signal.make buying_order.symbol Sell false in
     let ( let$ ) = Signal.( let$ ) signal in
     let ( let|| ) = Signal.( let|| ) signal in
-    let ( let&& ) = Signal.( let|| ) signal in
     let* price = State.price state buying_order.symbol in
     let* i = Indicators.get_top state.indicators buying_order.symbol in
     let* price_history = Bars.get_res state.bars buying_order.symbol in
@@ -78,13 +77,16 @@ module Sell : Template.Sell_trigger.S = struct
     let stoploss =
       price <=. Param.stop_loss_multiplier *. high_since_purchase
     in
-    let&& () = (holding_period, "holding_period") in
+    (* let&& () = (holding_period, "holding_period") in *)
     let|| () =
-      ((high_fso && if profited then price_decreasing else true), "high_fso")
+      ( (holding_period && high_fso
+        && if profited then price_decreasing else true),
+        "high_fso" )
     in
-    let|| () = (stoploss, "stoploss") in
+    let|| () = (holding_period && stoploss, "stoploss") in
     let|| () =
-      ((not profited) && i.ema_12 <=. prev.ema_12, "unprofitable exit")
+      ( holding_period && (not profited) && i.ema_12 <=. prev.ema_12,
+        "unprofitable exit" )
     in
     signal
 end
