@@ -30,3 +30,7 @@ let ( let$ ) signal x f =
   match x with
   | None -> { signal with flag = false; reason = [ "missing option" ] }
   | Some x -> f x
+
+let let_get_opt = ( let$ )
+let let_or = ( let|| )
+let let_and = ( let&& )
