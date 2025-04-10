@@ -80,7 +80,9 @@ module RSI = struct
   let rsi mau mad = 100.0 -. (100.0 *. (1.0 /. (1.0 +. (mau /. mad))))
 end
 
-module ADX = struct end
+module ADX = struct
+  let top (l : Bars.symbol_history) (current : Item.t) = ()
+end
 
 module SO = struct
   (* Stochastic Oscillators *)
@@ -108,6 +110,7 @@ end
 module Point = struct
   type t = {
     timestamp : Time.t;
+    (* item : Item.t; *)
     price : float;
     volume : int;
     accumulation_distribution_line : float;
@@ -138,39 +141,39 @@ module Point = struct
   }
   [@@deriving show, yojson, fields ~getters]
 
-  let initial timestamp : t =
-    {
-      timestamp;
-      accumulation_distribution_line = 0.0;
-      ema_12 = 0.0;
-      ema_26 = 0.0;
-      macd = 0.0;
-      price = 0.0;
-      volume = 0;
-      sma_5 = 0.0;
-      sma_34 = 0.0;
-      sma_75 = 0.0;
-      sma_233 = 0.0;
-      upper_bollinger = 0.0;
-      lower_bollinger = 0.0;
-      upper_bollinger_100_1 = 0.0;
-      lower_bollinger_100_1 = 0.0;
-      upper_bollinger_100_3 = 0.0;
-      lower_bollinger_100_3 = 0.0;
-      awesome_oscillator = 0.0;
-      awesome_slow = 0.0;
-      average_gain = 0.00001;
-      average_loss = 0.00001;
-      relative_strength_index = 50.0;
-      fast_stochastic_oscillator_k = 50.0;
-      fast_stochastic_oscillator_d = 50.0;
-      fourier_transform = Fourier.empty;
-      ft_normalized_magnitude = 0.0;
-      fft_mean_squared_error = 0.0;
-      previous = None;
-    }
+  (* let initial timestamp : t = *)
+  (*   { *)
+  (*     timestamp; *)
+  (*     accumulation_distribution_line = 0.0; *)
+  (*     ema_12 = 0.0; *)
+  (*     ema_26 = 0.0; *)
+  (*     macd = 0.0; *)
+  (*     price = 0.0; *)
+  (*     volume = 0; *)
+  (*     sma_5 = 0.0; *)
+  (*     sma_34 = 0.0; *)
+  (*     sma_75 = 0.0; *)
+  (*     sma_233 = 0.0; *)
+  (*     upper_bollinger = 0.0; *)
+  (*     lower_bollinger = 0.0; *)
+  (*     upper_bollinger_100_1 = 0.0; *)
+  (*     lower_bollinger_100_1 = 0.0; *)
+  (*     upper_bollinger_100_3 = 0.0; *)
+  (*     lower_bollinger_100_3 = 0.0; *)
+  (*     awesome_oscillator = 0.0; *)
+  (*     awesome_slow = 0.0; *)
+  (*     average_gain = 0.00001; *)
+  (*     average_loss = 0.00001; *)
+  (*     relative_strength_index = 50.0; *)
+  (*     fast_stochastic_oscillator_k = 50.0; *)
+  (*     fast_stochastic_oscillator_d = 50.0; *)
+  (*     fourier_transform = Fourier.empty; *)
+  (*     ft_normalized_magnitude = 0.0; *)
+  (*     fft_mean_squared_error = 0.0; *)
+  (*     previous = None; *)
+  (*   } *)
 
-  let of_latest config timestamp symbol_history (previous : t)
+  let of_latest config timestamp symbol_history (previous : t option)
       (previous_vec : (t, _) Vector.t) (latest : Item.t) =
     let lower_bollinger, upper_bollinger = bollinger 34 2 symbol_history in
     let lower_bollinger_100_3, upper_bollinger_100_3 =
@@ -183,12 +186,16 @@ module Point = struct
     let sma_34 = simple_moving_average 34 symbol_history in
     let awesome_oscillator = mk_awesome sma_5 sma_34 in
     let price = Item.last latest in
-    let previous_price = previous.price in
+    let previous_price, previous_average_gain, previous_average_loss =
+      match previous with
+      | None -> (price, 0.0, 0.0)
+      | Some prev -> (prev.price, prev.average_gain, prev.average_loss)
+    in
     let average_gain =
-      RSI.mau 14.0 previous.average_gain price previous_price
+      RSI.mau 14.0 previous_average_gain price previous_price
     in
     let average_loss =
-      RSI.mad 14.0 previous.average_loss price previous_price
+      RSI.mad 14.0 previous_average_loss price previous_price
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
     let fso_pk = SO.pK 140 symbol_history latest in
@@ -201,8 +208,16 @@ module Point = struct
       Fourier.fft_nm config fourier_transform symbol_history
     in
     let fft_mean_squared_error =
-      Fourier.mean_squared_error config previous.fourier_transform
-        fourier_transform
+      match previous with
+      | None -> 0.0
+      | Some prev ->
+          Fourier.mean_squared_error config prev.fourier_transform
+            fourier_transform
+    in
+    let previous_adl =
+      match previous with
+      | None -> 0.0
+      | Some prev -> prev.accumulation_distribution_line
     in
     let sma_233 = simple_moving_average 233 symbol_history in
     let ema_12 = EMA.make 12 symbol_history in
@@ -210,8 +225,7 @@ module Point = struct
     let res =
       {
         timestamp;
-        accumulation_distribution_line =
-          adl previous.accumulation_distribution_line latest;
+        accumulation_distribution_line = adl previous_adl latest;
         ema_12;
         ema_26;
         macd = EMA.macd ~ema_12 ~ema_26;
@@ -237,7 +251,7 @@ module Point = struct
         fourier_transform;
         ft_normalized_magnitude;
         fft_mean_squared_error;
-        previous = Some previous;
+        previous;
       }
     in
     res
@@ -293,31 +307,19 @@ let initialize_single config bars symbol =
   (* Function to generate the indicators from the bars *)
   let fold i previous item =
     let timestamp = Item.timestamp item in
-    match previous with
-    | None ->
-        let res = Point.initial timestamp in
-        Vector.push initial_stats_vector res;
-        Vector.push bars_upto_now (Vector.get bars_vec i);
-        Option.return res
-    | Some previous ->
-        Vector.push bars_upto_now (Vector.get bars_vec i);
-        let res =
-          Point.of_latest config timestamp bars_upto_now previous
-            initial_stats_vector item
-        in
-        Vector.push initial_stats_vector res;
-        Option.return res
+    let res =
+      Point.of_latest config timestamp bars_upto_now previous
+        initial_stats_vector item
+    in
+    Vector.push initial_stats_vector res;
+    Vector.push bars_upto_now (Vector.get bars_vec i);
+    Option.return res
   in
   let _ =
     (* Fold, so that we have access to the previous indicator record *)
     Vector.foldi fold None bars_vec
   in
   initial_stats_vector
-
-(* let initialize config bars symbols : t = *)
-(*   let symbols_seq = Seq.of_list symbols in *)
-(*   Seq.map (fun s -> (s, initialize_single config bars s)) symbols_seq *)
-(*   |> Hashtbl.of_seq *)
 
 let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     (x : t) =
@@ -335,11 +337,7 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
         Hashtbl.replace x symbol new_vector;
         new_vector
   in
-  let previous =
-    match Vector.top indicators_vector with
-    | Some p -> p
-    | None -> Point.initial timestamp
-  in
+  let previous = Vector.top indicators_vector in
   let new_indicators =
     Point.of_latest config timestamp symbol_history previous indicators_vector
       latest
