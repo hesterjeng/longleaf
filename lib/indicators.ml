@@ -103,7 +103,7 @@ module SO = struct
     Owl_stats.mean @@ Iter.to_array @@ Iter.cons previous previous_pK
 end
 
-module FFT = Fourier
+(* module Fourier = Fourier *)
 
 module Point = struct
   type t = {
@@ -131,7 +131,7 @@ module Point = struct
     relative_strength_index : float;
     fast_stochastic_oscillator_k : float;
     fast_stochastic_oscillator_d : float;
-    fourier_transform : (FFT.t[@yojson.opaque]);
+    fourier_transform : (Fourier.t[@yojson.opaque]);
     ft_normalized_magnitude : float;
     fft_mean_squared_error : float;
     previous : t option;
@@ -164,7 +164,7 @@ module Point = struct
       relative_strength_index = 50.0;
       fast_stochastic_oscillator_k = 50.0;
       fast_stochastic_oscillator_d = 50.0;
-      fourier_transform = FFT.empty;
+      fourier_transform = Fourier.empty;
       ft_normalized_magnitude = 0.0;
       fft_mean_squared_error = 0.0;
       previous = None;
@@ -196,12 +196,13 @@ module Point = struct
       SO.pD fso_pk
       @@ (Util.last_n 34 previous_vec |> Iter.map fast_stochastic_oscillator_k)
     in
-    let fourier_transform = FFT.fft config symbol_history latest in
+    let fourier_transform = Fourier.fft config symbol_history latest in
     let ft_normalized_magnitude =
-      FFT.fft_nm config fourier_transform symbol_history
+      Fourier.fft_nm config fourier_transform symbol_history
     in
     let fft_mean_squared_error =
-      FFT.mean_squared_error config previous.fourier_transform fourier_transform
+      Fourier.mean_squared_error config previous.fourier_transform
+        fourier_transform
     in
     let sma_233 = simple_moving_average 233 symbol_history in
     let ema_12 = EMA.make 12 symbol_history in
