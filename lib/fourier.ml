@@ -56,8 +56,8 @@ let mean_squared_error (config : Indicator_config.t) (fft1 : t) (fft2 : t) =
       final
 
 (* Fast fourier transform *)
-let fft (config : Indicator_config.t) (l : Bars.symbol_history) (last : Item.t)
-    : t =
+let fft (config : Indicator_config.t) (l : Price_history.t) (last : Item.t) : t
+    =
   if not config.fft then empty
   else
     let arr =
@@ -70,7 +70,7 @@ let fft (config : Indicator_config.t) (l : Bars.symbol_history) (last : Item.t)
     yf
 
 (* Normalized maginitude of fourier transform *)
-let fft_nm (config : Indicator_config.t) (yf : t) (l : Bars.symbol_history) =
+let fft_nm (config : Indicator_config.t) (yf : t) (l : Price_history.t) =
   if not config.fft then 0.0
   else
     let length = Vector.length l + 1 |> Float.of_int in

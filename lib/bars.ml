@@ -52,16 +52,12 @@ module Latest = struct
         Result.fail @@ `MissingData e
 end
 
-type symbol_history = Item.t Vector.vector
-
-let pp_symbol_history : symbol_history Vector.printer = Vector.pp Item.pp
-
-type t = symbol_history Hashtbl.t
+type t = Price_history.t Hashtbl.t
 
 let pp : t Format.printer =
  fun fmt x ->
   let seq = Hashtbl.to_seq x in
-  let pp = Seq.pp @@ Pair.pp Instrument.pp pp_symbol_history in
+  let pp = Seq.pp @@ Pair.pp Instrument.pp Price_history.pp in
   Format.fprintf fmt "@[%a@]@." pp seq
 
 let pp_stats : t Format.printer =
@@ -191,7 +187,7 @@ let keys (x : t) = Hashtbl.to_seq_keys x |> Seq.to_list
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
   let keys = List.flat_map keys l |> List.uniq ~eq:Instrument.equal in
-  let get_data key : symbol_history =
+  let get_data key : Price_history.t =
     let data =
       Vector.flat_map
         (fun (x : t) ->

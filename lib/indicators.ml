@@ -21,7 +21,7 @@ let adl previous_adl (current : Item.t) =
   res
 
 module EMA = struct
-  let make n (l : Bars.symbol_history) =
+  let make n (l : Price_history.t) =
     let window = Util.last_n n l |> Iter.map Item.last in
     let smoothing_factor = 2.0 /. (Float.of_int n +. 1.0) in
     let initial_value = Iter.take 1 window |> Iter.fold ( +. ) 0.0 in
@@ -33,7 +33,7 @@ module EMA = struct
   let macd ~ema_12 ~ema_26 = ema_12 -. ema_26
 end
 
-let simple_moving_average n (l : Bars.symbol_history) =
+let simple_moving_average n (l : Price_history.t) =
   let window = Util.last_n n l |> Iter.map Item.last in
   let sum = Iter.fold ( +. ) 0.0 window in
   sum /. Float.of_int n
@@ -81,13 +81,17 @@ module RSI = struct
 end
 
 module ADX = struct
-  let top (l : Bars.symbol_history) (current : Item.t) = ()
+  let top (l : Price_history.t) (current : Item.t) =
+    let current_high = Item.high current in
+    let current_low = Item.low current in
+    let previous_high = () in
+    ()
 end
 
 module SO = struct
   (* Stochastic Oscillators *)
 
-  let pK n (l : Bars.symbol_history) (last : Item.t) =
+  let pK n (l : Price_history.t) (last : Item.t) =
     let current = Item.last last in
     let window =
       Util.last_n n l |> Iter.map Item.last |> Iter.cons current
@@ -110,7 +114,7 @@ end
 module Point = struct
   type t = {
     timestamp : Time.t;
-    (* item : Item.t; *)
+    item : Item.t;
     price : float;
     volume : int;
     accumulation_distribution_line : float;
@@ -193,6 +197,7 @@ module Point = struct
     let res =
       {
         timestamp;
+        item = latest;
         accumulation_distribution_line = adl previous_adl latest;
         ema_12;
         ema_26;
