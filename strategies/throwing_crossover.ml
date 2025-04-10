@@ -30,7 +30,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let$ prev_prev = prev.previous in
     let&& () =
       ( prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d,
-        "k >= d" )
+        "prev k <= d" )
     in
     let&& () =
       ( i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d >=. 20.0,
@@ -77,7 +77,6 @@ module Sell : Template.Sell_trigger.S = struct
     let stoploss =
       price <=. Param.stop_loss_multiplier *. high_since_purchase
     in
-    (* let&& () = (holding_period, "holding_period") in *)
     let|| () =
       ( (holding_period && high_fso
         && if profited then price_decreasing else true),
