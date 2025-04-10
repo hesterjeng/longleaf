@@ -141,38 +141,6 @@ module Point = struct
   }
   [@@deriving show, yojson, fields ~getters]
 
-  (* let initial timestamp : t = *)
-  (*   { *)
-  (*     timestamp; *)
-  (*     accumulation_distribution_line = 0.0; *)
-  (*     ema_12 = 0.0; *)
-  (*     ema_26 = 0.0; *)
-  (*     macd = 0.0; *)
-  (*     price = 0.0; *)
-  (*     volume = 0; *)
-  (*     sma_5 = 0.0; *)
-  (*     sma_34 = 0.0; *)
-  (*     sma_75 = 0.0; *)
-  (*     sma_233 = 0.0; *)
-  (*     upper_bollinger = 0.0; *)
-  (*     lower_bollinger = 0.0; *)
-  (*     upper_bollinger_100_1 = 0.0; *)
-  (*     lower_bollinger_100_1 = 0.0; *)
-  (*     upper_bollinger_100_3 = 0.0; *)
-  (*     lower_bollinger_100_3 = 0.0; *)
-  (*     awesome_oscillator = 0.0; *)
-  (*     awesome_slow = 0.0; *)
-  (*     average_gain = 0.00001; *)
-  (*     average_loss = 0.00001; *)
-  (*     relative_strength_index = 50.0; *)
-  (*     fast_stochastic_oscillator_k = 50.0; *)
-  (*     fast_stochastic_oscillator_d = 50.0; *)
-  (*     fourier_transform = Fourier.empty; *)
-  (*     ft_normalized_magnitude = 0.0; *)
-  (*     fft_mean_squared_error = 0.0; *)
-  (*     previous = None; *)
-  (*   } *)
-
   let of_latest config timestamp symbol_history (previous : t option)
       (previous_vec : (t, _) Vector.t) (latest : Item.t) =
     let lower_bollinger, upper_bollinger = bollinger 34 2 symbol_history in
