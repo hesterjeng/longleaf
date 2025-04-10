@@ -20,7 +20,7 @@ module Buy_trigger = struct
 
   (** The user provides a module of this type in their strategy. *)
   module type INPUT = sig
-    val pass : 'a State.t -> Instrument.t -> (Signal.t option, Error.t) result
+    val pass : 'a State.t -> Instrument.t -> (Signal.t, Error.t) result
     (** Return Pass for a symbol if we want to buy it. Otherwise it returns Fail
         and we do nothing.*)
 
@@ -42,12 +42,12 @@ module Buy_trigger = struct
       let fold = fun f -> Result.fold_l f [] symbols in
       let* l =
         fold @@ fun acc symbol ->
-        let* s = Input.pass state symbol in
-        match s with
-        | Some signal ->
+        let* signal = Input.pass state symbol in
+        match signal.flag with
+        | true ->
             let* score = Input.score state symbol in
             Result.return @@ ((signal, score) :: acc)
-        | None -> Result.return acc
+        | false -> Result.return acc
       in
       List.sort (Pair.compare (fun _ _ -> 0) Float.compare) l
       |> List.map fst |> List.rev |> Result.return
@@ -60,8 +60,7 @@ module Sell_trigger = struct
   (** The user provides a module of this type to determine when to exit a
       position *)
   module type S = sig
-    val make :
-      'a State.t -> buying_order:Order.t -> (Signal.t option, Error.t) result
+    val make : 'a State.t -> buying_order:Order.t -> (Signal.t, Error.t) result
     (** Return Pass if we want to exit the position corresponding to
         buying_order. If we return Fail, do nothing.*)
   end
@@ -142,11 +141,11 @@ module Make
 
   let sell (state : 'a State.t) ~(buying_order : Order.t) =
     let ( let* ) = Result.( let* ) in
-    let* s = Sell.make state ~buying_order in
+    let* signal = Sell.make state ~buying_order in
     let* state =
-      match s with
-      | None -> Result.return state
-      | Some signal ->
+      match signal.flag with
+      | false -> Result.return state
+      | true ->
           let reason = signal.reason in
           let* price = State.price state buying_order.symbol in
           let* timestamp = State.timestamp state buying_order.symbol in
