@@ -81,11 +81,28 @@ module RSI = struct
 end
 
 module ADX = struct
-  let top (l : Price_history.t) (current : Item.t) =
-    let current_high = Item.high current in
-    let current_low = Item.low current in
-    let previous_high = () in
+  (* Average directional movement index *)
+  let top (history : Price_history.t) (current : Item.t) =
+    let last_two_days = Util.last_n 78 history |> Iter.to_list |> List.sort Item.compare in
+    let yesterday, today = List.take_drop 39 last_two_days
+                           |> Pair.map_same Array.of_list |> Pair.map_same (Array.map Item.last)
+    in
+    let yesterday_low, yesterday_high = Owl_stats.minmax yesterday in
+    let today_low, today_high = Owl_stats.minmax yesterday in
+    let upmove = today_high -. yesterday_high in
+    let downmove = today_low -. yesterday_low in
+    let dm_plus =
+      if upmove >. downmove && upmove >. 0.0 then upmove else 0.0
+    in
+    let dm_minus =
+      if downmove >. upmove && downmove >. 0.0 then downmove else 0.0
+    in
     ()
+end
+
+module ATR = struct
+  (* Average true range *)
+
 end
 
 module SO = struct
