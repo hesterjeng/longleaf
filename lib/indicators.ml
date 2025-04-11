@@ -1,5 +1,41 @@
 module Hashtbl = Hashtbl.Make (Instrument)
 
+module Point_ty = struct
+  type t = {
+    timestamp : Time.t;
+    item : Item.t;
+    price : float;
+    volume : int;
+    accumulation_distribution_line : float;
+    ema_12 : float;
+    ema_26 : float;
+    macd : float;
+    sma_5 : float;
+    sma_34 : float;
+    sma_75 : float;
+    sma_233 : float;
+    average_true_range : float;
+    upper_bollinger : float;
+    lower_bollinger : float;
+    upper_bollinger_100_1 : float;
+    lower_bollinger_100_1 : float;
+    upper_bollinger_100_3 : float;
+    lower_bollinger_100_3 : float;
+    awesome_oscillator : float;
+    awesome_slow : float;
+    average_gain : float;
+    average_loss : float;
+    relative_strength_index : float;
+    fast_stochastic_oscillator_k : float;
+    fast_stochastic_oscillator_d : float;
+    fourier_transform : (Fourier.t[@yojson.opaque]);
+    ft_normalized_magnitude : float;
+    fft_mean_squared_error : float;
+    previous : t option;
+  }
+  [@@deriving show, yojson, fields ~getters]
+end
+
 let money_flow_multiplier (x : Item.t) =
   let open Float in
   let open Item in
@@ -80,29 +116,45 @@ module RSI = struct
   let rsi mau mad = 100.0 -. (100.0 *. (1.0 /. (1.0 +. (mau /. mad))))
 end
 
+module ATR = struct
+  (* Average true range *)
+
+  let true_range (previous : Point_ty.t) (current : Item.t) =
+    let previous = previous.item in
+    let high = Item.high current in
+    let low = Item.low current in
+    let close_prev = Item.last previous in
+    Float.max high close_prev -. Float.min low close_prev
+
+  let average_true_range n (previous : Point_ty.t option) (current : Item.t) =
+    assert (not @@ Float.equal n 0.0);
+    match previous with
+    | Some prev ->
+        ((prev.average_true_range *. (n -. 1.0)) +. true_range prev current)
+        /. n
+    | None -> Item.high current -. Item.low current
+end
+
 module ADX = struct
   (* Average directional movement index *)
   let top (history : Price_history.t) (current : Item.t) =
-    let last_two_days = Util.last_n 78 history |> Iter.to_list |> List.sort Item.compare in
-    let yesterday, today = List.take_drop 39 last_two_days
-                           |> Pair.map_same Array.of_list |> Pair.map_same (Array.map Item.last)
+    let last_two_days =
+      Util.last_n 78 history |> Iter.to_list |> List.sort Item.compare
+    in
+    let yesterday, today =
+      List.take_drop 39 last_two_days
+      |> Pair.map_same Array.of_list
+      |> Pair.map_same (Array.map Item.last)
     in
     let yesterday_low, yesterday_high = Owl_stats.minmax yesterday in
     let today_low, today_high = Owl_stats.minmax yesterday in
     let upmove = today_high -. yesterday_high in
     let downmove = today_low -. yesterday_low in
-    let dm_plus =
-      if upmove >. downmove && upmove >. 0.0 then upmove else 0.0
-    in
+    let dm_plus = if upmove >. downmove && upmove >. 0.0 then upmove else 0.0 in
     let dm_minus =
       if downmove >. upmove && downmove >. 0.0 then downmove else 0.0
     in
     ()
-end
-
-module ATR = struct
-  (* Average true range *)
-
 end
 
 module SO = struct
@@ -129,38 +181,7 @@ end
 (* module Fourier = Fourier *)
 
 module Point = struct
-  type t = {
-    timestamp : Time.t;
-    item : Item.t;
-    price : float;
-    volume : int;
-    accumulation_distribution_line : float;
-    ema_12 : float;
-    ema_26 : float;
-    macd : float;
-    sma_5 : float;
-    sma_34 : float;
-    sma_75 : float;
-    sma_233 : float;
-    upper_bollinger : float;
-    lower_bollinger : float;
-    upper_bollinger_100_1 : float;
-    lower_bollinger_100_1 : float;
-    upper_bollinger_100_3 : float;
-    lower_bollinger_100_3 : float;
-    awesome_oscillator : float;
-    awesome_slow : float;
-    average_gain : float;
-    average_loss : float;
-    relative_strength_index : float;
-    fast_stochastic_oscillator_k : float;
-    fast_stochastic_oscillator_d : float;
-    fourier_transform : (Fourier.t[@yojson.opaque]);
-    ft_normalized_magnitude : float;
-    fft_mean_squared_error : float;
-    previous : t option;
-  }
-  [@@deriving show, yojson, fields ~getters]
+  include Point_ty
 
   let of_latest config timestamp symbol_history (previous : t option)
       (previous_vec : (t, _) Vector.t) (latest : Item.t) =
@@ -211,10 +232,12 @@ module Point = struct
     let sma_233 = simple_moving_average 233 symbol_history in
     let ema_12 = EMA.make 12 symbol_history in
     let ema_26 = EMA.make 26 symbol_history in
-    let res =
+    let average_true_range = ATR.average_true_range 14.0 previous latest in
+    let res : t =
       {
         timestamp;
         item = latest;
+        average_true_range;
         accumulation_distribution_line = adl previous_adl latest;
         ema_12;
         ema_26;
