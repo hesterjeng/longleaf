@@ -48,3 +48,19 @@ let find_local_minima ~window_size l =
 
 let most_recent_maxima ~window_size l =
   max_close @@ Iter.rev @@ Iter.take window_size l
+
+let simple_moving_average n (f : 'a -> float) (next : 'a -> 'a option) (x : 'a)
+    =
+  assert (n > 0);
+  let rec aux n acc x =
+    match n with
+    | 0 -> acc
+    | n -> (
+        let curr = f x in
+        match next x with
+        | None -> curr :: acc
+        | Some prev -> aux (n - 1) (curr :: acc) prev)
+  in
+  let l = aux n [] x in
+  let sum = List.fold_left ( +. ) 0.0 l in
+  sum /. Float.of_int n
