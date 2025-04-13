@@ -1,6 +1,17 @@
 module Hashtbl = Hashtbl.Make (Instrument)
 
 module Point_ty = struct
+  type adx = {
+    positive_directional_movement : float;
+    negative_directional_movement : float;
+    sma_positive_dm : float;
+    sma_negative_dm : float;
+    positive_directional_indicator : float;
+    negative_directional_indicator : float;
+    adx : float;
+  }
+  [@@deriving show, yojson, fields ~getters]
+
   type t = {
     timestamp : Time.t;
     item : Item.t;
@@ -14,6 +25,11 @@ module Point_ty = struct
     sma_34 : float;
     sma_75 : float;
     sma_233 : float;
+    (* positive_directional_movement : float; *)
+    (* negative_directional_movement : float; *)
+    (* sma_positive_dm : float; *)
+    (* sma_negative_dm : float; *)
+    adx : adx;
     average_true_range : float;
     upper_bollinger : float;
     lower_bollinger : float;
@@ -137,24 +153,48 @@ end
 
 module ADX = struct
   (* Average directional movement index *)
-  let top (history : Price_history.t) (current : Item.t) =
-    let last_two_days =
-      Util.last_n 78 history |> Iter.to_list |> List.sort Item.compare
-    in
-    let yesterday, today =
-      List.take_drop 39 last_two_days
-      |> Pair.map_same Array.of_list
-      |> Pair.map_same (Array.map Item.last)
-    in
-    let yesterday_low, yesterday_high = Owl_stats.minmax yesterday in
-    let today_low, today_high = Owl_stats.minmax yesterday in
-    let upmove = today_high -. yesterday_high in
-    let downmove = today_low -. yesterday_low in
-    let dm_plus = if upmove >. downmove && upmove >. 0.0 then upmove else 0.0 in
-    let dm_minus =
-      if downmove >. upmove && downmove >. 0.0 then downmove else 0.0
-    in
-    ()
+  (* let top (history : Price_history.t) (current : Item.t) = *)
+  (*   let last_two_days = *)
+  (*     Util.last_n 78 history |> Iter.to_list |> List.sort Item.compare *)
+  (*   in *)
+  (*   let yesterday, today = *)
+  (*     List.take_drop 39 last_two_days *)
+  (*     |> Pair.map_same Array.of_list *)
+  (*     |> Pair.map_same (Array.map Item.last) *)
+  (*   in *)
+  (*   let yesterday_low, yesterday_high = Owl_stats.minmax yesterday in *)
+  (*   let today_low, today_high = Owl_stats.minmax yesterday in *)
+  (*   let upmove = today_high -. yesterday_high in *)
+  (*   let downmove = today_low -. yesterday_low in *)
+  (*   let dm_plus = if upmove >. downmove && upmove >. 0.0 then upmove else 0.0 in *)
+  (*   let dm_minus = *)
+  (*     if downmove >. upmove && downmove >. 0.0 then downmove else 0.0 *)
+  (*   in *)
+  (*   () *)
+
+  type t = Point_ty.adx
+
+  let positive_directional_movement (previous : Point_ty.t) (current : Item.t) =
+    let now_high = Item.high current in
+    let now_low = Item.low current in
+    let previous_high = Item.high previous.item in
+    let previous_low = Item.low previous.item in
+    let upmove = now_high -. previous_high in
+    let downmove = now_low -. previous_low in
+    if upmove >. downmove && upmove >. 0.0 then upmove else 0.0
+
+  let negative_directional_movement (previous : Point_ty.t) (current : Item.t) =
+    let now_high = Item.high current in
+    let now_low = Item.low current in
+    let previous_high = Item.high previous.item in
+    let previous_low = Item.low previous.item in
+    let upmove = now_high -. previous_high in
+    let downmove = now_low -. previous_low in
+    if downmove >. upmove && downmove >. 0.0 then downmove else 0.0
+
+  (* let sma_pdm (previous : Point_ty.t) (current : Item.t) = *)
+
+  (* let top (previous : Point_ty.t) (current : Item.t) = *)
 end
 
 module SO = struct
