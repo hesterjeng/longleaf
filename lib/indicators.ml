@@ -153,26 +153,6 @@ module ATR = struct
 end
 
 module ADX = struct
-  (* Average directional movement index *)
-  (* let top (history : Price_history.t) (current : Item.t) = *)
-  (*   let last_two_days = *)
-  (*     Util.last_n 78 history |> Iter.to_list |> List.sort Item.compare *)
-  (*   in *)
-  (*   let yesterday, today = *)
-  (*     List.take_drop 39 last_two_days *)
-  (*     |> Pair.map_same Array.of_list *)
-  (*     |> Pair.map_same (Array.map Item.last) *)
-  (*   in *)
-  (*   let yesterday_low, yesterday_high = Owl_stats.minmax yesterday in *)
-  (*   let today_low, today_high = Owl_stats.minmax yesterday in *)
-  (*   let upmove = today_high -. yesterday_high in *)
-  (*   let downmove = today_low -. yesterday_low in *)
-  (*   let dm_plus = if upmove >. downmove && upmove >. 0.0 then upmove else 0.0 in *)
-  (*   let dm_minus = *)
-  (*     if downmove >. upmove && downmove >. 0.0 then downmove else 0.0 *)
-  (*   in *)
-  (*   () *)
-
   type t = Point_ty.adx
 
   let positive_directional_movement (previous : Point_ty.t) (current : Item.t) =
@@ -217,7 +197,24 @@ module ADX = struct
     assert (not @@ Float.equal atr 0.0);
     100.0 *. sma_ndm n previous current /. atr
 
-  let adx n (previous : Point_ty.t) (current : Item.t) = 0.0
+  let adx n (previous : Point_ty.t) (current : Item.t) =
+    let get (x : Point_ty.t) =
+      let pdi = x.adx.positive_directional_indicator in
+      let ndi = x.adx.negative_directional_indicator in
+      Float.abs (pdi -. ndi)
+    in
+    let diff =
+      positive_directional_indicator n previous current
+      -. negative_directional_indicator n previous current
+    in
+    let next (x : Point_ty.t) = x.previous in
+    let abs_diff = Float.abs diff in
+    let sma =
+      100.0 *. Math.simple_moving_average ~current:abs_diff n get next previous
+    in
+    sma
+    /. (positive_directional_indicator n previous current
+       +. negative_directional_indicator n previous current)
 end
 
 module SO = struct
