@@ -50,6 +50,8 @@ module Point_ty = struct
     previous : t option;
   }
   [@@deriving show, yojson, fields ~getters]
+
+  let adx x = x.adx.adx
 end
 
 let money_flow_multiplier (x : Item.t) =

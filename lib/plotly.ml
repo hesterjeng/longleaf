@@ -182,6 +182,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~show:false indicators "Relative Strength Index"
       IP.relative_strength_index symbol
   in
+  let* adx = indicator_trace ~show:true indicators "ADX" IP.adx symbol in
   let* awesome =
     indicator_trace ~show:false indicators "Awesome Oscillator"
       IP.awesome_oscillator symbol
@@ -223,6 +224,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                price_trace;
                buy_trace;
                sell_trace;
+               adx;
                ema_12_trace;
                ema_26_trace;
                macd_trace;
