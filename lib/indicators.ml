@@ -176,7 +176,7 @@ module ADX = struct
     let previous_high = Item.high previous.item in
     let previous_low = Item.low previous.item in
     let upmove = now_high -. previous_high in
-    let downmove = now_low -. previous_low in
+    let downmove = previous_low -. now_low in
     if upmove >. downmove && upmove >. 0.0 then upmove else 0.0
 
   let negative_directional_movement (previous : Point_ty.t) (current : Item.t) =
@@ -185,7 +185,7 @@ module ADX = struct
     let previous_high = Item.high previous.item in
     let previous_low = Item.low previous.item in
     let upmove = now_high -. previous_high in
-    let downmove = now_low -. previous_low in
+    let downmove = previous_low -. now_low in
     if downmove >. upmove && downmove >. 0.0 then downmove else 0.0
 
   let sma_pdm n (previous : Point_ty.t) (current : Item.t) =
@@ -228,12 +228,10 @@ module ADX = struct
     let next (x : Point_ty.t) = x.previous in
     let abs_diff = Float.abs diff in
     let sma =
+      (* 100.0 *. Math.simple_moving_average ~current:abs_diff n get next previous *)
       100.0 *. Math.simple_moving_average ~current:abs_diff n get next previous
     in
-    (* sma *)
-    (* /. (positive_directional_indicator n previous current *)
-    (*    +. negative_directional_indicator n previous current) *)
-    sma /. (pdi +. ndi)
+    match pdi +. ndi with 0.0 -> 0.0 | sum -> sma /. sum
 
   let top previous current : t =
     match previous with
