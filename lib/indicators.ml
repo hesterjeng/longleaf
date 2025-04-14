@@ -143,7 +143,8 @@ module ATR = struct
     Float.max high close_prev -. Float.min low close_prev
 
   let average_true_range n (previous : Point_ty.t option) (current : Item.t) =
-    assert (not @@ Float.equal n 0.0);
+    assert (not @@ Int.equal n 0);
+    let n = Float.of_int n in
     match previous with
     | Some prev ->
         ((prev.average_true_range *. (n -. 1.0)) +. true_range prev current)
@@ -192,9 +193,31 @@ module ADX = struct
     let downmove = now_low -. previous_low in
     if downmove >. upmove && downmove >. 0.0 then downmove else 0.0
 
-  (* let sma_pdm (previous : Point_ty.t) (current : Item.t) = *)
+  let sma_pdm n (previous : Point_ty.t) (current : Item.t) =
+    let get_pdm (x : Point_ty.t) = x.adx.positive_directional_movement in
+    let next (x : Point_ty.t) = x.previous in
+    let pdm = positive_directional_movement previous current in
+    Math.simple_moving_average ~current:pdm n get_pdm next previous
 
-  (* let top (previous : Point_ty.t) (current : Item.t) = *)
+  let sma_ndm n (previous : Point_ty.t) (current : Item.t) =
+    let get_ndm (x : Point_ty.t) = x.adx.negative_directional_movement in
+    let next (x : Point_ty.t) = x.previous in
+    let ndm = negative_directional_movement previous current in
+    Math.simple_moving_average ~current:ndm n get_ndm next previous
+
+  let positive_directional_indicator n (previous : Point_ty.t)
+      (current : Item.t) =
+    let atr = ATR.average_true_range n (Some previous) current in
+    assert (not @@ Float.equal atr 0.0);
+    100.0 *. sma_pdm n previous current /. atr
+
+  let negative_directional_indicator n (previous : Point_ty.t)
+      (current : Item.t) =
+    let atr = ATR.average_true_range n (Some previous) current in
+    assert (not @@ Float.equal atr 0.0);
+    100.0 *. sma_ndm n previous current /. atr
+
+  let adx n (previous : Point_ty.t) (current : Item.t) = 0.0
 end
 
 module SO = struct
