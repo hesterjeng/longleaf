@@ -2,12 +2,13 @@ module Hashtbl = Hashtbl.Make (Instrument)
 
 module Point_ty = struct
   type adx = {
-    positive_directional_movement : float;
-    negative_directional_movement : float;
-    (* sma_positive_dm : float; *)
-    (* sma_negative_dm : float; *)
-    positive_directional_indicator : float;
-    negative_directional_indicator : float;
+    (* positive_directional_movement : float; *)
+    (* negative_directional_movement : float; *)
+    ema_positive_dm : float;
+    ema_negative_dm : float;
+    ema_di_diff : float;
+    (* positive_directional_indicator : float; *)
+    (* negative_directional_indicator : float; *)
     adx : float;
   }
   [@@deriving show, yojson, fields ~getters]
@@ -155,7 +156,7 @@ module ATR = struct
     | Some prev ->
         ((prev.average_true_range *. (n -. 1.0)) +. true_range prev current)
         /. n
-    | None -> Item.high current -. Item.low current
+    | None -> 0.0
 end
 
 module ADX = struct
@@ -188,80 +189,56 @@ module ADX = struct
     let downmove = previous_low -. now_low in
     if downmove >. upmove && downmove >. 0.0 then downmove else 0.0
 
-  let sma_pdm n (previous : Point_ty.t) (current : Item.t) =
-    let get_pdm (x : Point_ty.t) = x.adx.positive_directional_movement in
-    let next (x : Point_ty.t) = x.previous in
-    let pdm = positive_directional_movement previous current in
-    Math.simple_moving_average ~current:pdm n get_pdm next previous
+  let ema_pdm n (previous : Point_ty.t) (current : Item.t) =
+    Math.ema n previous.adx.ema_positive_dm
+    @@ positive_directional_movement previous current
 
-  let sma_ndm n (previous : Point_ty.t) (current : Item.t) =
-    let get_ndm (x : Point_ty.t) = x.adx.negative_directional_movement in
-    let next (x : Point_ty.t) = x.previous in
-    let ndm = negative_directional_movement previous current in
-    Math.simple_moving_average ~current:ndm n get_ndm next previous
+  let ema_ndm n (previous : Point_ty.t) (current : Item.t) =
+    Math.ema n previous.adx.ema_negative_dm
+    @@ negative_directional_movement previous current
 
-  let positive_directional_indicator n ~sma_pdm (previous : Point_ty.t)
+  let positive_directional_indicator n ~ema_pdm (previous : Point_ty.t)
       (current : Item.t) =
     let atr = ATR.average_true_range n (Some previous) current in
     assert (not @@ Float.equal atr 0.0);
-    100.0 *. sma_pdm /. atr
-  (* 100.0 *. sma_pdm n previous current /. atr *)
+    100.0 *. ema_pdm /. atr
 
-  let negative_directional_indicator n ~sma_ndm (previous : Point_ty.t)
+  let negative_directional_indicator n ~ema_ndm (previous : Point_ty.t)
       (current : Item.t) =
     let atr = ATR.average_true_range n (Some previous) current in
     assert (not @@ Float.equal atr 0.0);
-    100.0 *. sma_ndm /. atr
-  (* 100.0 *. sma_ndm n previous current /. atr *)
+    100.0 *. ema_ndm /. atr
 
-  let adx ~pdi ~ndi n (previous : Point_ty.t) =
-    let get (x : Point_ty.t) =
-      let pdi = x.adx.positive_directional_indicator in
-      let ndi = x.adx.negative_directional_indicator in
-      Float.abs (pdi -. ndi)
-    in
-    let diff =
-      pdi -. ndi
-      (* positive_directional_indicator n previous current *)
-      (* -. negative_directional_indicator n previous current *)
-    in
-    let next (x : Point_ty.t) = x.previous in
-    let abs_diff = Float.abs diff in
-    let sma =
-      (* 100.0 *. Math.simple_moving_average ~current:abs_diff n get next previous *)
-      100.0 *. Math.simple_moving_average ~current:abs_diff n get next previous
-    in
-    match pdi +. ndi with 0.0 -> 0.0 | sum -> sma /. sum
+  let adx ~pdi ~ndi ~ema_di_diff =
+    match pdi +. ndi with 0.0 -> 0.0 | sum -> 100.0 *. (ema_di_diff /. sum)
 
   let top previous current : t =
     match previous with
     | None ->
         {
-          positive_directional_movement = 0.0;
-          negative_directional_movement = 0.0;
-          positive_directional_indicator = 0.0;
-          negative_directional_indicator = 0.0;
+          ema_positive_dm = 0.0;
+          ema_negative_dm = 0.0;
+          ema_di_diff = 0.0;
           adx = 0.0;
         }
     | Some previous ->
-        let positive_directional_movement =
-          positive_directional_movement previous current
+        let ema_positive_dm = ema_pdm 14 previous current in
+        let ema_negative_dm = ema_ndm 14 previous current in
+        let pdi =
+          positive_directional_indicator ~ema_pdm:ema_positive_dm 14 previous
+            current
         in
-        let negative_directional_movement =
-          negative_directional_movement previous current
+        let ndi =
+          negative_directional_indicator ~ema_ndm:ema_negative_dm 14 previous
+            current
         in
-        let sma_pdm = sma_pdm 14 previous current in
-        let sma_ndm = sma_ndm 14 previous current in
-        let pdi = positive_directional_indicator ~sma_pdm 14 previous current in
-        let ndi = negative_directional_indicator ~sma_ndm 14 previous current in
-        let adx = adx ~pdi ~ndi 14 previous in
-        {
-          positive_directional_movement;
-          negative_directional_movement;
-          positive_directional_indicator = pdi;
-          negative_directional_indicator = ndi;
-          adx;
-        }
+        let ema_di_diff =
+          Math.ema 14 previous.adx.ema_di_diff @@ Float.abs (pdi -. ndi)
+        in
+        let adx = adx ~pdi ~ndi ~ema_di_diff in
+        let res : t = { ema_positive_dm; ema_negative_dm; ema_di_diff; adx } in
+        (* Eio.traceln "%a" Point_ty.pp_adx res; *)
+        res
 end
 
 module SO = struct
