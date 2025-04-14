@@ -4,8 +4,8 @@ module Point_ty = struct
   type adx = {
     positive_directional_movement : float;
     negative_directional_movement : float;
-    sma_positive_dm : float;
-    sma_negative_dm : float;
+    (* sma_positive_dm : float; *)
+    (* sma_negative_dm : float; *)
     positive_directional_indicator : float;
     negative_directional_indicator : float;
     adx : float;
@@ -129,7 +129,11 @@ module RSI = struct
     let d = d now previous in
     d +. (previous_mad *. ((period -. 1.0) /. period))
 
-  let rsi mau mad = 100.0 -. (100.0 *. (1.0 /. (1.0 +. (mau /. mad))))
+  let rsi mau mad =
+    assert (not @@ Float.is_nan mad);
+    assert (not @@ Float.is_nan mau);
+    let ratio = match mad with 0.0 -> 0.0 | _ -> mau /. mad in
+    100.0 -. (100.0 *. (1.0 /. (1.0 +. ratio)))
 end
 
 module ATR = struct
@@ -153,6 +157,15 @@ module ATR = struct
 end
 
 module ADX = struct
+  (* type adx = { *)
+  (*   positive_directional_movement : float; *)
+  (*   negative_directional_movement : float; *)
+  (*   sma_positive_dm : float; *)
+  (*   sma_negative_dm : float; *)
+  (*   positive_directional_indicator : float; *)
+  (*   negative_directional_indicator : float; *)
+  (*   adx : float; *)
+  (* } *)
   type t = Point_ty.adx
 
   let positive_directional_movement (previous : Point_ty.t) (current : Item.t) =
@@ -185,36 +198,70 @@ module ADX = struct
     let ndm = negative_directional_movement previous current in
     Math.simple_moving_average ~current:ndm n get_ndm next previous
 
-  let positive_directional_indicator n (previous : Point_ty.t)
+  let positive_directional_indicator n ~sma_pdm (previous : Point_ty.t)
       (current : Item.t) =
     let atr = ATR.average_true_range n (Some previous) current in
     assert (not @@ Float.equal atr 0.0);
-    100.0 *. sma_pdm n previous current /. atr
+    100.0 *. sma_pdm /. atr
+  (* 100.0 *. sma_pdm n previous current /. atr *)
 
-  let negative_directional_indicator n (previous : Point_ty.t)
+  let negative_directional_indicator n ~sma_ndm (previous : Point_ty.t)
       (current : Item.t) =
     let atr = ATR.average_true_range n (Some previous) current in
     assert (not @@ Float.equal atr 0.0);
-    100.0 *. sma_ndm n previous current /. atr
+    100.0 *. sma_ndm /. atr
+  (* 100.0 *. sma_ndm n previous current /. atr *)
 
-  let adx n (previous : Point_ty.t) (current : Item.t) =
+  let adx ~pdi ~ndi n (previous : Point_ty.t) =
     let get (x : Point_ty.t) =
       let pdi = x.adx.positive_directional_indicator in
       let ndi = x.adx.negative_directional_indicator in
       Float.abs (pdi -. ndi)
     in
     let diff =
-      positive_directional_indicator n previous current
-      -. negative_directional_indicator n previous current
+      pdi -. ndi
+      (* positive_directional_indicator n previous current *)
+      (* -. negative_directional_indicator n previous current *)
     in
     let next (x : Point_ty.t) = x.previous in
     let abs_diff = Float.abs diff in
     let sma =
       100.0 *. Math.simple_moving_average ~current:abs_diff n get next previous
     in
-    sma
-    /. (positive_directional_indicator n previous current
-       +. negative_directional_indicator n previous current)
+    (* sma *)
+    (* /. (positive_directional_indicator n previous current *)
+    (*    +. negative_directional_indicator n previous current) *)
+    sma /. (pdi +. ndi)
+
+  let top previous current : t =
+    match previous with
+    | None ->
+        {
+          positive_directional_movement = 0.0;
+          negative_directional_movement = 0.0;
+          positive_directional_indicator = 0.0;
+          negative_directional_indicator = 0.0;
+          adx = 0.0;
+        }
+    | Some previous ->
+        let positive_directional_movement =
+          positive_directional_movement previous current
+        in
+        let negative_directional_movement =
+          negative_directional_movement previous current
+        in
+        let sma_pdm = sma_pdm 14 previous current in
+        let sma_ndm = sma_ndm 14 previous current in
+        let pdi = positive_directional_indicator ~sma_pdm 14 previous current in
+        let ndi = negative_directional_indicator ~sma_ndm 14 previous current in
+        let adx = adx ~pdi ~ndi 14 previous in
+        {
+          positive_directional_movement;
+          negative_directional_movement;
+          positive_directional_indicator = pdi;
+          negative_directional_indicator = ndi;
+          adx;
+        }
 end
 
 module SO = struct
@@ -292,7 +339,8 @@ module Point = struct
     let sma_233 = simple_moving_average 233 symbol_history in
     let ema_12 = EMA.make 12 symbol_history in
     let ema_26 = EMA.make 26 symbol_history in
-    let average_true_range = ATR.average_true_range 14.0 previous latest in
+    let average_true_range = ATR.average_true_range 14 previous latest in
+    let adx = ADX.top previous latest in
     let res : t =
       {
         timestamp;
@@ -325,6 +373,7 @@ module Point = struct
         ft_normalized_magnitude;
         fft_mean_squared_error;
         previous;
+        adx;
       }
     in
     res
