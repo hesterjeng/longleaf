@@ -1,5 +1,61 @@
 module Hashtbl = Hashtbl.Make (Instrument)
 
+module Point_ty = struct
+  type adx = {
+    (* positive_directional_movement : float; *)
+    (* negative_directional_movement : float; *)
+    ema_positive_dm : float;
+    ema_negative_dm : float;
+    ema_di_diff : float;
+    (* positive_directional_indicator : float; *)
+    (* negative_directional_indicator : float; *)
+    adx : float;
+  }
+  [@@deriving show, yojson, fields ~getters]
+
+  type t = {
+    symbol : Instrument.t;
+    timestamp : Time.t;
+    item : Item.t;
+    price : float;
+    volume : int;
+    accumulation_distribution_line : float;
+    ema_12 : float;
+    ema_26 : float;
+    macd : float;
+    sma_5 : float;
+    sma_34 : float;
+    sma_75 : float;
+    sma_233 : float;
+    (* positive_directional_movement : float; *)
+    (* negative_directional_movement : float; *)
+    (* sma_positive_dm : float; *)
+    (* sma_negative_dm : float; *)
+    adx : adx;
+    average_true_range : float;
+    upper_bollinger : float;
+    lower_bollinger : float;
+    upper_bollinger_100_1 : float;
+    lower_bollinger_100_1 : float;
+    upper_bollinger_100_3 : float;
+    lower_bollinger_100_3 : float;
+    awesome_oscillator : float;
+    awesome_slow : float;
+    average_gain : float;
+    average_loss : float;
+    relative_strength_index : float;
+    fast_stochastic_oscillator_k : float;
+    fast_stochastic_oscillator_d : float;
+    fourier_transform : (Fourier.t[@yojson.opaque]);
+    ft_normalized_magnitude : float;
+    fft_mean_squared_error : float;
+    previous : t option;
+  }
+  [@@deriving show, yojson, fields ~getters]
+
+  let adx x = x.adx.adx
+end
+
 let money_flow_multiplier (x : Item.t) =
   let open Float in
   let open Item in
@@ -21,7 +77,7 @@ let adl previous_adl (current : Item.t) =
   res
 
 module EMA = struct
-  let make n (l : Bars.symbol_history) =
+  let make n (l : Price_history.t) =
     let window = Util.last_n n l |> Iter.map Item.last in
     let smoothing_factor = 2.0 /. (Float.of_int n +. 1.0) in
     let initial_value = Iter.take 1 window |> Iter.fold ( +. ) 0.0 in
@@ -33,7 +89,7 @@ module EMA = struct
   let macd ~ema_12 ~ema_26 = ema_12 -. ema_26
 end
 
-let simple_moving_average n (l : Bars.symbol_history) =
+let simple_moving_average n (l : Price_history.t) =
   let window = Util.last_n n l |> Iter.map Item.last in
   let sum = Iter.fold ( +. ) 0.0 window in
   sum /. Float.of_int n
@@ -77,17 +133,120 @@ module RSI = struct
     let d = d now previous in
     d +. (previous_mad *. ((period -. 1.0) /. period))
 
-  let rsi mau mad = 100.0 -. (100.0 *. (1.0 /. (1.0 +. (mau /. mad))))
+  let rsi mau mad =
+    assert (not @@ Float.is_nan mad);
+    assert (not @@ Float.is_nan mau);
+    let ratio = match mad with 0.0 -> 0.0 | _ -> mau /. mad in
+    100.0 -. (100.0 *. (1.0 /. (1.0 +. ratio)))
+end
+
+module ATR = struct
+  (* Average true range *)
+
+  let true_range (previous : Point_ty.t) (current : Item.t) =
+    let previous = previous.item in
+    let high = Item.high current in
+    let low = Item.low current in
+    let close_prev = Item.last previous in
+    Float.max high close_prev -. Float.min low close_prev
+
+  let average_true_range n (previous : Point_ty.t option) (current : Item.t) =
+    match previous with
+    | Some prev -> Math.ema n prev.average_true_range @@ true_range prev current
+    | None -> Item.high current -. Item.low current
 end
 
 module ADX = struct
-  let top (l : Bars.symbol_history) (current : Item.t) = ()
+  (* type adx = { *)
+  (*   positive_directional_movement : float; *)
+  (*   negative_directional_movement : float; *)
+  (*   sma_positive_dm : float; *)
+  (*   sma_negative_dm : float; *)
+  (*   positive_directional_indicator : float; *)
+  (*   negative_directional_indicator : float; *)
+  (*   adx : float; *)
+  (* } *)
+  type t = Point_ty.adx
+
+  let positive_directional_movement (previous : Point_ty.t) (current : Item.t) =
+    let now_high = Item.high current in
+    let now_low = Item.low current in
+    let previous_high = Item.high previous.item in
+    let previous_low = Item.low previous.item in
+    let upmove = now_high -. previous_high in
+    let downmove = previous_low -. now_low in
+    if upmove >. downmove && upmove >. 0.0 then upmove else 0.0
+
+  let negative_directional_movement (previous : Point_ty.t) (current : Item.t) =
+    let now_high = Item.high current in
+    let now_low = Item.low current in
+    let previous_high = Item.high previous.item in
+    let previous_low = Item.low previous.item in
+    let upmove = now_high -. previous_high in
+    let downmove = previous_low -. now_low in
+    if downmove >. upmove && downmove >. 0.0 then downmove else 0.0
+
+  let ema_pdm n (previous : Point_ty.t) (current : Item.t) =
+    Math.ema n previous.adx.ema_positive_dm
+    @@ positive_directional_movement previous current
+
+  let ema_ndm n (previous : Point_ty.t) (current : Item.t) =
+    Math.ema n previous.adx.ema_negative_dm
+    @@ negative_directional_movement previous current
+
+  let positive_directional_indicator n ~ema_pdm (previous : Point_ty.t)
+      (current : Item.t) =
+    let atr = ATR.average_true_range n (Some previous) current in
+    assert (not @@ Float.equal atr 0.0);
+    100.0 *. ema_pdm /. atr
+
+  let negative_directional_indicator n ~ema_ndm (previous : Point_ty.t)
+      (current : Item.t) =
+    let atr = ATR.average_true_range n (Some previous) current in
+    assert (not @@ Float.equal atr 0.0);
+    100.0 *. ema_ndm /. atr
+
+  let adx ~pdi ~ndi ~ema_di_diff =
+    match pdi +. ndi with
+    | 0.0 -> 0.0
+    | sum when ema_di_diff >. sum -> 100.0
+    | sum -> 100.0 *. (ema_di_diff /. sum)
+
+  let top previous current : t =
+    match previous with
+    | None ->
+        {
+          ema_positive_dm = 0.0;
+          ema_negative_dm = 0.0;
+          ema_di_diff = 0.0;
+          adx = 0.0;
+        }
+    | Some previous ->
+        let ema_positive_dm = ema_pdm 14 previous current in
+        let ema_negative_dm = ema_ndm 14 previous current in
+        let pdi =
+          positive_directional_indicator ~ema_pdm:ema_positive_dm 14 previous
+            current
+        in
+        let ndi =
+          negative_directional_indicator ~ema_ndm:ema_negative_dm 14 previous
+            current
+        in
+        let ema_di_diff =
+          let abs_diff = Float.abs (pdi -. ndi) in
+          assert (abs_diff <=. pdi +. ndi);
+          Math.ema 14 previous.adx.ema_di_diff @@ Float.abs (pdi -. ndi)
+        in
+        let adx = adx ~pdi ~ndi ~ema_di_diff in
+        let res : t = { ema_positive_dm; ema_negative_dm; ema_di_diff; adx } in
+        (* Eio.traceln "%a" Point_ty.pp_adx res; *)
+        res
 end
 
 module SO = struct
   (* Stochastic Oscillators *)
 
-  let pK n (l : Bars.symbol_history) (last : Item.t) =
+  let pK n (l : Price_history.t) (last : Item.t) =
     let current = Item.last last in
     let window =
       Util.last_n n l |> Iter.map Item.last |> Iter.cons current
@@ -108,73 +267,10 @@ end
 (* module Fourier = Fourier *)
 
 module Point = struct
-  type t = {
-    timestamp : Time.t;
-    (* item : Item.t; *)
-    price : float;
-    volume : int;
-    accumulation_distribution_line : float;
-    ema_12 : float;
-    ema_26 : float;
-    macd : float;
-    sma_5 : float;
-    sma_34 : float;
-    sma_75 : float;
-    sma_233 : float;
-    upper_bollinger : float;
-    lower_bollinger : float;
-    upper_bollinger_100_1 : float;
-    lower_bollinger_100_1 : float;
-    upper_bollinger_100_3 : float;
-    lower_bollinger_100_3 : float;
-    awesome_oscillator : float;
-    awesome_slow : float;
-    average_gain : float;
-    average_loss : float;
-    relative_strength_index : float;
-    fast_stochastic_oscillator_k : float;
-    fast_stochastic_oscillator_d : float;
-    fourier_transform : (Fourier.t[@yojson.opaque]);
-    ft_normalized_magnitude : float;
-    fft_mean_squared_error : float;
-    previous : t option;
-  }
-  [@@deriving show, yojson, fields ~getters]
-
-  (* let initial timestamp : t = *)
-  (*   { *)
-  (*     timestamp; *)
-  (*     accumulation_distribution_line = 0.0; *)
-  (*     ema_12 = 0.0; *)
-  (*     ema_26 = 0.0; *)
-  (*     macd = 0.0; *)
-  (*     price = 0.0; *)
-  (*     volume = 0; *)
-  (*     sma_5 = 0.0; *)
-  (*     sma_34 = 0.0; *)
-  (*     sma_75 = 0.0; *)
-  (*     sma_233 = 0.0; *)
-  (*     upper_bollinger = 0.0; *)
-  (*     lower_bollinger = 0.0; *)
-  (*     upper_bollinger_100_1 = 0.0; *)
-  (*     lower_bollinger_100_1 = 0.0; *)
-  (*     upper_bollinger_100_3 = 0.0; *)
-  (*     lower_bollinger_100_3 = 0.0; *)
-  (*     awesome_oscillator = 0.0; *)
-  (*     awesome_slow = 0.0; *)
-  (*     average_gain = 0.00001; *)
-  (*     average_loss = 0.00001; *)
-  (*     relative_strength_index = 50.0; *)
-  (*     fast_stochastic_oscillator_k = 50.0; *)
-  (*     fast_stochastic_oscillator_d = 50.0; *)
-  (*     fourier_transform = Fourier.empty; *)
-  (*     ft_normalized_magnitude = 0.0; *)
-  (*     fft_mean_squared_error = 0.0; *)
-  (*     previous = None; *)
-  (*   } *)
+  include Point_ty
 
   let of_latest config timestamp symbol_history (previous : t option)
-      (previous_vec : (t, _) Vector.t) (latest : Item.t) =
+      (previous_vec : (t, _) Vector.t) (latest : Item.t) symbol =
     let lower_bollinger, upper_bollinger = bollinger 34 2 symbol_history in
     let lower_bollinger_100_3, upper_bollinger_100_3 =
       bollinger 100 3 symbol_history
@@ -189,7 +285,9 @@ module Point = struct
     let previous_price, previous_average_gain, previous_average_loss =
       match previous with
       | None -> (price, 0.0, 0.0)
-      | Some prev -> (prev.price, prev.average_gain, prev.average_loss)
+      | Some prev ->
+          assert (Instrument.equal symbol prev.symbol);
+          (prev.price, prev.average_gain, prev.average_loss)
     in
     let average_gain =
       RSI.mau 14.0 previous_average_gain price previous_price
@@ -222,9 +320,14 @@ module Point = struct
     let sma_233 = simple_moving_average 233 symbol_history in
     let ema_12 = EMA.make 12 symbol_history in
     let ema_26 = EMA.make 26 symbol_history in
-    let res =
+    let average_true_range = ATR.average_true_range 14 previous latest in
+    let adx = ADX.top previous latest in
+    let res : t =
       {
+        symbol;
         timestamp;
+        item = latest;
+        average_true_range;
         accumulation_distribution_line = adl previous_adl latest;
         ema_12;
         ema_26;
@@ -252,6 +355,7 @@ module Point = struct
         ft_normalized_magnitude;
         fft_mean_squared_error;
         previous;
+        adx;
       }
     in
     res
@@ -309,7 +413,7 @@ let initialize_single config bars symbol =
     let timestamp = Item.timestamp item in
     let res =
       Point.of_latest config timestamp bars_upto_now previous
-        initial_stats_vector item
+        initial_stats_vector item symbol
     in
     Vector.push initial_stats_vector res;
     Vector.push bars_upto_now (Vector.get bars_vec i);
@@ -340,6 +444,6 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
   let previous = Vector.top indicators_vector in
   let new_indicators =
     Point.of_latest config timestamp symbol_history previous indicators_vector
-      latest
+      latest symbol
   in
   Vector.push indicators_vector new_indicators

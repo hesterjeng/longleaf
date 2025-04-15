@@ -25,6 +25,7 @@ module Request = struct
          end_ = Option.return @@ Time.of_ymd end_arg;
        }
 
+  (* Split a single large request into multiple *)
   let split (x : t) =
     match x.end_ with
     | None -> [ x ]

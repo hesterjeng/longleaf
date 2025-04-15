@@ -48,3 +48,47 @@ let find_local_minima ~window_size l =
 
 let most_recent_maxima ~window_size l =
   max_close @@ Iter.rev @@ Iter.take window_size l
+
+let simple_moving_average ?current n (f : 'a -> float) (next : 'a -> 'a option)
+    (x : 'a) =
+  assert (n > 0);
+  let counter, start =
+    match current with
+    | Some start ->
+        assert (n > 1);
+        (n - 1, start)
+    | None -> (n, 0.0)
+  in
+  let rec aux n acc x =
+    match n with
+    | 0 -> acc
+    | n -> (
+        let curr = f x in
+        match next x with
+        | None -> curr :: acc
+        | Some prev -> aux (n - 1) (curr :: acc) prev)
+  in
+  let l = aux counter [] x in
+  let sum = List.fold_left ( +. ) start l in
+  sum /. Float.of_int n
+
+let ema n yesterday_ema today_value =
+  (today_value *. (2.0 /. (1.0 +. Float.of_int n)))
+  +. (yesterday_ema *. (1.0 -. (2.0 /. (1.0 +. Float.of_int n))))
+
+let wilder n yesterday_ma today_value =
+  yesterday_ma -. (yesterday_ma /. Float.of_int n) +. today_value
+
+(* let last_n n (f : 'a -> float) (next : 'a -> 'a option) (x : 'a) *)
+(*     = *)
+(*   assert (n >= 0); *)
+(*   let rec aux n acc x = *)
+(*     match n with *)
+(*     | 0 -> acc *)
+(*     | n -> ( *)
+(*         let curr = f x in *)
+(*         match next x with *)
+(*         | None -> curr :: acc *)
+(*         | Some prev -> aux (n - 1) (curr :: acc) prev) *)
+(*   in *)
+(*   aux n [] x *)
