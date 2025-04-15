@@ -76,6 +76,9 @@ let ema n yesterday_ema today_value =
   (today_value *. (2.0 /. (1.0 +. Float.of_int n)))
   +. (yesterday_ema *. (1.0 -. (2.0 /. (1.0 +. Float.of_int n))))
 
+let wilder n yesterday_ma today_value =
+  yesterday_ma -. (yesterday_ma /. Float.of_int n) +. today_value
+
 (* let last_n n (f : 'a -> float) (next : 'a -> 'a option) (x : 'a) *)
 (*     = *)
 (*   assert (n >= 0); *)
