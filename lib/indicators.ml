@@ -14,6 +14,7 @@ module Point_ty = struct
   [@@deriving show, yojson, fields ~getters]
 
   type t = {
+    symbol : Instrument.t;
     timestamp : Time.t;
     item : Item.t;
     price : float;
@@ -269,7 +270,7 @@ module Point = struct
   include Point_ty
 
   let of_latest config timestamp symbol_history (previous : t option)
-      (previous_vec : (t, _) Vector.t) (latest : Item.t) =
+      (previous_vec : (t, _) Vector.t) (latest : Item.t) symbol =
     let lower_bollinger, upper_bollinger = bollinger 34 2 symbol_history in
     let lower_bollinger_100_3, upper_bollinger_100_3 =
       bollinger 100 3 symbol_history
@@ -284,7 +285,9 @@ module Point = struct
     let previous_price, previous_average_gain, previous_average_loss =
       match previous with
       | None -> (price, 0.0, 0.0)
-      | Some prev -> (prev.price, prev.average_gain, prev.average_loss)
+      | Some prev ->
+          assert (Instrument.equal symbol prev.symbol);
+          (prev.price, prev.average_gain, prev.average_loss)
     in
     let average_gain =
       RSI.mau 14.0 previous_average_gain price previous_price
@@ -321,6 +324,7 @@ module Point = struct
     let adx = ADX.top previous latest in
     let res : t =
       {
+        symbol;
         timestamp;
         item = latest;
         average_true_range;
@@ -409,7 +413,7 @@ let initialize_single config bars symbol =
     let timestamp = Item.timestamp item in
     let res =
       Point.of_latest config timestamp bars_upto_now previous
-        initial_stats_vector item
+        initial_stats_vector item symbol
     in
     Vector.push initial_stats_vector res;
     Vector.push bars_upto_now (Vector.get bars_vec i);
@@ -440,6 +444,6 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
   let previous = Vector.top indicators_vector in
   let new_indicators =
     Point.of_latest config timestamp symbol_history previous indicators_vector
-      latest
+      latest symbol
   in
   Vector.push indicators_vector new_indicators
