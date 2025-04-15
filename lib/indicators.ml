@@ -206,8 +206,10 @@ module ADX = struct
     100.0 *. ema_ndm /. atr
 
   let adx ~pdi ~ndi ~ema_di_diff =
-    assert (ema_di_diff <=. pdi +. ndi);
-    match pdi +. ndi with 0.0 -> 0.0 | sum -> 100.0 *. (ema_di_diff /. sum)
+    match pdi +. ndi with
+    | 0.0 -> 0.0
+    | sum when ema_di_diff >. sum -> 100.0
+    | sum -> 100.0 *. (ema_di_diff /. sum)
 
   let top previous current : t =
     match previous with
