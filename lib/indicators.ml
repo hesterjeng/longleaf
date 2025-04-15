@@ -150,13 +150,9 @@ module ATR = struct
     Float.max high close_prev -. Float.min low close_prev
 
   let average_true_range n (previous : Point_ty.t option) (current : Item.t) =
-    assert (not @@ Int.equal n 0);
-    let n = Float.of_int n in
     match previous with
-    | Some prev ->
-        ((prev.average_true_range *. (n -. 1.0)) +. true_range prev current)
-        /. n
-    | None -> 0.0
+    | Some prev -> Math.ema n prev.average_true_range @@ true_range prev current
+    | None -> Item.high current -. Item.low current
 end
 
 module ADX = struct
@@ -210,6 +206,7 @@ module ADX = struct
     100.0 *. ema_ndm /. atr
 
   let adx ~pdi ~ndi ~ema_di_diff =
+    assert (ema_di_diff <=. pdi +. ndi);
     match pdi +. ndi with 0.0 -> 0.0 | sum -> 100.0 *. (ema_di_diff /. sum)
 
   let top previous current : t =
@@ -233,6 +230,8 @@ module ADX = struct
             current
         in
         let ema_di_diff =
+          let abs_diff = Float.abs (pdi -. ndi) in
+          assert (abs_diff <=. pdi +. ndi);
           Math.ema 14 previous.adx.ema_di_diff @@ Float.abs (pdi -. ndi)
         in
         let adx = adx ~pdi ~ndi ~ema_di_diff in
