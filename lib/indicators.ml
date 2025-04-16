@@ -55,6 +55,7 @@ module Point_ty = struct
   [@@deriving show, yojson, fields ~getters]
 
   let adx x = x.adx.adx
+  let cci x = x.cci.cci
 end
 
 let money_flow_multiplier (x : Item.t) =
