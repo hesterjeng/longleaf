@@ -1,14 +1,14 @@
 module Hashtbl = Hashtbl.Make (Instrument)
 
 module Point_ty = struct
+  type cci = { cci : float; typical_price : float }
+  [@@deriving show, yojson, fields ~getters]
+
+  (* Type for average divergance calculation *)
   type adx = {
-    (* positive_directional_movement : float; *)
-    (* negative_directional_movement : float; *)
     ema_positive_dm : float;
     ema_negative_dm : float;
     ema_di_diff : float;
-    (* positive_directional_indicator : float; *)
-    (* negative_directional_indicator : float; *)
     adx : float;
   }
   [@@deriving show, yojson, fields ~getters]
@@ -32,6 +32,7 @@ module Point_ty = struct
     (* sma_positive_dm : float; *)
     (* sma_negative_dm : float; *)
     adx : adx;
+    cci : cci;
     average_true_range : float;
     upper_bollinger : float;
     lower_bollinger : float;
@@ -243,6 +244,39 @@ module ADX = struct
         res
 end
 
+module CCI = struct
+  (* Commodity Channel Index *)
+
+  type t = Point_ty.cci
+
+  let typical_price (item : Item.t) =
+    (Item.high item +. Item.low item +. Item.last item) /. 3.0
+
+  let top (previous : Point_ty.t option) (item : Item.t) : t =
+    let typical_price = typical_price item in
+    match previous with
+    | None -> { typical_price; cci = 0.0 }
+    | Some prev ->
+        let sma_pt =
+          Math.simple_moving_average ~current:typical_price 14
+            (fun (x : Point_ty.t) -> x.cci.typical_price)
+            Point_ty.previous prev
+        in
+        let current_divergence = Float.abs @@ (typical_price -. sma_pt) in
+        let mean_absolute_divergence =
+          Math.simple_moving_average ~current:current_divergence 14
+            (fun (x : Point_ty.t) ->
+              Float.abs @@ (x.cci.typical_price -. sma_pt))
+            Point_ty.previous prev
+        in
+        {
+          typical_price;
+          cci =
+            1.0 /. 0.015
+            *. ((typical_price -. sma_pt) /. mean_absolute_divergence);
+        }
+end
+
 module SO = struct
   (* Stochastic Oscillators *)
 
@@ -322,6 +356,7 @@ module Point = struct
     let ema_26 = EMA.make 26 symbol_history in
     let average_true_range = ATR.average_true_range 14 previous latest in
     let adx = ADX.top previous latest in
+    let cci = CCI.top previous latest in
     let res : t =
       {
         symbol;
@@ -356,6 +391,7 @@ module Point = struct
         fft_mean_squared_error;
         previous;
         adx;
+        cci;
       }
     in
     res
