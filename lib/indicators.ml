@@ -259,13 +259,13 @@ module CCI = struct
     | None -> { typical_price; cci = 0.0 }
     | Some prev ->
         let sma_pt =
-          Math.simple_moving_average ~current:typical_price 14
+          Math.simple_moving_average ~current:typical_price 140
             (fun (x : Point_ty.t) -> x.cci.typical_price)
             Point_ty.previous prev
         in
         let current_divergence = Float.abs @@ (typical_price -. sma_pt) in
         let mean_absolute_divergence =
-          Math.simple_moving_average ~current:current_divergence 14
+          Math.simple_moving_average ~current:current_divergence 140
             (fun (x : Point_ty.t) ->
               Float.abs @@ (x.cci.typical_price -. sma_pt))
             Point_ty.previous prev
@@ -273,8 +273,11 @@ module CCI = struct
         {
           typical_price;
           cci =
-            1.0 /. 0.015
-            *. ((typical_price -. sma_pt) /. mean_absolute_divergence);
+            (match mean_absolute_divergence with
+            | 0.0 -> prev.cci.cci
+            | _ ->
+                1.0 /. 0.04
+                *. ((typical_price -. sma_pt) /. mean_absolute_divergence));
         }
 end
 
