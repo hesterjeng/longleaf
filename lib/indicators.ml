@@ -27,12 +27,6 @@ module Point_ty = struct
     sma_34 : float;
     sma_75 : float;
     sma_233 : float;
-    (* positive_directional_movement : float; *)
-    (* negative_directional_movement : float; *)
-    (* sma_positive_dm : float; *)
-    (* sma_negative_dm : float; *)
-    adx : adx;
-    cci : cci;
     average_true_range : float;
     upper_bollinger : float;
     lower_bollinger : float;
@@ -50,6 +44,8 @@ module Point_ty = struct
     fourier_transform : (Fourier.t[@yojson.opaque]);
     ft_normalized_magnitude : float;
     fft_mean_squared_error : float;
+    adx : adx;
+    cci : cci;
     previous : t option;
   }
   [@@deriving show, yojson, fields ~getters]
