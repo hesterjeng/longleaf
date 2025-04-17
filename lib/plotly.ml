@@ -19,13 +19,13 @@ let layout title =
             "showticklabels" = `Bool false;
           ];
       "yaxis" = `Assoc [ "title" = `String "Value" ];
-      "yaxis2"
-      = `Assoc
-          [
-            "title" = `String "Value2";
-            "overlaying" = `String "y";
-            "side" = `String "right";
-          ];
+      (* "yaxis2" *)
+      (* = `Assoc *)
+      (*     [ *)
+      (*       "title" = `String "Value2"; *)
+      (*       "overlaying" = `String "y"; *)
+      (*       "side" = `String "right"; *)
+      (*     ]; *)
     ]
 
 let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
@@ -156,7 +156,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~drop:26 indicators "EMA(26)" IP.ema_26 symbol
   in
   let* macd_trace =
-    indicator_trace ~show:false ~drop:26 ~yaxis:"y2" indicators "MACD" IP.macd
+    indicator_trace ~show:false ~drop:26 indicators "MACD" IP.macd
       symbol
   in
   let* sma_5_trace =
