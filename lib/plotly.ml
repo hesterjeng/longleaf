@@ -184,6 +184,9 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   in
   let* adx = indicator_trace ~show:false indicators "ADX" IP.adx symbol in
   let* cci = indicator_trace ~show:true indicators "CCI" IP.cci symbol in
+  let* ema_cci =
+    indicator_trace ~show:true indicators "EMA CCI" IP.cci symbol
+  in
   let* awesome =
     indicator_trace ~show:false indicators "Awesome Oscillator"
       IP.awesome_oscillator symbol
@@ -227,6 +230,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                sell_trace;
                adx;
                cci;
+               ema_cci;
                ema_12_trace;
                ema_26_trace;
                macd_trace;

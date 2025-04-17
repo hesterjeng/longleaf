@@ -1,7 +1,7 @@
 module Hashtbl = Hashtbl.Make (Instrument)
 
 module Point_ty = struct
-  type cci = { cci : float; typical_price : float }
+  type cci = { cci : float; typical_price : float; ema_cci : float }
   [@@deriving show, yojson, fields ~getters]
 
   (* Type for average divergance calculation *)
@@ -10,6 +10,7 @@ module Point_ty = struct
     ema_negative_dm : float;
     ema_di_diff : float;
     adx : float;
+    ema_adx : float;
   }
   [@@deriving show, yojson, fields ~getters]
 
@@ -52,6 +53,7 @@ module Point_ty = struct
 
   let adx x = x.adx.adx
   let cci x = x.cci.cci
+  let ema_cci x = x.cci.ema_cci
 end
 
 let money_flow_multiplier (x : Item.t) =
@@ -218,6 +220,7 @@ module ADX = struct
           ema_negative_dm = 0.0;
           ema_di_diff = 0.0;
           adx = 0.0;
+          ema_adx = 0.0;
         }
     | Some previous ->
         let ema_positive_dm = ema_pdm 14 previous current in
@@ -236,7 +239,10 @@ module ADX = struct
           Math.ema 14 previous.adx.ema_di_diff @@ Float.abs (pdi -. ndi)
         in
         let adx = adx ~pdi ~ndi ~ema_di_diff in
-        let res : t = { ema_positive_dm; ema_negative_dm; ema_di_diff; adx } in
+        let ema_adx = Math.ema 14 previous.adx.ema_adx adx in
+        let res : t =
+          { ema_positive_dm; ema_negative_dm; ema_di_diff; adx; ema_adx }
+        in
         (* Eio.traceln "%a" Point_ty.pp_adx res; *)
         res
 end
@@ -252,7 +258,7 @@ module CCI = struct
   let top (previous : Point_ty.t option) (item : Item.t) : t =
     let typical_price = typical_price item in
     match previous with
-    | None -> { typical_price; cci = 0.0 }
+    | None -> { typical_price; cci = 0.0; ema_cci = 0.0 }
     | Some prev ->
         let sma_pt =
           Math.simple_moving_average ~current:typical_price 140
@@ -266,15 +272,15 @@ module CCI = struct
               Float.abs @@ (x.cci.typical_price -. sma_pt))
             Point_ty.previous prev
         in
-        {
-          typical_price;
-          cci =
-            (match mean_absolute_divergence with
-            | 0.0 -> prev.cci.cci
-            | _ ->
-                1.0 /. 0.04
-                *. ((typical_price -. sma_pt) /. mean_absolute_divergence));
-        }
+        let cci =
+          match mean_absolute_divergence with
+          | 0.0 -> prev.cci.cci
+          | _ ->
+              1.0 /. 0.04
+              *. ((typical_price -. sma_pt) /. mean_absolute_divergence)
+        in
+        let ema_cci = Math.ema 14 prev.cci.ema_cci cci in
+        { typical_price; cci; ema_cci }
 end
 
 module SO = struct
