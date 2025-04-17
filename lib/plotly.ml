@@ -156,8 +156,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~drop:26 indicators "EMA(26)" IP.ema_26 symbol
   in
   let* macd_trace =
-    indicator_trace ~show:false ~drop:26 indicators "MACD" IP.macd
-      symbol
+    indicator_trace ~show:false ~drop:26 indicators "MACD" IP.macd symbol
   in
   let* sma_5_trace =
     indicator_trace ~drop:5 indicators "SMA(5)" IP.sma_5 symbol

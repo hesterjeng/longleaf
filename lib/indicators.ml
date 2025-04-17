@@ -275,9 +275,13 @@ module CCI = struct
         let cci =
           match mean_absolute_divergence with
           | 0.0 -> prev.cci.cci
-          | _ ->
+          | _ -> (
               1.0 /. 0.04
               *. ((typical_price -. sma_pt) /. mean_absolute_divergence)
+              |> function
+              | x when x >=. 100.0 -> 100.0
+              | x when x <=. -100.0 -> -100.0
+              | x -> x)
         in
         let ema_cci = Math.ema 140 prev.cci.ema_cci cci in
         { typical_price; cci; ema_cci }
