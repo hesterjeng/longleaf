@@ -28,7 +28,7 @@ let layout title =
           ];
     ]
 
-let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1")
+let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
     (indicators : Indicators.t) indicator_name indicator_get
     (symbol : Instrument.t) : Yojson.Safe.t option =
   let+ indicators_vec =
