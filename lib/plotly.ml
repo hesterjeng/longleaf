@@ -8,6 +8,7 @@ let layout title =
       "width" = `Int 1400;
       "height" = `Int 900;
       "title" = `String title;
+      "hovermode" = `String "x";
       "xaxis"
       = `Assoc
           [
@@ -183,9 +184,9 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
       IP.relative_strength_index symbol
   in
   let* adx = indicator_trace ~show:false indicators "ADX" IP.adx symbol in
-  let* cci = indicator_trace ~show:true indicators "CCI" IP.cci symbol in
+  let* cci = indicator_trace ~show:false indicators "CCI" IP.cci symbol in
   let* ema_cci =
-    indicator_trace ~show:true indicators "EMA CCI" IP.cci symbol
+    indicator_trace ~show:true indicators "EMA CCI" IP.ema_cci symbol
   in
   let* awesome =
     indicator_trace ~show:false indicators "Awesome Oscillator"
