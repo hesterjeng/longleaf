@@ -239,7 +239,7 @@ module ADX = struct
           Math.ema 14 previous.adx.ema_di_diff @@ Float.abs (pdi -. ndi)
         in
         let adx = adx ~pdi ~ndi ~ema_di_diff in
-        let ema_adx = Math.ema 14 previous.adx.ema_adx adx in
+        let ema_adx = Math.ema 140 previous.adx.ema_adx adx in
         let res : t =
           { ema_positive_dm; ema_negative_dm; ema_di_diff; adx; ema_adx }
         in
@@ -279,7 +279,7 @@ module CCI = struct
               1.0 /. 0.04
               *. ((typical_price -. sma_pt) /. mean_absolute_divergence)
         in
-        let ema_cci = Math.ema 14 prev.cci.ema_cci cci in
+        let ema_cci = Math.ema 140 prev.cci.ema_cci cci in
         { typical_price; cci; ema_cci }
 end
 
