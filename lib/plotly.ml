@@ -8,6 +8,7 @@ let layout title =
       "width" = `Int 1400;
       "height" = `Int 900;
       "title" = `String title;
+      "hovermode" = `String "x";
       "xaxis"
       = `Assoc
           [
@@ -18,16 +19,16 @@ let layout title =
             "showticklabels" = `Bool false;
           ];
       "yaxis" = `Assoc [ "title" = `String "Value" ];
-      "yaxis2"
-      = `Assoc
-          [
-            "title" = `String "Value2";
-            "overlaying" = `String "y";
-            "side" = `String "right";
-          ];
+      (* "yaxis2" *)
+      (* = `Assoc *)
+      (*     [ *)
+      (*       "title" = `String "Value2"; *)
+      (*       "overlaying" = `String "y"; *)
+      (*       "side" = `String "right"; *)
+      (*     ]; *)
     ]
 
-let indicator_trace ?(show = true) ?(drop = 34) ?(yaxis = "y1")
+let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
     (indicators : Indicators.t) indicator_name indicator_get
     (symbol : Instrument.t) : Yojson.Safe.t option =
   let+ indicators_vec =
@@ -155,8 +156,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~drop:26 indicators "EMA(26)" IP.ema_26 symbol
   in
   let* macd_trace =
-    indicator_trace ~show:false ~drop:26 ~yaxis:"y2" indicators "MACD" IP.macd
-      symbol
+    indicator_trace ~show:false ~drop:26 indicators "MACD" IP.macd symbol
   in
   let* sma_5_trace =
     indicator_trace ~drop:5 indicators "SMA(5)" IP.sma_5 symbol
@@ -183,7 +183,10 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
       IP.relative_strength_index symbol
   in
   let* adx = indicator_trace ~show:false indicators "ADX" IP.adx symbol in
-  let* cci = indicator_trace ~show:true indicators "CCI" IP.cci symbol in
+  let* cci = indicator_trace ~show:false indicators "CCI" IP.cci symbol in
+  let* ema_cci =
+    indicator_trace ~show:true indicators "EMA CCI" IP.ema_cci symbol
+  in
   let* awesome =
     indicator_trace ~show:false indicators "Awesome Oscillator"
       IP.awesome_oscillator symbol
@@ -227,6 +230,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                sell_trace;
                adx;
                cci;
+               ema_cci;
                ema_12_trace;
                ema_26_trace;
                macd_trace;

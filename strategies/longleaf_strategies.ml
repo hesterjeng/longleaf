@@ -72,6 +72,8 @@ type t =
   | SlowCrossover
   | ConfirmedCrossover
   | ThrowingCrossover
+  | LiberatedCrossover
+  | Channel
 [@@deriving show, eq, yojson, variants]
 
 let all = List.map fst Variants.descriptions
@@ -94,6 +96,8 @@ let strats =
     (* SlowCrossover --> (module Slow_crossover.Make); *)
     (* ConfirmedCrossover --> (module Confirmed_crossover.Make); *)
     ThrowingCrossover --> (module Throwing_crossover.Make);
+    LiberatedCrossover --> (module Liberated_crossover.Make);
+    Channel --> (module Channel.Make);
     (* SpyTrader --> (module Spytrader.Make); *)
   ]
 
