@@ -62,7 +62,7 @@ module Sell : Template.Sell_trigger.S = struct
     let+ i = Indicators.get_top state.indicators buying_order.symbol in
     (* let+ price_history = Bars.get_res state.bars buying_order.symbol in *)
     let$ prev = i.previous in
-    let ticks_held = state.tick - buying_order.tick in
+    (* let ticks_held = state.tick - buying_order.tick in *)
     (* let holding_period = ticks_held >= Param.holding_period in *)
     let price_decreasing =
       prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
