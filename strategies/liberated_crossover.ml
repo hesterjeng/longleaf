@@ -69,9 +69,7 @@ module Sell : Template.Sell_trigger.S = struct
     in
     let profited = price >=. buying_order.price in
     let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
-    let stoploss =
-      price <=. Param.stop_loss_multiplier *. buying_order.price
-    in
+    let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in
     let|| () =
       ((high_fso && if profited then price_decreasing else true), "high_fso")
     in
