@@ -276,7 +276,7 @@ module CCI = struct
           match mean_absolute_divergence with
           | 0.0 -> prev.cci.cci
           | _ -> (
-              1.0 /. 0.04
+              1.0 /. 0.015
               *. ((typical_price -. sma_pt) /. mean_absolute_divergence)
               |> function
               | x when x >=. 100.0 -> 100.0
