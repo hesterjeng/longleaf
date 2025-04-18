@@ -43,25 +43,27 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
     let signal = Signal.make buying_order.symbol Sell false in
-    (* let ( let$ ) = Signal.let_get_opt signal in *)
+    let ( let$ ) = Signal.let_get_opt signal in
     let ( let|| ) = Signal.let_or signal in
-    (* let* price = State.price state buying_order.symbol in *)
+    let* price = State.price state buying_order.symbol in
     let+ i = Indicators.get_top state.indicators buying_order.symbol in
     (* let+ price_history = Bars.get_res state.bars buying_order.symbol in *)
-    (* let$ prev = i.previous in *)
+    let$ prev = i.previous in
     (* let ticks_held = state.tick - buying_order.tick in *)
     (* let holding_period = ticks_held >= Param.holding_period in *)
-    (* let price_decreasing = *)
-    (*   prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34 *)
-    (* in *)
     (* let profited = price >=. buying_order.price in *)
     (* let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in *)
-    (* let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in *)
-    let|| () = (i.cci.cci <=. 100.0, "CCI Below 100.0") in
+    let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in
+    let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
+    (* let|| () = (i.cci.cci <=. 100.0, "CCI Below 100.0") in *)
+    let price_decreasing =
+      prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
+    in
+    let|| () = (high_fso && price_decreasing, "high_fso") in
     (* let|| () = *)
     (*   ((high_fso && if profited then price_decreasing else true), "high_fso") *)
     (* in *)
-    (* let|| () = (stoploss, "stoploss") in *)
+    let|| () = (stoploss, "stoploss") in
     (* let|| () = *)
     (*   ((not profited) && i.ema_12 <=. prev.ema_12, "unprofitable exit") *)
     (* in *)
