@@ -12,8 +12,8 @@ let ( let+ ) = Result.( let+ )
 
 module Param = struct
   (* let trailing_loss = 0.96 *)
-  let stop_loss_multiplier = 0.99
-  (* let min_holding_period = 40 *)
+  let stop_loss_multiplier = 0.96
+  let holding_period = 40
 
   (* let profit_multiplier = 1.03 *)
   (* let max_holding_period = 546 *)
@@ -59,29 +59,26 @@ module Sell : Template.Sell_trigger.S = struct
     let ( let$ ) = Signal.let_get_opt signal in
     let ( let|| ) = Signal.let_or signal in
     let* price = State.price state buying_order.symbol in
-    let* i = Indicators.get_top state.indicators buying_order.symbol in
-    let+ price_history = Bars.get_res state.bars buying_order.symbol in
+    let+ i = Indicators.get_top state.indicators buying_order.symbol in
+    (* let+ price_history = Bars.get_res state.bars buying_order.symbol in *)
     let$ prev = i.previous in
     let ticks_held = state.tick - buying_order.tick in
-    let high_since_purchase =
-      Util.last_n ticks_held price_history |> Math.max_close |> Item.last
-    in
-    (* let holding_period = ticks_held >= Param.min_holding_period in *)
+    (* let holding_period = ticks_held >= Param.holding_period in *)
     let price_decreasing =
       prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
     in
     let profited = price >=. buying_order.price in
     let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
     let stoploss =
-      price <=. Param.stop_loss_multiplier *. high_since_purchase
+      price <=. Param.stop_loss_multiplier *. buying_order.price
     in
     let|| () =
       ((high_fso && if profited then price_decreasing else true), "high_fso")
     in
     let|| () = (stoploss, "stoploss") in
-    let|| () =
-      ((not profited) && i.ema_12 <=. prev.ema_12, "unprofitable exit")
-    in
+    (* let|| () = *)
+    (*   ((not profited) && i.ema_12 <=. prev.ema_12, "unprofitable exit") *)
+    (* in *)
     signal
 end
 
