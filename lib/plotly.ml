@@ -199,6 +199,10 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
     indicator_trace ~show:false indicators "FSO %D"
       IP.fast_stochastic_oscillator_d symbol
   in
+  let* fso_pd68 =
+    indicator_trace ~show:false indicators "FSO %D68"
+      IP.fast_stochastic_oscillator_d68 symbol
+  in
   let* fft_thing =
     indicator_trace ~show:false indicators
       "Fourier Transform Normalized Magnitude" IP.ft_normalized_magnitude symbol
@@ -244,6 +248,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                rsi;
                fso_pk;
                fso_pd;
+               fso_pd68;
                fft_thing;
                fft_mse;
                u3b;

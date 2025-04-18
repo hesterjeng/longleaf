@@ -37,7 +37,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
         " k >= d by 20" )
     in
     let&& () = (i.volume >= prev.volume, "first volume confirm") in
-    let&& () = (i.cci.cci <=. 50.0, "reasonable cci") in
+    (* let&& () = (i.cci.cci <=. 50.0, "reasonable cci") in *)
     (* let&& () = (i.volume >= prev_prev.volume, "second volume confirm") in *)
     signal
 
@@ -64,16 +64,15 @@ module Sell : Template.Sell_trigger.S = struct
     let$ prev = i.previous in
     (* let ticks_held = state.tick - buying_order.tick in *)
     (* let holding_period = ticks_held >= Param.holding_period in *)
-    let price_decreasing =
-      prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
-    in
-    let profited = price >=. buying_order.price in
-    let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
-    let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in
-    let|| () =
-      ((high_fso && if profited then price_decreasing else true), "high_fso")
-    in
-    let|| () = (stoploss, "stoploss") in
+    let price_decreasing = i.sma_5 <=. i.sma_34 in
+    (* let profited = price >=. buying_order.price in *)
+    (* let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in *)
+    (* let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in *)
+    let|| () = (price_decreasing, "price dip") in
+    (* let|| () = *)
+    (*   ((high_fso && if profited then price_decreasing else true), "high_fso") *)
+    (* in *)
+    (* let|| () = (stoploss, "stoploss") in *)
     (* let|| () = *)
     (*   ((not profited) && i.ema_12 <=. prev.ema_12, "unprofitable exit") *)
     (* in *)

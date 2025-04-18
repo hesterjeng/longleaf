@@ -42,6 +42,7 @@ module Point_ty = struct
     relative_strength_index : float;
     fast_stochastic_oscillator_k : float;
     fast_stochastic_oscillator_d : float;
+    fast_stochastic_oscillator_d68 : float;
     fourier_transform : (Fourier.t[@yojson.opaque]);
     ft_normalized_magnitude : float;
     fft_mean_squared_error : float;
@@ -345,6 +346,10 @@ module Point = struct
       SO.pD fso_pk
       @@ (Util.last_n 34 previous_vec |> Iter.map fast_stochastic_oscillator_k)
     in
+    let fast_stochastic_oscillator_d68 =
+      SO.pD fso_pk
+      @@ (Util.last_n 68 previous_vec |> Iter.map fast_stochastic_oscillator_k)
+    in
     let fourier_transform = Fourier.fft config symbol_history latest in
     let ft_normalized_magnitude =
       Fourier.fft_nm config fourier_transform symbol_history
@@ -396,6 +401,7 @@ module Point = struct
         relative_strength_index;
         fast_stochastic_oscillator_k = fso_pk;
         fast_stochastic_oscillator_d;
+        fast_stochastic_oscillator_d68;
         fourier_transform;
         ft_normalized_magnitude;
         fft_mean_squared_error;

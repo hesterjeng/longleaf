@@ -53,7 +53,7 @@ module Sell : Template.Sell_trigger.S = struct
     (* let holding_period = ticks_held >= Param.holding_period in *)
     (* let profited = price >=. buying_order.price in *)
     (* let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in *)
-    let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in
+    (* let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in *)
     let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
     (* let|| () = (i.cci.cci <=. 100.0, "CCI Below 100.0") in *)
     let price_decreasing =
@@ -63,7 +63,7 @@ module Sell : Template.Sell_trigger.S = struct
     (* let|| () = *)
     (*   ((high_fso && if profited then price_decreasing else true), "high_fso") *)
     (* in *)
-    let|| () = (stoploss, "stoploss") in
+    (* let|| () = (stoploss, "stoploss") in *)
     (* let|| () = *)
     (*   ((not profited) && i.ema_12 <=. prev.ema_12, "unprofitable exit") *)
     (* in *)
