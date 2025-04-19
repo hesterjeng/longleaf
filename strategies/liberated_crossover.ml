@@ -19,6 +19,14 @@ module Param = struct
   (* let max_holding_period = 546 *)
 end
 
+let bullish_crossover ~(i : P.t) ~(prev : P.t) =
+  prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d
+  && i.fast_stochastic_oscillator_k >=. i.fast_stochastic_oscillator_d
+
+let bearish_crossover ~(i : P.t) ~(prev : P.t) =
+  prev.fast_stochastic_oscillator_k >=. prev.fast_stochastic_oscillator_d
+  && i.fast_stochastic_oscillator_k <=. i.fast_stochastic_oscillator_d
+
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) instrument =
@@ -27,15 +35,15 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let ( let$ ) = Signal.let_get_opt signal in
     let+ i = Indicators.get_top state.indicators instrument in
     let$ prev = i.previous in
+    (* let&& () = *)
+    (*   i.fast_stochastic_oscillator_d >. i.fast_stochastic_oscillator_k, "fso mas" *)
+    (*   (\* i.fast_stochastic_oscillator_d -. i.fast_stochastic_oscillator_d68 >. 10.0, "fso mas" *\) *)
+    (* in *)
+    (* let&& () = *)
+    (*   i.relative_strength_index >=. 60.0, "small rsi" *)
+    (* in *)
     (* let$ prev_prev = prev.previous in *)
-    let&& () =
-      ( prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d,
-        "prev k <= d" )
-    in
-    let&& () =
-      ( i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d >=. 20.0,
-        " k >= d by 20" )
-    in
+    let&& () = (bullish_crossover ~i ~prev, "prev k <= d") in
     let&& () = (i.volume >= prev.volume, "first volume confirm") in
     (* let&& () = (i.cci.cci <=. 50.0, "reasonable cci") in *)
     (* let&& () = (i.volume >= prev_prev.volume, "second volume confirm") in *)
@@ -52,6 +60,8 @@ end
 (* The functor uses the score to choose the symbol with the highest score *)
 module Buy = Template.Buy_trigger.Make (Buy_inp)
 
+let refresh_table : (Order.t, int) Hashtbl.t = Hashtbl.create 10
+
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
@@ -62,14 +72,25 @@ module Sell : Template.Sell_trigger.S = struct
     let+ i = Indicators.get_top state.indicators buying_order.symbol in
     (* let+ price_history = Bars.get_res state.bars buying_order.symbol in *)
     let$ prev = i.previous in
-    (* let ticks_held = state.tick - buying_order.tick in *)
+    let ticks_held = state.tick - buying_order.tick in
     (* let holding_period = ticks_held >= Param.holding_period in *)
-    let price_decreasing = i.sma_5 <=. i.sma_34 in
-    (* let profited = price >=. buying_order.price in *)
+    (* let price_decreasing = i.sma_5 <=. i.sma_34 in *)
+    let profited = price >=. buying_order.price in
     (* let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in *)
     (* let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in *)
-    let|| () = (price_decreasing, "price dip") in
+    (* let|| () = (price_decreasing, "price dip") in *)
     (* let|| () = *)
+    let|| () =
+      (bearish_crossover ~i ~prev, "bearish crossover")
+      (* ( i.fast_stochastic_oscillator_d <=. prev.fast_stochastic_oscillator_d, *)
+      (*   "decreasing k" ) *)
+      (* i.fast_stochastic_oscillator_k >. i.fast_stochastic_oscillator_d, "fso mas" *)
+      (* i.fast_stochastic_oscillator_d68 -. i.fast_stochastic_oscillator_d >. 10.0, "fso mas" *)
+    in
+    let|| () = ((not profited) && ticks_held > 10, "early exit") in
+    (* let|| () = *)
+    (*   price >=. i.upper_bollinger_100_3, "upper boll" *)
+    (* in *)
     (*   ((high_fso && if profited then price_decreasing else true), "high_fso") *)
     (* in *)
     (* let|| () = (stoploss, "stoploss") in *)
