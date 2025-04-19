@@ -6,7 +6,7 @@ let prom, resolver = Promise.create ()
 let serve_favicon () =
   let favicon_path = "./static/favicon.ico" in
   let body = Util.read_file_as_string favicon_path in
-  Eio.traceln "@[favicon has length %d@]@." (String.length body);
+  (* Eio.traceln "@[favicon has length %d@]@." (String.length body); *)
   let headers = Headers.of_list [ ("Content-Type", "image/x-icon") ] in
   Response.of_string ~headers ~body `OK
 
