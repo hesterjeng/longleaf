@@ -23,6 +23,8 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
           (Format.asprintf "Could not find bars for symbol: %a" Instrument.pp
              target)
 
+let data_prefix = String.prefix ~pre:"/data/"
+
 let connection_handler ~(mutices : Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
   (* Eio.traceln "gui.ml: connection handler"; *)
@@ -78,9 +80,12 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       let bars = Pmutex.get mutices.data_mutex in
       let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
-  (* | { Request.meth = `GET; target = "/graphs"; _ } -> *)
-  (*     plotly_response_of_symbol ~mutices "NVDA" *)
-  | { Request.meth = `GET; target; _ } -> (
+  | { Request.meth = `GET; target; _ } when data_prefix target -> (
+      let target =
+        String.chop_prefix ~pre:"/data" target |> function
+        | None -> invalid_arg "Unable to get data target (server.ml)"
+        | Some s -> s
+      in
       let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
       let instrument = Instrument.of_string_res target in
       match instrument with
@@ -89,6 +94,8 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
           Response.of_string
             ~body:("Unable to create Instrument.t from " ^ target)
             `Internal_server_error)
+  | { Request.meth = `GET; target; _ } ->
+    ()
   | r ->
       Eio.traceln "@[Unknown request: %a@]@." Request.pp_hum r;
       let headers = Headers.of_list [ ("connection", "close") ] in
