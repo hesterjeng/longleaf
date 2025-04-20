@@ -5,6 +5,7 @@ type t = {
   orders_mutex : Order.History.t Pmutex.t;
   symbols_mutex : string option Pmutex.t;
   stats_mutex : Stats.t Pmutex.t;
+  target_symbol : string option Pmutex.t;
 }
 
 let create () =
@@ -14,6 +15,7 @@ let create () =
   let symbols_mutex = Pmutex.make None in
   let stats_mutex = Pmutex.make @@ Stats.empty () in
   let indicators_mutex = Pmutex.make @@ Indicators.empty () in
+  let target_symbol = Pmutex.make None in
   {
     shutdown_mutex;
     data_mutex;
@@ -21,6 +23,7 @@ let create () =
     symbols_mutex;
     stats_mutex;
     indicators_mutex;
+    target_symbol;
   }
 
 let pp : t Format.printer = fun fmt _x -> Format.fprintf fmt "<mutex>"

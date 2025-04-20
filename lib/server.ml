@@ -66,6 +66,14 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
         |> fun s -> `Assoc [ ("symbols", `String s) ] |> Yojson.Safe.to_string
       in
       Response.of_string ~body `OK
+  | { Request.meth = `GET; target = "/target_symbol"; _ } ->
+      let body =
+        Pmutex.get mutices.target_symbol
+        |> Option.get_exn_or
+             "gui: Must have target symbol to display information..."
+        |> fun s -> `Assoc [ ("symbols", `String s) ] |> Yojson.Safe.to_string
+      in
+      Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
       let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in

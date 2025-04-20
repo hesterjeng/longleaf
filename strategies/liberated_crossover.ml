@@ -12,7 +12,7 @@ let ( let+ ) = Result.( let+ )
 
 module Param = struct
   (* let trailing_loss = 0.96 *)
-  let stop_loss_multiplier = 0.96
+  let stop_loss_multiplier = 0.98
   let holding_period = 40
 
   (* let profit_multiplier = 1.03 *)
@@ -77,18 +77,20 @@ module Sell : Template.Sell_trigger.S = struct
     let ticks_held = state.tick - buying_order.tick in
     (* let holding_period = ticks_held >= Param.holding_period in *)
     (* let price_decreasing = i.sma_5 <=. i.sma_34 in *)
-    let profited = price >=. buying_order.price in
+    let profited = price >=. 1.04 *. buying_order.price in
     (* let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in *)
     let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in
     (* let|| () = (price_decreasing, "price dip") in *)
     (* let|| () = *)
     let|| () =
-      (bearish_crossover ~i ~prev && ticks_held > 10, "bearish crossover") in
+      (bearish_crossover ~i ~prev && ticks_held > 10, "bearish crossover")
+    in
     let|| () = (stoploss, "stoploss") in
-      (* ( i.fast_stochastic_oscillator_d <=. prev.fast_stochastic_oscillator_d, *)
-      (*   "decreasing k" ) *)
-      (* i.fast_stochastic_oscillator_k >. i.fast_stochastic_oscillator_d, "fso mas" *)
-      (* i.fast_stochastic_oscillator_d68 -. i.fast_stochastic_oscillator_d >. 10.0, "fso mas" *)
+    let|| () = (profited, "profited") in
+    (* ( i.fast_stochastic_oscillator_d <=. prev.fast_stochastic_oscillator_d, *)
+    (*   "decreasing k" ) *)
+    (* i.fast_stochastic_oscillator_k >. i.fast_stochastic_oscillator_d, "fso mas" *)
+    (* i.fast_stochastic_oscillator_d68 -. i.fast_stochastic_oscillator_d >. 10.0, "fso mas" *)
     (* let|| () = ((not profited) && ticks_held > 10, "early exit") in *)
     (* let|| () = *)
     (*   price >=. i.upper_bollinger_100_3, "upper boll" *)
