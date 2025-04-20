@@ -44,7 +44,9 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     (* in *)
     (* let$ prev_prev = prev.previous in *)
     let&& () = (bullish_crossover ~i ~prev, "prev k <= d") in
+    let&& () = (i.price >=. i.sma_75, "high sma") in
     let&& () = (i.volume >= prev.volume, "first volume confirm") in
+    (* let&& () = (i.relative_strength_index <=. 40.0, "first volume confirm") in *)
     (* let&& () = (i.cci.cci <=. 50.0, "reasonable cci") in *)
     (* let&& () = (i.volume >= prev_prev.volume, "second volume confirm") in *)
     signal
@@ -77,23 +79,22 @@ module Sell : Template.Sell_trigger.S = struct
     (* let price_decreasing = i.sma_5 <=. i.sma_34 in *)
     let profited = price >=. buying_order.price in
     (* let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in *)
-    (* let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in *)
+    let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in
     (* let|| () = (price_decreasing, "price dip") in *)
     (* let|| () = *)
     let|| () =
-      (bearish_crossover ~i ~prev, "bearish crossover")
+      (bearish_crossover ~i ~prev && ticks_held > 10, "bearish crossover") in
+    let|| () = (stoploss, "stoploss") in
       (* ( i.fast_stochastic_oscillator_d <=. prev.fast_stochastic_oscillator_d, *)
       (*   "decreasing k" ) *)
       (* i.fast_stochastic_oscillator_k >. i.fast_stochastic_oscillator_d, "fso mas" *)
       (* i.fast_stochastic_oscillator_d68 -. i.fast_stochastic_oscillator_d >. 10.0, "fso mas" *)
-    in
-    let|| () = ((not profited) && ticks_held > 10, "early exit") in
+    (* let|| () = ((not profited) && ticks_held > 10, "early exit") in *)
     (* let|| () = *)
     (*   price >=. i.upper_bollinger_100_3, "upper boll" *)
     (* in *)
     (*   ((high_fso && if profited then price_decreasing else true), "high_fso") *)
     (* in *)
-    (* let|| () = (stoploss, "stoploss") in *)
     (* let|| () = *)
     (*   ((not profited) && i.ema_12 <=. prev.ema_12, "unprofitable exit") *)
     (* in *)
