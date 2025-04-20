@@ -95,7 +95,9 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
             ~body:("Unable to create Instrument.t from " ^ target)
             `Internal_server_error)
   | { Request.meth = `GET; target; _ } ->
-    ()
+      Pmutex.set mutices.target_symbol (Some target);
+      let body = Util.read_file_as_string "./static/single.html" in
+      Response.of_string ~body `OK
   | r ->
       Eio.traceln "@[Unknown request: %a@]@." Request.pp_hum r;
       let headers = Headers.of_list [ ("connection", "close") ] in

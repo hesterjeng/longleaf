@@ -38,10 +38,17 @@ async function get_symbols() {
   return data.symbols;
 }
 
-export async function fetchAndRenderAll() {
+async function get_target() {
+  const endpointUrl = "http://localhost:8080/target_symbol";
+  const response = await fetch(endpointUrl);
+  const data = await response.json();
+  return data.symbols;
+}
+
+export async function fetchAndRenderAll(symbols) {
   try {
-    const symbols = await get_symbols();
-    console.log("fetchandrenderal:", symbols);
+    // const symbols = await get_symbols();
+    // console.log("fetchandrenderal:", symbols);
     const symbols_array = symbols.split(",");
     const length = symbols.length;
     console.log("symbols before call:", symbols_array);
@@ -75,4 +82,14 @@ export async function fetchAndRenderAll() {
   } catch (error) {
     console.error("Error in fetchAndRenderAll:", error);
   }
+}
+
+export async function top_one() {
+  const symbols = await get_target();
+  fetchAndRenderAll(symbols);
+}
+
+export async function top_all() {
+  const symbols = await get_symbols();
+  fetchAndRenderAll(symbols);
 }
