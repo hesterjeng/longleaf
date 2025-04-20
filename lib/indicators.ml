@@ -55,7 +55,7 @@ module Point_ty = struct
   let adx x = x.adx.adx
   let cci x = x.cci.cci
   let ema_cci x = x.cci.ema_cci
-  let ema_adx x = x.cci.ema_cci
+  let ema_adx x = x.adx.ema_adx
 end
 
 let money_flow_multiplier (x : Item.t) =
