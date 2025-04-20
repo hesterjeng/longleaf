@@ -18,7 +18,7 @@ export async function fetchStats(div, endPoint) {
 export async function fetchAndRender(div, endPoint) {
   try {
     console.log("endpoint:", endPoint);
-    const endpointUrl = "http://localhost:8080/" + endPoint;
+    const endpointUrl = "http://localhost:8080/data/" + endPoint;
     const response = await fetch(endpointUrl);
     const data = await response.json();
 
