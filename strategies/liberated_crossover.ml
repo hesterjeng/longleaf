@@ -22,11 +22,12 @@ end
 let bullish_crossover ~(i : P.t) ~(prev : P.t) =
   prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d
   && i.fast_stochastic_oscillator_k >=. i.fast_stochastic_oscillator_d
-  && i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d >. 10.0
+  && i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d >. 5.0
 
 let bearish_crossover ~(i : P.t) ~(prev : P.t) =
   prev.fast_stochastic_oscillator_k >=. prev.fast_stochastic_oscillator_d
   && i.fast_stochastic_oscillator_k <=. i.fast_stochastic_oscillator_d
+  && i.fast_stochastic_oscillator_d -. i.fast_stochastic_oscillator_k >. 5.0
 
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
