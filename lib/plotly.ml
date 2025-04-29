@@ -198,16 +198,13 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
       IP.awesome_oscillator symbol
   in
   let* fso_pk =
-    indicator_trace ~show:false indicators "FSO %K"
-      IP.fast_stochastic_oscillator_k symbol
+    indicator_trace ~show:false indicators "FSO %K" IP.fso_k symbol
   in
   let* fso_pd =
-    indicator_trace ~show:false indicators "FSO %D"
-      IP.fast_stochastic_oscillator_d symbol
+    indicator_trace ~show:false indicators "FSO %D" IP.fso_d symbol
   in
-  let* fso_pd68 =
-    indicator_trace ~show:false indicators "FSO %D68"
-      IP.fast_stochastic_oscillator_d68 symbol
+  let* fso_pd_slow =
+    indicator_trace ~show:false indicators "FSO %D-slow" IP.fso_d_slow symbol
   in
   let* fft_thing =
     indicator_trace ~show:false indicators
@@ -256,7 +253,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                rsi;
                fso_pk;
                fso_pd;
-               fso_pd68;
+               fso_pd_slow;
                fft_thing;
                fft_mse;
                u3b;

@@ -28,14 +28,8 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let+ i = Indicators.get_top state.indicators instrument in
     let$ prev = i.previous in
     (* let$ prev_prev = prev.previous in *)
-    let&& () =
-      ( prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d,
-        "prev k <= d" )
-    in
-    let&& () =
-      ( i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d >=. 20.0,
-        " k >= d by 20" )
-    in
+    let&& () = (prev.fso.k <=. prev.fso.d, "prev k <= d") in
+    let&& () = (i.fso.k -. i.fso.d >=. 20.0, " k >= d by 20") in
     let&& () = (i.volume >= prev.volume, "first volume confirm") in
     (* let&& () = (i.volume >= prev_prev.volume, "second volume confirm") in *)
     signal
@@ -70,7 +64,7 @@ module Sell : Template.Sell_trigger.S = struct
       prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
     in
     let profited = price >=. buying_order.price in
-    let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
+    let high_fso = i.fso.d >=. 80.0 in
     let stoploss =
       price <=. Param.stop_loss_multiplier *. high_since_purchase
     in

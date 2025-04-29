@@ -54,7 +54,7 @@ module Sell : Template.Sell_trigger.S = struct
     (* let profited = price >=. buying_order.price in *)
     (* let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in *)
     (* let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in *)
-    let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
+    let high_fso = i.fso.d >=. 80.0 in
     (* let|| () = (i.cci.cci <=. 100.0, "CCI Below 100.0") in *)
     let price_decreasing =
       prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34

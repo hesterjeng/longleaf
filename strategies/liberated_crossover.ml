@@ -20,14 +20,12 @@ module Param = struct
 end
 
 let bullish_crossover ~(i : P.t) ~(prev : P.t) =
-  prev.fast_stochastic_oscillator_k <=. prev.fast_stochastic_oscillator_d
-  && i.fast_stochastic_oscillator_k >=. i.fast_stochastic_oscillator_d
-  && i.fast_stochastic_oscillator_k -. i.fast_stochastic_oscillator_d >. 5.0
+  prev.fso.k <=. prev.fso.d && i.fso.k >=. i.fso.d
+(* && i.fso.k -. i.fso.d >. 5.0 *)
 
 let bearish_crossover ~(i : P.t) ~(prev : P.t) =
-  prev.fast_stochastic_oscillator_k >=. prev.fast_stochastic_oscillator_d
-  && i.fast_stochastic_oscillator_k <=. i.fast_stochastic_oscillator_d
-  && i.fast_stochastic_oscillator_d -. i.fast_stochastic_oscillator_k >. 5.0
+  prev.fso.k >=. prev.fso.d && i.fso.k <=. i.fso.d
+(* && i.fso.d -. i.fso.k >. 5.0 *)
 
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
@@ -38,8 +36,8 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let+ i = Indicators.get_top state.indicators instrument in
     let$ prev = i.previous in
     (* let&& () = *)
-    (*   i.fast_stochastic_oscillator_d >. i.fast_stochastic_oscillator_k, "fso mas" *)
-    (*   (\* i.fast_stochastic_oscillator_d -. i.fast_stochastic_oscillator_d68 >. 10.0, "fso mas" *\) *)
+    (*   i.fso.d >. i.fast_stochastic_oscillator_k, "fso mas" *)
+    (*   (\* i.fso.d -. i.fso.d68 >. 10.0, "fso mas" *\) *)
     (* in *)
     (* let&& () = *)
     (*   i.relative_strength_index >=. 60.0, "small rsi" *)
