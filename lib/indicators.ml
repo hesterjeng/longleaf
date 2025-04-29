@@ -56,6 +56,18 @@ module Point_ty = struct
   }
   [@@deriving show, yojson, fields ~getters]
 
+  let last_n n (x : t) =
+    let rec aux (n : int) x acc =
+      match n with
+      | n when n > 0 -> (
+          let acc = x :: acc in
+          match x.previous with
+          | Some next -> aux (n - 1) next acc
+          | None -> acc)
+      | _ -> acc
+    in
+    aux n x []
+
   let adx x = x.adx.adx
   let cci x = x.cci.cci
   let ema_cci x = x.cci.ema_cci
@@ -296,7 +308,7 @@ module CCI = struct
         { typical_price; cci; ema_cci }
 end
 
-module SO = struct
+module FSO = struct
   (* Stochastic Oscillators *)
 
   type t = Point_ty.fso
@@ -365,7 +377,6 @@ module Point = struct
       RSI.mad 14.0 previous_average_loss price previous_price
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
-    let fso = SO.top symbol_history previous latest in
     let fourier_transform = Fourier.fft config symbol_history latest in
     let ft_normalized_magnitude =
       Fourier.fft_nm config fourier_transform symbol_history
@@ -388,6 +399,7 @@ module Point = struct
     let average_true_range = ATR.average_true_range 14 previous latest in
     let adx = ADX.top previous latest in
     let cci = CCI.top previous latest in
+    let fso = FSO.top symbol_history previous latest in
     let res : t =
       {
         symbol;
@@ -416,9 +428,6 @@ module Point = struct
         average_gain;
         average_loss;
         relative_strength_index;
-        (* fast_stochastic_oscillator_k = fso_pk; *)
-        (* fast_stochastic_oscillator_d; *)
-        (* fast_stochastic_oscillator_d68; *)
         fourier_transform;
         ft_normalized_magnitude;
         fft_mean_squared_error;
