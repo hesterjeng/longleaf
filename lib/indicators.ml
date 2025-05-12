@@ -333,7 +333,7 @@ module FSO = struct
     | Some prev ->
         let k = pK 140 price_history item in
         let d =
-          Math.simple_moving_average ~current:k 34
+          Math.simple_moving_average ~current:k 35
             (fun (x : Point_ty.t) -> x.fso.k)
             Point_ty.previous prev
         in
