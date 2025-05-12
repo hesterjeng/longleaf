@@ -4,3 +4,7 @@
 
 @deps:
 	@odep dune | dot -Tsvg > dune-odep.svg
+
+@install:
+    @dune build;
+    @dune install;

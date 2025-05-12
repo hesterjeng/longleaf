@@ -164,6 +164,9 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* sma_34_trace =
     indicator_trace ~drop:34 indicators "SMA(34)" IP.sma_34 symbol
   in
+  let* sma_75_trace =
+    indicator_trace ~drop:34 indicators "SMA(75)" IP.sma_75 symbol
+  in
   let* sma_233_trace =
     indicator_trace ~drop:233 ~show:false indicators "SMA(233)" IP.sma_233
       symbol
@@ -187,17 +190,21 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
   let* ema_cci =
     indicator_trace ~show:true indicators "EMA CCI" IP.ema_cci symbol
   in
+  let* ema_adx =
+    indicator_trace ~show:true indicators "EMA ADX" IP.ema_adx symbol
+  in
   let* awesome =
     indicator_trace ~show:false indicators "Awesome Oscillator"
       IP.awesome_oscillator symbol
   in
   let* fso_pk =
-    indicator_trace ~show:false indicators "FSO %K"
-      IP.fast_stochastic_oscillator_k symbol
+    indicator_trace ~show:false indicators "FSO %K" IP.fso_k symbol
   in
   let* fso_pd =
-    indicator_trace ~show:false indicators "FSO %D"
-      IP.fast_stochastic_oscillator_d symbol
+    indicator_trace ~show:false indicators "FSO %D" IP.fso_d symbol
+  in
+  let* fso_pd_slow =
+    indicator_trace ~show:false indicators "FSO %D-slow" IP.fso_d_slow symbol
   in
   let* fft_thing =
     indicator_trace ~show:false indicators
@@ -231,11 +238,13 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                adx;
                cci;
                ema_cci;
+               ema_adx;
                ema_12_trace;
                ema_26_trace;
                macd_trace;
                sma_5_trace;
                sma_34_trace;
+               sma_75_trace;
                sma_233_trace;
                upper_bollinger;
                lower_bollinger;
@@ -244,6 +253,7 @@ let of_bars bars indicators symbol : Yojson.Safe.t option =
                rsi;
                fso_pk;
                fso_pd;
+               fso_pd_slow;
                fft_thing;
                fft_mse;
                u3b;

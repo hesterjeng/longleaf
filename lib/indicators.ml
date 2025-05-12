@@ -4,6 +4,9 @@ module Point_ty = struct
   type cci = { cci : float; typical_price : float; ema_cci : float }
   [@@deriving show, yojson, fields ~getters]
 
+  type fso = { k : float; d : float; d_slow : float }
+  [@@deriving show, yojson, fields ~getters]
+
   (* Type for average divergance calculation *)
   type adx = {
     ema_positive_dm : float;
@@ -40,20 +43,38 @@ module Point_ty = struct
     average_gain : float;
     average_loss : float;
     relative_strength_index : float;
-    fast_stochastic_oscillator_k : float;
-    fast_stochastic_oscillator_d : float;
+    (* fast_stochastic_oscillator_k : float; *)
+    (* fast_stochastic_oscillator_d : float; *)
+    (* fast_stochastic_oscillator_d68 : float; *)
     fourier_transform : (Fourier.t[@yojson.opaque]);
     ft_normalized_magnitude : float;
     fft_mean_squared_error : float;
     adx : adx;
     cci : cci;
+    fso : fso;
     previous : t option;
   }
   [@@deriving show, yojson, fields ~getters]
 
+  let last_n n (x : t) =
+    let rec aux (n : int) x acc =
+      match n with
+      | n when n > 0 -> (
+          let acc = x :: acc in
+          match x.previous with
+          | Some next -> aux (n - 1) next acc
+          | None -> acc)
+      | _ -> acc
+    in
+    aux n x []
+
   let adx x = x.adx.adx
   let cci x = x.cci.cci
   let ema_cci x = x.cci.ema_cci
+  let ema_adx x = x.adx.ema_adx
+  let fso_k x = x.fso.k
+  let fso_d x = x.fso.d
+  let fso_d_slow x = x.fso.d_slow
 end
 
 let money_flow_multiplier (x : Item.t) =
@@ -287,8 +308,10 @@ module CCI = struct
         { typical_price; cci; ema_cci }
 end
 
-module SO = struct
+module FSO = struct
   (* Stochastic Oscillators *)
+
+  type t = Point_ty.fso
 
   let pK n (l : Price_history.t) (last : Item.t) =
     let current = Item.last last in
@@ -304,8 +327,22 @@ module SO = struct
       assert (rhs <=. 1.0);
       100.0 *. rhs
 
-  let pD previous (previous_pK : float Iter.t) =
-    Owl_stats.mean @@ Iter.to_array @@ Iter.cons previous previous_pK
+  let top price_history (previous : Point_ty.t option) (item : Item.t) : t =
+    match previous with
+    | None -> { k = 0.0; d = 0.0; d_slow = 0.0 }
+    | Some prev ->
+        let k = pK 140 price_history item in
+        let d =
+          Math.simple_moving_average ~current:k 35
+            (fun (x : Point_ty.t) -> x.fso.k)
+            Point_ty.previous prev
+        in
+        let d_slow =
+          Math.simple_moving_average ~current:d 34
+            (fun (x : Point_ty.t) -> x.fso.d)
+            Point_ty.previous prev
+        in
+        { k; d; d_slow }
 end
 
 (* module Fourier = Fourier *)
@@ -314,7 +351,7 @@ module Point = struct
   include Point_ty
 
   let of_latest config timestamp symbol_history (previous : t option)
-      (previous_vec : (t, _) Vector.t) (latest : Item.t) symbol =
+      (latest : Item.t) symbol =
     let lower_bollinger, upper_bollinger = bollinger 34 2 symbol_history in
     let lower_bollinger_100_3, upper_bollinger_100_3 =
       bollinger 100 3 symbol_history
@@ -340,11 +377,6 @@ module Point = struct
       RSI.mad 14.0 previous_average_loss price previous_price
     in
     let relative_strength_index = RSI.rsi average_gain average_loss in
-    let fso_pk = SO.pK 140 symbol_history latest in
-    let fast_stochastic_oscillator_d =
-      SO.pD fso_pk
-      @@ (Util.last_n 34 previous_vec |> Iter.map fast_stochastic_oscillator_k)
-    in
     let fourier_transform = Fourier.fft config symbol_history latest in
     let ft_normalized_magnitude =
       Fourier.fft_nm config fourier_transform symbol_history
@@ -367,9 +399,11 @@ module Point = struct
     let average_true_range = ATR.average_true_range 14 previous latest in
     let adx = ADX.top previous latest in
     let cci = CCI.top previous latest in
+    let fso = FSO.top symbol_history previous latest in
     let res : t =
       {
         symbol;
+        fso;
         timestamp;
         item = latest;
         average_true_range;
@@ -394,8 +428,6 @@ module Point = struct
         average_gain;
         average_loss;
         relative_strength_index;
-        fast_stochastic_oscillator_k = fso_pk;
-        fast_stochastic_oscillator_d;
         fourier_transform;
         ft_normalized_magnitude;
         fft_mean_squared_error;
@@ -458,8 +490,7 @@ let initialize_single config bars symbol =
   let fold i previous item =
     let timestamp = Item.timestamp item in
     let res =
-      Point.of_latest config timestamp bars_upto_now previous
-        initial_stats_vector item symbol
+      Point.of_latest config timestamp bars_upto_now previous item symbol
     in
     Vector.push initial_stats_vector res;
     Vector.push bars_upto_now (Vector.get bars_vec i);
@@ -489,7 +520,6 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
   in
   let previous = Vector.top indicators_vector in
   let new_indicators =
-    Point.of_latest config timestamp symbol_history previous indicators_vector
-      latest symbol
+    Point.of_latest config timestamp symbol_history previous latest symbol
   in
   Vector.push indicators_vector new_indicators

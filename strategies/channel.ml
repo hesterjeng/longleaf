@@ -25,7 +25,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let signal = Signal.make instrument Buy true in
     let ( let&& ) = Signal.let_and signal in
     let+ i = Indicators.get_top state.indicators instrument in
-    let&& () = i.cci.cci >=. 100.0, "High CCI" in
+    let&& () = (i.cci.cci >=. 100.0, "High CCI") in
     signal
 
   let score (state : 'a State.t) symbol =
@@ -49,18 +49,17 @@ module Sell : Template.Sell_trigger.S = struct
     let+ i = Indicators.get_top state.indicators buying_order.symbol in
     (* let+ price_history = Bars.get_res state.bars buying_order.symbol in *)
     let$ prev = i.previous in
-    let ticks_held = state.tick - buying_order.tick in
+    (* let ticks_held = state.tick - buying_order.tick in *)
     (* let holding_period = ticks_held >= Param.holding_period in *)
+    (* let profited = price >=. buying_order.price in *)
+    (* let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in *)
+    (* let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in *)
+    let high_fso = i.fso.d >=. 80.0 in
+    (* let|| () = (i.cci.cci <=. 100.0, "CCI Below 100.0") in *)
     let price_decreasing =
       prev.sma_5 >=. prev.sma_34 && i.sma_5 <=. prev.sma_34
     in
-    let profited = price >=. buying_order.price in
-    let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in
-    let stoploss =
-      price <=. Param.stop_loss_multiplier *. buying_order.price
-    in
-    let|| () =
-      i.cci.cci <=. 100.0, "CCI Below 100.0" in
+    let|| () = (high_fso && price_decreasing, "high_fso") in
     (* let|| () = *)
     (*   ((high_fso && if profited then price_decreasing else true), "high_fso") *)
     (* in *)

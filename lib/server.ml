@@ -6,7 +6,7 @@ let prom, resolver = Promise.create ()
 let serve_favicon () =
   let favicon_path = "./static/favicon.ico" in
   let body = Util.read_file_as_string favicon_path in
-  Eio.traceln "@[favicon has length %d@]@." (String.length body);
+  (* Eio.traceln "@[favicon has length %d@]@." (String.length body); *)
   let headers = Headers.of_list [ ("Content-Type", "image/x-icon") ] in
   Response.of_string ~headers ~body `OK
 
@@ -22,6 +22,8 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
         ~body:
           (Format.asprintf "Could not find bars for symbol: %a" Instrument.pp
              target)
+
+let data_prefix = String.prefix ~pre:"/data/"
 
 let connection_handler ~(mutices : Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
@@ -66,13 +68,24 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
         |> fun s -> `Assoc [ ("symbols", `String s) ] |> Yojson.Safe.to_string
       in
       Response.of_string ~body `OK
+  | { Request.meth = `GET; target = "/target_symbol"; _ } ->
+      let body =
+        Pmutex.get mutices.target_symbol
+        |> Option.get_exn_or
+             "gui: Must have target symbol to display information..."
+        |> fun s -> `Assoc [ ("symbols", `String s) ] |> Yojson.Safe.to_string
+      in
+      Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
       let bars = Pmutex.get mutices.data_mutex in
       let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
       Response.of_string ~body `OK
-  (* | { Request.meth = `GET; target = "/graphs"; _ } -> *)
-  (*     plotly_response_of_symbol ~mutices "NVDA" *)
-  | { Request.meth = `GET; target; _ } -> (
+  | { Request.meth = `GET; target; _ } when data_prefix target -> (
+      let target =
+        String.chop_prefix ~pre:"/data" target |> function
+        | None -> invalid_arg "Unable to get data target (server.ml)"
+        | Some s -> s
+      in
       let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
       let instrument = Instrument.of_string_res target in
       match instrument with
@@ -81,6 +94,10 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
           Response.of_string
             ~body:("Unable to create Instrument.t from " ^ target)
             `Internal_server_error)
+  | { Request.meth = `GET; target; _ } ->
+      Pmutex.set mutices.target_symbol (Some target);
+      let body = Util.read_file_as_string "./static/single.html" in
+      Response.of_string ~body `OK
   | r ->
       Eio.traceln "@[Unknown request: %a@]@." Request.pp_hum r;
       let headers = Headers.of_list [ ("connection", "close") ] in

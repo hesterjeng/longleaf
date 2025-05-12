@@ -19,7 +19,7 @@ let of_string (x : string) =
       l
   in
   match first_int with
-  | None -> Security x
+  | None -> Security (String.map Char.uppercase_ascii x)
   | Some i ->
       let underlying, rest = String.take_drop i x in
       let underlying_symbol =
