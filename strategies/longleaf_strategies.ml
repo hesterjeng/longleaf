@@ -73,6 +73,7 @@ type t =
   | ConfirmedCrossover
   | ThrowingCrossover
   | LiberatedCrossover
+  | Monaspa
   | Channel
 [@@deriving show, eq, yojson, variants]
 
@@ -85,6 +86,7 @@ let strats =
   [
     (* BuyAndHold --> (module Buy_and_hold.Make); *)
     Listener --> (module Listener.Make);
+    Monaspa --> (module Monaspa.Make);
     (* DoubleTop --> (module Double_top.DoubleTop); *)
     (* LowBoll --> (module Buy_low_bollinger.BuyLowBollinger); *)
     (* LowBoll2 --> (module Lowboll2.Make); *)
