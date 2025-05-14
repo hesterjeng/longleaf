@@ -26,18 +26,6 @@ let run_options (context : Context.t) : Options.t =
     context;
   }
 
-(* let original_bars = ref None *)
-(* let original_target = ref None *)
-
-(* let check_bars options = *)
-(*   match (!original_bars, !original_target) with *)
-(*   | Some _, Some _ -> () *)
-(*   | _ -> *)
-(*       let bars, target = Backend.make_bars options in *)
-(*       original_bars := Some bars; *)
-(*       original_target := Some target; *)
-(*       () *)
-
 (** Helper function to reduce code duplication. *)
 let run_generic ?(run_options = run_options) ?bars ?target
     (module Strat : Strategy.BUILDER) context =

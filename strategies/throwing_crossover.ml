@@ -39,7 +39,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let+ i = Indicators.get_top state.indicators symbol in
     -1.0 *. i.relative_strength_index
 
-  let num_positions = 5
+  let num_positions = 1
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
