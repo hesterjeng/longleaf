@@ -84,7 +84,7 @@ let all = List.map fst Variants.descriptions
 let strats =
   let ( --> ) x y = (x, run_generic y) in
   [
-    (* BuyAndHold --> (module Buy_and_hold.Make); *)
+    BuyAndHold --> (module Buy_and_hold.Make);
     Listener --> (module Listener.Make);
     Monaspa --> (module Monaspa.Make);
     (* DoubleTop --> (module Double_top.DoubleTop); *)
