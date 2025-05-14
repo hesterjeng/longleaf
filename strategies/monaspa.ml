@@ -36,7 +36,8 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let+ i = Indicators.get_top state.indicators instrument in
     let$ prev = i.previous in
     (* let&& ()  = (i.relative_strength_index <=. 30.0, "low rsi") in *)
-    let&& ()  = (prev.relative_strength_index <=. 35.0, "low rsi setup") in
+    let&& () = (prev.relative_strength_index <=. 35.0, "low rsi setup") in
+    (* let&& ()  = (i.fso.d >=. 10.0, "minimum fso %d setup") in *)
     (* let&& ()  = (prev.price <=. prev.sma_75, "low rsi setup") in *)
     let&& () = (prev.price <=. prev.lower_bollinger_100_1, "low boll") in
     let&& () = (i.price >=. i.sma_34, "low boll") in
@@ -53,7 +54,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let+ i = Indicators.get_top state.indicators symbol in
     -1.0 *. i.relative_strength_index
 
-  let num_positions = 1
+  let num_positions = 3
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
@@ -76,15 +77,15 @@ module Sell : Template.Sell_trigger.S = struct
     (* let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in *)
     (* let|| () = (i.relative_strength_index >=. 70.0, "bearish") in *)
     (* let|| ()  = (prev.price >=. 0.99 *. (prev.upper_bollinger_100_3) && i.price <=. prev.price, "upper boll") in *)
-    let|| ()  = (prev.price >=. (prev.upper_bollinger_100_3) && i.price <=. prev.price, "upper boll") in
-    let|| ()  = (i.price <=. 0.99 *. buying_order.price, "drop") in
-    let|| ()  = (i.fso.d_slow >=. 70.0, "high fso slow") in
     let|| () =
-      (
-        state.tick <= buying_order.tick + 2 &&
-        price <=. buying_order.price
-      , "init decrease"
-      )
+      ( prev.price >=. prev.upper_bollinger_100_3 && i.price <=. prev.price,
+        "upper boll" )
+    in
+    let|| () = (i.price <=. 0.99 *. buying_order.price, "drop") in
+    let|| () = (i.fso.d_slow >=. 70.0, "high fso slow") in
+    let|| () =
+      ( state.tick <= buying_order.tick + 2 && price <=. buying_order.price,
+        "init decrease" )
     in
     (* let|| () = (bearish_crossover ~i ~prev, "bearish") in *)
     signal
