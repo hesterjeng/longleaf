@@ -65,8 +65,6 @@ end
 (* The functor uses the score to choose the symbol with the highest score *)
 module Buy = Template.Buy_trigger.Make (Buy_inp)
 
-let refresh_table : (Order.t, int) Hashtbl.t = Hashtbl.create 10
-
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =

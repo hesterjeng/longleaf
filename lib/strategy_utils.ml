@@ -69,8 +69,6 @@ module Make (Backend : Backend_intf.S) = struct
                Result.return @@ State.LiquidateContinue);
        ]
 
-  let counter = ref 0
-
   let run ~init_state step =
     let rec go prev =
       let stepped = step prev in
