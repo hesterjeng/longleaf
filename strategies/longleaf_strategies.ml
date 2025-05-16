@@ -125,7 +125,6 @@ let run (context : Context.t) strategy =
   match context.runtype with
   | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest
   | RandomTickerBacktest ->
-      Eio.Domain_manager.run context.eio_env#domain_mgr @@ fun () ->
       run_strat context strategy
   | Multitest | MultiMontecarlo | MultiRandomSliceBacktest
   | MultiRandomTickerBacktest ->
