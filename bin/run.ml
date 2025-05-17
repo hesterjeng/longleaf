@@ -26,6 +26,8 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
   runtype_target_check ~runtype ~target;
   save_received_check ~runtype ~save_received;
   let _ = stacktrace in
+  let x = Farmer.Search.top 0 in
+  Eio.traceln "%a" (Option.pp Farmer.Search.pp) x;
   let longleaf_env = Environment.make () in
   let domain_manager = Eio.Stdenv.domain_mgr eio_env in
   let mutices = Longleaf_mutex.create () in
