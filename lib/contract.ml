@@ -1,5 +1,6 @@
 module Type = struct
-  type t = Put [@name "put"] | Call [@name "call"] [@@deriving show, yojson]
+  type t = Put [@name "put"] | Call [@name "call"] | Forward
+  [@@deriving show, yojson]
 
   let of_string = function
     | "P" | "put" | "Put" -> Put

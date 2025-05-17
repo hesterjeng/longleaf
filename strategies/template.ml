@@ -186,5 +186,10 @@ module Make
         Result.return { complete with tick = complete.tick + 1 }
     | _ -> SU.handle_nonlogical_state state
 
+  exception E
+
+  let step_exn (state : 'a State.t) =
+    match step state with Ok x -> x | Error _ -> raise E
+
   let run () = SU.run ~init_state step
 end
