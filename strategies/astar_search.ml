@@ -12,7 +12,7 @@ module EnumeratedValue = struct
     | Seventy
     | Eighty
     | Ninety
-  [@@deriving yojson, eq, show]
+  [@@deriving yojson, eq, show, variants]
 
   let to_float = function
     | Ten -> 10.0
@@ -24,6 +24,10 @@ module EnumeratedValue = struct
     | Seventy -> 70.0
     | Eighty -> 80.0
     | Ninety -> 90.0
+
+  let all =
+    List.map (fun x -> `String (fst x)) Variants.descriptions
+    |> List.map t_of_yojson
 end
 
 module EnumeratedSignal = struct
@@ -35,7 +39,15 @@ module EnumeratedSignal = struct
       | FSO_d_lt of EnumeratedValue.t
       | RSI_gt of EnumeratedValue.t
       | RSI_lt of EnumeratedValue.t
-    [@@deriving yojson, eq, show]
+    [@@deriving yojson, eq, show, variants]
+
+    let all =
+      let add acc var = var.Variantslib.Variant.constructor :: acc in
+      let constructors =
+        Variants.fold ~init:[] ~fso_k_gt:add ~fso_k_lt:add ~fso_d_gt:add
+          ~fso_d_lt:add ~rsi_gt:add ~rsi_lt:add
+      in
+      List.flat_map (fun f -> List.map f EnumeratedValue.all) constructors
 
     let to_boolean_func (x : t) =
      fun (indicators : Indicators.t) (instrument : Instrument.t) ->
@@ -48,6 +60,8 @@ module EnumeratedSignal = struct
       | FSO_d_lt v -> i.fso.d <. EnumeratedValue.to_float v
       | RSI_gt v -> i.relative_strength_index >. EnumeratedValue.to_float v
       | RSI_lt v -> i.relative_strength_index <. EnumeratedValue.to_float v
+
+    (* let all = *)
   end
 
   type t = Empty | Atom of Atom.t [@@deriving yojson, eq, show]

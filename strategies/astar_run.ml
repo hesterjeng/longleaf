@@ -1,4 +1,4 @@
-module Search = Longleaf_lib.Astar
+module Astar = Longleaf_lib.Astar
 module Context = Options.Context
 module Error = Longleaf_lib.Error
 module EnumeratedSignal = Astar_search.EnumeratedSignal
@@ -16,7 +16,7 @@ and node_ = {
 let run (x : node_) =
   Template.Run.run_generic (EnumeratedSignal.to_strategy x.buy x.sell) x.context
 
-module Node : Search.INPUT with type node = node_ = struct
+module Node : Astar.INPUT with type node = node_ = struct
   type node = node_ [@@deriving show]
 
   let equal_node x y =
@@ -45,7 +45,7 @@ let empty context : node_ =
     context;
   }
 
-module StrategySearch = Search.Make (Node)
+module StrategySearch = Astar.Make (Node)
 
 let top context =
   let res = StrategySearch.top @@ empty context in

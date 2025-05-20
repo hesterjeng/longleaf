@@ -107,7 +107,6 @@ let of_string_res x =
   let j = `List [ `String x ] in
   try Result.return @@ t_of_yojson j
   with _ ->
-    let all = List.map fst Variants.descriptions in
     Result.fail
     @@ `Msg
          (Format.asprintf
