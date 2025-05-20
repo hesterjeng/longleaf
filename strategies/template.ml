@@ -12,19 +12,21 @@ module Buy_trigger = struct
   (** Module type for result of the Buy_trigger Make functor. This is used by
       the Template.Make functor. *)
   module type S = sig
-    val make :
-      'a State.t -> Instrument.t list -> (Signal.t list, Error.t) result
+    val make : (type a) -> a State.t -> Instrument.t list -> (Signal.t list, Error.t) result
 
     val num_positions : int
   end
 
   (** The user provides a module of this type in their strategy. *)
   module type INPUT = sig
-    val pass : _ State.t -> Instrument.t -> (Signal.t, Error.t) result
+
+    type state
+
+    val pass : state -> Instrument.t -> (Signal.t, Error.t) result
     (** Return Pass for a symbol if we want to buy it. Otherwise it returns Fail
         and we do nothing.*)
 
-    val score : _ State.t -> Instrument.t -> (float, Error.t) result
+    val score : state -> Instrument.t -> (float, Error.t) result
     (** Used to determine the symbol(s) to buy if multiple Pass. Higher is
         better. *)
 
