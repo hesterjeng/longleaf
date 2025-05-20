@@ -63,6 +63,10 @@ type t =
   | LiberatedCrossover
   | Monaspa
   | Channel
+  | Astar of {
+      buy : Astar_search.EnumeratedSignal.t;
+      sell : Astar_search.EnumeratedSignal.t;
+    }
 [@@deriving show, eq, yojson, variants]
 
 let all = List.map fst Variants.descriptions
@@ -153,3 +157,8 @@ let run (context : Context.t) strategy =
       Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
       Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
       0.0
+
+let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
+    ~(sell : Astar_search.EnumeratedSignal.t) =
+  let x = Astar_search.EnumeratedSignal.to_strategy buy sell in
+  run_generic x context

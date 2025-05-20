@@ -12,6 +12,7 @@ module EnumeratedValue = struct
     | Seventy
     | Eighty
     | Ninety
+  [@@deriving yojson, eq, show]
 
   let to_float = function
     | Ten -> 10.0
@@ -34,11 +35,12 @@ module EnumeratedSignal = struct
       | FSO_d_lt of EnumeratedValue.t
       | RSI_gt of EnumeratedValue.t
       | RSI_lt of EnumeratedValue.t
+    [@@deriving yojson, eq, show]
 
-    let to_boolean_func (type a) (x : t) =
-     fun (state : a State.t) (instrument : Instrument.t) ->
+    let to_boolean_func (x : t) =
+     fun (indicators : Indicators.t) (instrument : Instrument.t) ->
       let ( let+ ) = Result.( let+ ) in
-      let+ i = Indicators.get_top state.indicators instrument in
+      let+ i = Indicators.get_top indicators instrument in
       match x with
       | FSO_k_gt v -> i.fso.k >. EnumeratedValue.to_float v
       | FSO_k_lt v -> i.fso.k <. EnumeratedValue.to_float v
@@ -48,26 +50,43 @@ module EnumeratedSignal = struct
       | RSI_lt v -> i.relative_strength_index <. EnumeratedValue.to_float v
   end
 
-  type t = Empty | Atom of Atom.t
+  type t = Empty | Atom of Atom.t [@@deriving yojson, eq, show]
 
-  let to_signal_function (type a) (x : t) =
-   fun (state : a State.t) (instrument : Instrument.t) ->
+  let to_signal_function (x : t) =
+   fun (state : 'a State.t) (instrument : Instrument.t) ->
     match x with
     | Empty -> Result.return @@ Signal.make instrument false
     | Atom a ->
         let ( let* ) = Result.( let* ) in
         let boolean_func = Atom.to_boolean_func a in
-        let* res = boolean_func state instrument in
+        let* res = boolean_func state.indicators instrument in
         Result.return @@ Signal.make instrument res
 
   let to_buy_trigger (x : t) =
-    let pass = to_signal_function x in
     let module X : Template.Buy_trigger.INPUT = struct
-      let pass = pass
+      let pass = fun state -> to_signal_function x state
       let score = fun _ _ -> Result.return 0.0
       let num_positions = 1
     end in
-    ()
+    let module Buy_trigger : Template.Buy_trigger.S =
+      Template.Buy_trigger.Make (X) in
+    (module Buy_trigger : Template.Buy_trigger.S)
+
+  let to_sell_trigger (x : t) =
+    let module X : Template.Sell_trigger.S = struct
+      let make (state : 'a State.t) ~(buying_order : Order.t) =
+        let signal = to_signal_function x state buying_order.symbol in
+        signal
+    end in
+    (module X : Template.Sell_trigger.S)
+  (* let module Buy_trigger : Template.Buy_trigger.S = Template.Buy_trigger.Make (X) in *)
+  (* (module Buy_trigger : Template.Buy_trigger.S) *)
+
+  let to_strategy (buy : t) (sell : t) =
+    let buy = to_buy_trigger buy in
+    let sell = to_sell_trigger sell in
+    let module Strat = Template.Make ((val buy)) ((val sell)) in
+    (module Strat : Strategy.BUILDER)
 end
 
-type strategy = { buy : EnumeratedSignal.t; sell : EnumeratedSignal.t }
+(* type strategy = { buy : EnumeratedSignal.t; sell : EnumeratedSignal.t } *)
