@@ -20,11 +20,11 @@ module Buy_trigger = struct
 
   (** The user provides a module of this type in their strategy. *)
   module type INPUT = sig
-    val pass : 'a State.t -> Instrument.t -> (Signal.t, Error.t) result
+    val pass : _ State.t -> Instrument.t -> (Signal.t, Error.t) result
     (** Return Pass for a symbol if we want to buy it. Otherwise it returns Fail
         and we do nothing.*)
 
-    val score : 'a State.t -> Instrument.t -> (float, Error.t) result
+    val score : _ State.t -> Instrument.t -> (float, Error.t) result
     (** Used to determine the symbol(s) to buy if multiple Pass. Higher is
         better. *)
 

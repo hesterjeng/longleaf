@@ -35,8 +35,8 @@ module EnumeratedSignal = struct
       | RSI_gt of EnumeratedValue.t
       | RSI_lt of EnumeratedValue.t
 
-    let to_boolean_func (x : t) =
-     fun (state : 'a State.t) (instrument : Instrument.t) ->
+    let to_boolean_func (type a) (x : t) =
+     fun (state : a State.t) (instrument : Instrument.t) ->
       let ( let+ ) = Result.( let+ ) in
       let+ i = Indicators.get_top state.indicators instrument in
       match x with
@@ -50,8 +50,8 @@ module EnumeratedSignal = struct
 
   type t = Empty | Atom of Atom.t
 
-  let to_boolean_function (x : t) =
-   fun (state : 'a State.t) (instrument : Instrument.t) ->
+  let to_signal_function (type a) (x : t) =
+   fun (state : a State.t) (instrument : Instrument.t) ->
     match x with
     | Empty -> Result.return @@ Signal.make instrument false
     | Atom a ->
@@ -59,6 +59,15 @@ module EnumeratedSignal = struct
         let boolean_func = Atom.to_boolean_func a in
         let* res = boolean_func state instrument in
         Result.return @@ Signal.make instrument res
+
+  let to_buy_trigger (x : t) =
+    let pass = to_signal_function x in
+    let module X : Template.Buy_trigger.INPUT = struct
+      let pass = pass
+      let score = fun _ _ -> Result.return 0.0
+      let num_positions = 1
+    end in
+    ()
 end
 
 type strategy = { buy : EnumeratedSignal.t; sell : EnumeratedSignal.t }
