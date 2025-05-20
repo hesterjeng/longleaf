@@ -8,13 +8,13 @@ module Side = Trading_types.Side
 
 type t = {
   instrument : Instrument.t;
-  side : Side.t;
+  (* side : Side.t; *)
   reason : string list;
   flag : bool;
 }
 [@@deriving show { with_path = false }]
 
-let make i s b = { instrument = i; side = s; reason = []; flag = b }
+let make i b = { instrument = i; reason = []; flag = b }
 
 let ( let&& ) signal x f =
   match x with

@@ -30,7 +30,7 @@ let bearish_crossover ~(i : P.t) ~(prev : P.t) =
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) instrument =
-    let signal = Signal.make instrument Buy true in
+    let signal = Signal.make instrument true in
     let ( let&& ) = Signal.let_and signal in
     let ( let$ ) = Signal.let_get_opt signal in
     let+ i = Indicators.get_top state.indicators instrument in
@@ -65,7 +65,7 @@ let refresh_table : (Order.t, int) Hashtbl.t = Hashtbl.create 10
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
-    let signal = Signal.make buying_order.symbol Sell false in
+    let signal = Signal.make buying_order.symbol false in
     let ( let$ ) = Signal.let_get_opt signal in
     let ( let|| ) = Signal.let_or signal in
     let* price = State.price state buying_order.symbol in

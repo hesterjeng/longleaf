@@ -53,12 +53,12 @@ module EnumeratedSignal = struct
   let to_boolean_function (x : t) =
    fun (state : 'a State.t) (instrument : Instrument.t) ->
     match x with
-    | Empty -> Result.return @@ Signal.make instrument Buy false
+    | Empty -> Result.return @@ Signal.make instrument false
     | Atom a ->
         let ( let* ) = Result.( let* ) in
         let boolean_func = Atom.to_boolean_func a in
         let* res = boolean_func state instrument in
-        Result.return @@ Signal.make instrument Buy res
+        Result.return @@ Signal.make instrument res
 end
 
 type strategy = { buy : EnumeratedSignal.t; sell : EnumeratedSignal.t }
