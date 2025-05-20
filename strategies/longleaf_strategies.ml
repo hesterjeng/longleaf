@@ -63,10 +63,7 @@ type t =
   | LiberatedCrossover
   | Monaspa
   | Channel
-  | Astar of {
-      buy : Astar_search.EnumeratedSignal.t;
-      sell : Astar_search.EnumeratedSignal.t;
-    }
+  | Astar
 [@@deriving show, eq, yojson, variants]
 
 let all = List.map fst Variants.descriptions
@@ -114,7 +111,7 @@ let of_string_res x =
     Result.fail
     @@ `Msg
          (Format.asprintf
-            "@[strategies: Unknown runtype selected: %s@]@.@[Valid options are: %a@]@." x
+            "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@." x
             (List.pp String.pp) all)
 
 (** Function for Cmdliner use. *)
