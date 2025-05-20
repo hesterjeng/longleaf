@@ -55,7 +55,7 @@ let make_bars (options : Options.t) =
       let bars, target = Slice_backtesting.top ~options bars target in
       Result.return @@ (bars, Some target)
   | Live | Manual | Paper | Backtest | Multitest | Montecarlo | MultiMontecarlo
-  | RandomTickerBacktest | MultiRandomTickerBacktest ->
+  | RandomTickerBacktest | MultiRandomTickerBacktest | AstarSearch ->
       Result.return @@ (bars, target)
 
 let make_backend_input (options : Options.t) bars target =
@@ -83,7 +83,7 @@ let make (options : Options.t) bars target =
         Eio.traceln "@[create_backend: Creating Alpaca backend@]@.";
         Result.return @@ (module Alpaca_backend.Make (Input) : S)
     | Backtest | Multitest | Montecarlo | MultiMontecarlo | RandomSliceBacktest
-    | RandomTickerBacktest | MultiRandomTickerBacktest
+    | RandomTickerBacktest | MultiRandomTickerBacktest | AstarSearch
     | MultiRandomSliceBacktest ->
         Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
         Result.return @@ (module Backtesting_backend.Make (Input) : S)

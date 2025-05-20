@@ -114,7 +114,7 @@ let of_string_res x =
     Result.fail
     @@ `Msg
          (Format.asprintf
-            "@[Unknown runtype selected: %s@]@.@[Valid options are: %a@]@." x
+            "@[strategies: Unknown runtype selected: %s@]@.@[Valid options are: %a@]@." x
             (List.pp String.pp) all)
 
 (** Function for Cmdliner use. *)
