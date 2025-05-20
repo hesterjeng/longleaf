@@ -124,9 +124,20 @@ type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 (** Track some statistics if we are doing multiple backtests. *)
 
+let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
+    ~(sell : Astar_search.EnumeratedSignal.t) =
+  let x = Astar_search.EnumeratedSignal.to_strategy buy sell in
+  run_generic x context
+
 (** Top level function for running strategies based on a context.*)
 let run (context : Context.t) strategy =
   match context.runtype with
+  | AstarSearch ->
+      let candidates = [] in
+      let _ =
+        List.map (fun (buy, sell) -> run_astar context ~buy ~sell) candidates
+      in
+      invalid_arg "NYI"
   | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest
   | RandomTickerBacktest ->
       run_strat context strategy
@@ -157,8 +168,3 @@ let run (context : Context.t) strategy =
       Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
       Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
       0.0
-
-let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
-    ~(sell : Astar_search.EnumeratedSignal.t) =
-  let x = Astar_search.EnumeratedSignal.to_strategy buy sell in
-  run_generic x context
