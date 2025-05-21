@@ -44,6 +44,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
       {
         strategy = Longleaf_strategies.show strategy_arg;
         runtype;
+        no_gui;
         eio_env;
         longleaf_env;
         switch;

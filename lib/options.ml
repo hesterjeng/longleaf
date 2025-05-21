@@ -74,6 +74,7 @@ module Context = struct
     preload : Preload.t;
     target : Preload.t;
     save_received : bool;
+    no_gui : bool;
     nowait_market_open : bool;
     mutices : Longleaf_mutex.t;
     save_to_file : bool;

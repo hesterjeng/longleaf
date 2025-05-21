@@ -166,10 +166,11 @@ module Make (Backend : Backend_intf.S) = struct
       Eio.traceln "Running...";
       Result.return @@ { state with current = Listening }
     | Listening -> (
-      Pmutex.set mutices.data_mutex state.bars;
-      Pmutex.set mutices.orders_mutex state.order_history;
-      Pmutex.set mutices.stats_mutex state.stats;
-      Pmutex.set mutices.indicators_mutex state.indicators;
+      if not Backend.Input.options.context.no_gui then (
+        Pmutex.set mutices.data_mutex state.bars;
+        Pmutex.set mutices.orders_mutex state.order_history;
+        Pmutex.set mutices.stats_mutex state.stats;
+        Pmutex.set mutices.indicators_mutex state.indicators);
       (* Eio.traceln "tick"; *)
       let* listened = listen_tick () in
       match listened with
@@ -198,9 +199,10 @@ module Make (Backend : Backend_intf.S) = struct
       let stats_with_orders =
         Stats.add_orders state.order_history state.stats
       in
-      Pmutex.set mutices.data_mutex state.bars;
-      Pmutex.set mutices.stats_mutex stats_with_orders;
-      Pmutex.set mutices.indicators_mutex state.indicators;
+      if not Backend.Input.options.context.no_gui then (
+        Pmutex.set mutices.data_mutex state.bars;
+        Pmutex.set mutices.stats_mutex stats_with_orders;
+        Pmutex.set mutices.indicators_mutex state.indicators);
       let filename = get_filename () in
       output_data state filename;
       output_order_history state filename;
