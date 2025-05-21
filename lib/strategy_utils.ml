@@ -149,6 +149,8 @@ module Make (Backend : Backend_intf.S) = struct
     Result.return
     @@ { state with latest; stats = new_stats; positions = position }
 
+  let start_time = ref 0.0
+
   let handle_nonlogical_state (state : _ State.t) =
     let ( let* ) = Result.( let* ) in
     (* Eio.traceln "There are %d bindings in state.bars" *)
@@ -160,6 +162,7 @@ module Make (Backend : Backend_intf.S) = struct
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
+      start_time := Eio.Time.now Backend.env#clock;
       Eio.traceln "Running...";
       Result.return @@ { state with current = Listening }
     | Listening -> (
@@ -204,7 +207,7 @@ module Make (Backend : Backend_intf.S) = struct
       let tearsheet = Tearsheet.make state in
       Eio.traceln "%a" Tearsheet.pp tearsheet;
       assert (Backend_position.is_empty state.positions);
-      Eio.traceln "Done...";
+      Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
       Result.fail @@ `Finished code
     | Ordering
     | Continue
