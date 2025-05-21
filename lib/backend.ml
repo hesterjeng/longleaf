@@ -42,24 +42,22 @@ let make_bars (options : Options.t) =
       Result.return res
   in
   let* target =
-    (fun f ->
-      match target with
-      | None -> Ok None
-      | File t -> f t
-      | Download -> Error.missing_data "NYI Download target"
-      | Loaded bars -> Result.return @@ Option.return @@ Bars.copy bars)
-    @@ fun t ->
-    let* res =
-      let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in
-      conv
-    in
-    Bars.sort (Ord.opp Item.compare) res;
-    match context.runtype with
-    | Options.Runtype.Montecarlo
-    | MultiMontecarlo ->
-      Result.return @@ Option.some
-      @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res
-    | _ -> Result.return @@ Some res
+    match target with
+    | None -> Ok None
+    | Download -> Error.missing_data "NYI Download target"
+    | Loaded bars -> Result.return @@ Option.return @@ Bars.copy bars
+    | File t -> (
+      let* res =
+        let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in
+        conv
+      in
+      Bars.sort (Ord.opp Item.compare) res;
+      match context.runtype with
+      | Options.Runtype.Montecarlo
+      | MultiMontecarlo ->
+        Result.return @@ Option.some
+        @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res
+      | _ -> Result.return @@ Some res)
   in
   match context.runtype with
   | RandomSliceBacktest
