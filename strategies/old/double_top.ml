@@ -21,12 +21,19 @@ module Conditions = struct
   (* 2) There must be a local minimum 80% of the first local max between it and now *)
   (* 3) The current price must be within 5% of that previous maximum *)
 
-  let is_pass = function Pass x -> Some x | _ -> None
+  let is_pass = function
+    | Pass x -> Some x
+    | _ -> None
+
   let find_pass (l : t Iter.t) = Iter.find_map is_pass l
   let init l = Iter.map (fun x -> Pass x) l
 
   let map (f : Item.t -> t) (l : t Iter.t) =
-    Iter.map (function Pass x -> f x | Fail s -> Fail s) l
+    Iter.map
+      (function
+        | Pass x -> f x
+        | Fail s -> Fail s)
+      l
 
   (* Is the current price above the bollinger band? *)
   let above_bollinger (indicators : Indicators.t) symbol
@@ -226,10 +233,10 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
     let cash_available = Backend_position.get_cash state.positions in
     match cash_available >=. 0.0 with
     | true ->
-        let tenp = cash_available *. pct in
-        let current_price = State.price state symbol in
-        let max_amt = tenp /. current_price in
-        if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+      let tenp = cash_available *. pct in
+      let current_price = State.price state symbol in
+      let max_amt = tenp /. current_price in
+      if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
     | false -> 0
 
   (* Check if we meet the conditions for placing a short for one of our symbols. *)
@@ -245,8 +252,8 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
       match choice with
       | None -> Ok state
       | Some order ->
-          let* state = Backend.place_order state order in
-          Result.return @@ { state with content = DT_Status.Placed (0, order) }
+        let* state = Backend.place_order state order in
+        Result.return @@ { state with content = DT_Status.Placed (0, order) }
     in
     Result.return @@ State.listen state
 
@@ -261,44 +268,46 @@ module DoubleTop (Backend : Backend.S) : Strategy.S = struct
         ~price_difference
     in
     match cover_reason with
-    | Profited _ | HoldingPeriod _ | StopLoss _ ->
-        let profit =
-          Float.of_int shorting_order.qty
-          *. (shorting_order.price -. current_price)
-        in
-        let reason =
-          Format.asprintf "Covering because of %a. Profit: %f"
-            Conditions.Cover_reason.pp cover_reason profit
-          :: shorting_order.reason
-        in
-        (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
-        let* state =
-          Backend.place_order state
-          @@ Order.make ~tick:state.tick ~symbol:shorting_order.symbol
-               ~side:Side.Buy ~tif:shorting_order.tif
-               ~order_type:shorting_order.order_type ~qty:shorting_order.qty
-               ~price:current_price ~timestamp ~reason ~profit:(Some profit)
-        in
-        Result.return
-        @@ { state with State.current = Listening; content = DT_Status.Waiting }
+    | Profited _
+    | HoldingPeriod _
+    | StopLoss _ ->
+      let profit =
+        Float.of_int shorting_order.qty
+        *. (shorting_order.price -. current_price)
+      in
+      let reason =
+        Format.asprintf "Covering because of %a. Profit: %f"
+          Conditions.Cover_reason.pp cover_reason profit
+        :: shorting_order.reason
+      in
+      (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
+      let* state =
+        Backend.place_order state
+        @@ Order.make ~tick:state.tick ~symbol:shorting_order.symbol
+             ~side:Side.Buy ~tif:shorting_order.tif
+             ~order_type:shorting_order.order_type ~qty:shorting_order.qty
+             ~price:current_price ~timestamp ~reason ~profit:(Some profit)
+      in
+      Result.return
+      @@ { state with State.current = Listening; content = DT_Status.Waiting }
     | Hold ->
-        (* Eio.traceln "@[Holding...@]@."; *)
-        Result.return
-        @@ {
-             state with
-             State.current = Listening;
-             content = DT_Status.Placed (time_held + 1, shorting_order);
-           }
+      (* Eio.traceln "@[Holding...@]@."; *)
+      Result.return
+      @@ {
+           state with
+           State.current = Listening;
+           content = DT_Status.Placed (time_held + 1, shorting_order);
+         }
 
   let step (state : state) =
     let current = state.current in
     (* Eio.traceln "@[%a@]@." State.pp_state current; *)
     match current with
     | Ordering -> (
-        (* Eio.traceln "@[%a@]@." DT_Status.pp state.content; *)
-        match state.content with
-        | Waiting -> place_short ~state
-        | Placed (time_held, order) -> cover_position ~state time_held order)
+      (* Eio.traceln "@[%a@]@." DT_Status.pp state.content; *)
+      match state.content with
+      | Waiting -> place_short ~state
+      | Placed (time_held, order) -> cover_position ~state time_held order)
     | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step

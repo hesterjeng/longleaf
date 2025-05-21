@@ -23,7 +23,9 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     signal
 
   let score _ symbol =
-    match symbol with Instrument.Security "SPY" -> Ok 1.0 | _ -> Ok 0.0
+    match symbol with
+    | Instrument.Security "SPY" -> Ok 1.0
+    | _ -> Ok 0.0
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)

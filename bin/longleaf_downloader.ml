@@ -79,22 +79,22 @@ module Downloader = struct
     let bars =
       match downloader_arg with
       | Some Alpaca -> (
-          MDA.Stock.historical_bars request |> function
-          | Ok x -> x
-          | Error e ->
-              Eio.traceln "%a" Error.pp e;
-              invalid_arg "Error downloading historical bars")
+        MDA.Stock.historical_bars request |> function
+        | Ok x -> x
+        | Error e ->
+          Eio.traceln "%a" Error.pp e;
+          invalid_arg "Error downloading historical bars")
       | Some Tiingo ->
-          let module Param = struct
-            let longleaf_env = longleaf_env
-            let client = Tiingo_api.tiingo_client eio_env switch
-          end in
-          let module Tiingo = Tiingo_api.Make (Param) in
-          let res = Tiingo.Data.top ~afterhours request in
-          Piaf.Client.shutdown Param.client;
-          res
+        let module Param = struct
+          let longleaf_env = longleaf_env
+          let client = Tiingo_api.tiingo_client eio_env switch
+        end in
+        let module Tiingo = Tiingo_api.Make (Param) in
+        let res = Tiingo.Data.top ~afterhours request in
+        Piaf.Client.shutdown Param.client;
+        res
       | None ->
-          invalid_arg "Need to specify downloader type for data_downloader."
+        invalid_arg "Need to specify downloader type for data_downloader."
     in
     (* Bars.Infill.top bars; *)
     Eio.traceln "%a" Bars.pp_stats bars;
@@ -118,17 +118,17 @@ module Cmd = struct
       with
       | Some r -> r
       | None ->
-          Eio.traceln
-            "Creating default download request because of missing arguments";
-          let start =
-            if today then Time.get_todays_date () else Time.of_ymd "2024-11-01"
-          in
-          {
-            timeframe = Trading_types.Timeframe.min 10;
-            start;
-            symbols = collection;
-            end_ = None;
-          }
+        Eio.traceln
+          "Creating default download request because of missing arguments";
+        let start =
+          if today then Time.get_todays_date () else Time.of_ymd "2024-11-01"
+        in
+        {
+          timeframe = Trading_types.Timeframe.min 10;
+          start;
+          symbols = collection;
+          end_ = None;
+        }
     in
     let _ =
       Eio_main.run @@ fun eio_env ->

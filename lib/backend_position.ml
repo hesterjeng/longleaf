@@ -44,7 +44,10 @@ let get_cash pos =
 
 let symbols pos =
   List.filter_map
-    (fun (sym, qty) -> match qty with 0 -> None | _ -> Some sym)
+    (fun (sym, qty) ->
+      match qty with
+      | 0 -> None
+      | _ -> Some sym)
     pos.portfolio
 
 let value pos (latest : Bars.Latest.t) =
@@ -67,23 +70,20 @@ let execute_order (pos : t) (order : Order.t) : (t, Error.t) result =
   let order_qty = order.qty in
   match (order.side, order.order_type) with
   | Buy, Market ->
-      let portfolio =
-        Portfolio.set_qty pos.portfolio symbol (current_amt + order_qty)
-      in
-      let res =
-        set_cash pos @@ (pos.cash -. (price *. Float.of_int order_qty))
-      in
-      Ok { res with portfolio }
+    let portfolio =
+      Portfolio.set_qty pos.portfolio symbol (current_amt + order_qty)
+    in
+    let res = set_cash pos @@ (pos.cash -. (price *. Float.of_int order_qty)) in
+    Ok { res with portfolio }
   | Sell, Market ->
-      let portfolio =
-        Portfolio.set_qty pos.portfolio symbol (current_amt - order_qty)
-      in
-      let res =
-        set_cash pos @@ (pos.cash +. (price *. Float.of_int order_qty))
-      in
-      Ok { res with portfolio }
-  | Buy, Stop | Sell, Stop ->
-      Result.return @@ { pos with live_orders = order :: pos.live_orders }
+    let portfolio =
+      Portfolio.set_qty pos.portfolio symbol (current_amt - order_qty)
+    in
+    let res = set_cash pos @@ (pos.cash +. (price *. Float.of_int order_qty)) in
+    Ok { res with portfolio }
+  | Buy, Stop
+  | Sell, Stop ->
+    Result.return @@ { pos with live_orders = order :: pos.live_orders }
   | _ -> Result.fail @@ `UnsupportedOrder (Order.show order)
 
 (* Execute Stop/Limit orders in the live field.  Market orders should not be in the live field. *)
@@ -113,14 +113,14 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
     (*  If so, execute the order as a market order.  Otherwise, add the order to the live order list.*)
     match crossing previous_price current_price with
     | true ->
-        (* The order has been triggered, execute it now *)
-        let market_order : Order.t = { order with order_type = Market } in
-        let* positions = execute_order positions market_order in
-        Result.return positions
+      (* The order has been triggered, execute it now *)
+      let market_order : Order.t = { order with order_type = Market } in
+      let* positions = execute_order positions market_order in
+      Result.return positions
     | false ->
-        (* The order was not activated, put it in the live orders list *)
-        Result.return
-          { positions with live_orders = order :: positions.live_orders }
+      (* The order was not activated, put it in the live orders list *)
+      Result.return
+        { positions with live_orders = order :: positions.live_orders }
 
 let liquidate pos (bars : Bars.Latest.t) =
   let open Trading_types in
@@ -132,17 +132,17 @@ let liquidate pos (bars : Bars.Latest.t) =
     match qty with
     | 0 -> Ok pos
     | qty ->
-        let side = if qty >= 0 then Side.Sell else Side.Buy in
-        let* latest = Bars.Latest.get bars instrument in
-        let order : Order.t =
-          let tif = TimeInForce.GoodTillCanceled in
-          let order_type = OrderType.Market in
-          let qty = Int.abs qty in
-          let price = Item.last latest in
-          let timestamp = Item.timestamp latest in
-          Order.make ~tick:(-1) ~symbol:instrument ~side ~tif ~order_type ~qty
-            ~price ~timestamp ~profit:None ~reason:[ "Liquidating" ]
-        in
-        Eio.traceln "Liquidation @[%a@]@." Order.pp order;
-        let* res = execute_order pos order in
-        Ok res
+      let side = if qty >= 0 then Side.Sell else Side.Buy in
+      let* latest = Bars.Latest.get bars instrument in
+      let order : Order.t =
+        let tif = TimeInForce.GoodTillCanceled in
+        let order_type = OrderType.Market in
+        let qty = Int.abs qty in
+        let price = Item.last latest in
+        let timestamp = Item.timestamp latest in
+        Order.make ~tick:(-1) ~symbol:instrument ~side ~tif ~order_type ~qty
+          ~price ~timestamp ~profit:None ~reason:[ "Liquidating" ]
+      in
+      Eio.traceln "Liquidation @[%a@]@." Order.pp order;
+      let* res = execute_order pos order in
+      Ok res

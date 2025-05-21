@@ -64,7 +64,9 @@ let average_profit (h : Order.History.t) =
     List.filter_map
       (fun (x : Order.t) ->
         let* profit = x.profit in
-        match profit >=. 0.0 with true -> Some profit | false -> None)
+        match profit >=. 0.0 with
+        | true -> Some profit
+        | false -> None)
       h.all
     |> Array.of_list
   in
@@ -76,7 +78,9 @@ let average_loss (h : Order.History.t) =
     List.filter_map
       (fun (x : Order.t) ->
         let* profit = x.profit in
-        match profit <=. 0.0 with true -> Some profit | false -> None)
+        match profit <=. 0.0 with
+        | true -> Some profit
+        | false -> None)
       h.all
     |> Array.of_list
   in
@@ -113,7 +117,9 @@ let biggest (h : Order.History.t) =
   let sorted =
     h.all
     |> List.filter_map (fun (o : Order.t) ->
-           match o.profit with Some _ -> Some o | None -> None)
+           match o.profit with
+           | Some _ -> Some o
+           | None -> None)
     |> List.sort Order.cmp_profit
   in
   let biggest_loser = List.head_opt sorted in

@@ -59,9 +59,9 @@ module Node : Astar.INPUT with type node = node_ = struct
     let winner_val =
       match !winner with
       | Some { winner_result; _ } ->
-          if res >=. winner_result then
-            Some { winner_result = res; winner_node = x }
-          else !winner
+        if res >=. winner_result then
+          Some { winner_result = res; winner_node = x }
+        else !winner
       | None -> Some { winner_result = res; winner_node = x }
     in
     Eio.traceln "%a" (Option.pp pp_winner) winner_val;
@@ -73,9 +73,9 @@ module Node : Astar.INPUT with type node = node_ = struct
     match Pmutex.get x.res with
     | Some res -> res.goal
     | None ->
-        let results = compute_results x in
-        Pmutex.set x.res @@ Option.return results;
-        results.goal
+      let results = compute_results x in
+      Pmutex.set x.res @@ Option.return results;
+      results.goal
 
   let weight _ _ = 1.0
 
@@ -83,17 +83,17 @@ module Node : Astar.INPUT with type node = node_ = struct
     match Pmutex.get x.res with
     | Some res -> res.heuristic
     | None ->
-        let results = compute_results x in
-        Pmutex.set x.res @@ Option.return results;
-        results.heuristic
+      let results = compute_results x in
+      Pmutex.set x.res @@ Option.return results;
+      results.heuristic
 
   let neighbors x =
     match Pmutex.get x.res with
     | Some res -> res.neighbors
     | None ->
-        let results = compute_results x in
-        Pmutex.set x.res @@ Option.return results;
-        results.neighbors
+      let results = compute_results x in
+      Pmutex.set x.res @@ Option.return results;
+      results.neighbors
 end
 
 let empty context : node_ =

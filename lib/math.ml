@@ -55,18 +55,18 @@ let simple_moving_average ?current n (f : 'a -> float) (next : 'a -> 'a option)
   let counter, start =
     match current with
     | Some start ->
-        assert (n > 1);
-        (n - 1, start)
+      assert (n > 1);
+      (n - 1, start)
     | None -> (n, 0.0)
   in
   let rec aux n acc x =
     match n with
     | 0 -> acc
     | n -> (
-        let curr = f x in
-        match next x with
-        | None -> curr :: acc
-        | Some prev -> aux (n - 1) (curr :: acc) prev)
+      let curr = f x in
+      match next x with
+      | None -> curr :: acc
+      | Some prev -> aux (n - 1) (curr :: acc) prev)
   in
   let l = aux counter [] x in
   let sum = List.fold_left ( +. ) start l in

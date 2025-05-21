@@ -38,8 +38,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
     match Input.target with
     | Some b -> b
     | None ->
-        Eio.traceln "Creating empty data_remaining for backtesting backend.";
-        Bars.empty ()
+      Eio.traceln "Creating empty data_remaining for backtesting backend.";
+      Bars.empty ()
 
   let place_order = State.place_order
   let received_data = Bars.empty ()
@@ -54,12 +54,14 @@ module Make (Input : BACKEND_INPUT) : S = struct
       |> Seq.find_map @@ fun (symbol, vector) ->
          Vector.pop vector |> function
          | None ->
-             Option.return @@ `MissingData "backtesting_backend.ml:latest_bars"
+           Option.return @@ `MissingData "backtesting_backend.ml:latest_bars"
          | Some value ->
-             Hashtbl.replace latest symbol value;
-             None
+           Hashtbl.replace latest symbol value;
+           None
     in
-    match found with Some err -> Error err | None -> Ok latest
+    match found with
+    | Some err -> Error err
+    | None -> Ok latest
 
   let last_data_bar =
     Eio.traceln "@[Creating last data bar.@]";
@@ -81,11 +83,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
       match l with
       | 0 -> Error.missing_data @@ Instrument.symbol symbol
       | _ ->
-          Result.return
-          @@
-          let item = Vector.get vector 0 in
-          Hashtbl.replace tbl symbol item;
-          tbl
+        Result.return
+        @@
+        let item = Vector.get vector 0 in
+        Hashtbl.replace tbl symbol item;
+        tbl
     in
     res
 

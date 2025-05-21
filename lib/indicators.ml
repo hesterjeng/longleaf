@@ -60,10 +60,10 @@ module Point_ty = struct
     let rec aux (n : int) x acc =
       match n with
       | n when n > 0 -> (
-          let acc = x :: acc in
-          match x.previous with
-          | Some next -> aux (n - 1) next acc
-          | None -> acc)
+        let acc = x :: acc in
+        match x.previous with
+        | Some next -> aux (n - 1) next acc
+        | None -> acc)
       | _ -> acc
     in
     aux n x []
@@ -157,7 +157,11 @@ module RSI = struct
   let rsi mau mad =
     assert (not @@ Float.is_nan mad);
     assert (not @@ Float.is_nan mau);
-    let ratio = match mad with 0.0 -> 0.0 | _ -> mau /. mad in
+    let ratio =
+      match mad with
+      | 0.0 -> 0.0
+      | _ -> mau /. mad
+    in
     100.0 -. (100.0 *. (1.0 /. (1.0 +. ratio)))
 end
 
@@ -236,36 +240,36 @@ module ADX = struct
   let top previous current : t =
     match previous with
     | None ->
-        {
-          ema_positive_dm = 0.0;
-          ema_negative_dm = 0.0;
-          ema_di_diff = 0.0;
-          adx = 0.0;
-          ema_adx = 0.0;
-        }
+      {
+        ema_positive_dm = 0.0;
+        ema_negative_dm = 0.0;
+        ema_di_diff = 0.0;
+        adx = 0.0;
+        ema_adx = 0.0;
+      }
     | Some previous ->
-        let ema_positive_dm = ema_pdm 14 previous current in
-        let ema_negative_dm = ema_ndm 14 previous current in
-        let pdi =
-          positive_directional_indicator ~ema_pdm:ema_positive_dm 14 previous
-            current
-        in
-        let ndi =
-          negative_directional_indicator ~ema_ndm:ema_negative_dm 14 previous
-            current
-        in
-        let ema_di_diff =
-          let abs_diff = Float.abs (pdi -. ndi) in
-          assert (abs_diff <=. pdi +. ndi);
-          Math.ema 14 previous.adx.ema_di_diff @@ Float.abs (pdi -. ndi)
-        in
-        let adx = adx ~pdi ~ndi ~ema_di_diff in
-        let ema_adx = Math.ema 140 previous.adx.ema_adx adx in
-        let res : t =
-          { ema_positive_dm; ema_negative_dm; ema_di_diff; adx; ema_adx }
-        in
-        (* Eio.traceln "%a" Point_ty.pp_adx res; *)
-        res
+      let ema_positive_dm = ema_pdm 14 previous current in
+      let ema_negative_dm = ema_ndm 14 previous current in
+      let pdi =
+        positive_directional_indicator ~ema_pdm:ema_positive_dm 14 previous
+          current
+      in
+      let ndi =
+        negative_directional_indicator ~ema_ndm:ema_negative_dm 14 previous
+          current
+      in
+      let ema_di_diff =
+        let abs_diff = Float.abs (pdi -. ndi) in
+        assert (abs_diff <=. pdi +. ndi);
+        Math.ema 14 previous.adx.ema_di_diff @@ Float.abs (pdi -. ndi)
+      in
+      let adx = adx ~pdi ~ndi ~ema_di_diff in
+      let ema_adx = Math.ema 140 previous.adx.ema_adx adx in
+      let res : t =
+        { ema_positive_dm; ema_negative_dm; ema_di_diff; adx; ema_adx }
+      in
+      (* Eio.traceln "%a" Point_ty.pp_adx res; *)
+      res
 end
 
 module CCI = struct
@@ -281,31 +285,29 @@ module CCI = struct
     match previous with
     | None -> { typical_price; cci = 0.0; ema_cci = 0.0 }
     | Some prev ->
-        let sma_pt =
-          Math.simple_moving_average ~current:typical_price 140
-            (fun (x : Point_ty.t) -> x.cci.typical_price)
-            Point_ty.previous prev
-        in
-        let current_divergence = Float.abs @@ (typical_price -. sma_pt) in
-        let mean_absolute_divergence =
-          Math.simple_moving_average ~current:current_divergence 140
-            (fun (x : Point_ty.t) ->
-              Float.abs @@ (x.cci.typical_price -. sma_pt))
-            Point_ty.previous prev
-        in
-        let cci =
-          match mean_absolute_divergence with
-          | 0.0 -> prev.cci.cci
-          | _ -> (
-              1.0 /. 0.015
-              *. ((typical_price -. sma_pt) /. mean_absolute_divergence)
-              |> function
-              | x when x >=. 100.0 -> 100.0
-              | x when x <=. -100.0 -> -100.0
-              | x -> x)
-        in
-        let ema_cci = Math.ema 140 prev.cci.ema_cci cci in
-        { typical_price; cci; ema_cci }
+      let sma_pt =
+        Math.simple_moving_average ~current:typical_price 140
+          (fun (x : Point_ty.t) -> x.cci.typical_price)
+          Point_ty.previous prev
+      in
+      let current_divergence = Float.abs @@ (typical_price -. sma_pt) in
+      let mean_absolute_divergence =
+        Math.simple_moving_average ~current:current_divergence 140
+          (fun (x : Point_ty.t) -> Float.abs @@ (x.cci.typical_price -. sma_pt))
+          Point_ty.previous prev
+      in
+      let cci =
+        match mean_absolute_divergence with
+        | 0.0 -> prev.cci.cci
+        | _ -> (
+          1.0 /. 0.015 *. ((typical_price -. sma_pt) /. mean_absolute_divergence)
+          |> function
+          | x when x >=. 100.0 -> 100.0
+          | x when x <=. -100.0 -> -100.0
+          | x -> x)
+      in
+      let ema_cci = Math.ema 140 prev.cci.ema_cci cci in
+      { typical_price; cci; ema_cci }
 end
 
 module FSO = struct
@@ -331,18 +333,18 @@ module FSO = struct
     match previous with
     | None -> { k = 0.0; d = 0.0; d_slow = 0.0 }
     | Some prev ->
-        let k = pK 140 price_history item in
-        let d =
-          Math.simple_moving_average ~current:k 35
-            (fun (x : Point_ty.t) -> x.fso.k)
-            Point_ty.previous prev
-        in
-        let d_slow =
-          Math.simple_moving_average ~current:d 34
-            (fun (x : Point_ty.t) -> x.fso.d)
-            Point_ty.previous prev
-        in
-        { k; d; d_slow }
+      let k = pK 140 price_history item in
+      let d =
+        Math.simple_moving_average ~current:k 35
+          (fun (x : Point_ty.t) -> x.fso.k)
+          Point_ty.previous prev
+      in
+      let d_slow =
+        Math.simple_moving_average ~current:d 34
+          (fun (x : Point_ty.t) -> x.fso.d)
+          Point_ty.previous prev
+      in
+      { k; d; d_slow }
 end
 
 (* module Fourier = Fourier *)
@@ -367,8 +369,8 @@ module Point = struct
       match previous with
       | None -> (price, 0.0, 0.0)
       | Some prev ->
-          assert (Instrument.equal symbol prev.symbol);
-          (prev.price, prev.average_gain, prev.average_loss)
+        assert (Instrument.equal symbol prev.symbol);
+        (prev.price, prev.average_gain, prev.average_loss)
     in
     let average_gain =
       RSI.mau 14.0 previous_average_gain price previous_price
@@ -385,8 +387,8 @@ module Point = struct
       match previous with
       | None -> 0.0
       | Some prev ->
-          Fourier.mean_squared_error config prev.fourier_transform
-            fourier_transform
+        Fourier.mean_squared_error config prev.fourier_transform
+          fourier_transform
     in
     let previous_adl =
       match previous with
@@ -454,15 +456,15 @@ let get_instrument (x : t) instrument = get x instrument
 let get_top (x : t) symbol =
   match get x symbol with
   | None ->
-      Error.missing_data
-      @@ Format.asprintf "Missing indicators vector for %a" Instrument.pp symbol
+    Error.missing_data
+    @@ Format.asprintf "Missing indicators vector for %a" Instrument.pp symbol
   | Some vec -> (
-      match Vector.top vec with
-      | Some top -> Ok top
-      | None ->
-          Error.missing_data
-          @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
-               symbol)
+    match Vector.top vec with
+    | Some top -> Ok top
+    | None ->
+      Error.missing_data
+      @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
+           symbol)
 
 let get_indicator (x : t) symbol f =
   let res =
@@ -482,7 +484,7 @@ let initialize_single config bars symbol =
     Bars.get bars symbol |> function
     | Some x -> x
     | None ->
-        invalid_arg "Expected to have bars data when initializing indicators"
+      invalid_arg "Expected to have bars data when initializing indicators"
   in
   (* Create a vector to store the data so far *)
   let bars_upto_now = Vector.create () in
@@ -508,15 +510,17 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
   let iter f = Seq.iter f seq in
   iter @@ fun (symbol, latest) ->
   let symbol_history =
-    Bars.get bars symbol |> function Some x -> x | None -> assert false
+    Bars.get bars symbol |> function
+    | Some x -> x
+    | None -> assert false
   in
   let indicators_vector =
     match get x symbol with
     | Some i -> i
     | None ->
-        let new_vector = initialize_single config bars symbol in
-        Hashtbl.replace x symbol new_vector;
-        new_vector
+      let new_vector = initialize_single config bars symbol in
+      Hashtbl.replace x symbol new_vector;
+      new_vector
   in
   let previous = Vector.top indicators_vector in
   let new_indicators =

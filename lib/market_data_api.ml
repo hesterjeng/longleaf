@@ -30,55 +30,53 @@ module Request = struct
     match x.end_ with
     | None -> [ x ]
     | Some request_end ->
-        let timeframe = Timeframe.to_float x.timeframe in
-        let request_start = x.start in
-        Eio.traceln "@[start: %a@]@.@[end: %a@]@." (Ptime.pp_human ())
-          request_start (Ptime.pp_human ()) request_end;
-        let start_f, end_f =
-          Pair.map_same Ptime.to_float_s (request_start, request_end)
-        in
-        assert (end_f >=. start_f);
-        let diff = end_f -. start_f in
-        let diff_divided =
-          (diff /. timeframe /. 10000.0) +. 2.0 |> Float.round |> Float.to_int
-        in
-        Eio.traceln "Breaking request into %d requests" diff_divided;
-        let increment = diff /. Float.of_int diff_divided in
-        let start_end_times =
-          ( List.init diff_divided @@ fun i ->
-            start_f +. (Float.of_int i *. increment) |> Ptime.of_float_s )
-          |> fun l ->
-          List.mapi
-            (fun i x ->
-              Pair.map_same
-                (fun t_opt ->
-                  let t =
-                    Option.get_exn_or "Time error in Request.split" t_opt
+      let timeframe = Timeframe.to_float x.timeframe in
+      let request_start = x.start in
+      Eio.traceln "@[start: %a@]@.@[end: %a@]@." (Ptime.pp_human ())
+        request_start (Ptime.pp_human ()) request_end;
+      let start_f, end_f =
+        Pair.map_same Ptime.to_float_s (request_start, request_end)
+      in
+      assert (end_f >=. start_f);
+      let diff = end_f -. start_f in
+      let diff_divided =
+        (diff /. timeframe /. 10000.0) +. 2.0 |> Float.round |> Float.to_int
+      in
+      Eio.traceln "Breaking request into %d requests" diff_divided;
+      let increment = diff /. Float.of_int diff_divided in
+      let start_end_times =
+        ( List.init diff_divided @@ fun i ->
+          start_f +. (Float.of_int i *. increment) |> Ptime.of_float_s )
+        |> fun l ->
+        List.mapi
+          (fun i x ->
+            Pair.map_same
+              (fun t_opt ->
+                let t = Option.get_exn_or "Time error in Request.split" t_opt in
+                let date = Ptime.to_date t in
+                Ptime.of_date date
+                |> Option.get_exn_or "Bad date in Request.split")
+              ( x,
+                match List.get_at_idx (i + 1) l with
+                | Some y ->
+                  let one_day =
+                    Ptime.Span.of_float_s 86400.0
+                    |> Option.get_exn_or "A day is a span"
                   in
-                  let date = Ptime.to_date t in
-                  Ptime.of_date date
-                  |> Option.get_exn_or "Bad date in Request.split")
-                ( x,
-                  match List.get_at_idx (i + 1) l with
-                  | Some y ->
-                      let one_day =
-                        Ptime.Span.of_float_s 86400.0
-                        |> Option.get_exn_or "A day is a span"
-                      in
-                      let y =
-                        Option.get_exn_or "Must have a time in Request.split" y
-                      in
-                      Ptime.sub_span y one_day
-                  | None -> Option.return request_end ))
-            l
-        in
-        let rs =
-          List.map
-            (fun (start, end_) -> { x with start; end_ = Some end_ })
-            start_end_times
-        in
-        Eio.traceln "%a" (List.pp pp) rs;
-        rs
+                  let y =
+                    Option.get_exn_or "Must have a time in Request.split" y
+                  in
+                  Ptime.sub_span y one_day
+                | None -> Option.return request_end ))
+          l
+      in
+      let rs =
+        List.map
+          (fun (start, end_) -> { x with start; end_ = Some end_ })
+          start_end_times
+      in
+      Eio.traceln "%a" (List.pp pp) rs;
+      rs
 end
 
 module Make (Alpaca : Util.CLIENT) = struct
@@ -122,13 +120,13 @@ module Make (Alpaca : Util.CLIENT) = struct
         let acc = new_bars :: acc in
         match Util.get_next_page_token resp_body_json with
         | Some npt ->
-            let endpoint =
-              Uri.of_string endpoint |> fun u ->
-              Uri.remove_query_param u "page_token" |> fun u ->
-              Uri.add_query_param' u ("page_token", npt) |> Uri.to_string
-            in
-            let res = collect_data ~endpoint ~headers (Ok acc) in
-            res
+          let endpoint =
+            Uri.of_string endpoint |> fun u ->
+            Uri.remove_query_param u "page_token" |> fun u ->
+            Uri.add_query_param' u ("page_token", npt) |> Uri.to_string
+          in
+          let res = collect_data ~endpoint ~headers (Ok acc) in
+          res
         | None -> Ok acc
       in
       let* paginated = collect_data ~endpoint ~headers (Ok []) in

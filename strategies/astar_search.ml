@@ -89,18 +89,25 @@ module EnumeratedSignal = struct
   type t = Empty | And of AtomSet.t | Or of AtomSet.t
   [@@deriving yojson, eq, show]
 
-  let is_empty = function Empty -> true | _ -> false
+  let is_empty = function
+    | Empty -> true
+    | _ -> false
+
   let and_ l = And l
   let or_ l = Or l
-  let is_and = function And _ -> true | _ -> false
+
+  let is_and = function
+    | And _ -> true
+    | _ -> false
+
   let and_singletons = and_ @@ AtomSet.of_list Atom.all
   let or_singletons = or_ @@ AtomSet.of_list Atom.all
 
   let neighbors (x : t) =
     match x with
     | Empty ->
-        List.map (fun x -> and_ @@ AtomSet.add x AtomSet.empty) Atom.all
-        @ List.map (fun x -> or_ @@ AtomSet.add x AtomSet.empty) Atom.all
+      List.map (fun x -> and_ @@ AtomSet.add x AtomSet.empty) Atom.all
+      @ List.map (fun x -> or_ @@ AtomSet.add x AtomSet.empty) Atom.all
     | And l -> List.map (fun x -> and_ @@ AtomSet.add x l) Atom.all
     | Or l -> List.map (fun x -> or_ @@ AtomSet.add x l) Atom.all
 
@@ -113,27 +120,27 @@ module EnumeratedSignal = struct
         match acc with
         | false -> Result.return false
         | true ->
-            let boolean_func = Atom.to_boolean_func atom in
-            let* res = boolean_func state.indicators instrument in
-            Result.return res
+          let boolean_func = Atom.to_boolean_func atom in
+          let* res = boolean_func state.indicators instrument in
+          Result.return res
       in
       let or_ atom acc =
         let* acc = acc in
         match acc with
         | true -> Result.return true
         | false ->
-            let boolean_func = Atom.to_boolean_func atom in
-            let* res = boolean_func state.indicators instrument in
-            Result.return res
+          let boolean_func = Atom.to_boolean_func atom in
+          let* res = boolean_func state.indicators instrument in
+          Result.return res
       in
       match x with
       | Empty -> Result.return @@ Signal.make instrument false
       | And l ->
-          let* res = AtomSet.fold and_ l (Ok true) in
-          Result.return @@ Signal.make instrument res
+        let* res = AtomSet.fold and_ l (Ok true) in
+        Result.return @@ Signal.make instrument res
       | Or l ->
-          let* res = AtomSet.fold or_ l (Ok false) in
-          Result.return @@ Signal.make instrument res
+        let* res = AtomSet.fold or_ l (Ok false) in
+        Result.return @@ Signal.make instrument res
 
   let to_buy_trigger (x : t) =
     let module X : Template.Buy_trigger.INPUT = struct

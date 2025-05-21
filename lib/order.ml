@@ -45,7 +45,9 @@ let make ~symbol ~tick ~side ~tif ~order_type ~qty ~price ~timestamp ~reason
   }
 
 let cmp_profit x y =
-  match (x.profit, y.profit) with Some x, Some y -> Float.compare x y | _ -> 0
+  match (x.profit, y.profit) with
+  | Some x, Some y -> Float.compare x y
+  | _ -> 0
 
 let cmp_timestamp x y = Ptime.compare x.timestamp y.timestamp
 

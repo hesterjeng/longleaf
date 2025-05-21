@@ -18,38 +18,40 @@ module Latest = struct
     match Hashtbl.find_opt x symbol with
     | Some x -> Ok x
     | None ->
-        let err =
-          Format.asprintf "[error] Unable to find price data for %a in Bars.get"
-            Instrument.pp symbol
-        in
-        Eio.traceln "%a" pp x;
-        Error.missing_data err
+      let err =
+        Format.asprintf "[error] Unable to find price data for %a in Bars.get"
+          Instrument.pp symbol
+      in
+      Eio.traceln "%a" pp x;
+      Error.missing_data err
 
   let timestamp (x : t) =
     ( (fun f -> Hashtbl.fold f x (Ok None)) @@ fun _ item prev ->
       match prev with
       | Ok None -> Result.return @@ Some (Item.timestamp item)
       | Ok (Some prev_time) -> (
-          let current_timestamp = Item.timestamp item in
-          match Ptime.compare prev_time current_timestamp with
-          | 1 | 0 -> prev
-          | -1 ->
-              (* Eio.traceln *)
-              (*   "@[@[Time mismatch in latest bars:@]@.@[%a@]@.@[%a@]@.@]@." *)
-              (*   Time.pp prev_time Time.pp (Item.timestamp item); *)
-              Ok (Some current_timestamp)
-          | _ -> invalid_arg "Impossible return value from Ptime.compare")
+        let current_timestamp = Item.timestamp item in
+        match Ptime.compare prev_time current_timestamp with
+        | 1
+        | 0 ->
+          prev
+        | -1 ->
+          (* Eio.traceln *)
+          (*   "@[@[Time mismatch in latest bars:@]@.@[%a@]@.@[%a@]@.@]@." *)
+          (*   Time.pp prev_time Time.pp (Item.timestamp item); *)
+          Ok (Some current_timestamp)
+        | _ -> invalid_arg "Impossible return value from Ptime.compare")
       | Error _ -> prev )
     |> function
     | Ok None ->
-        Eio.traceln "Current latest: %a" pp x;
-        Result.fail @@ `MissingData "No values in Bars.Latest.t"
+      Eio.traceln "Current latest: %a" pp x;
+      Result.fail @@ `MissingData "No values in Bars.Latest.t"
     | Ok (Some res) ->
-        (* Eio.traceln "Ok Bars.Latest.t"; *)
-        Ok res
+      (* Eio.traceln "Ok Bars.Latest.t"; *)
+      Ok res
     | Error e ->
-        Eio.traceln "%a" pp x;
-        Result.fail @@ `MissingData e
+      Eio.traceln "%a" pp x;
+      Result.fail @@ `MissingData e
 end
 
 type t = Price_history.t Hashtbl.t
@@ -75,15 +77,15 @@ let length (x : t) =
     match length with
     | 0 -> Vector.length vec
     | _ -> (
-        let new_length = Vector.length vec in
-        match length = new_length with
-        | true -> length
-        | false ->
-            Eio.traceln
-              "error: bars.ml: Length mistmatch at symbol %a: previous length: \
-               %d current length: %d"
-              Instrument.pp symbol length new_length;
-            Int.min length new_length)
+      let new_length = Vector.length vec in
+      match length = new_length with
+      | true -> length
+      | false ->
+        Eio.traceln
+          "error: bars.ml: Length mistmatch at symbol %a: previous length: %d \
+           current length: %d"
+          Instrument.pp symbol length new_length;
+        Int.min length new_length)
   in
   Seq.fold folder 0 seq
 
@@ -115,10 +117,10 @@ let get (x : t) symbol = Hashtbl.find_opt x symbol
 let get_res (x : t) symbol =
   match get x symbol with
   | None ->
-      Result.fail
-      @@ `MissingData
-           (Format.asprintf "[error: Bars.get_err] Symbol history for %a"
-              Instrument.pp symbol)
+    Result.fail
+    @@ `MissingData
+         (Format.asprintf "[error: Bars.get_err] Symbol history for %a"
+            Instrument.pp symbol)
   | Some x -> Result.return x
 
 let sort cmp (x : t) = Hashtbl.iter (fun _ vector -> Vector.sort' cmp vector) x
@@ -132,10 +134,10 @@ let add_order (order : Order.t) (data : t) =
     Vector.pop symbol_history |> function
     | Some x -> Result.return x
     | None ->
-        Result.fail
-        @@ `MissingData
-             (Format.asprintf "[error: Bars.add_order] No data for %a in bars"
-                Instrument.pp symbol)
+      Result.fail
+      @@ `MissingData
+           (Format.asprintf "[error: Bars.add_order] No data for %a in bars"
+              Instrument.pp symbol)
   in
   let* _ =
     match Ptime.equal order.timestamp @@ Item.timestamp top with
@@ -157,11 +159,9 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
         (fun (sym, data) ->
           match data with
           | `List datapoints ->
-              let* instrument = Instrument.of_string_res sym in
-              let res =
-                List.map Item.t_of_yojson datapoints |> Vector.of_list
-              in
-              Result.return (instrument, res)
+            let* instrument = Instrument.of_string_res sym in
+            let res = List.map Item.t_of_yojson datapoints |> Vector.of_list in
+            Result.return (instrument, res)
           | _ -> Error.json "Expected a list of datapoints in Bars.t_of_yojson")
         assoc
     in
@@ -277,21 +277,21 @@ module Infill = struct
             match Timetbl.find_opt tbl current_time with
             | Some _ -> ()
             | None ->
-                let previous_time =
-                  if i > 0 then
-                    Vector.get most_used_vector (i - 1) |> Item.timestamp
-                  else (
-                    Eio.traceln "Lacking initial value, using first value.";
-                    let found = Hashtbl.find original_bars symbol in
-                    assert (not @@ Vector.is_empty found);
-                    Vector.get found 0 |> Item.timestamp)
-                in
-                (* Eio.traceln "Creating value for %d: %s" i current_time; *)
-                let previous_value =
-                  Timetbl.find_opt tbl previous_time
-                  |> Option.get_exn_or "Expected to find previous time"
-                in
-                Timetbl.replace tbl current_time @@ previous_value)
+              let previous_time =
+                if i > 0 then
+                  Vector.get most_used_vector (i - 1) |> Item.timestamp
+                else (
+                  Eio.traceln "Lacking initial value, using first value.";
+                  let found = Hashtbl.find original_bars symbol in
+                  assert (not @@ Vector.is_empty found);
+                  Vector.get found 0 |> Item.timestamp)
+              in
+              (* Eio.traceln "Creating value for %d: %s" i current_time; *)
+              let previous_value =
+                Timetbl.find_opt tbl previous_time
+                |> Option.get_exn_or "Expected to find previous time"
+              in
+              Timetbl.replace tbl current_time @@ previous_value)
           most_used_vector;
         (* Now, we should have good tables whose lengths are appropriate. *)
         (* We need to convert the current table back to a vector. *)

@@ -35,9 +35,9 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
     match Indicators.get indicators symbol with
     | Some indicators -> Some indicators
     | None ->
-        Eio.traceln "Could not get indicators for %a from mutex?" Instrument.pp
-          symbol;
-        None
+      Eio.traceln "Could not get indicators for %a from mutex?" Instrument.pp
+        symbol;
+      None
   in
   let time (p : Indicators.Point.t) : Yojson.Safe.t =
     let timestamp = Ptime.to_rfc3339 p.timestamp in
@@ -281,7 +281,9 @@ module Stats = struct
           (Instrument.symbol x.symbol)
           (String.concat "<br>" x.reason)
       in
-      match x.side with Buy -> `Left hovertext | Sell -> `Right hovertext
+      match x.side with
+      | Buy -> `Left hovertext
+      | Sell -> `Right hovertext
     in
     let pair = List.partition_filter_map filter item.orders in
     let buy_hovertext, sell_hovertext =

@@ -35,10 +35,10 @@ let add_order (order : Order.t) (x : t) =
   match x.order with
   | None -> Result.return @@ { x with order = Some order }
   | Some prev_order ->
-      let msg = "[error: item.ml] Trying to replace order..." in
-      Eio.traceln "[error: item.ml]: trying to replace@. @[%a@]@. with@. @[%a@]"
-        Order.pp prev_order Order.pp order;
-      Result.fail @@ `FatalError msg
+    let msg = "[error: item.ml] Trying to replace order..." in
+    Eio.traceln "[error: item.ml]: trying to replace@. @[%a@]@. with@. @[%a@]"
+      Order.pp prev_order Order.pp order;
+    Result.fail @@ `FatalError msg
 
 let timestamp (x : t) = x.timestamp
 let close x = x.close

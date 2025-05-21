@@ -3,23 +3,31 @@ open Longleaf_lib
 let runtype_target_check ~runtype ~target : unit =
   match target with
   | Some _ -> (
-      match runtype with
-      | Options.Runtype.Backtest | Multitest | Montecarlo | MultiMontecarlo
-      | RandomSliceBacktest | MultiRandomSliceBacktest | RandomTickerBacktest
-      | MultiRandomTickerBacktest | AstarSearch ->
-          ()
-      | _ ->
-          Eio.traceln "Must be in a backtest if we have a specified target.";
-          exit 1)
+    match runtype with
+    | Options.Runtype.Backtest
+    | Multitest
+    | Montecarlo
+    | MultiMontecarlo
+    | RandomSliceBacktest
+    | MultiRandomSliceBacktest
+    | RandomTickerBacktest
+    | MultiRandomTickerBacktest
+    | AstarSearch ->
+      ()
+    | _ ->
+      Eio.traceln "Must be in a backtest if we have a specified target.";
+      exit 1)
   | None -> ()
 
 let save_received_check ~runtype ~save_received : unit =
   if save_received then
     match runtype with
-    | Options.Runtype.Live | Options.Runtype.Paper -> ()
+    | Options.Runtype.Live
+    | Options.Runtype.Paper ->
+      ()
     | _ ->
-        Eio.traceln "Must be live or paper to save received data.";
-        exit 1
+      Eio.traceln "Must be live or paper to save received data.";
+      exit 1
 
 let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg =
@@ -40,7 +48,10 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
         longleaf_env;
         switch;
         preload;
-        target;
+        target =
+          (match target with
+          | Some s -> File s
+          | None -> Options.Preload.None);
         save_received;
         nowait_market_open;
         mutices;
@@ -57,8 +68,8 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     match no_gui with
     | true -> ()
     | false ->
-        Eio.Domain_manager.run domain_manager @@ fun () ->
-        Server.top ~mutices eio_env
+      Eio.Domain_manager.run domain_manager @@ fun () ->
+      Server.top ~mutices eio_env
   in
   let _ = Eio.Fiber.both run_strategy run_server in
   ()

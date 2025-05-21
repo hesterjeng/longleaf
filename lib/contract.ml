@@ -3,8 +3,14 @@ module Type = struct
   [@@deriving show, yojson]
 
   let of_string = function
-    | "P" | "put" | "Put" -> Put
-    | "C" | "Call" | "call" -> Call
+    | "P"
+    | "put"
+    | "Put" ->
+      Put
+    | "C"
+    | "Call"
+    | "call" ->
+      Call
     | x -> invalid_arg (Format.asprintf "Not P or C for call: %s" x)
 end
 
@@ -125,8 +131,8 @@ type response = {
 [@@deriving show, yojson]
 
 let t_of_yojson_res x =
-  try Result.return @@ t_of_yojson x
-  with _ ->
+  try Result.return @@ t_of_yojson x with
+  | _ ->
     let msg =
       Format.asprintf
         "[error] Unable to construct Contract.Response.t from @[%a@]@."
@@ -135,8 +141,8 @@ let t_of_yojson_res x =
     Error.json msg
 
 let response_of_yojson_res x =
-  try Result.return @@ response_of_yojson x
-  with _ ->
+  try Result.return @@ response_of_yojson x with
+  | _ ->
     let msg =
       Format.asprintf
         "[error] Unable to construct Contract.Response.response from @[%a@]@."
@@ -167,8 +173,8 @@ let rec get_all (longleaf_env : Environment.t) client (request : Request.t) =
     match response.next_page_token with
     | None -> Result.return []
     | Some page_token ->
-        let next_request = { request with page_token = Some page_token } in
-        let* res = get_all longleaf_env client next_request in
-        Result.return res
+      let next_request = { request with page_token = Some page_token } in
+      let* res = get_all longleaf_env client next_request in
+      Result.return res
   in
   Result.return @@ response.option_contracts @ next

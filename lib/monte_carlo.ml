@@ -83,16 +83,16 @@ module Gaussian = struct
       match len with
       | 0 -> acc
       | i -> (
-          match mean_revert with
-          | true ->
-              let previous_list = List.take 2 acc in
-              let new_value =
-                next_data_point_mean_revert ~dist previous_list previous
-              in
-              make (i - 1) new_value (new_value :: acc)
-          | false ->
-              let new_value = next_data_point ~dist previous in
-              make (i - 1) new_value (new_value :: acc))
+        match mean_revert with
+        | true ->
+          let previous_list = List.take 2 acc in
+          let new_value =
+            next_data_point_mean_revert ~dist previous_list previous
+          in
+          make (i - 1) new_value (new_value :: acc)
+        | false ->
+          let new_value = next_data_point ~dist previous in
+          make (i - 1) new_value (new_value :: acc))
     in
     let res = make target_len init [] |> Array.of_list in
     (* Array.reverse_in_place res; *)

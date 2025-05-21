@@ -18,11 +18,13 @@ module Make (Input : INPUT) = struct
       match paths with
       | [] -> minimum
       | path :: xs -> (
-          match path.f <=. minimum.f with
-          | true -> aux xs path
-          | false -> aux xs minimum)
+        match path.f <=. minimum.f with
+        | true -> aux xs path
+        | false -> aux xs minimum)
     in
-    match paths with [] -> None | x :: xs -> Option.return @@ aux xs x
+    match paths with
+    | [] -> None
+    | x :: xs -> Option.return @@ aux xs x
 
   (* aux paths { nodes = []; cost = Float.max_finite_value } *)
 
@@ -31,16 +33,16 @@ module Make (Input : INPUT) = struct
       match path.nodes with
       | [] -> []
       | x :: _ ->
-          let neighbors = Input.neighbors x in
-          List.map
-            (fun (neighbor : Input.node) ->
-              let cost = path.cost +. Input.weight x neighbor in
-              {
-                nodes = neighbor :: path.nodes;
-                cost;
-                f = cost +. Input.heuristic neighbor;
-              })
-            neighbors
+        let neighbors = Input.neighbors x in
+        List.map
+          (fun (neighbor : Input.node) ->
+            let cost = path.cost +. Input.weight x neighbor in
+            {
+              nodes = neighbor :: path.nodes;
+              cost;
+              f = cost +. Input.heuristic neighbor;
+            })
+          neighbors
     in
     (* Eio.traceln "%a" (List.pp pp) new_paths; *)
     new_paths @ List.filter (fun x -> not @@ equal x path) all
@@ -58,8 +60,8 @@ module Make (Input : INPUT) = struct
       match minimal_path.nodes with
       | x :: _ when Input.goal x -> Option.return minimal_path
       | _ ->
-          let paths = extend paths minimal_path in
-          aux paths
+        let paths = extend paths minimal_path in
+        aux paths
     in
     aux initial_paths
 end

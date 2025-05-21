@@ -19,8 +19,8 @@ module Runtype = struct
 
   let of_string_res x =
     let j = `List [ `String x ] in
-    try Result.return @@ t_of_yojson j
-    with _ ->
+    try Result.return @@ t_of_yojson j with
+    | _ ->
       Result.fail
       @@ `Msg
            (Format.asprintf
@@ -28,21 +28,32 @@ module Runtype = struct
               (List.pp String.pp) all)
 
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
-  let is_manual = function Manual -> true | _ -> false
-  let is_multitest = function Multitest -> true | _ -> false
+
+  let is_manual = function
+    | Manual -> true
+    | _ -> false
+
+  let is_multitest = function
+    | Multitest -> true
+    | _ -> false
 end
 
 module Preload = struct
   (* Start with empty bars, load bars from a file, or download data *)
-  type t = None | File of string | Download [@@deriving show]
+  type t = None | File of string | Download | Loaded of Bars.t
+  [@@deriving show]
 
   let of_string_res x =
     match x with
-    | "None" | "none" -> Ok None
-    | "Download" | "download" -> Ok Download
+    | "None"
+    | "none" ->
+      Ok None
+    | "Download"
+    | "download" ->
+      Ok Download
     | s when Sys.file_exists s -> Ok (File s)
     | _ ->
-        Error (`Msg "Expected a valid preload selection, or file doesn't exist")
+      Error (`Msg "Expected a valid preload selection, or file doesn't exist")
 
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
 end
@@ -55,7 +66,7 @@ module Context = struct
     longleaf_env : Environment.t; [@opaque]
     switch : Eio.Switch.t; [@opaque]
     preload : Preload.t;
-    target : string option;
+    target : Preload.t;
     save_received : bool;
     nowait_market_open : bool;
     mutices : Longleaf_mutex.t;

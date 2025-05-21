@@ -45,8 +45,8 @@ module Buy_trigger = struct
         let* signal = Input.pass state symbol in
         match signal.flag with
         | true ->
-            let* score = Input.score state symbol in
-            Result.return @@ ((signal, score) :: acc)
+          let* score = Input.score state symbol in
+          Result.return @@ ((signal, score) :: acc)
         | false -> Result.return acc
       in
       List.sort (Pair.compare (fun _ _ -> 0) Float.compare) l
@@ -100,17 +100,17 @@ module Make
       match qty with
       | 0 -> Result.return state
       | qty ->
-          let order : Order.t =
-            Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled ~tick:state.tick
-              ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
-          in
-          let state =
-            State.replace_stats state
-            @@ Stats.increment_position_ratio state.stats
-          in
-          let* state = Backend.place_order state order in
-          let state = State.activate_order state order in
-          Result.return state
+        let order : Order.t =
+          Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled ~tick:state.tick
+            ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
+        in
+        let state =
+          State.replace_stats state
+          @@ Stats.increment_position_ratio state.stats
+        in
+        let* state = Backend.place_order state order in
+        let state = State.activate_order state order in
+        Result.return state
 
   let buy ~held_symbols (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
@@ -146,25 +146,25 @@ module Make
       match signal.flag with
       | false -> Result.return state
       | true ->
-          let reason = signal.reason in
-          let* price = State.price state buying_order.symbol in
-          let* timestamp = State.timestamp state buying_order.symbol in
-          assert (buying_order.qty <> 0);
-          let reason =
-            ("Sell reason:" :: reason) @ ("Buy reason:" :: buying_order.reason)
-          in
-          let order : Order.t =
-            Order.make ~tick:state.tick ~symbol:buying_order.symbol ~side:Sell
-              ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
-              ~price ~reason ~timestamp
-              ~profit:
-                (Option.return
-                @@ Float.of_int buying_order.qty
-                   *. (price -. buying_order.price))
-          in
-          let* state = Backend.place_order state order in
-          let state = State.deactivate_order state buying_order in
-          Result.return state
+        let reason = signal.reason in
+        let* price = State.price state buying_order.symbol in
+        let* timestamp = State.timestamp state buying_order.symbol in
+        assert (buying_order.qty <> 0);
+        let reason =
+          ("Sell reason:" :: reason) @ ("Buy reason:" :: buying_order.reason)
+        in
+        let order : Order.t =
+          Order.make ~tick:state.tick ~symbol:buying_order.symbol ~side:Sell
+            ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
+            ~price ~reason ~timestamp
+            ~profit:
+              (Option.return
+              @@ (Float.of_int buying_order.qty *. (price -. buying_order.price))
+              )
+        in
+        let* state = Backend.place_order state order in
+        let state = State.deactivate_order state buying_order in
+        Result.return state
     in
     Result.return @@ State.listen state
 
@@ -178,18 +178,20 @@ module Make
     let ( let* ) = Result.( let* ) in
     match state.current with
     | Ordering ->
-        let held_symbols = Backend_position.symbols state.positions in
-        let* sold_state =
-          List.fold_left sell_fold (Ok state) state.order_history.active
-        in
-        let* complete = buy ~held_symbols sold_state in
-        Result.return { complete with tick = complete.tick + 1 }
+      let held_symbols = Backend_position.symbols state.positions in
+      let* sold_state =
+        List.fold_left sell_fold (Ok state) state.order_history.active
+      in
+      let* complete = buy ~held_symbols sold_state in
+      Result.return { complete with tick = complete.tick + 1 }
     | _ -> SU.handle_nonlogical_state state
 
   exception E
 
   let step_exn (state : 'a State.t) =
-    match step state with Ok x -> x | Error _ -> raise E
+    match step state with
+    | Ok x -> x
+    | Error _ -> raise E
 
   let run () = SU.run ~init_state step
 end
@@ -204,12 +206,13 @@ module Run = struct
   let run_options (context : Context.t) : Options.t =
     let symbols =
       match context.runtype with
-      | RandomTickerBacktest | MultiRandomTickerBacktest ->
-          let arr = Array.of_list Collections.sp100 in
-          let eighty_percent =
-            (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
-          in
-          Owl_stats.choose arr eighty_percent |> Array.to_list
+      | RandomTickerBacktest
+      | MultiRandomTickerBacktest ->
+        let arr = Array.of_list Collections.sp100 in
+        let eighty_percent =
+          (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
+        in
+        Owl_stats.choose arr eighty_percent |> Array.to_list
       | _ -> Collections.sp100
     in
     {

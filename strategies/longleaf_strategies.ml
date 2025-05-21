@@ -7,12 +7,13 @@ module Collections = Ticker_collections
 let run_options (context : Context.t) : Options.t =
   let symbols =
     match context.runtype with
-    | RandomTickerBacktest | MultiRandomTickerBacktest ->
-        let arr = Array.of_list Collections.sp100 in
-        let eighty_percent =
-          (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
-        in
-        Owl_stats.choose arr eighty_percent |> Array.to_list
+    | RandomTickerBacktest
+    | MultiRandomTickerBacktest ->
+      let arr = Array.of_list Collections.sp100 in
+      let eighty_percent =
+        (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
+      in
+      Owl_stats.choose arr eighty_percent |> Array.to_list
     | _ -> Collections.sp100
   in
   {
@@ -98,15 +99,15 @@ let run_strat (context : Context.t) strategy =
   match f with
   | Some f -> f context
   | None ->
-      invalid_arg
-      @@ Format.asprintf "Did not find a strategy implementation for %a" pp
-           strategy
+    invalid_arg
+    @@ Format.asprintf "Did not find a strategy implementation for %a" pp
+         strategy
 
 (** Function for Cmdliner use. *)
 let of_string_res x =
   let j = `List [ `String x ] in
-  try Result.return @@ t_of_yojson j
-  with _ ->
+  try Result.return @@ t_of_yojson j with
+  | _ ->
     Result.fail
     @@ `Msg
          (Format.asprintf
@@ -129,35 +130,40 @@ let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
 let run (context : Context.t) strategy =
   match context.runtype with
   | AstarSearch ->
-      let res = Astar_run.top context in
-      0.0
-  | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest
+    let res = Astar_run.top context in
+    0.0
+  | Live
+  | Paper
+  | Backtest
+  | Manual
+  | Montecarlo
+  | RandomSliceBacktest
   | RandomTickerBacktest ->
-      run_strat context strategy
-  | Multitest | MultiMontecarlo | MultiRandomSliceBacktest
+    run_strat context strategy
+  | Multitest
+  | MultiMontecarlo
+  | MultiRandomSliceBacktest
   | MultiRandomTickerBacktest ->
-      let init = Array.make 30 () in
-      let res = Array.map (fun _ -> run_strat context strategy) init in
-      Array.sort Float.compare res;
-      let mean = Owl_stats.mean res in
-      let std = Owl_stats.std res in
-      let min, max = Owl_stats.minmax res in
-      let result = { mean; min; max; std } in
-      Eio.traceln "@[%a@]@.@[%a@]@." pp_multitest result (Array.pp Float.pp) res;
-      let histogram = Owl_stats.histogram (`N 10) res in
-      let percent_profitable =
-        Array.filter (fun x -> x >=. 100000.0) res
-        |> Array.length |> Float.of_int
-        |> fun f -> f /. (Float.of_int @@ Array.length res)
-      in
-      let percent_great =
-        Array.filter (fun x -> x >=. 110000.0) res
-        |> Array.length |> Float.of_int
-        |> fun f -> f /. (Float.of_int @@ Array.length res)
-      in
-      Eio.traceln "@[percent profitable: %f@]@." percent_profitable;
-      Eio.traceln "@[percent great: %f@]@." percent_great;
-      let normalised_histogram = Owl_stats.normalise histogram in
-      Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
-      Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
-      0.0
+    let init = Array.make 30 () in
+    let res = Array.map (fun _ -> run_strat context strategy) init in
+    Array.sort Float.compare res;
+    let mean = Owl_stats.mean res in
+    let std = Owl_stats.std res in
+    let min, max = Owl_stats.minmax res in
+    let result = { mean; min; max; std } in
+    Eio.traceln "@[%a@]@.@[%a@]@." pp_multitest result (Array.pp Float.pp) res;
+    let histogram = Owl_stats.histogram (`N 10) res in
+    let percent_profitable =
+      Array.filter (fun x -> x >=. 100000.0) res |> Array.length |> Float.of_int
+      |> fun f -> f /. (Float.of_int @@ Array.length res)
+    in
+    let percent_great =
+      Array.filter (fun x -> x >=. 110000.0) res |> Array.length |> Float.of_int
+      |> fun f -> f /. (Float.of_int @@ Array.length res)
+    in
+    Eio.traceln "@[percent profitable: %f@]@." percent_profitable;
+    Eio.traceln "@[percent great: %f@]@." percent_great;
+    let normalised_histogram = Owl_stats.normalise histogram in
+    Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
+    Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
+    0.0

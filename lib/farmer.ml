@@ -42,19 +42,21 @@ let do_action state action =
   match action with
   | Nothing -> Some state
   | AssignUnassigned res -> (
-      let* unassigned =
-        match state.unassigned_vills with 0.0 -> None | n -> Some n
-      in
-      Option.return
-      @@
-      match res with
-      | Food -> { state with food_vills = unassigned +. state.food_vills }
-      | Wood -> { state with wood_vills = unassigned +. state.wood_vills }
-      | Gold -> { state with gold_vills = unassigned +. state.gold_vills })
+    let* unassigned =
+      match state.unassigned_vills with
+      | 0.0 -> None
+      | n -> Some n
+    in
+    Option.return
+    @@
+    match res with
+    | Food -> { state with food_vills = unassigned +. state.food_vills }
+    | Wood -> { state with wood_vills = unassigned +. state.wood_vills }
+    | Gold -> { state with gold_vills = unassigned +. state.gold_vills })
   | BuildVillager ->
-      let* food = if state.food >. 50.0 then Some state.food else None in
-      Option.return
-      @@ { state with tc_status = Some (BuildVillager 25); food = food -. 50.0 }
+    let* food = if state.food >. 50.0 then Some state.food else None in
+    Option.return
+    @@ { state with tc_status = Some (BuildVillager 25); food = food -. 50.0 }
 
 let next_possible_states state = invalid_arg "nyi"
 
