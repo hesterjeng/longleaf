@@ -68,7 +68,9 @@ module EnumeratedSignal = struct
   type t = Empty | Atom of Atom.t [@@deriving yojson, eq, show]
 
   let neighbors (x : t) =
-    match x with Empty -> List.map (fun x -> Atom x) Atom.all | Atom _ -> []
+    match x with
+    | Empty -> List.map (fun x -> Atom x) Atom.all
+    | Atom _ -> []
 
   let to_signal_function (x : t) =
    fun (state : 'a State.t) (instrument : Instrument.t) ->

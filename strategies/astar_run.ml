@@ -14,7 +14,14 @@ and node_ = {
 [@@deriving show]
 
 let run (x : node_) =
-  Template.Run.run_generic (EnumeratedSignal.to_strategy x.buy x.sell) x.context
+  Eio.traceln "Running enumerated strategy %a" pp_node_ x;
+  let res =
+    Template.Run.run_generic
+      (EnumeratedSignal.to_strategy x.buy x.sell)
+      x.context
+  in
+  Eio.traceln "Ending value: %f" res;
+  res
 
 module Node : Astar.INPUT with type node = node_ = struct
   type node = node_ [@@deriving show]
