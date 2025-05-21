@@ -38,7 +38,9 @@ module Node : Astar.INPUT with type node = node_ = struct
       List.map (fun sell -> { x with sell; res = Pmutex.make None })
       @@ EnumeratedSignal.neighbors x.sell
     in
-    buy_neighbors @ sell_neighbors
+    let res = buy_neighbors @ sell_neighbors in
+    Eio.traceln "found %d neighbors" (List.length res);
+    res
 
   type winner = { winner_result : float; winner_node : node_ } [@@deriving show]
 

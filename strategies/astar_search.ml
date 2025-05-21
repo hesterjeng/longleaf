@@ -92,10 +92,14 @@ module EnumeratedSignal = struct
   let and_ l = And l
   let or_ l = Or l
   let is_and = function And _ -> true | _ -> false
+  let and_singletons = and_ @@ AtomSet.of_list Atom.all
+  let or_singletons = or_ @@ AtomSet.of_list Atom.all
 
   let neighbors (x : t) =
     match x with
-    | Empty -> [ And AtomSet.empty; Or AtomSet.empty ]
+    | Empty ->
+        List.map (fun x -> and_ @@ AtomSet.add x AtomSet.empty) Atom.all
+        @ List.map (fun x -> or_ @@ AtomSet.add x AtomSet.empty) Atom.all
     | And l -> List.map (fun x -> and_ @@ AtomSet.add x l) Atom.all
     | Or l -> List.map (fun x -> or_ @@ AtomSet.add x l) Atom.all
 
