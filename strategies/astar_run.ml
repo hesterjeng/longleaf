@@ -16,9 +16,12 @@ and node_ = {
 let run (x : node_) =
   Eio.traceln "Running enumerated strategy %a" pp_node_ x;
   let res =
-    Template.Run.run_generic
-      (EnumeratedSignal.to_strategy x.buy x.sell)
-      x.context
+    if EnumeratedSignal.is_empty x.buy || EnumeratedSignal.is_empty x.sell then
+      0.0
+    else
+      Template.Run.run_generic
+        (EnumeratedSignal.to_strategy x.buy x.sell)
+        x.context
   in
   Eio.traceln "Ending value: %f" res;
   res

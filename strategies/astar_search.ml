@@ -89,6 +89,7 @@ module EnumeratedSignal = struct
   type t = Empty | And of AtomSet.t | Or of AtomSet.t
   [@@deriving yojson, eq, show]
 
+  let is_empty = function Empty -> true | _ -> false
   let and_ l = And l
   let or_ l = Or l
   let is_and = function And _ -> true | _ -> false
