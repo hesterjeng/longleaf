@@ -3,7 +3,11 @@ module Context = Options.Context
 module Error = Longleaf_lib.Error
 module EnumeratedSignal = Astar_search.EnumeratedSignal
 
-type results = { neighbors : node_ list; heuristic : float; goal : bool }
+type results = {
+  neighbors : node_ list; [@opaque]
+  heuristic : float;
+  goal : bool;
+}
 
 and node_ = {
   buy : EnumeratedSignal.t;
