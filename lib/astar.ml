@@ -42,7 +42,7 @@ module Make (Input : INPUT) = struct
               })
             neighbors
     in
-    Eio.traceln "%a" (List.pp pp) new_paths;
+    (* Eio.traceln "%a" (List.pp pp) new_paths; *)
     new_paths @ List.filter (fun x -> not @@ equal x path) all
 
   let top (origin : Input.node) =

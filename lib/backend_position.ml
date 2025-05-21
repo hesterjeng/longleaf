@@ -143,6 +143,6 @@ let liquidate pos (bars : Bars.Latest.t) =
           Order.make ~tick:(-1) ~symbol:instrument ~side ~tif ~order_type ~qty
             ~price ~timestamp ~profit:None ~reason:[ "Liquidating" ]
         in
-        Eio.traceln "@[%a@]@." Order.pp order;
+        Eio.traceln "Liquidation @[%a@]@." Order.pp order;
         let* res = execute_order pos order in
         Ok res
