@@ -41,7 +41,7 @@ module EnumeratedSignal = struct
       | RSI_lt of EnumeratedValue.t
     [@@deriving yojson, eq, show, variants]
 
-    let all =
+    let all : t list =
       let add acc var = var.Variantslib.Variant.constructor :: acc in
       let constructors =
         Variants.fold ~init:[] ~fso_k_gt:add ~fso_k_lt:add ~fso_d_gt:add
@@ -65,6 +65,9 @@ module EnumeratedSignal = struct
   end
 
   type t = Empty | Atom of Atom.t [@@deriving yojson, eq, show]
+
+  let neighbors (x : t) =
+    match x with Empty -> List.map (fun x -> Atom x) Atom.all | Atom _ -> []
 
   let to_signal_function (x : t) =
    fun (state : 'a State.t) (instrument : Instrument.t) ->

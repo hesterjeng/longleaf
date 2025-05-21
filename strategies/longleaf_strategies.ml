@@ -128,12 +128,7 @@ let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
 (** Top level function for running strategies based on a context.*)
 let run (context : Context.t) strategy =
   match context.runtype with
-  | AstarSearch ->
-      let candidates = [] in
-      let _ =
-        List.map (fun (buy, sell) -> run_astar context ~buy ~sell) candidates
-      in
-      invalid_arg "NYI"
+  | AstarSearch -> invalid_arg "NYI"
   | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest
   | RandomTickerBacktest ->
       run_strat context strategy
