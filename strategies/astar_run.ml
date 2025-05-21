@@ -40,9 +40,23 @@ module Node : Astar.INPUT with type node = node_ = struct
     in
     buy_neighbors @ sell_neighbors
 
+  type winner = { winner_result : float; winner_node : node_ } [@@deriving show]
+
+  let winner : winner option ref = ref None
+
   let compute_results x =
     let res = run x in
     let goal = res >=. 200000.0 in
+    let winner_val =
+      match !winner with
+      | Some { winner_result; _ } ->
+          if res >=. winner_result then
+            Some { winner_result = res; winner_node = x }
+          else !winner
+      | None -> Some { winner_result = res; winner_node = x }
+    in
+    Eio.traceln "%a" (Option.pp pp_winner) winner_val;
+    winner := winner_val;
     let neighbors = neighbors_ x in
     { neighbors; heuristic = res; goal }
 
