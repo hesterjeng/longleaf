@@ -56,6 +56,12 @@ module Preload = struct
       Error (`Msg "Expected a valid preload selection, or file doesn't exist")
 
   let conv = Cmdliner.Arg.conv (of_string_res, pp)
+
+  let load = function
+    | None -> invalid_arg "Cannot load missing preload in Options.Preload.load"
+    | File s -> Bars.of_file s
+    | Download -> invalid_arg "Cannot load download in Options.Preload.load"
+    | Loaded b -> b
 end
 
 module Context = struct
@@ -74,6 +80,13 @@ module Context = struct
     print_tick_arg : bool;
   }
   [@@deriving show]
+
+  let load x =
+    {
+      x with
+      preload = Loaded (Preload.load x.preload);
+      target = Loaded (Preload.load x.target);
+    }
 end
 
 type t = {
@@ -86,3 +99,5 @@ type t = {
   randomized_backtest_length : int;
   context : Context.t;
 }
+
+let load (x : t) = { x with context = Context.load x.context }
