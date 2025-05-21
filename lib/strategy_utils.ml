@@ -160,6 +160,7 @@ module Make (Backend : Backend_intf.S) = struct
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
+      Eio.traceln "Running...";
       Result.return @@ { state with current = Listening }
     | Listening -> (
       Pmutex.set mutices.data_mutex state.bars;
@@ -203,6 +204,7 @@ module Make (Backend : Backend_intf.S) = struct
       let tearsheet = Tearsheet.make state in
       Eio.traceln "%a" Tearsheet.pp tearsheet;
       assert (Backend_position.is_empty state.positions);
+      Eio.traceln "Done...";
       Result.fail @@ `Finished code
     | Ordering
     | Continue

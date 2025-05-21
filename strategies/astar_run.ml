@@ -12,7 +12,7 @@ type results = {
 and node_ = {
   buy : EnumeratedSignal.t;
   sell : EnumeratedSignal.t;
-  context : Context.t;
+  context : Context.t; [@opaque]
   res : results option Pmutex.t;
 }
 [@@deriving show]

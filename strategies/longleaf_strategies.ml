@@ -130,11 +130,7 @@ let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
 let run (context : Context.t) strategy =
   match context.runtype with
   | AstarSearch ->
-    (* let context = *)
-    (*   { context with *)
-
-    (*   } *)
-    (* in *)
+    let context = Options.Context.load context in
     let res = Astar_run.top context in
     0.0
   | Live
