@@ -26,8 +26,9 @@ module EnumeratedValue = struct
     | Ninety -> 90.0
 
   let all =
-    List.map (fun x -> `String (fst x)) Variants.descriptions
-    |> List.map t_of_yojson
+    let add acc var = var.Variantslib.Variant.constructor :: acc in
+    Variants.fold ~init:[] ~ten:add ~twenty:add ~thirty:add ~fourty:add
+      ~fifty:add ~sixty:add ~seventy:add ~eighty:add ~ninety:add
 end
 
 module EnumeratedSignal = struct

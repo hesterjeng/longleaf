@@ -78,4 +78,5 @@ module StrategySearch = Astar.Make (Node)
 
 let top context =
   let res = StrategySearch.top @@ empty context in
+  Eio.traceln "%a" (Option.pp StrategySearch.pp) res;
   res
