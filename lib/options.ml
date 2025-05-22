@@ -66,6 +66,10 @@ module Preload = struct
     | File s -> Bars.of_file s
     | Download -> invalid_arg "Cannot load download in Options.Preload.load"
     | Loaded b -> b
+
+  let bars = function
+    | Loaded b -> b
+    | _ -> invalid_arg "Preload.bars: bars not loaded"
 end
 
 module Context = struct

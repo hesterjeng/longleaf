@@ -449,13 +449,15 @@ module TimestampedTbl = struct
 
   let tbl : t = create 1000
 
-  let get instrument time =
+  let get instrument (time : Time.t option) =
     let ( let* ) = Result.( let* ) in
     let* time =
       match time with
-      | Some t -> t
+      | Some t -> Result.return t
       | None ->
-        Error.fatal "TimestampedTbl.get: Must pass time to indicators get function if precomputed"
+        Error.fatal
+          "TimestampedTbl.get: Must pass time to indicators get function if \
+           precomputed"
     in
     let key = Instrument.Timestamped.{ instrument; time } in
     match find_opt tbl key with
@@ -464,6 +466,10 @@ module TimestampedTbl = struct
         "Missing data from precomputed indicator table, or missing indicators \
          vector"
     | Some x -> Result.return x
+
+  let set instrument time point =
+    let key = Instrument.Timestamped.{ instrument; time } in
+    replace tbl key point
 end
 
 type vectortbl = Point.t Vector.vector Hashtbl.t
@@ -495,7 +501,7 @@ let get_top (x : t) ?time symbol =
         @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
              symbol))
 
-let initialize_single config bars symbol =
+let initialize_single ?(precompute = false) config bars symbol =
   let initial_stats_vector = Vector.create () in
   let bars_vec =
     Bars.get bars symbol |> function
@@ -511,6 +517,7 @@ let initialize_single config bars symbol =
     let res =
       Point.of_latest config timestamp bars_upto_now previous item symbol
     in
+    if precompute then TimestampedTbl.set symbol timestamp res;
     Vector.push initial_stats_vector res;
     Vector.push bars_upto_now (Vector.get bars_vec i);
     Option.return res
@@ -520,6 +527,16 @@ let initialize_single config bars symbol =
     Vector.foldi fold None bars_vec
   in
   initial_stats_vector
+
+let precompute (preload : Bars.t) (target : Bars.t) =
+  let config = { Indicator_config.fft = false } in
+  let symbols = Bars.keys preload in
+  assert (not @@ List.is_empty symbols);
+  let _ =
+    List.map (initialize_single ~precompute:true config preload) symbols
+  in
+  let _ = List.map (initialize_single ~precompute:true config target) symbols in
+  ()
 
 let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     (x : t) =

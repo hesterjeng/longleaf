@@ -63,6 +63,10 @@ module Args = struct
     let doc = "Disable the gui process." in
     Cmdliner.Arg.(value & flag & info [ "nogui" ] ~doc)
 
+  let precompute_indicators_arg =
+    let doc = "Precompute indicators." in
+    Cmdliner.Arg.(value & flag & info [ "indicators" ] ~doc)
+
   let save_received_arg =
     let doc = "Save received data." in
     Cmdliner.Arg.(value & flag & info [ "sr"; "save-received" ] ~doc)
@@ -78,7 +82,8 @@ end
 
 module Cmd = struct
   let run runtype preload stacktrace output no_gui target save_received
-      strategy_arg save_to_file nowait_market_open print_tick_arg =
+      strategy_arg save_to_file nowait_market_open print_tick_arg
+      precompute_indicators_arg =
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output output;
     (* let reporter = Logs_fmt.reporter () in *)
@@ -87,6 +92,7 @@ module Cmd = struct
     Eio_main.run @@ fun eio_env ->
     Run.top ~stacktrace ~preload ~runtype ~no_gui ~target ~save_received
       ~eio_env ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg
+      ~precompute_indicators_arg
 
   let top =
     let term =
@@ -94,7 +100,8 @@ module Cmd = struct
         const run $ Args.runtype_arg $ Args.preload_arg $ Args.stacktrace_arg
         $ Args.output_file_arg $ Args.no_gui_arg $ Args.target_arg
         $ Args.save_received_arg $ Args.strategy_arg $ Args.save_to_file
-        $ Args.nowait_market_open $ Args.print_tick_arg)
+        $ Args.nowait_market_open $ Args.print_tick_arg
+        $ Args.precompute_indicators_arg)
     in
     let doc =
       "This is the OCaml algorithmic trading platform longleaf.  It relies on \

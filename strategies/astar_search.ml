@@ -51,9 +51,10 @@ module EnumeratedSignal = struct
       List.flat_map (fun f -> List.map f EnumeratedValue.all) constructors
 
     let to_boolean_func (x : t) =
-     fun (indicators : Indicators.t) (instrument : Instrument.t) ->
+     fun (indicators : Indicators.t) (instrument : Instrument.t)
+         (time : Time.t) ->
       let ( let+ ) = Result.( let+ ) in
-      let+ i = Indicators.get_top indicators instrument in
+      let+ i = Indicators.get_top indicators instrument ~time in
       match x with
       | FSO_k_gt v -> i.fso.k >. EnumeratedValue.to_float v
       | FSO_k_lt v -> i.fso.k <. EnumeratedValue.to_float v
@@ -115,13 +116,18 @@ module EnumeratedSignal = struct
     let ( let* ) = Result.( let* ) in
     fun (state : 'a State.t) (instrument : Instrument.t) :
         (Signal.t, Error.t) result ->
+      let* time =
+        match state.time with
+        | Some t -> Result.return t
+        | None -> Error.fatal "No state time in Astar_search.to_signal_function"
+      in
       let and_ atom acc =
         let* acc = acc in
         match acc with
         | false -> Result.return false
         | true ->
           let boolean_func = Atom.to_boolean_func atom in
-          let* res = boolean_func state.indicators instrument in
+          let* res = boolean_func state.indicators instrument time in
           Result.return res
       in
       let or_ atom acc =
@@ -130,7 +136,7 @@ module EnumeratedSignal = struct
         | true -> Result.return true
         | false ->
           let boolean_func = Atom.to_boolean_func atom in
-          let* res = boolean_func state.indicators instrument in
+          let* res = boolean_func state.indicators instrument time in
           Result.return res
       in
       match x with
