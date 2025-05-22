@@ -1,4 +1,4 @@
-let tick ~(runtype : Options.Runtype.t) env time =
+let tick ~(runtype : Options.RunType.t) env time =
   match runtype with
   | Backtest
   | Multitest

@@ -1,4 +1,4 @@
-module Runtype = struct
+module RunType = struct
   type t =
     | Live
     | Paper
@@ -38,6 +38,10 @@ module Runtype = struct
     | _ -> false
 end
 
+module IndicatorType = struct
+  type t = Live | Precomputed [@@deriving show, eq, yojson]
+end
+
 module Preload = struct
   (* Start with empty bars, load bars from a file, or download data *)
   type t = None | File of string | Download | Loaded of Bars.t
@@ -67,7 +71,8 @@ end
 module Context = struct
   type t = {
     strategy : string;
-    runtype : Runtype.t;
+    runtype : RunType.t;
+    indicator_type : IndicatorType.t;
     eio_env : Eio_unix.Stdenv.base; [@opaque]
     longleaf_env : Environment.t; [@opaque]
     switch : Eio.Switch.t; [@opaque]

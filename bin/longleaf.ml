@@ -1,7 +1,7 @@
 module Longleaf = Longleaf_lib
 
 module Args = struct
-  module Runtype = Longleaf.Options.Runtype
+  module Runtype = Longleaf.Options.RunType
   module Preload = Longleaf.Options.Preload
 
   (* Define the CLI arguments *)

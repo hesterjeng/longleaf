@@ -1,4 +1,5 @@
-type t = Security of string | Contract of Contract.t [@@deriving show]
+type t = Security of string | Contract of Contract.t [@@deriving show, eq]
+type instrument = t [@@deriving show, eq]
 
 let symbol = function
   | Security x -> x
@@ -69,3 +70,9 @@ let t_of_yojson (json : Yojson.Safe.t) =
   | _ -> invalid_arg "Instrument.t_of_yojson NYI"
 
 let security x = Security x
+
+module Timestamped = struct
+  type t = { instrument : instrument; time : Time.t } [@@deriving show, eq]
+
+  let hash x = Hash.combine2 (hash x.instrument) (Time.hash x.time)
+end

@@ -441,6 +441,12 @@ module Point = struct
     res
 end
 
+module TimestampedTbl = struct
+  include CCHashtbl.Make (Instrument.Timestamped)
+
+  let tbl : Point.t t = create 1000
+end
+
 type t = Point.t Vector.vector Hashtbl.t
 
 let pp : t Format.printer =

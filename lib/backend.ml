@@ -53,7 +53,7 @@ let make_bars (options : Options.t) =
       in
       Bars.sort (Ord.opp Item.compare) res;
       match context.runtype with
-      | Options.Runtype.Montecarlo
+      | Options.RunType.Montecarlo
       | MultiMontecarlo ->
         Result.return @@ Option.some
         @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res

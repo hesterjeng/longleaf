@@ -4,7 +4,7 @@ let runtype_target_check ~runtype ~target : unit =
   match target with
   | Some _ -> (
     match runtype with
-    | Options.Runtype.Backtest
+    | Options.RunType.Backtest
     | Multitest
     | Montecarlo
     | MultiMontecarlo
@@ -22,8 +22,8 @@ let runtype_target_check ~runtype ~target : unit =
 let save_received_check ~runtype ~save_received : unit =
   if save_received then
     match runtype with
-    | Options.Runtype.Live
-    | Options.Runtype.Paper ->
+    | Options.RunType.Live
+    | Options.RunType.Paper ->
       ()
     | _ ->
       Eio.traceln "Must be live or paper to save received data.";
@@ -44,6 +44,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
       {
         strategy = Longleaf_strategies.show strategy_arg;
         runtype;
+        indicator_type = Live;
         no_gui;
         eio_env;
         longleaf_env;
