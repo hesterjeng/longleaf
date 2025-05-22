@@ -205,10 +205,10 @@ module Make (Backend : Backend_intf.S) = struct
       Result.return { state with current = Listening }
     | Finished code ->
       Eio.traceln "@[Reached finished state.@]@.";
-      let stats_with_orders =
-        Stats.add_orders state.order_history state.stats
-      in
       if not Backend.Input.options.context.no_gui then (
+        let stats_with_orders =
+          Stats.add_orders state.order_history state.stats
+        in
         Pmutex.set mutices.data_mutex state.bars;
         Pmutex.set mutices.stats_mutex stats_with_orders;
         Pmutex.set mutices.indicators_mutex state.indicators);
