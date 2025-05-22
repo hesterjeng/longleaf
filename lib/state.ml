@@ -22,6 +22,7 @@ type 'a t = {
   indicators : Indicators.t;
   (* Historical data *)
   bars : Bars.t;
+  time : Time.t option;
   (* The current tick the state machine is on *)
   tick : int;
   tick_length : float;
