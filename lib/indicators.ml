@@ -444,45 +444,56 @@ end
 module TimestampedTbl = struct
   include CCHashtbl.Make (Instrument.Timestamped)
 
-  let tbl : Point.t t = create 1000
+  type tbl = Point.t t
+  type t = tbl
+
+  let tbl : t = create 1000
+
+  let get instrument time =
+    let ( let* ) = Result.( let* ) in
+    let* time =
+      match time with
+      | Some t -> t
+      | None ->
+        Error.fatal "TimestampedTbl.get: Must pass time to indicators get function if precomputed"
+    in
+    let key = Instrument.Timestamped.{ instrument; time } in
+    match find_opt tbl key with
+    | None ->
+      Error.missing_data
+        "Missing data from precomputed indicator table, or missing indicators \
+         vector"
+    | Some x -> Result.return x
 end
 
-type t = Point.t Vector.vector Hashtbl.t
+type vectortbl = Point.t Vector.vector Hashtbl.t
+type t = Live of vectortbl | Precomputed
 
 let pp : t Format.printer =
  fun fmt x ->
-  let seq = Hashtbl.to_seq x in
-  let pp = Seq.pp @@ Pair.pp Instrument.pp (Vector.pp Point.pp) in
-  Format.fprintf fmt "@[%a@]@." pp seq
+  match x with
+  | Live x ->
+    let seq = Hashtbl.to_seq x in
+    let pp = Seq.pp @@ Pair.pp Instrument.pp (Vector.pp Point.pp) in
+    Format.fprintf fmt "@[%a@]@." pp seq
+  | Precomputed -> invalid_arg "Printing precomputed indicators NYI"
 
-let empty () = Hashtbl.create 100
-let get (x : t) symbol = Hashtbl.find_opt x symbol
-let get_instrument (x : t) instrument = get x instrument
+let empty () = Live (Hashtbl.create 100)
+let get (x : vectortbl) symbol = Hashtbl.find_opt x symbol
 
-let get_top (x : t) symbol =
-  match get x symbol with
-  | None ->
-    Error.missing_data
-    @@ Format.asprintf "Missing indicators vector for %a" Instrument.pp symbol
-  | Some vec -> (
-    match Vector.top vec with
-    | Some top -> Ok top
-    | None ->
-      Error.missing_data
-      @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
-           symbol)
-
-let get_indicator (x : t) symbol f =
-  let res =
-    let open Option.Infix in
-    let* ind = get_instrument x symbol in
-    let+ top = Vector.top ind in
-    f top
-  in
-  Option.get_exn_or
-    (Format.asprintf "indicators.ml: Unable to get indicator for symbol %a"
-       Instrument.pp symbol)
-    res
+let get_top (x : t) ?time symbol =
+  match x with
+  | Precomputed -> TimestampedTbl.get symbol time
+  | Live x -> (
+    match get x symbol with
+    | None -> TimestampedTbl.get symbol time
+    | Some vec -> (
+      match Vector.top vec with
+      | Some top -> Ok top
+      | None ->
+        Error.missing_data
+        @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
+             symbol))
 
 let initialize_single config bars symbol =
   let initial_stats_vector = Vector.create () in
@@ -512,24 +523,27 @@ let initialize_single config bars symbol =
 
 let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     (x : t) =
-  let seq = Hashtbl.to_seq latest_bars in
-  let iter f = Seq.iter f seq in
-  iter @@ fun (symbol, latest) ->
-  let symbol_history =
-    Bars.get bars symbol |> function
-    | Some x -> x
-    | None -> assert false
-  in
-  let indicators_vector =
-    match get x symbol with
-    | Some i -> i
-    | None ->
-      let new_vector = initialize_single config bars symbol in
-      Hashtbl.replace x symbol new_vector;
-      new_vector
-  in
-  let previous = Vector.top indicators_vector in
-  let new_indicators =
-    Point.of_latest config timestamp symbol_history previous latest symbol
-  in
-  Vector.push indicators_vector new_indicators
+  match x with
+  | Precomputed -> ()
+  | Live x ->
+    let seq = Hashtbl.to_seq latest_bars in
+    let iter f = Seq.iter f seq in
+    iter @@ fun (symbol, latest) ->
+    let symbol_history =
+      Bars.get bars symbol |> function
+      | Some x -> x
+      | None -> assert false
+    in
+    let indicators_vector =
+      match get x symbol with
+      | Some i -> i
+      | None ->
+        let new_vector = initialize_single config bars symbol in
+        Hashtbl.replace x symbol new_vector;
+        new_vector
+    in
+    let previous = Vector.top indicators_vector in
+    let new_indicators =
+      Point.of_latest config timestamp symbol_history previous latest symbol
+    in
+    Vector.push indicators_vector new_indicators

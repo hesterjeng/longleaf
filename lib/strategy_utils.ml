@@ -150,7 +150,13 @@ module Make (Backend : Backend_intf.S) = struct
         state.stats
     in
     Result.return
-    @@ { state with latest; stats = new_stats; positions = position; time }
+    @@ {
+         state with
+         latest;
+         stats = new_stats;
+         positions = position;
+         time = Some time;
+       }
 
   let start_time = ref 0.0
 

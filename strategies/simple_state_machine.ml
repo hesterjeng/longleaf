@@ -16,6 +16,7 @@ module SimpleStateMachine (Backend : Backend.S) : Strategy.S = struct
          stats = Stats.empty ();
          order_history = Order.History.empty;
          indicators = Indicators.empty ();
+         time = None;
        }
 
   module SU = Strategy_utils.Make (Backend)
