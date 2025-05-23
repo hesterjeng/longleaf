@@ -46,7 +46,7 @@ let activate_order state order =
 
 let place_order (state : 'a t) (order : Order.t) =
   let ( let* ) = Result.( let* ) in
-  Eio.traceln "Placing order: @[%a@]@." Order.pp order;
+  (* Eio.traceln "Placing order: @[%a@]@." Order.pp order; *)
   let* state = record_order state order in
   let* new_positions = Backend_position.execute_order state.positions order in
   Result.return { state with positions = new_positions }
