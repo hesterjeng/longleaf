@@ -120,7 +120,9 @@ module StrategySearch = Astar.Make (Node)
 let top context =
   Eio.traceln "TEST START";
   let test = run @@ example_node context in
-  Eio.traceln "TEST END";
-  let res = StrategySearch.top @@ empty context in
-  Eio.traceln "%a" (Option.pp StrategySearch.pp) res;
-  res
+  Eio.traceln "TEST END %f" test;
+  Eio.Time.sleep context.eio_env#clock 500.0;
+  exit 1
+(* let res = StrategySearch.top @@ empty context in *)
+(* Eio.traceln "%a" (Option.pp StrategySearch.pp) res; *)
+(* res *)

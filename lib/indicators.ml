@@ -52,7 +52,7 @@ module Point_ty = struct
     adx : adx;
     cci : cci;
     fso : fso;
-    previous : t option;
+    previous : t option; [@yojson.opaque] [@opaque]
   }
   [@@deriving show, yojson, fields ~getters]
 
@@ -465,10 +465,14 @@ module TimestampedTbl = struct
       Error.missing_data
         "Missing data from precomputed indicator table, or missing indicators \
          vector"
-    | Some x -> Result.return x
+    | Some x ->
+      (* Eio.traceln "@[TimestampedTbl.get: Got @[%a@]@. from %a@]@." Point.pp x *)
+      (*   Instrument.Timestamped.pp key; *)
+      Result.return x
 
   let set instrument time point =
     let key = Instrument.Timestamped.{ instrument; time } in
+    assert (not @@ mem tbl key);
     replace tbl key point
 end
 
@@ -484,15 +488,25 @@ let pp : t Format.printer =
     Format.fprintf fmt "@[%a@]@." pp seq
   | Precomputed -> invalid_arg "Printing precomputed indicators NYI"
 
+(* let empty (x : Options.IndicatorType.t) = *)
+(*   match x with *)
+(*   | Live -> Live (Hashtbl.create 100) *)
+(*   | Precomputed -> Precomputed *)
+
 let empty () = Live (Hashtbl.create 100)
 let get (x : vectortbl) symbol = Hashtbl.find_opt x symbol
 
 let get_top (x : t) ?time symbol =
   match x with
-  | Precomputed -> TimestampedTbl.get symbol time
+  | Precomputed ->
+    let res = TimestampedTbl.get symbol time in
+    res
   | Live x -> (
     match get x symbol with
-    | None -> TimestampedTbl.get symbol time
+    | None ->
+      Error.missing_data
+      @@ Format.asprintf "Missing indicators vector for %a" Instrument.pp symbol
+      (* TimestampedTbl.get symbol time *)
     | Some vec -> (
       match Vector.top vec with
       | Some top -> Ok top

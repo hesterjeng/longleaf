@@ -152,7 +152,7 @@ module EnumeratedSignal = struct
     let module X : Template.Buy_trigger.INPUT = struct
       let pass = fun state -> to_signal_function x state
       let score = fun _ _ -> Result.return 0.0
-      let num_positions = 1
+      let num_positions = 3
     end in
     let module Buy_trigger : Template.Buy_trigger.S =
       Template.Buy_trigger.Make (X) in

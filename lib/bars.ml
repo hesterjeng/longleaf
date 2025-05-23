@@ -172,7 +172,9 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
 
 let of_file file =
   Yojson.Safe.from_file file |> t_of_yojson |> function
-  | Ok x -> x
+  | Ok x ->
+    sort (Ord.opp Item.compare) x;
+    x
   | Error e -> invalid_arg @@ Error.show e
 
 let yojson_of_t (x : t) : Yojson.Safe.t =

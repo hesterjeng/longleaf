@@ -80,7 +80,7 @@ module Make
     Eio.traceln "Shutdown command NYI";
     ()
 
-  let init_state = Backend.init_state []
+  let init_state = Backend.init_state Backend.Input.options.context
 
   let buy_ (state : 'a State.t) selected =
     let ( let@ ) = Fun.( let@ ) in

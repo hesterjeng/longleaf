@@ -19,7 +19,10 @@ module Make (Input : BACKEND_INPUT) : S = struct
          tick_length = Input.options.tick;
          stats = Stats.empty ();
          order_history = Order.History.empty;
-         indicators = Indicators.empty ();
+         indicators =
+           (match Input.options.context.indicator_type with
+           | Options.IndicatorType.Live -> Indicators.empty ()
+           | Precomputed -> Precomputed);
          positions = Backend_position.make () (* active_orders = []; *);
          time = None;
        }

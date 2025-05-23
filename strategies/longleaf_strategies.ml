@@ -137,6 +137,7 @@ let run (context : Context.t) strategy =
     let target = Options.Preload.bars context.target in
     Indicators.precompute preload target;
     Eio.traceln "Running A*...";
+    let context = { context with indicator_type = Precomputed } in
     let res = Astar_run.top context in
     0.0
   | Live

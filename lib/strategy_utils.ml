@@ -129,11 +129,8 @@ module Make (Backend : Backend_intf.S) = struct
     Bars.append latest state.bars;
     if context.print_tick_arg then
       Eio.traceln "[ %a ] Update and continue" Time.pp time;
-    (match Backend.Input.options.context.indicator_type with
-    | Live ->
-      Indicators.add_latest Input.options.indicators_config time state.bars
-        latest state.indicators
-    | Precomputed -> ());
+    Indicators.add_latest Input.options.indicators_config time state.bars latest
+      state.indicators;
     let* value = Backend_position.value position latest in
     let risk_free_value =
       Stats.risk_free_value state.stats Input.options.tick
