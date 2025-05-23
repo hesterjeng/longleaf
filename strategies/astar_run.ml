@@ -2,6 +2,7 @@ module Astar = Longleaf_lib.Astar
 module Context = Options.Context
 module Error = Longleaf_lib.Error
 module EnumeratedSignal = Astar_search.EnumeratedSignal
+module A = EnumeratedSignal.Atom
 
 type results = {
   neighbors : node_ list; [@opaque]
@@ -16,6 +17,16 @@ and node_ = {
   res : results option Pmutex.t;
 }
 [@@deriving show]
+
+let example_node context : node_ =
+  {
+    buy =
+      EnumeratedSignal.Or (EnumeratedSignal.AtomSet.of_list [ A.RSI_lt Thirty ]);
+    sell =
+      EnumeratedSignal.Or (EnumeratedSignal.AtomSet.of_list [ A.FSO_k_gt Ten ]);
+    context;
+    res = Pmutex.make None;
+  }
 
 let run (x : node_) =
   Eio.traceln "Running enumerated strategy %a" pp_node_ x;
@@ -107,6 +118,9 @@ let empty context : node_ =
 module StrategySearch = Astar.Make (Node)
 
 let top context =
+  Eio.traceln "TEST START";
+  let test = run @@ example_node context in
+  Eio.traceln "TEST END";
   let res = StrategySearch.top @@ empty context in
   Eio.traceln "%a" (Option.pp StrategySearch.pp) res;
   res
