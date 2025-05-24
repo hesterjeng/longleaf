@@ -481,7 +481,9 @@ end
 type vectortbl = Point.t Vector.vector Hashtbl.t
 type t = Live of vectortbl | Precomputed
 
+(* FIXME:  This doesn't work I don't think *)
 let of_timestampedtbl () =
+  Eio.traceln "BUGGED: Indicators.of_timestampedtbl";
   let keys = TimestampedTbl.keys_list TimestampedTbl.tbl in
   let tbl = Hashtbl.create 100 in
   let symbols =
@@ -505,7 +507,7 @@ let of_timestampedtbl () =
     ()
   in
   List.iter vector_of_symbol symbols;
-  ()
+  tbl
 
 let pp : t Format.printer =
  fun fmt x ->

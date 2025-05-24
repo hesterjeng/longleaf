@@ -34,10 +34,11 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
   let* indicators =
     match indicators with
     | Live x -> Some x
-    | Precomputed ->
-      Eio.traceln
-        "plotly.ml: Cannot create indicators trace for precomputed indicators";
-      None
+    | Precomputed -> Option.return @@ Indicators.of_timestampedtbl ()
+    (* let  *)
+    (* Eio.traceln *)
+    (*   "plotly.ml: Cannot create indicators trace for precomputed indicators"; *)
+    (* None *)
   in
   let+ indicators_vec =
     match Indicators.get indicators symbol with
