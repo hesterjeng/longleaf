@@ -34,7 +34,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let ( let&& ) = Signal.let_and signal in
     let ( let$ ) = Signal.let_get_opt signal in
     let+ i = Indicators.get_top state.indicators instrument in
-    let$ prev = i.previous in
+    (* let$ prev = i.previous in *)
     (* let&& () = *)
     (*   i.fso.d >. i.fast_stochastic_oscillator_k, "fso mas" *)
     (*   (\* i.fso.d -. i.fso.d68 >. 10.0, "fso mas" *\) *)
@@ -43,9 +43,10 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     (*   i.relative_strength_index >=. 60.0, "small rsi" *)
     (* in *)
     (* let$ prev_prev = prev.previous in *)
-    let&& () = (i.price <>. prev.price, "movement confirm") in
-    let&& () = (bullish_crossover ~i ~prev, "prev k <= d") in
-    let&& () = (i.price >=. i.sma_233, "high sma") in
+    let&& () = (i.relative_strength_index <. 30.0, "rsi small") in
+    (* let&& () = (i.price <>. prev.price, "movement confirm") in *)
+    (* let&& () = (bullish_crossover ~i ~prev, "prev k <= d") in *)
+    (* let&& () = (i.price >=. i.sma_233, "high sma") in *)
     (* let&& () = (i.volume >= prev.volume, "first volume confirm") in *)
     (* let&& () = (i.price >=. prev.price, "price increase confirm") in *)
     (* let&& () = (i.relative_strength_index <=. 30.0, "low rsi confirm") in *)
@@ -54,12 +55,12 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     (* let&& () = (i.volume >= prev_prev.volume, "second volume confirm") in *)
     signal
 
-  let score (state : 'a State.t) symbol =
-    let ( let+ ) = Result.( let+ ) in
-    let+ i = Indicators.get_top state.indicators symbol in
-    -1.0 *. i.relative_strength_index
+  let score (state : 'a State.t) symbol = Result.return 0.0
+  (* let ( let+ ) = Result.( let+ ) in *)
+  (* let+ i = Indicators.get_top state.indicators symbol in *)
+  (* -1.0 *. i.relative_strength_index *)
 
-  let num_positions = 5
+  let num_positions = 1
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
@@ -75,15 +76,16 @@ module Sell : Template.Sell_trigger.S = struct
     let+ i = Indicators.get_top state.indicators buying_order.symbol in
     (* let+ price_history = Bars.get_res state.bars buying_order.symbol in *)
     let$ prev = i.previous in
-    let ticks_held = state.tick - buying_order.tick in
+    (* let ticks_held = state.tick - buying_order.tick in *)
     (* let holding_period = ticks_held >= Param.holding_period in *)
     (* let price_decreasing = i.sma_5 <=. i.sma_34 in *)
-    let profited = price >. buying_order.price in
+    (* let profited = price >. buying_order.price in *)
     (* let high_fso = i.fast_stochastic_oscillator_d >=. 80.0 in *)
-    let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in
+    (* let stoploss = price <=. Param.stop_loss_multiplier *. buying_order.price in *)
     (* let|| () = (price_decreasing, "price dip") in *)
     (* let|| () = *)
-    let|| () = (bearish_crossover ~i ~prev, "bearish") in
+    let|| () = (i.fso.k >=. 10.0, "fso >=. 10.0") in
+    (* let|| () = (bearish_crossover ~i ~prev, "bearish") in *)
     (* let|| ()  = ticks_held > 12, "timer" in *)
     (* let|| () = i.fast_stochastic_oscillator_k >=. 95.0, "high fso" in *)
     (* let|| () = not profited && ticks_held > 1, "early exit" in *)

@@ -55,6 +55,7 @@ module EnumeratedSignal = struct
          (time : Time.t) ->
       let ( let+ ) = Result.( let+ ) in
       let+ i = Indicators.get_top indicators instrument ~time in
+      assert (Time.equal time i.timestamp);
       match x with
       | FSO_k_gt v -> i.fso.k >. EnumeratedValue.to_float v
       | FSO_k_lt v -> i.fso.k <. EnumeratedValue.to_float v
