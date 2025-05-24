@@ -448,6 +448,7 @@ module TimestampedTbl = struct
   type t = tbl
 
   let tbl : t = create 1000
+  let get_key = get tbl
 
   let get instrument (time : Time.t option) =
     let ( let* ) = Result.( let* ) in
@@ -468,6 +469,7 @@ module TimestampedTbl = struct
     | Some x ->
       (* Eio.traceln "@[TimestampedTbl.get: Got @[%a@]@. from %a@]@." Point.pp x *)
       (*   Instrument.Timestamped.pp key; *)
+      assert (Time.equal time x.timestamp);
       Result.return x
 
   let set instrument time point =
@@ -478,6 +480,32 @@ end
 
 type vectortbl = Point.t Vector.vector Hashtbl.t
 type t = Live of vectortbl | Precomputed
+
+let of_timestampedtbl () =
+  let keys = TimestampedTbl.keys_list TimestampedTbl.tbl in
+  let tbl = Hashtbl.create 100 in
+  let symbols =
+    List.map (fun (k : Instrument.Timestamped.t) -> k.instrument) keys
+  in
+  let vector_of_symbol symbol =
+    let keys =
+      List.filter
+        (fun (k : Instrument.Timestamped.t) ->
+          Instrument.equal symbol k.instrument)
+        keys
+    in
+    let results =
+      List.map TimestampedTbl.get_key keys
+      |> List.filter_map Fun.id |> Vector.of_list
+    in
+    Vector.sort'
+      (fun (x : Point.t) y -> Ptime.compare x.timestamp y.timestamp)
+      results;
+    Hashtbl.replace tbl symbol results;
+    ()
+  in
+  List.iter vector_of_symbol symbols;
+  ()
 
 let pp : t Format.printer =
  fun fmt x ->
