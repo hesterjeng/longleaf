@@ -127,25 +127,24 @@ module Make (Backend : Backend_intf.S) = struct
     let* position = Backend_position.update state.positions ~previous latest in
     let* time = Bars.Latest.timestamp latest in
     Bars.append latest state.bars;
-    if context.print_tick_arg then
-      Eio.traceln "[ %a ] Update and continue" Time.pp time;
     Indicators.add_latest Input.options.indicators_config time state.bars latest
       state.indicators;
     let* value = Backend_position.value position latest in
     let risk_free_value =
       Stats.risk_free_value state.stats Input.options.tick
     in
-    let new_stats =
-      Stats.append
-        {
-          time;
-          value;
-          orders = [];
-          risk_free_value;
-          cash = Backend_position.get_cash state.positions;
-        }
-        state.stats
+    let new_stats_item =
+      {
+        Stats.time;
+        value;
+        orders = [];
+        risk_free_value;
+        cash = Backend_position.get_cash state.positions;
+      }
     in
+    let new_stats = Stats.append new_stats_item state.stats in
+    if context.print_tick_arg then
+      Eio.traceln "[ %a ] Update and continue %f" Time.pp time value;
     Result.return
     @@ {
          state with

@@ -31,7 +31,7 @@ let layout title =
 let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
     (indicators : Indicators.t) indicator_name indicator_get
     (symbol : Instrument.t) : Yojson.Safe.t option =
-  let indicators =
+  let* indicators =
     match indicators with
     | Live x -> Some x
     | Precomputed ->
@@ -39,7 +39,6 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
         "plotly.ml: Cannot create indicators trace for precomputed indicators";
       None
   in
-  let* indicators = indicators in
   let+ indicators_vec =
     match Indicators.get indicators symbol with
     | Some indicators -> Some indicators
