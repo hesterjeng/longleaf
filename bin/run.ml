@@ -42,12 +42,26 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
     let context : Options.Context.t =
-      let indicator_type =
+      let indicator_type, preload, target =
         match precompute_indicators_arg with
         | true ->
           Eio.traceln "Precomputing indicators...";
-          Options.IndicatorType.Precomputed
-        | false -> Live
+          let preload : Options.Preload.t =
+            Loaded (Options.Preload.load preload)
+          in
+          let target : Options.Preload.t =
+            match target with
+            | Some s -> Loaded (Options.Preload.load (File s))
+            | None -> Options.Preload.None
+            (* Loaded (Options.Preload.load target) *)
+          in
+          (Options.IndicatorType.Precomputed, preload, target)
+        | false ->
+          ( Live,
+            preload,
+            match target with
+            | Some s -> File s
+            | None -> Options.Preload.None )
       in
       {
         strategy = Longleaf_strategies.show strategy_arg;
@@ -58,10 +72,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
         longleaf_env;
         switch;
         preload;
-        target =
-          (match target with
-          | Some s -> File s
-          | None -> Options.Preload.None);
+        target;
         save_received;
         nowait_market_open;
         mutices;
