@@ -31,33 +31,24 @@ module Latest = struct
   let iter f (x : t) : unit = Hashtbl.iter (fun x y -> f x y) x
 
   let timestamp (x : t) =
-    ( (fun f -> Hashtbl.fold f x (Ok None)) @@ fun _ item prev ->
+    let ( let* ) = Result.( let* ) in
+    let* res =
+      fold x (Ok None) @@ fun _ item prev ->
+      let* prev = prev in
       match prev with
-      | Ok None -> Result.return @@ Some (Item.timestamp item)
-      | Ok (Some prev_time) -> (
+      | None -> Result.return @@ Option.return @@ Item.timestamp item
+      | Some prev_time -> (
         let current_timestamp = Item.timestamp item in
         match Ptime.compare prev_time current_timestamp with
-        | 1
-        | 0 ->
-          prev
-        | -1 ->
-          Eio.traceln
-            "@[@[Time mismatch in latest bars:@]@.@[%a@]@.@[%a@]@.@]@."
-            Time.pp prev_time Time.pp (Item.timestamp item);
-          Error.fatal "Time confusion!"
-          (* Ok (Some current_timestamp) *)
-        | _ -> invalid_arg "Impossible return value from Ptime.compare")
-      | Error _ -> prev )
-    |> function
-    | Ok None ->
-      Eio.traceln "Current latest: %a" pp x;
-      Result.fail @@ `MissingData "No values in Bars.Latest.t"
-    | Ok (Some res) ->
-      (* Eio.traceln "Ok Bars.Latest.t"; *)
-      Ok res
-    | Error e ->
-      Eio.traceln "%a" pp x;
-      Result.fail @@ `MissingData e
+        | 0 -> Result.return prev
+        | -1
+        | 1 ->
+          Error.fatal "Time mismatch in Bars.timestamp"
+        | _ -> Error.fatal "Impossible return value from Ptime.compare")
+    in
+    match res with
+    | None -> Error.missing_data "No values in Bars.Latest.t"
+    | Some t -> Result.return t
 
   let of_seq x = Hashtbl.of_seq x
   let set x symbol value = Hashtbl.replace x symbol value

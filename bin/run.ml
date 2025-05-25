@@ -42,13 +42,17 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
     let context : Options.Context.t =
+      let indicator_type =
+        match precompute_indicators_arg with
+        | true ->
+          Eio.traceln "Precomputing indicators...";
+          Options.IndicatorType.Precomputed
+        | false -> Live
+      in
       {
         strategy = Longleaf_strategies.show strategy_arg;
         runtype;
-        indicator_type =
-          (match precompute_indicators_arg with
-          | true -> Precomputed
-          | false -> Live);
+        indicator_type;
         no_gui;
         eio_env;
         longleaf_env;
