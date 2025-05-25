@@ -80,7 +80,7 @@ module Make
     Eio.traceln "Shutdown command NYI";
     ()
 
-  let init_state = Backend.init_state Backend.Input.options.context
+  let init_state () = Backend.init_state Backend.Input.options.context
 
   let buy_ (state : 'a State.t) selected =
     let ( let@ ) = Fun.( let@ ) in
@@ -193,7 +193,9 @@ module Make
     | Ok x -> x
     | Error _ -> raise E
 
-  let run () = SU.run ~init_state step
+  let run () =
+    let init_state = init_state () in
+    SU.run ~init_state step
 end
 
 module Run = struct

@@ -54,11 +54,14 @@ let value pos (latest : Bars.Latest.t) =
   let ( let* ) = Result.( let* ) in
   (fun f -> List.fold_left f (Ok pos.cash) pos.portfolio)
   @@ fun previous_value (instrument, qty) ->
-  let* previous_value = previous_value in
-  let* item = Bars.Latest.get latest instrument in
-  let symbol_price = Item.last item in
-  let symbol_value = Float.of_int qty *. symbol_price in
-  Result.return @@ (symbol_value +. previous_value)
+  match qty with
+  | 0 -> previous_value
+  | n ->
+    let* previous_value = previous_value in
+    let* item = Bars.Latest.get latest instrument in
+    let symbol_price = Item.last item in
+    let symbol_value = Float.of_int n *. symbol_price in
+    Result.return @@ (symbol_value +. previous_value)
 
 let is_empty (x : t) =
   List.fold_left (fun acc (_, qty) -> acc && qty = 0) true x.portfolio

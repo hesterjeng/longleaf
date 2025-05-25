@@ -527,23 +527,29 @@ let empty () = Live (Hashtbl.create 100)
 let get (x : vectortbl) symbol = Hashtbl.find_opt x symbol
 
 let get_top (x : t) ?time symbol =
-  match x with
-  | Precomputed ->
-    let res = TimestampedTbl.get symbol time in
-    res
-  | Live x -> (
-    match get x symbol with
-    | None ->
-      Error.missing_data
-      @@ Format.asprintf "Missing indicators vector for %a" Instrument.pp symbol
-      (* TimestampedTbl.get symbol time *)
-    | Some vec -> (
-      match Vector.top vec with
-      | Some top -> Ok top
+  let ( let* ) = Result.( let* ) in
+  let* res =
+    match x with
+    | Precomputed ->
+      let res = TimestampedTbl.get symbol time in
+      res
+    | Live x -> (
+      match get x symbol with
       | None ->
         Error.missing_data
-        @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
-             symbol))
+        @@ Format.asprintf "Missing indicators vector for %a" Instrument.pp
+             symbol
+        (* TimestampedTbl.get symbol time *)
+      | Some vec -> (
+        match Vector.top vec with
+        | Some top -> Ok top
+        | None ->
+          Error.missing_data
+          @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
+               symbol))
+  in
+  (* Eio.traceln "indicators.get_top:@[%a@]@." Point.pp res; *)
+  Result.return res
 
 let initialize_single ?(precompute = false) config bars symbol =
   let initial_stats_vector = Vector.create () in
@@ -587,9 +593,8 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
   match x with
   | Precomputed -> ()
   | Live x ->
-    let seq = Hashtbl.to_seq latest_bars in
-    let iter f = Seq.iter f seq in
-    iter @@ fun (symbol, latest) ->
+    let iter f = Hashtbl.iter f latest_bars in
+    iter @@ fun symbol latest ->
     let symbol_history =
       Bars.get bars symbol |> function
       | Some x -> x
