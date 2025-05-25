@@ -1,5 +1,5 @@
 module Headers = Piaf.Headers
-module Hashtbl = Bars.Hashtbl
+(* module Hashtbl = Bars.Hashtbl *)
 
 type item = {
   ticker : Instrument.t;
@@ -49,7 +49,7 @@ let item_to_bar_item (x : item) : Item.t =
 let to_latest (l : t) : Bars.Latest.t =
   let res =
     List.map (fun (x : item) -> (x.ticker, item_to_bar_item x)) l
-    |> Seq.of_list |> Hashtbl.of_seq
+    |> Seq.of_list |> Bars.Latest.of_seq
   in
   res
 
@@ -102,7 +102,7 @@ module Make (Tiingo : Util.CLIENT) = struct
   module Data = struct
     module Request = Market_data_api.Request
     module Timeframe = Trading_types.Timeframe
-    module Hashbtl = Bars.Hashtbl
+    (* module Hashbtl = Bars.Hashtbl *)
 
     type t = {
       date : Time.t;
@@ -187,7 +187,7 @@ module Make (Tiingo : Util.CLIENT) = struct
             let res =
               List.map (get_data request) request_symbols |> Seq.of_list
             in
-            Hashtbl.of_seq res)
+            Bars.of_seq res)
           split_requests
       in
       let final = Bars.combine r in

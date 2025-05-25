@@ -14,6 +14,9 @@ module Latest = struct
     Format.fprintf fmt "@[%d@]@." (Seq.length seq);
     Format.fprintf fmt "@[%a@]@." pp seq
 
+  let show x = Format.asprintf "%a" pp x
+  let fold (x : t) init f = Hashtbl.fold f x init
+
   let get x (symbol : Instrument.t) : (Item.t, Error.t) result =
     match Hashtbl.find_opt x symbol with
     | Some x -> Ok x
@@ -24,6 +27,8 @@ module Latest = struct
       in
       Eio.traceln "%a" pp x;
       Error.missing_data err
+
+  let iter f (x : t) : unit = Hashtbl.iter (fun x y -> f x y) x
 
   let timestamp (x : t) =
     ( (fun f -> Hashtbl.fold f x (Ok None)) @@ fun _ item prev ->
@@ -52,15 +57,23 @@ module Latest = struct
     | Error e ->
       Eio.traceln "%a" pp x;
       Result.fail @@ `MissingData e
+
+  let of_seq x = Hashtbl.of_seq x
+  let set x symbol value = Hashtbl.replace x symbol value
 end
 
 type t = Price_history.t Hashtbl.t
+
+let of_seq x = Hashtbl.of_seq x
+let fold (x : t) init f = Hashtbl.fold f x init
 
 let pp : t Format.printer =
  fun fmt x ->
   let seq = Hashtbl.to_seq x in
   let pp = Seq.pp @@ Pair.pp Instrument.pp Price_history.pp in
   Format.fprintf fmt "@[%a@]@." pp seq
+
+let show x = Format.asprintf "%a" pp x
 
 let pp_stats : t Format.printer =
  fun fmt x ->
@@ -190,6 +203,7 @@ let yojson_of_t (x : t) : Yojson.Safe.t =
     ]
 
 let keys (x : t) = Hashtbl.to_seq_keys x |> Seq.to_list
+let iter f (x : t) : unit = Hashtbl.iter f x
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
@@ -222,25 +236,23 @@ let append (latest : Latest.t) (x : t) =
      | None -> Hashtbl.replace x symbol @@ Vector.return item
      | Some h -> Vector.push h item
 
-let print_to_file ?(filename : string option) bars prefix =
-  let bars_json = yojson_of_t bars in
-  let str = Yojson.Safe.to_string bars_json in
-  let tail =
-    match filename with
-    | Some n -> n
-    | None -> Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
-  in
-  let filename = Format.sprintf "data/%s_%s.json" prefix tail in
-  let oc = open_out filename in
-  output_string oc str;
-  close_out oc
-
 let print_to_file_direct bars filename =
   let bars_json = yojson_of_t bars in
   let str = Yojson.Safe.to_string bars_json in
   let oc = open_out filename in
   output_string oc str;
   close_out oc
+
+let print_to_file ?(filename : string option) bars prefix =
+  let tail =
+    match filename with
+    | Some n -> n
+    | None -> Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
+  in
+  let filename = Format.sprintf "data/%s_%s.json" prefix tail in
+  print_to_file_direct bars filename
+
+let map f (x : t) : t = Hashtbl.to_seq x |> Seq.map f |> Hashtbl.of_seq
 
 module Infill = struct
   (* Alpaca market data api can have missing data. *)

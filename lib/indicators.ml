@@ -593,7 +593,7 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
   match x with
   | Precomputed -> ()
   | Live x ->
-    let iter f = Hashtbl.iter f latest_bars in
+    let iter f = Bars.Latest.iter f latest_bars in
     iter @@ fun symbol latest ->
     let symbol_history =
       Bars.get bars symbol |> function

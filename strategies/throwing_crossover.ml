@@ -53,7 +53,13 @@ module Sell : Template.Sell_trigger.S = struct
     let ( let|| ) = Signal.let_or signal in
     let* price = State.price state buying_order.symbol in
     let* i = Indicators.get_top state.indicators buying_order.symbol in
-    let+ price_history = Bars.get_res state.bars buying_order.symbol in
+    let+ price_history =
+      match Bars.get state.bars buying_order.symbol with
+      | Some x -> Ok x
+      | None ->
+        Eio.traceln "throwing_crossover: Missing price history for symbol";
+        Error.missing_data "missing price history in throwing crossover"
+    in
     let$ prev = i.previous in
     let ticks_held = state.tick - buying_order.tick in
     let high_since_purchase =
