@@ -13,9 +13,6 @@ end
 type t [@@deriving show]
 
 val pp_stats : t Format.printer
-
-(* include module type of Hashtbl.Make(Instrument) with type 'a t = t *)
-
 val get : t -> Instrument.t -> Item.t Vector.vector option
 val fold : t -> 'a -> (Instrument.t -> Price_history.t -> 'a -> 'a) -> 'a
 

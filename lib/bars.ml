@@ -41,10 +41,11 @@ module Latest = struct
         | 0 ->
           prev
         | -1 ->
-          (* Eio.traceln *)
-          (*   "@[@[Time mismatch in latest bars:@]@.@[%a@]@.@[%a@]@.@]@." *)
-          (*   Time.pp prev_time Time.pp (Item.timestamp item); *)
-          Ok (Some current_timestamp)
+          Eio.traceln
+            "@[@[Time mismatch in latest bars:@]@.@[%a@]@.@[%a@]@.@]@."
+            Time.pp prev_time Time.pp (Item.timestamp item);
+          Error.fatal "Time confusion!"
+          (* Ok (Some current_timestamp) *)
         | _ -> invalid_arg "Impossible return value from Ptime.compare")
       | Error _ -> prev )
     |> function
