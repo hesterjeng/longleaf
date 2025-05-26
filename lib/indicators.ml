@@ -476,7 +476,7 @@ module TimestampedTbl = struct
 
   let set instrument time point =
     let key = Instrument.Timestamped.{ instrument; time } in
-    assert (not @@ mem tbl key);
+    assert (Option.is_none @@ get_key key);
     replace tbl key point
 end
 
@@ -553,32 +553,32 @@ let get_top (x : t) ?time symbol =
   (* Eio.traceln "indicators.get_top:@[%a@]@." Point.pp res; *)
   Result.return res
 
-let initialize_single ?(precompute = false) config bars symbol =
-  let initial_stats_vector = Vector.create () in
-  let bars_vec =
-    Bars.get bars symbol |> function
-    | Some x -> x
-    | None ->
-      invalid_arg "Expected to have bars data when initializing indicators"
-  in
-  (* Create a vector to store the data so far *)
-  let bars_upto_now = Vector.create () in
-  (* Function to generate the indicators from the bars *)
-  let fold i previous item =
-    let timestamp = Item.timestamp item in
-    let res =
-      Point.of_latest config timestamp bars_upto_now previous item symbol
-    in
-    if precompute then TimestampedTbl.set symbol timestamp res;
-    Vector.push initial_stats_vector res;
-    Vector.push bars_upto_now (Vector.get bars_vec i);
-    Option.return res
-  in
-  let _ =
-    (* Fold, so that we have access to the previous indicator record *)
-    Vector.foldi fold None bars_vec
-  in
-  initial_stats_vector
+(* let initialize_single ?(precompute = false) config bars symbol = *)
+(*   let initial_stats_vector = Vector.create () in *)
+(*   let bars_vec = *)
+(*     Bars.get bars symbol |> function *)
+(*     | Some x -> x *)
+(*     | None -> *)
+(*       invalid_arg "Expected to have bars data when initializing indicators" *)
+(*   in *)
+(*   (\* Create a vector to store the data so far *\) *)
+(*   let bars_upto_now = Vector.create () in *)
+(*   (\* Function to generate the indicators from the bars *\) *)
+(*   let fold i previous item = *)
+(*     let timestamp = Item.timestamp item in *)
+(*     let res = *)
+(*       Point.of_latest config timestamp bars_upto_now previous item symbol *)
+(*     in *)
+(*     if precompute then TimestampedTbl.set symbol timestamp res; *)
+(*     Vector.push initial_stats_vector res; *)
+(*     Vector.push bars_upto_now (Vector.get bars_vec i); *)
+(*     Option.return res *)
+(*   in *)
+(*   let _ = *)
+(*     (\* Fold, so that we have access to the previous indicator record *\) *)
+(*     Vector.foldi fold None bars_vec *)
+(*   in *)
+(*   initial_stats_vector *)
 
 let precompute (preload : Bars.t) (target : Bars.t) =
   let config = { Indicator_config.fft = false; compare_preloaded = false } in
@@ -621,7 +621,11 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
        let from_tbl = TimestampedTbl.get symbol (Some timestamp) in
        match from_tbl with
        | Ok x ->
-         Eio.traceln "From table:";
-         ()
+         if x.price <>. new_indicators.price || x.fso.k <>. new_indicators.fso.k
+         then (
+           Eio.traceln "Price mismatch: @[%a@]@.@[%a@]@." Point.pp
+             new_indicators Point.pp x;
+           () (* invalid_arg "price mismatch" *))
+         else ()
        | Error _ -> ());
     Vector.push indicators_vector new_indicators
