@@ -42,8 +42,10 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
         match target with
         | Some s -> Loaded (Options.Preload.load (File s))
         | None -> Options.Preload.None
-        (* Loaded (Options.Preload.load target) *)
       in
+      Indicators.precompute
+        (Options.Preload.bars preload)
+        (Options.Preload.bars target);
       (Options.IndicatorType.Precomputed, preload, target)
     | false ->
       ( Live,

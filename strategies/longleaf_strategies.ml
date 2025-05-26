@@ -130,12 +130,14 @@ let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
 let run (context : Context.t) strategy =
   match context.runtype with
   | AstarSearch ->
-    Eio.traceln "Loading context...";
-    let context = Options.Context.load context in
-    Eio.traceln "Loading indicators...";
+    (* Eio.traceln "Loading context..."; *)
+    (* let context = Options.Context.load context in *)
+    (* Eio.traceln "Loading indicators..."; *)
     (* let preload = Options.Preload.bars context.preload in *)
     (* let target = Options.Preload.bars context.target in *)
     (* Indicators.precompute preload target; *)
+    (* assert (Options.Preload.is_loaded context.preload); *)
+    (* assert (Options.Preload.is_loaded context.target); *)
     Eio.traceln "Running A*...";
     (* let context = { context with indicator_type = Precomputed } in *)
     let res = Astar_run.top context in

@@ -2,10 +2,10 @@ module Hashtbl = Hashtbl.Make (Instrument)
 
 module Point_ty = struct
   type cci = { cci : float; typical_price : float; ema_cci : float }
-  [@@deriving show, yojson, fields ~getters]
+  [@@deriving show, yojson, fields ~getters, ord]
 
   type fso = { k : float; d : float; d_slow : float }
-  [@@deriving show, yojson, fields ~getters]
+  [@@deriving show, yojson, fields ~getters, ord]
 
   (* Type for average divergance calculation *)
   type adx = {
@@ -15,11 +15,11 @@ module Point_ty = struct
     adx : float;
     ema_adx : float;
   }
-  [@@deriving show, yojson, fields ~getters]
+  [@@deriving show, yojson, fields ~getters, ord]
 
   type t = {
     symbol : Instrument.t;
-    timestamp : Time.t;
+    timestamp : Time.t; [@compare Ptime.compare]
     item : Item.t;
     price : float;
     volume : int;
@@ -47,14 +47,15 @@ module Point_ty = struct
     (* fast_stochastic_oscillator_d : float; *)
     (* fast_stochastic_oscillator_d68 : float; *)
     fourier_transform : (Fourier.t[@yojson.opaque]);
+        [@opaque] [@compare fun _ _ -> 0]
     ft_normalized_magnitude : float;
     fft_mean_squared_error : float;
     adx : adx;
     cci : cci;
     fso : fso;
-    previous : t option; [@yojson.opaque] [@opaque]
+    previous : t option; [@yojson.opaque] [@opaque] [@compare fun _ _ -> 0]
   }
-  [@@deriving show, yojson, fields ~getters]
+  [@@deriving show, yojson, fields ~getters, ord]
 
   let last_n n (x : t) =
     let rec aux (n : int) x acc =
@@ -464,8 +465,9 @@ module TimestampedTbl = struct
     match find_opt tbl key with
     | None ->
       Error.missing_data
-        "Missing data from precomputed indicator table, or missing indicators \
-         vector"
+      @@ Format.asprintf
+           "Missing data from precomputed indicator table for @[%a@]@."
+           Instrument.Timestamped.pp key
     | Some x ->
       (* Eio.traceln "@[TimestampedTbl.get: Got @[%a@]@. from %a@]@." Point.pp x *)
       (*   Instrument.Timestamped.pp key; *)
@@ -579,7 +581,7 @@ let initialize_single ?(precompute = false) config bars symbol =
   initial_stats_vector
 
 let precompute (preload : Bars.t) (target : Bars.t) =
-  let config = { Indicator_config.fft = false } in
+  let config = { Indicator_config.fft = false; compare_preloaded = false } in
   let symbols = Bars.keys preload in
   assert (not @@ List.is_empty symbols);
   let _ =
@@ -587,6 +589,9 @@ let precompute (preload : Bars.t) (target : Bars.t) =
   in
   let _ = List.map (initialize_single ~precompute:true config target) symbols in
   ()
+
+let try_tbl (config : Indicator_config.t) =
+  if config.compare_preloaded then true else false
 
 let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     (x : t) =
@@ -612,4 +617,11 @@ let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
     let new_indicators =
       Point.of_latest config timestamp symbol_history previous latest symbol
     in
+    (if config.compare_preloaded then
+       let from_tbl = TimestampedTbl.get symbol (Some timestamp) in
+       match from_tbl with
+       | Ok x ->
+         Eio.traceln "From table:";
+         ()
+       | Error _ -> ());
     Vector.push indicators_vector new_indicators

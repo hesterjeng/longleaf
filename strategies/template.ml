@@ -222,7 +222,8 @@ module Run = struct
       tick = 600.0;
       overnight = true;
       resume_after_liquidate = true;
-      indicators_config : Indicator_config.t = { fft = false };
+      indicators_config : Indicator_config.t =
+        { fft = false; compare_preloaded = true };
       dropout = false;
       randomized_backtest_length = 1000;
       context;

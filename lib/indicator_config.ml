@@ -1,1 +1,1 @@
-type t = { fft : bool }
+type t = { fft : bool; compare_preloaded : bool } [@@deriving show]

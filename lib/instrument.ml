@@ -1,4 +1,6 @@
-type t = Security of string | Contract of Contract.t [@@deriving show, eq]
+type t = Security of string | Contract of Contract.t
+[@@deriving show, eq, ord]
+
 type instrument = t [@@deriving show, eq]
 
 let symbol = function

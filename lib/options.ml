@@ -45,7 +45,7 @@ end
 module Preload = struct
   (* Start with empty bars, load bars from a file, or download data *)
   type t = None | File of string | Download | Loaded of Bars.t
-  [@@deriving show]
+  [@@deriving show, variants]
 
   let of_string_res x =
     match x with
@@ -76,12 +76,12 @@ module Context = struct
   type t = {
     strategy : string;
     runtype : RunType.t;
-    indicator_type : IndicatorType.t;
+    indicator_type : IndicatorType.t; [@opaque]
     eio_env : Eio_unix.Stdenv.base; [@opaque]
     longleaf_env : Environment.t; [@opaque]
     switch : Eio.Switch.t; [@opaque]
-    preload : Preload.t;
-    target : Preload.t;
+    preload : Preload.t; [@opaque]
+    target : Preload.t; [@opaque]
     save_received : bool;
     no_gui : bool;
     nowait_market_open : bool;

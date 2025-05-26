@@ -122,6 +122,7 @@ type t = {
 }
 [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 
+let compare _ _ = 0
 let equal (x : t) (y : t) = String.equal x.symbol y.symbol
 
 type response = {
