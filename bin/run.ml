@@ -47,7 +47,11 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
       Indicators.precompute
         (Options.Preload.bars preload)
         (Options.Preload.bars target);
-      (Options.IndicatorType.Precomputed, preload, target)
+      ( (match compare_preloaded with
+        | false -> Options.IndicatorType.Precomputed
+        | true -> Options.IndicatorType.Live),
+        preload,
+        target )
     | false ->
       ( Live,
         preload,
