@@ -67,6 +67,10 @@ module Args = struct
     let doc = "Precompute indicators." in
     Cmdliner.Arg.(value & flag & info [ "indicators" ] ~doc)
 
+  let compare_preload =
+    let doc = "Compare live with preloaded indicators" in
+    Cmdliner.Arg.(value & flag & info [ "compare-preload" ] ~doc)
+
   let save_received_arg =
     let doc = "Save received data." in
     Cmdliner.Arg.(value & flag & info [ "sr"; "save-received" ] ~doc)
@@ -83,7 +87,7 @@ end
 module Cmd = struct
   let run runtype preload stacktrace output no_gui target save_received
       strategy_arg save_to_file nowait_market_open print_tick_arg
-      precompute_indicators_arg =
+      precompute_indicators_arg compare_preloaded =
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output output;
     (* let reporter = Logs_fmt.reporter () in *)
@@ -92,7 +96,7 @@ module Cmd = struct
     Eio_main.run @@ fun eio_env ->
     Run.top ~stacktrace ~preload ~runtype ~no_gui ~target ~save_received
       ~eio_env ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg
-      ~precompute_indicators_arg
+      ~precompute_indicators_arg ~compare_preloaded
 
   let top =
     let term =
@@ -101,7 +105,7 @@ module Cmd = struct
         $ Args.output_file_arg $ Args.no_gui_arg $ Args.target_arg
         $ Args.save_received_arg $ Args.strategy_arg $ Args.save_to_file
         $ Args.nowait_market_open $ Args.print_tick_arg
-        $ Args.precompute_indicators_arg)
+        $ Args.precompute_indicators_arg $ Args.compare_preload)
     in
     let doc =
       "This is the OCaml algorithmic trading platform longleaf.  It relies on \

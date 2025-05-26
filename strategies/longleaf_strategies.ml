@@ -21,7 +21,8 @@ let run_options (context : Context.t) : Options.t =
     tick = 600.0;
     overnight = true;
     resume_after_liquidate = true;
-    indicators_config : Indicator_config.t = { fft = false };
+    indicators_config : Indicator_config.t =
+      { fft = false; compare_preloaded = context.compare_preloaded };
     dropout = false;
     randomized_backtest_length = 1000;
     context;

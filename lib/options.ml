@@ -82,6 +82,7 @@ module Context = struct
     switch : Eio.Switch.t; [@opaque]
     preload : Preload.t; [@opaque]
     target : Preload.t; [@opaque]
+    compare_preloaded : bool;
     save_received : bool;
     no_gui : bool;
     nowait_market_open : bool;

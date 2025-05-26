@@ -31,7 +31,8 @@ let save_received_check ~runtype ~save_received : unit =
 
 let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
     ~eio_env ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg
-    ~precompute_indicators_arg ~switch () : Options.Context.t =
+    ~precompute_indicators_arg ~compare_preloaded ~switch () : Options.Context.t
+    =
   let _ = stacktrace in
   let indicator_type, preload, target =
     match precompute_indicators_arg with
@@ -67,6 +68,7 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
     preload;
     target;
     save_received;
+    compare_preloaded;
     nowait_market_open;
     mutices;
     save_to_file;
@@ -75,7 +77,7 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
 
 let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg
-    ~precompute_indicators_arg =
+    ~precompute_indicators_arg ~compare_preloaded =
   runtype_target_check ~runtype ~target;
   save_received_check ~runtype ~save_received;
   let _ = stacktrace in
@@ -87,7 +89,7 @@ let top ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received ~eio_env
     let context =
       mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
         ~eio_env ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg
-        ~precompute_indicators_arg ~switch ()
+        ~precompute_indicators_arg ~switch ~compare_preloaded ()
     in
     Eio.traceln "@[Context: %a@]@." Options.Context.pp context;
     let res = Longleaf_strategies.run context strategy_arg in
