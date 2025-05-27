@@ -127,8 +127,12 @@ module Make (Backend : Backend_intf.S) = struct
     let* position = Backend_position.update state.positions ~previous latest in
     let* time = Bars.Latest.timestamp latest in
     Bars.append latest state.bars;
-    Indicators.add_latest Input.options.indicators_config time state.bars latest
-      state.indicators;
+    (* Indicators.add_latest Input.options.indicators_config time state.bars latest *)
+    (*   state.indicators; *)
+    let* () =
+      Indicators.compute_new_latest Input.options.indicators_config state.bars
+        state.indicators
+    in
     let* value = Backend_position.value position latest in
     let risk_free_value =
       Stats.risk_free_value state.stats Input.options.tick

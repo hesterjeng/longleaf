@@ -580,52 +580,91 @@ let get_top (x : t) ?time symbol =
 (*   in *)
 (*   initial_stats_vector *)
 
-let precompute (preload : Bars.t) (target : Bars.t) =
-  let config = { Indicator_config.fft = false; compare_preloaded = false } in
-  let symbols = Bars.keys preload in
-  assert (not @@ List.is_empty symbols);
-  let _ =
-    List.map (initialize_single ~precompute:true config preload) symbols
-  in
-  let _ = List.map (initialize_single ~precompute:true config target) symbols in
-  ()
+(* let precompute (preload : Bars.t) (target : Bars.t) = *)
+(*   let config = { Indicator_config.fft = false; compare_preloaded = false } in *)
+(*   let symbols = Bars.keys preload in *)
+(*   assert (not @@ List.is_empty symbols); *)
+(*   let _ = *)
+(*     List.map (initialize_single ~precompute:true config preload) symbols *)
+(*   in *)
+(*   let _ = List.map (initialize_single ~precompute:true config target) symbols in *)
+(*   () *)
 
-let try_tbl (config : Indicator_config.t) =
-  if config.compare_preloaded then true else false
-
-let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
-    (x : t) =
+let compute_new_latest config bars (x : t) =
+  let ( let* ) = Result.( let* ) in
   match x with
-  | Precomputed -> ()
-  | Live x ->
-    let iter f = Bars.Latest.iter f latest_bars in
-    iter @@ fun symbol latest ->
-    let symbol_history =
-      Bars.get bars symbol |> function
-      | Some x -> x
-      | None -> assert false
+  | Precomputed -> Result.return ()
+  | Live _ ->
+    let* res =
+      Bars.fold bars (Ok ()) @@ fun instrument price_history prev ->
+      let* _prev = prev in
+      let* current_item =
+        match Vector.top price_history with
+        | Some x -> Result.return x
+        | None -> Error.missing_data "Empty bars when computing indicators"
+      in
+      let timestamp = Item.timestamp current_item in
+      let previous_indicator =
+        try
+          let length = Vector.length price_history in
+          let previous_item = Vector.get price_history (length - 2) in
+          let previous_item_timestamp = Item.timestamp previous_item in
+          assert (not @@ Time.equal timestamp previous_item_timestamp);
+          let res =
+            TimestampedTbl.get instrument (Some previous_item_timestamp)
+          in
+          match res with
+          | Ok x -> Some x
+          | Error _ ->
+            Eio.traceln
+              "Indicators.compute_new_latest: couldn't find indicators for \
+               previous";
+            None
+        with
+        | _ -> None
+      in
+      let new_point =
+        Point.of_latest config timestamp price_history previous_indicator
+          current_item instrument
+      in
+      TimestampedTbl.set instrument timestamp new_point;
+      Result.return ()
     in
-    let indicators_vector =
-      match get x symbol with
-      | Some i -> i
-      | None ->
-        let new_vector = initialize_single config bars symbol in
-        Hashtbl.replace x symbol new_vector;
-        new_vector
-    in
-    let previous = Vector.top indicators_vector in
-    let new_indicators =
-      Point.of_latest config timestamp symbol_history previous latest symbol
-    in
-    (if config.compare_preloaded then
-       let from_tbl = TimestampedTbl.get symbol (Some timestamp) in
-       match from_tbl with
-       | Ok x ->
-         if x.price <>. new_indicators.price || x.fso.k <>. new_indicators.fso.k
-         then (
-           Eio.traceln "Price mismatch: @[%a@]@.@[%a@]@." Point.pp
-             new_indicators Point.pp x;
-           () (* invalid_arg "price mismatch" *))
-         else ()
-       | Error _ -> ());
-    Vector.push indicators_vector new_indicators
+    Result.return res
+
+(* let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t) *)
+(*     (x : t) = *)
+(*   match x with *)
+(*   | Precomputed -> () *)
+(*   | Live x -> *)
+(*     let iter f = Bars.Latest.iter f latest_bars in *)
+(*     iter @@ fun symbol latest -> *)
+(*     let symbol_history = *)
+(*       Bars.get bars symbol |> function *)
+(*       | Some x -> x *)
+(*       | None -> assert false *)
+(*     in *)
+(*     let indicators_vector = *)
+(*       match get x symbol with *)
+(*       | Some i -> i *)
+(*       | None -> *)
+(*         let new_vector = initialize_single config bars symbol in *)
+(*         Hashtbl.replace x symbol new_vector; *)
+(*         new_vector *)
+(*     in *)
+(*     let previous = Vector.top indicators_vector in *)
+(*     let new_indicators = *)
+(*       Point.of_latest config timestamp symbol_history previous latest symbol *)
+(*     in *)
+(*     (if config.compare_preloaded then *)
+(*        let from_tbl = TimestampedTbl.get symbol (Some timestamp) in *)
+(*        match from_tbl with *)
+(*        | Ok x -> *)
+(*          if x.price <>. new_indicators.price || x.fso.k <>. new_indicators.fso.k *)
+(*          then ( *)
+(*            Eio.traceln "Price mismatch: @[%a@]@.@[%a@]@." Point.pp *)
+(*              new_indicators Point.pp x; *)
+(*            () (\* invalid_arg "price mismatch" *\)) *)
+(*          else () *)
+(*        | Error _ -> ()); *)
+(*     Vector.push indicators_vector new_indicators *)
