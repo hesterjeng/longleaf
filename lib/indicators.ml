@@ -1,5 +1,3 @@
-module Hashtbl = Hashtbl.Make (Instrument)
-
 module Point_ty = struct
   type cci = { cci : float; typical_price : float; ema_cci : float }
   [@@deriving show, yojson, fields ~getters, ord]
@@ -488,9 +486,7 @@ module TimestampedTbl = struct
 end
 
 (* type vectortbl = Point.t Vector.vector Hashtbl.t *)
-type t =
-  | Live of Time.t
-  | Precomputed
+type t = Live of Time.t | Precomputed
 
 (* FIXME:  This doesn't work I don't think *)
 let of_timestampedtbl () =

@@ -12,7 +12,8 @@ let serve_favicon () =
 
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let bars = Pmutex.get mutices.data_mutex in
-  let indicators = Pmutex.get mutices.indicators_mutex in
+  (* let indicators = Pmutex.get mutices.indicators_mutex in *)
+  let indicators = Indicators.of_timestampedtbl () in
   let bars_json_opt = Plotly.of_bars bars indicators target in
   match bars_json_opt with
   | Some bars -> Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
