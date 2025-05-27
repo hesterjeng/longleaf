@@ -476,8 +476,15 @@ module TimestampedTbl = struct
 
   let set instrument time point =
     let key = Instrument.Timestamped.{ instrument; time } in
-    assert (Option.is_none @@ get_key key);
-    replace tbl key point
+    match get_key key with
+    | None -> replace tbl key point
+    | Some res -> (
+      let cmp = Point.compare res point in
+      match cmp with
+      | 0 -> ()
+      | _ ->
+        Eio.traceln "%a %a" Point.pp res Point.pp point;
+        invalid_arg "Attempt to rebind in indicators.ml")
 end
 
 type vectortbl = Point.t Vector.vector Hashtbl.t
@@ -590,47 +597,72 @@ let get_top (x : t) ?time symbol =
 (*   let _ = List.map (initialize_single ~precompute:true config target) symbols in *)
 (*   () *)
 
-let compute_new_latest config bars (x : t) =
+let compute_i config bars i =
   let ( let* ) = Result.( let* ) in
+  let* res =
+    Bars.fold bars (Ok ()) @@ fun instrument price_history prev ->
+    let* _prev = prev in
+    let* current_item =
+      try Result.return @@ Vector.get price_history i with
+      | _ -> Error.missing_data "Missing index when computing price history"
+    in
+    let timestamp = Item.timestamp current_item in
+    let previous_indicator =
+      try
+        let previous_item = Vector.get price_history (i - 1) in
+        let previous_item_timestamp = Item.timestamp previous_item in
+        assert (not @@ Time.equal timestamp previous_item_timestamp);
+        let res =
+          TimestampedTbl.get instrument (Some previous_item_timestamp)
+        in
+        match res with
+        | Ok x -> Some x
+        | Error _ ->
+          Eio.traceln
+            "Indicators.compute_i: couldn't find indicators for previous";
+          None
+      with
+      | _ -> None
+    in
+    let new_point =
+      Point.of_latest config timestamp price_history previous_indicator
+        current_item instrument
+    in
+    TimestampedTbl.set instrument timestamp new_point;
+    Result.return ()
+  in
+  Result.return res
+
+let compute_latest config bars x =
   match x with
   | Precomputed -> Result.return ()
   | Live _ ->
-    let* res =
-      Bars.fold bars (Ok ()) @@ fun instrument price_history prev ->
-      let* _prev = prev in
-      let* current_item =
-        match Vector.top price_history with
-        | Some x -> Result.return x
-        | None -> Error.missing_data "Empty bars when computing indicators"
-      in
-      let timestamp = Item.timestamp current_item in
-      let previous_indicator =
-        try
-          let length = Vector.length price_history in
-          let previous_item = Vector.get price_history (length - 2) in
-          let previous_item_timestamp = Item.timestamp previous_item in
-          assert (not @@ Time.equal timestamp previous_item_timestamp);
-          let res =
-            TimestampedTbl.get instrument (Some previous_item_timestamp)
-          in
-          match res with
-          | Ok x -> Some x
-          | Error _ ->
-            Eio.traceln
-              "Indicators.compute_new_latest: couldn't find indicators for \
-               previous";
-            None
-        with
-        | _ -> None
-      in
-      let new_point =
-        Point.of_latest config timestamp price_history previous_indicator
-          current_item instrument
-      in
-      TimestampedTbl.set instrument timestamp new_point;
-      Result.return ()
-    in
-    Result.return res
+    let ( let* ) = Result.( let* ) in
+    let* length = Bars.length_check bars in
+    let* () = compute_i config bars (length - 1) in
+    Result.return ()
+
+let compute config bars =
+  let ( let* ) = Result.( let* ) in
+  let* length = Bars.length_check bars in
+  let rec aux i =
+    let* i = i in
+    if i >= length then Result.return i
+    else
+      let* () = compute_i config bars i in
+      aux @@ Result.return @@ (i + 1)
+  in
+  let* res = aux @@ Result.return 0 in
+  Result.return res
+
+let precompute (preload : Bars.t) (target : Bars.t) =
+  let ( let* ) = Result.( let* ) in
+  let config = { Indicator_config.fft = false; compare_preloaded = false } in
+  let combined = Bars.combine [ preload; target ] in
+  Eio.traceln "Beginning Indicators.compute";
+  let* _ = compute config combined in
+  Eio.traceln "Finished Indicators.compute";
+  Result.return ()
 
 (* let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t) *)
 (*     (x : t) = *)

@@ -44,9 +44,16 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
         | Some s -> Loaded (Options.Preload.load (File s))
         | None -> Options.Preload.None
       in
-      Indicators.precompute
-        (Options.Preload.bars preload)
-        (Options.Preload.bars target);
+      let () =
+        Indicators.precompute
+          (Options.Preload.bars preload)
+          (Options.Preload.bars target)
+        |> function
+        | Ok _ -> ()
+        | Error e ->
+          Eio.traceln "%a" Error.pp e;
+          ()
+      in
       ( (match compare_preloaded with
         | false -> Options.IndicatorType.Precomputed
         | true -> Options.IndicatorType.Live),

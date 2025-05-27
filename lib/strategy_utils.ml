@@ -124,39 +124,30 @@ module Make (Backend : Backend_intf.S) = struct
     let ( let* ) = Result.( let* ) in
     let previous = state.latest in
     let* latest = Backend.latest_bars Backend.symbols in
-    let* position = Backend_position.update state.positions ~previous latest in
+    let* positions = Backend_position.update state.positions ~previous latest in
     let* time = Bars.Latest.timestamp latest in
     Bars.append latest state.bars;
-    (* Indicators.add_latest Input.options.indicators_config time state.bars latest *)
-    (*   state.indicators; *)
     let* () =
-      Indicators.compute_new_latest Input.options.indicators_config state.bars
+      Indicators.compute_latest Input.options.indicators_config state.bars
         state.indicators
     in
-    let* value = Backend_position.value position latest in
+    let* value = Backend_position.value positions latest in
     let risk_free_value =
       Stats.risk_free_value state.stats Input.options.tick
     in
-    let new_stats_item =
-      {
-        Stats.time;
-        value;
-        orders = [];
-        risk_free_value;
-        cash = Backend_position.get_cash state.positions;
-      }
+    let stats =
+      Stats.cons state.stats
+      @@ {
+           Stats.time;
+           value;
+           orders = [];
+           risk_free_value;
+           cash = Backend_position.get_cash state.positions;
+         }
     in
-    let new_stats = Stats.append new_stats_item state.stats in
     if context.print_tick_arg then
       Eio.traceln "[ %a ] Update and continue %f" Time.pp time value;
-    Result.return
-    @@ {
-         state with
-         latest;
-         stats = new_stats;
-         positions = position;
-         time = Some time;
-       }
+    Result.return @@ { state with latest; stats; positions; time = Some time }
 
   let start_time = ref 0.0
 

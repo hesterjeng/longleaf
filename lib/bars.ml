@@ -246,6 +246,24 @@ let print_to_file ?(filename : string option) bars prefix =
 
 let map f (x : t) : t = Hashtbl.to_seq x |> Seq.map f |> Hashtbl.of_seq
 
+let length_check (x : t) =
+  let ( let* ) = Result.( let* ) in
+  let res =
+    fold x (Result.return @@ -1) @@ fun _ history acc ->
+    let* acc = acc in
+    let l = Vector.length history in
+    match acc with
+    | -1 -> Result.return l
+    | x ->
+      let* ok =
+        match acc = x with
+        | true -> Result.return acc
+        | false -> Error.fatal "Mismatched bars vector lengths"
+      in
+      Result.return ok
+  in
+  res
+
 module Infill = struct
   (* Alpaca market data api can have missing data. *)
   (* Try to fill it in with the most recent bar indicating no change if it happens. *)

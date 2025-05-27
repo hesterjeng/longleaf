@@ -27,7 +27,7 @@ type t = { history : item list; position_ratio : PositionRatio.t }
 
 let empty () : t = { position_ratio = PositionRatio.none; history = [] }
 
-let append (i : item) (x : t) =
+let cons (x : t) (i : item) =
   { history = i :: x.history; position_ratio = x.position_ratio }
 
 let compare x y = Ptime.compare x.time y.time

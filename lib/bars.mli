@@ -32,6 +32,7 @@ val of_file : string -> t
 val length : t -> int
 val sort : Item.t Ord.t -> t -> unit
 val add_order : Order.t -> t -> (unit, Error.t) result
+val length_check : t -> (int, Error.t) result
 val copy : t -> t
 
 val split :
