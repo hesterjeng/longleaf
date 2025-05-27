@@ -487,8 +487,10 @@ module TimestampedTbl = struct
         invalid_arg "Attempt to rebind in indicators.ml")
 end
 
-type vectortbl = Point.t Vector.vector Hashtbl.t
-type t = Live of vectortbl | Precomputed
+(* type vectortbl = Point.t Vector.vector Hashtbl.t *)
+type t =
+  | Live of Time.t
+  | Precomputed
 
 (* FIXME:  This doesn't work I don't think *)
 let of_timestampedtbl () =
@@ -522,9 +524,10 @@ let pp : t Format.printer =
  fun fmt x ->
   match x with
   | Live x ->
-    let seq = Hashtbl.to_seq x in
-    let pp = Seq.pp @@ Pair.pp Instrument.pp (Vector.pp Point.pp) in
-    Format.fprintf fmt "@[%a@]@." pp seq
+    Format.fprintf fmt "custom indicator printer %a" Time.pp x
+    (* let seq = Hashtbl.to_seq x in *)
+    (* let pp = Seq.pp @@ Pair.pp Instrument.pp (Vector.pp Point.pp) in *)
+    (* Format.fprintf fmt "@[%a@]@." pp seq *)
   | Precomputed -> invalid_arg "Printing precomputed indicators NYI"
 
 (* let empty (x : Options.IndicatorType.t) = *)
@@ -532,8 +535,8 @@ let pp : t Format.printer =
 (*   | Live -> Live (Hashtbl.create 100) *)
 (*   | Precomputed -> Precomputed *)
 
-let empty () = Live (Hashtbl.create 100)
-let get (x : vectortbl) symbol = Hashtbl.find_opt x symbol
+let empty () = Live Ptime.min
+(* let get (x : vectortbl) symbol = Hashtbl.find_opt x symbol *)
 
 let get_top (x : t) ?time symbol =
   let ( let* ) = Result.( let* ) in
@@ -542,20 +545,9 @@ let get_top (x : t) ?time symbol =
     | Precomputed ->
       let res = TimestampedTbl.get symbol time in
       res
-    | Live x -> (
-      match get x symbol with
-      | None ->
-        Error.missing_data
-        @@ Format.asprintf "Missing indicators vector for %a" Instrument.pp
-             symbol
-        (* TimestampedTbl.get symbol time *)
-      | Some vec -> (
-        match Vector.top vec with
-        | Some top -> Ok top
-        | None ->
-          Error.missing_data
-          @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
-               symbol))
+    | Live time ->
+      let res = TimestampedTbl.get symbol (Some time) in
+      res
   in
   (* Eio.traceln "indicators.get_top:@[%a@]@." Point.pp res; *)
   Result.return res
