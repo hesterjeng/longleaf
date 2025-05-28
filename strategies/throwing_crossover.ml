@@ -25,7 +25,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let signal = Signal.make instrument true in
     let ( let&& ) = Signal.let_and signal in
     let ( let$ ) = Signal.let_get_opt signal in
-    let+ i = Indicators.get_top state.indicators instrument in
+    let+ i = State.indicators state instrument in
     let$ prev = i.previous in
     (* let$ prev_prev = prev.previous in *)
     let&& () = (prev.fso.k <=. prev.fso.d, "prev k <= d") in
@@ -36,7 +36,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
 
   let score (state : 'a State.t) symbol =
     let ( let+ ) = Result.( let+ ) in
-    let+ i = Indicators.get_top state.indicators symbol in
+    let+ i = State.indicators state symbol in
     -1.0 *. i.relative_strength_index
 
   let num_positions = 1
@@ -52,7 +52,7 @@ module Sell : Template.Sell_trigger.S = struct
     let ( let$ ) = Signal.let_get_opt signal in
     let ( let|| ) = Signal.let_or signal in
     let* price = State.price state buying_order.symbol in
-    let* i = Indicators.get_top state.indicators buying_order.symbol in
+    let* i = State.indicators state buying_order.symbol in
     let+ price_history =
       match Bars.get state.bars buying_order.symbol with
       | Some x -> Ok x

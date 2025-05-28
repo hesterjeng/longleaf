@@ -35,6 +35,7 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") indicators_tbl
   (* in *)
   let ( let* ) = Option.( let* ) in
   let* indicators_vec = Hashtbl.get indicators_tbl symbol in
+  assert (not @@ Vector.is_empty indicators_vec);
   let time (p : Indicators.Point.t) : Yojson.Safe.t =
     let timestamp = Ptime.to_rfc3339 p.timestamp in
     `String timestamp

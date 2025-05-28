@@ -446,19 +446,11 @@ module TimestampedTbl = struct
   type tbl = Point.t t
   type t = tbl
 
-  let tbl : t = create 1000
-  let get_key = get tbl
+  (* let tbl : t = create 1000 *)
+  let get_key tbl = get tbl
+  let create () = create 1000
 
-  let get instrument (time : Time.t option) =
-    let ( let* ) = Result.( let* ) in
-    let* time =
-      match time with
-      | Some t -> Result.return t
-      | None ->
-        Error.fatal
-          "TimestampedTbl.get: Must pass time to indicators get function if \
-           precomputed"
-    in
+  let get (tbl : t) instrument (time : Time.t) =
     let key = Instrument.Timestamped.{ instrument; time } in
     match find_opt tbl key with
     | None ->
@@ -472,9 +464,9 @@ module TimestampedTbl = struct
       assert (Time.equal time x.timestamp);
       Result.return x
 
-  let set instrument time point =
+  let set (tbl : t) instrument time point =
     let key = Instrument.Timestamped.{ instrument; time } in
-    match get_key key with
+    match get_key tbl key with
     | None -> replace tbl key point
     | Some res -> (
       let cmp = Point.compare res point in
@@ -485,14 +477,14 @@ module TimestampedTbl = struct
         invalid_arg "Attempt to rebind in indicators.ml")
 end
 
-(* type vectortbl = Point.t Vector.vector Hashtbl.t *)
-type t = Live of Time.t | Precomputed
+type ty = Live | Precomputed
+type t = { ty : ty; time : Time.t; tbl : TimestampedTbl.t }
 
 (* FIXME:  This doesn't work I don't think *)
-let of_timestampedtbl () =
+let to_vector_table (x : t) =
   Eio.traceln "BUGGED: Indicators.of_timestampedtbl";
-  let keys = TimestampedTbl.keys_list TimestampedTbl.tbl in
-  let tbl = Hashtbl.create 100 in
+  let keys = TimestampedTbl.keys_list x.tbl in
+  let vector_tbl = Hashtbl.create 100 in
   let symbols =
     List.map (fun (k : Instrument.Timestamped.t) -> k.instrument) keys
   in
@@ -504,49 +496,50 @@ let of_timestampedtbl () =
         keys
     in
     let results =
-      List.map TimestampedTbl.get_key keys
+      List.map (fun k -> TimestampedTbl.get_key x.tbl k) keys
       |> List.filter_map Fun.id |> Vector.of_list
     in
     Vector.sort'
       (fun (x : Point.t) y -> Ptime.compare x.timestamp y.timestamp)
       results;
-    Hashtbl.replace tbl symbol results;
+    Hashtbl.replace vector_tbl symbol results;
     ()
   in
   List.iter vector_of_symbol symbols;
-  tbl
+  vector_tbl
 
 let pp : t Format.printer =
- fun fmt x ->
-  match x with
-  | Live x ->
-    Format.fprintf fmt "custom indicator printer %a" Time.pp x
-    (* let seq = Hashtbl.to_seq x in *)
-    (* let pp = Seq.pp @@ Pair.pp Instrument.pp (Vector.pp Point.pp) in *)
-    (* Format.fprintf fmt "@[%a@]@." pp seq *)
-  | Precomputed -> invalid_arg "Printing precomputed indicators NYI"
+ fun fmt x -> Format.fprintf fmt "new Indicator.t printer NYI"
+(* match x with *)
+(* | Live x -> *)
+(*   Format.fprintf fmt "custom indicator printer %a" Time.pp x *)
+(*   (\* let seq = Hashtbl.to_seq x in *\) *)
+(*   (\* let pp = Seq.pp @@ Pair.pp Instrument.pp (Vector.pp Point.pp) in *\) *)
+(*   (\* Format.fprintf fmt "@[%a@]@." pp seq *\) *)
+(* | Precomputed _ -> invalid_arg "Printing precomputed indicators NYI" *)
 
 (* let empty (x : Options.IndicatorType.t) = *)
 (*   match x with *)
 (*   | Live -> Live (Hashtbl.create 100) *)
 (*   | Precomputed -> Precomputed *)
 
-let empty () = Live Ptime.min
+let empty () = { ty = Live; time = Ptime.min; tbl = TimestampedTbl.create () }
+(* Live Ptime.min *)
 (* let get (x : vectortbl) symbol = Hashtbl.find_opt x symbol *)
 
-let get_top (x : t) ?time symbol =
-  let ( let* ) = Result.( let* ) in
-  let* res =
-    match x with
-    | Precomputed ->
-      let res = TimestampedTbl.get symbol time in
-      res
-    | Live time ->
-      let res = TimestampedTbl.get symbol (Some time) in
-      res
-  in
-  (* Eio.traceln "indicators.get_top:@[%a@]@." Point.pp res; *)
-  Result.return res
+let get_top (x : t) symbol =
+  TimestampedTbl.get x.tbl symbol x.time
+(* let* res = *)
+(*   match x with *)
+(*   | Precomputed tbl -> *)
+(*     let res = TimestampedTbl.get tbl symbol time in *)
+(*     res *)
+(*   | Live time -> *)
+(*     let res = TimestampedTbl.get symbol (Some time) in *)
+(*     res *)
+(* in *)
+(* (\* Eio.traceln "indicators.get_top:@[%a@]@." Point.pp res; *\) *)
+(* Result.return res *)
 
 (* let initialize_single ?(precompute = false) config bars symbol = *)
 (*   let initial_stats_vector = Vector.create () in *)
@@ -601,7 +594,7 @@ let compute_i config bars i =
         let previous_item_timestamp = Item.timestamp previous_item in
         assert (not @@ Time.equal timestamp previous_item_timestamp);
         let res =
-          TimestampedTbl.get instrument (Some previous_item_timestamp)
+          TimestampedTbl.get instrument
         in
         match res with
         | Ok x -> Some x
