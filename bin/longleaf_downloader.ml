@@ -98,7 +98,7 @@ module Downloader = struct
     in
     (* Bars.Infill.top bars; *)
     Eio.traceln "%a" Bars.pp_stats bars;
-    Bars.sort Longleaf_lib.Item.compare bars;
+    (* Bars.sort Longleaf_lib.Item.compare bars; *)
     (match output_file with
     | Some filename -> Bars.print_to_file_direct bars filename
     | None -> Bars.print_to_file bars prefix);

@@ -34,41 +34,56 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
     ~precompute_indicators_arg ~compare_preloaded ~switch () : Options.Context.t
     =
   let _ = stacktrace in
+  let target : Options.Preload.t =
+    match target with
+    | Some s -> File s
+    | None -> None
+  in
   let indicators, preload, target =
     match precompute_indicators_arg with
     | true ->
-      Eio.traceln "Precomputing indicators...";
-      let preload : Options.Preload.t = Loaded (Options.Preload.load preload) in
-      let target : Options.Preload.t =
-        match target with
-        | Some s -> Loaded (Options.Preload.load (File s))
-        | None -> Options.Preload.None
+      let preload_bars =
+        let b = Options.Preload.load preload in
+        Bars.sort Item.compare b;
+        b
       in
+      let target_bars =
+        let b = Options.Preload.load preload in
+        Bars.sort (Ord.opp Item.compare) b;
+        b
+      in
+      let preload : Options.Preload.t = Loaded preload_bars in
+      let target : Options.Preload.t = Loaded target_bars in
+      Eio.traceln "Precomputing indicators...";
       let indicators =
-        Indicators.precompute
-          (Options.Preload.bars preload)
-          (Options.Preload.bars target)
-        |> function
+        Indicators.precompute preload_bars target_bars |> function
         | Ok indicators -> indicators
         | Error e ->
           Eio.traceln "%a" Error.pp e;
           invalid_arg "Error while computing indicators"
       in
       (indicators, preload, target)
-    | false -> (
-      let preload : Options.Preload.t = Loaded (Options.Preload.load preload) in
+    | false ->
+      let preload_bars =
+        let b = Options.Preload.load preload in
+        Bars.sort Item.compare b;
+        b
+      in
       let indicators =
-        Indicators.precompute_preload (Options.Preload.bars preload) |> function
-        | Ok x -> x
+        Indicators.precompute_preload preload_bars |> function
+        | Ok x -> { x with ty = Live }
         | Error e ->
           Eio.traceln "%a" Error.pp e;
           invalid_arg "Error while computing indicators"
       in
-      ( indicators,
-        preload,
-        match target with
-        | Some s -> File s
-        | None -> Options.Preload.None ))
+      let target_bars =
+        let b = Options.Preload.load target in
+        Bars.sort (Ord.opp Item.compare) b;
+        b
+      in
+      let preload : Options.Preload.t = Loaded preload_bars in
+      let target : Options.Preload.t = Loaded target_bars in
+      (indicators, preload, target)
   in
   let longleaf_env = Environment.make () in
   let mutices = Longleaf_mutex.create () in

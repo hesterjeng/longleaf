@@ -59,7 +59,9 @@ module Preload = struct
 
   let load = function
     | None -> invalid_arg "Cannot load missing preload in Options.Preload.load"
-    | File s -> Bars.of_file s
+    | File s ->
+      let res = Bars.of_file s in
+      res
     | Download -> invalid_arg "Cannot load download in Options.Preload.load"
     | Loaded b -> b
 

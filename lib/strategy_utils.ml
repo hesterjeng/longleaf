@@ -126,10 +126,11 @@ module Make (Backend : Backend_intf.S) = struct
     let* latest = Backend.latest_bars Backend.symbols in
     let* positions = Backend_position.update state.positions ~previous latest in
     let* time = Bars.Latest.timestamp latest in
+    assert (Ptime.compare time state.time = 1);
     Bars.append latest state.bars;
     let* indicators =
       Indicators.compute_latest Input.options.indicators_config state.bars
-        state.indicators time
+        state.indicators
     in
     let* value = Backend_position.value positions latest in
     let risk_free_value =
@@ -146,9 +147,7 @@ module Make (Backend : Backend_intf.S) = struct
          }
     in
     if context.print_tick_arg then
-      Eio.traceln "[ %a ] CASH %f (indicators %a)" Time.pp time value
-        (Indicators.pp_status time)
-        indicators;
+      Eio.traceln "[ %a ] CASH %f" Time.pp time value;
     Result.return @@ { state with latest; stats; positions; time; indicators }
 
   let start_time = ref 0.0

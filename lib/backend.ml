@@ -29,16 +29,16 @@ let make_bars (options : Options.t) =
         }
       in
       let res = Tiingo.Data.top request in
-      Bars.sort Item.compare res;
+      (* Bars.sort Item.compare res; *)
       Result.return res
     | File file ->
       Eio.traceln "Preloading bars from %s" file;
       let* res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
-      Bars.sort Item.compare res;
+      (* Bars.sort Item.compare res; *)
       Result.return res
     | Loaded b ->
       let res = Bars.copy b in
-      Bars.sort Item.compare res;
+      (* Bars.sort Item.compare res; *)
       Result.return res
   in
   let* target =
@@ -51,7 +51,7 @@ let make_bars (options : Options.t) =
         let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in
         conv
       in
-      Bars.sort (Ord.opp Item.compare) res;
+      (* Bars.sort (Ord.opp Item.compare) res; *)
       match context.runtype with
       | Options.RunType.Montecarlo
       | MultiMontecarlo ->
