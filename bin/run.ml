@@ -34,7 +34,7 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
     ~precompute_indicators_arg ~compare_preloaded ~switch () : Options.Context.t
     =
   let _ = stacktrace in
-  let indicator_type, preload, target =
+  let indicators, preload, target =
     match precompute_indicators_arg with
     | true ->
       Eio.traceln "Precomputing indicators...";
@@ -44,34 +44,38 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
         | Some s -> Loaded (Options.Preload.load (File s))
         | None -> Options.Preload.None
       in
-      let () =
+      let indicators =
         Indicators.precompute
           (Options.Preload.bars preload)
           (Options.Preload.bars target)
         |> function
-        | Ok _ -> ()
+        | Ok indicators -> indicators
         | Error e ->
           Eio.traceln "%a" Error.pp e;
-          ()
+          invalid_arg "Error while computing indicators"
       in
-      ( (match compare_preloaded with
-        | false -> Options.IndicatorType.Precomputed
-        | true -> Options.IndicatorType.Live),
-        preload,
-        target )
-    | false ->
-      ( Live,
+      (indicators, preload, target)
+    | false -> (
+      let preload : Options.Preload.t = Loaded (Options.Preload.load preload) in
+      let indicators =
+        Indicators.precompute_preload (Options.Preload.bars preload) |> function
+        | Ok x -> x
+        | Error e ->
+          Eio.traceln "%a" Error.pp e;
+          invalid_arg "Error while computing indicators"
+      in
+      ( indicators,
         preload,
         match target with
         | Some s -> File s
-        | None -> Options.Preload.None )
+        | None -> Options.Preload.None ))
   in
   let longleaf_env = Environment.make () in
   let mutices = Longleaf_mutex.create () in
   {
     strategy = Longleaf_strategies.show strategy_arg;
     runtype;
-    indicator_type;
+    indicators;
     no_gui;
     eio_env;
     longleaf_env;

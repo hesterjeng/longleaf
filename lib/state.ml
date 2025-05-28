@@ -22,7 +22,7 @@ type 'a t = {
   indicators : Indicators.t;
   (* Historical data *)
   bars : Bars.t;
-  time : Time.t option;
+  time : Time.t;
   (* The current tick the state machine is on *)
   tick : int;
   tick_length : float;
@@ -31,7 +31,10 @@ type 'a t = {
 }
 
 let listen (x : _ t) = { x with current = Listening }
-let indicators (state : _ t) symbol = Indicators.get_top state.indicators symbol
+
+let indicators (state : _ t) symbol =
+  (* Eio.traceln "state: %a" Time.pp state.time; *)
+  Indicators.get_top state.indicators ~time:state.time symbol
 
 let record_order state order =
   let ( let* ) = Result.( let* ) in

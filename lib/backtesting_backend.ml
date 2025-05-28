@@ -19,12 +19,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
          tick_length = Input.options.tick;
          stats = Stats.empty ();
          order_history = Order.History.empty;
-         indicators =
-           (match Input.options.context.indicator_type with
-           | Options.IndicatorType.Live -> Indicators.empty Live
-           | Precomputed -> Indicators.empty Precomputed);
+         indicators = Input.options.context.indicators;
+         (* (match Input.options.context.indicators.ty with *)
+         (* | Options.IndicatorType.Live -> Indicators.empty Live *)
+         (* | Precomputed -> Indicators.empty Precomputed); *)
          positions = Backend_position.make () (* active_orders = []; *);
-         time = None;
+         time = Ptime.min;
        }
 
   let context = Input.options.context

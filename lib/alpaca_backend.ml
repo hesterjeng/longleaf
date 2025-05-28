@@ -88,7 +88,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          stats = Stats.empty ();
          order_history = Order.History.empty;
          indicators = Indicators.empty Live;
-         time = None;
+         time = Ptime.min;
        }
 
   let next_market_open () =

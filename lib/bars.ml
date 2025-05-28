@@ -222,11 +222,12 @@ let copy (x : t) : t =
   Hashtbl.of_seq tbl
 
 let append (latest : Latest.t) (x : t) =
-  Hashtbl.to_seq latest
-  |> Seq.iter @@ fun (symbol, item) ->
-     match get x symbol with
-     | None -> Hashtbl.replace x symbol @@ Vector.return item
-     | Some h -> Vector.push h item
+  Hashtbl.iter
+    (fun symbol item ->
+      match get x symbol with
+      | None -> Hashtbl.replace x symbol @@ Vector.return item
+      | Some h -> Vector.push h item)
+    latest
 
 let print_to_file_direct bars filename =
   let bars_json = yojson_of_t bars in

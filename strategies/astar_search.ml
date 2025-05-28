@@ -54,7 +54,7 @@ module EnumeratedSignal = struct
      fun (indicators : Indicators.t) (instrument : Instrument.t)
          (time : Time.t) ->
       let ( let+ ) = Result.( let+ ) in
-      let+ i = Indicators.get_top indicators instrument ~time in
+      let+ i = Indicators.get_top indicators instrument in
       assert (Time.equal time i.timestamp);
       match x with
       | FSO_k_gt v -> i.fso.k >. EnumeratedValue.to_float v
@@ -117,11 +117,7 @@ module EnumeratedSignal = struct
     let ( let* ) = Result.( let* ) in
     fun (state : 'a State.t) (instrument : Instrument.t) :
         (Signal.t, Error.t) result ->
-      let* time =
-        match state.time with
-        | Some t -> Result.return t
-        | None -> Error.fatal "No state time in Astar_search.to_signal_function"
-      in
+      let time = state.time in
       let and_ atom acc =
         let* acc = acc in
         match acc with

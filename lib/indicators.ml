@@ -476,8 +476,8 @@ module TimestampedTbl = struct
         invalid_arg "Attempt to rebind in indicators.ml")
 end
 
-type ty = Live | Precomputed
-type t = { ty : ty; time : Time.t; tbl : TimestampedTbl.t }
+type ty = Live | Precomputed [@@deriving show { with_path = false }]
+type t = { ty : ty; time : Time.t; tbl : TimestampedTbl.t; tick : int }
 
 (* FIXME:  This doesn't work I don't think *)
 let to_vector_table (x : t) =
@@ -522,11 +522,15 @@ let pp : t Format.printer =
 (*   | Live -> Live (Hashtbl.create 100) *)
 (*   | Precomputed -> Precomputed *)
 
-let empty ty = { ty; time = Ptime.min; tbl = TimestampedTbl.create () }
+let empty ty =
+  { ty; time = Ptime.min; tbl = TimestampedTbl.create (); tick = -1 }
 (* Live Ptime.min *)
 (* let get (x : vectortbl) symbol = Hashtbl.find_opt x symbol *)
 
-let get_top (x : t) symbol = TimestampedTbl.get x.tbl symbol x.time
+let get_top (x : t) ?time symbol =
+  match time with
+  | Some time -> TimestampedTbl.get x.tbl symbol time
+  | None -> Error.missing_data "Must pass time parameter to Indicators.get_top"
 (* let* res = *)
 (*   match x with *)
 (*   | Precomputed tbl -> *)
@@ -579,7 +583,7 @@ let get_top (x : t) symbol = TimestampedTbl.get x.tbl symbol x.time
 let compute_i indicators config bars i =
   let ( let* ) = Result.( let* ) in
   let* res =
-    Bars.fold bars (Ok ()) @@ fun instrument price_history prev ->
+    Bars.fold bars (Ok Ptime.min) @@ fun instrument price_history prev ->
     let* _prev = prev in
     let* current_item =
       try Result.return @@ Vector.get price_history i with
@@ -598,51 +602,72 @@ let compute_i indicators config bars i =
         | Ok x -> Some x
         | Error _ ->
           Eio.traceln
-            "Indicators.compute_i: couldn't find indicators for previous";
+            "Indicators.compute_i: couldn't find indicators for previous (%d)" i;
           None
       with
-      | _ -> None
+      | _ ->
+        Eio.traceln "Indicators.compute_i: No previous %d" i;
+        None
     in
     let new_point =
       Point.of_latest config timestamp price_history previous_indicator
         current_item instrument
     in
     TimestampedTbl.set indicators instrument timestamp new_point;
-    Result.return ()
+    Result.return timestamp
   in
   Result.return res
 
-let compute_latest config bars x =
+let compute_latest config bars x time =
   match x.ty with
-  | Precomputed -> Result.return ()
+  | Precomputed -> Result.return { x with time; tick = x.tick + 1 }
   | Live ->
     let ( let* ) = Result.( let* ) in
     let* length = Bars.length_check bars in
-    let* () = compute_i x.tbl config bars (length - 1) in
-    Result.return ()
+    let* time = compute_i x.tbl config bars (length - 1) in
+    (* Eio.traceln "[ %a ] computed indicators" Time.pp time; *)
+    Result.return { x with time; tick = x.tick + 1 }
 
 let compute config bars =
   let ( let* ) = Result.( let* ) in
-  let indicators = TimestampedTbl.create () in
+  let tbl = TimestampedTbl.create () in
   let* length = Bars.length_check bars in
   let rec aux i =
     let* i = i in
     if i >= length then Result.return i
     else
-      let* () = compute_i indicators config bars i in
+      let* _time = compute_i tbl config bars i in
       aux @@ Result.return @@ (i + 1)
   in
-  let* res = aux @@ Result.return 0 in
-  Result.return res
+  let* _ = aux @@ Result.return 0 in
+  Result.return @@ { tbl; time = Ptime.min; ty = Precomputed; tick = -1 }
+
+let pp_status time : t Format.printer =
+ fun fmt x ->
+  match Time.equal time x.time with
+  | true -> Format.fprintf fmt "%a ok" pp_ty x.ty
+  | false -> Format.fprintf fmt "%a out of sync" pp_ty x.ty
 
 let precompute (preload : Bars.t) (target : Bars.t) =
   let ( let* ) = Result.( let* ) in
   let config = { Indicator_config.fft = false; compare_preloaded = false } in
   let combined = Bars.combine [ preload; target ] in
+  Eio.traceln "Sorting combined bars...";
+  Bars.sort (Ord.opp Item.compare) combined;
   Eio.traceln "Beginning Indicators.compute";
-  let* _ = compute config combined in
+  let* indicators = compute config combined in
   Eio.traceln "Finished Indicators.compute";
-  Result.return ()
+  Result.return indicators
+
+let precompute_preload (preload : Bars.t) =
+  let ( let* ) = Result.( let* ) in
+  let config = { Indicator_config.fft = false; compare_preloaded = false } in
+  Eio.traceln "Sorting combined bars...";
+  Bars.sort (Ord.opp Item.compare) preload;
+  Eio.traceln "Beginning Indicators.compute";
+  let* indicators = compute config preload in
+  Eio.traceln "Finished Indicators.compute";
+  Result.return indicators
 
 (* let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t) *)
 (*     (x : t) = *)
