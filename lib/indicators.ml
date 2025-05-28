@@ -521,6 +521,8 @@ let to_vector_table (x : t) =
 
 let pp : t Format.printer =
  fun fmt x -> Format.fprintf fmt "new Indicator.t printer NYI"
+(* let keys = Bars.keys bars in *)
+(* let points = List.map (fun v -> Vector.get v i) in *)
 (* match x with *)
 (* | Live x -> *)
 (*   Format.fprintf fmt "custom indicator printer %a" Time.pp x *)
@@ -542,6 +544,25 @@ let get_top (x : t) ?time symbol =
   match time with
   | Some time -> TimestampedTbl.get x.tbl symbol time
   | None -> Error.missing_data "Must pass time parameter to Indicators.get_top"
+
+let pp_i bars i : t Format.printer =
+ fun fmt x ->
+  let r =
+    let ( let* ) = Result.( let* ) in
+    Bars.fold bars (Ok []) @@ fun instrument vec acc ->
+    let* acc = acc in
+    let* i =
+      try
+        Vector.get vec i |> Item.timestamp |> fun time ->
+        get_top x ~time instrument
+      with
+      | _ -> Error.fatal "indicators.ml: illegal bars index access"
+    in
+    Result.return @@ (i :: acc)
+  in
+  match r with
+  | Ok x -> Format.fprintf fmt "%a" (List.pp Point.pp) x
+  | Error _ -> Format.fprintf fmt "error in Indicators.pp_i"
 (* let* res = *)
 (*   match x with *)
 (*   | Precomputed tbl -> *)
@@ -637,22 +658,30 @@ let compute_latest config bars x =
     let ( let* ) = Result.( let* ) in
     let* length = Bars.length_check bars in
     let* _ = compute_i x.tbl config bars (length - 1) in
-    Eio.traceln "computed indicators %d" (length - 1);
+    Eio.traceln "computed indicators %d (latest)" (length - 1);
     Result.return x
 
 let compute config bars =
   let ( let* ) = Result.( let* ) in
-  let tbl = TimestampedTbl.create () in
+  let res = { tbl = TimestampedTbl.create (); ty = Precomputed } in
   let* length = Bars.length_check bars in
   let rec aux i =
-    let* i = i in
+    let* i, prev_time = i in
+    (* Eio.traceln "compute: %d" i; *)
     if i >= length then Result.return i
     else
-      let* _time = compute_i tbl config bars i in
-      aux @@ Result.return @@ (i + 1)
+      let* time = compute_i res.tbl config bars i in
+      (match Ptime.compare time prev_time with
+      | 0 -> Eio.traceln "[ ERROR ] Time immobile! @[%a@]@." (pp_i bars i) res
+      | 1 -> ()
+      | _ -> invalid_arg "Time decreasing");
+      Eio.traceln "compute %d %a" i Time.pp time;
+      (* Eio.traceln "%a" Time.pp prev_time; *)
+      (* assert (Ptime.compare time prev_time = 1); *)
+      aux @@ Result.return @@ (i + 1, time)
   in
-  let* _ = aux @@ Result.return 0 in
-  Result.return @@ { tbl; ty = Precomputed }
+  let* _ = aux @@ Result.return (0, Ptime.min) in
+  Result.return res
 
 (* let pp_status time : t Format.printer = *)
 (*  fun fmt x -> *)
