@@ -26,7 +26,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     let ( let&& ) = Signal.let_and signal in
     let ( let$ ) = Signal.let_get_opt signal in
     let+ i = State.indicators state instrument in
-    let$ prev = i.previous in
+    let$ prev = State.indicators_back_n state instrument 1 in
     (* let$ prev_prev = prev.previous in *)
     let&& () = (prev.fso.k <=. prev.fso.d, "prev k <= d") in
     let&& () = (i.fso.k -. i.fso.d >=. 20.0, " k >= d by 20") in
@@ -60,7 +60,7 @@ module Sell : Template.Sell_trigger.S = struct
         Eio.traceln "throwing_crossover: Missing price history for symbol";
         Error.missing_data "missing price history in throwing crossover"
     in
-    let$ prev = i.previous in
+    let$ prev = State.indicators_back_n state buying_order.symbol 1 in
     let ticks_held = state.tick - buying_order.tick in
     let high_since_purchase =
       Util.last_n ticks_held price_history |> Math.max_close |> Item.last

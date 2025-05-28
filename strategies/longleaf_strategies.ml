@@ -77,7 +77,7 @@ let strats =
   [
     BuyAndHold --> (module Buy_and_hold.Make);
     Listener --> (module Listener.Make);
-    Monaspa --> (module Monaspa.Make);
+    (* Monaspa --> (module Monaspa.Make); *)
     (* DoubleTop --> (module Double_top.DoubleTop); *)
     (* LowBoll --> (module Buy_low_bollinger.BuyLowBollinger); *)
     (* LowBoll2 --> (module Lowboll2.Make); *)
@@ -89,8 +89,8 @@ let strats =
     (* SlowCrossover --> (module Slow_crossover.Make); *)
     (* ConfirmedCrossover --> (module Confirmed_crossover.Make); *)
     ThrowingCrossover --> (module Throwing_crossover.Make);
-    LiberatedCrossover --> (module Liberated_crossover.Make);
-    Channel --> (module Channel.Make);
+    (* LiberatedCrossover --> (module Liberated_crossover.Make); *)
+    (* Channel --> (module Channel.Make); *)
     (* SpyTrader --> (module Spytrader.Make); *)
   ]
 

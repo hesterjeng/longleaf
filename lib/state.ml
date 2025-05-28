@@ -36,6 +36,21 @@ let indicators (state : _ t) symbol =
   (* Eio.traceln "state: %a" Time.pp state.time; *)
   Indicators.get_top state.indicators ~time:state.time symbol
 
+let indicators_back_n (state : _ t) symbol n =
+  let ( let* ) = Option.( let* ) in
+  let* bars = Bars.get state.bars symbol in
+  let length = Bars.length state.bars in
+  let* time =
+    try
+      Vector.get bars (length - (n + 1)) |> Item.timestamp |> Option.return
+    with
+    | _ -> None
+  in
+  let* res =
+    Option.of_result @@ Indicators.get_top state.indicators ~time symbol
+  in
+  Option.return res
+
 let record_order state order =
   let ( let* ) = Result.( let* ) in
   let* () = Bars.add_order order state.bars in

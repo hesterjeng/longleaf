@@ -1,5 +1,11 @@
 module Point_ty = struct
-  type cci = { cci : float; typical_price : float; ema_cci : float }
+  type cci = {
+    cci : float;
+    typical_price : float;
+    ema_cci : float;
+    ema_typical_price : float;
+    ema_absolute_divergence : float;
+  }
   [@@deriving show, yojson, fields ~getters, ord]
 
   type fso = { k : float; d : float; d_slow : float }
@@ -51,21 +57,21 @@ module Point_ty = struct
     adx : adx;
     cci : cci;
     fso : fso;
-    previous : t option; [@yojson.opaque] [@opaque] [@compare fun _ _ -> 0]
+        (* previous : t option; [@yojson.opaque] [@opaque] [@compare fun _ _ -> 0] *)
   }
   [@@deriving show, yojson, fields ~getters, ord]
 
-  let last_n n (x : t) =
-    let rec aux (n : int) x acc =
-      match n with
-      | n when n > 0 -> (
-        let acc = x :: acc in
-        match x.previous with
-        | Some next -> aux (n - 1) next acc
-        | None -> acc)
-      | _ -> acc
-    in
-    aux n x []
+  (* let last_n n (x : t) = *)
+  (*   let rec aux (n : int) x acc = *)
+  (*     match n with *)
+  (*     | n when n > 0 -> ( *)
+  (*       let acc = x :: acc in *)
+  (*       match x.previous with *)
+  (*       | Some next -> aux (n - 1) next acc *)
+  (*       | None -> acc) *)
+  (*     | _ -> acc *)
+  (*   in *)
+  (*   aux n x [] *)
 
   let adx x = x.adx.adx
   let cci x = x.cci.cci
@@ -282,31 +288,43 @@ module CCI = struct
   let top (previous : Point_ty.t option) (item : Item.t) : t =
     let typical_price = typical_price item in
     match previous with
-    | None -> { typical_price; cci = 0.0; ema_cci = 0.0 }
+    | None ->
+      {
+        typical_price;
+        cci = 0.0;
+        ema_cci = 0.0;
+        ema_typical_price = typical_price;
+        ema_absolute_divergence = 0.0;
+      }
     | Some prev ->
-      let sma_pt =
-        Math.simple_moving_average ~current:typical_price 140
-          (fun (x : Point_ty.t) -> x.cci.typical_price)
-          Point_ty.previous prev
+      let ema_typical_price =
+        Math.ema 140 prev.cci.ema_typical_price typical_price
       in
-      let current_divergence = Float.abs @@ (typical_price -. sma_pt) in
-      let mean_absolute_divergence =
-        Math.simple_moving_average ~current:current_divergence 140
-          (fun (x : Point_ty.t) -> Float.abs @@ (x.cci.typical_price -. sma_pt))
-          Point_ty.previous prev
+      let absolute_divergence =
+        Float.abs @@ (typical_price -. ema_typical_price)
+      in
+      let ema_absolute_divergence =
+        Math.ema 140 prev.cci.ema_absolute_divergence absolute_divergence
       in
       let cci =
-        match mean_absolute_divergence with
+        match ema_absolute_divergence with
         | 0.0 -> prev.cci.cci
         | _ -> (
-          1.0 /. 0.015 *. ((typical_price -. sma_pt) /. mean_absolute_divergence)
+          1.0 /. 0.015
+          *. ((typical_price -. ema_typical_price) /. ema_absolute_divergence)
           |> function
           | x when x >=. 100.0 -> 100.0
           | x when x <=. -100.0 -> -100.0
           | x -> x)
       in
       let ema_cci = Math.ema 140 prev.cci.ema_cci cci in
-      { typical_price; cci; ema_cci }
+      {
+        typical_price;
+        cci;
+        ema_cci;
+        ema_absolute_divergence;
+        ema_typical_price;
+      }
 end
 
 module FSO = struct
@@ -333,16 +351,11 @@ module FSO = struct
     | None -> { k = 0.0; d = 0.0; d_slow = 0.0 }
     | Some prev ->
       let k = pK 140 price_history item in
-      let d =
-        Math.simple_moving_average ~current:k 35
-          (fun (x : Point_ty.t) -> x.fso.k)
-          Point_ty.previous prev
-      in
-      let d_slow =
-        Math.simple_moving_average ~current:d 34
-          (fun (x : Point_ty.t) -> x.fso.d)
-          Point_ty.previous prev
-      in
+      let d = Math.ema 35 prev.fso.d k in
+      let d_slow = Math.ema 34 prev.fso.d_slow d in
+      (* Math.simple_moving_average ~current:d 34 *)
+      (*   (fun (x : Point_ty.t) -> x.fso.d) *)
+      (*   Point_ty.previous prev *)
       { k; d; d_slow }
 end
 
@@ -432,7 +445,6 @@ module Point = struct
         fourier_transform;
         ft_normalized_magnitude;
         fft_mean_squared_error;
-        previous;
         adx;
         cci;
       }
