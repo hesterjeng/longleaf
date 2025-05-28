@@ -47,9 +47,6 @@ module Point_ty = struct
     average_gain : float;
     average_loss : float;
     relative_strength_index : float;
-    (* fast_stochastic_oscillator_k : float; *)
-    (* fast_stochastic_oscillator_d : float; *)
-    (* fast_stochastic_oscillator_d68 : float; *)
     fourier_transform : (Fourier.t[@yojson.opaque]);
         [@opaque] [@compare fun _ _ -> 0]
     ft_normalized_magnitude : float;
@@ -57,7 +54,6 @@ module Point_ty = struct
     adx : adx;
     cci : cci;
     fso : fso;
-        (* previous : t option; [@yojson.opaque] [@opaque] [@compare fun _ _ -> 0] *)
   }
   [@@deriving show, yojson, fields ~getters, ord]
 
@@ -558,10 +554,13 @@ let pp_i bars i : t Format.printer =
       with
       | _ -> Error.fatal "indicators.ml: illegal bars index access"
     in
-    Result.return @@ (i :: acc)
+    Result.return @@ ((i.symbol, i.timestamp) :: acc)
   in
   match r with
-  | Ok x -> Format.fprintf fmt "%a" (List.pp Point.pp) x
+  | Ok x ->
+    Format.fprintf fmt "%a"
+      (List.pp ~pp_sep:Format.newline (Pair.pp Instrument.pp Time.pp))
+      x
   | Error _ -> Format.fprintf fmt "error in Indicators.pp_i"
 (* let* res = *)
 (*   match x with *)
@@ -638,7 +637,7 @@ let compute_i indicators config bars i =
           None
       with
       | _ ->
-        Eio.traceln "Indicators.compute_i: No previous %d" i;
+        if i > 0 then Eio.traceln "Indicators.compute_i: No previous %d" i;
         None
     in
     let new_point =
@@ -671,11 +670,11 @@ let compute config bars =
     if i >= length then Result.return i
     else
       let* time = compute_i res.tbl config bars i in
-      (match Ptime.compare time prev_time with
-      | 0 -> Eio.traceln "[ ERROR ] Time immobile! @[%a@]@." (pp_i bars i) res
-      | 1 -> ()
-      | _ -> invalid_arg "Time decreasing");
-      Eio.traceln "compute %d %a" i Time.pp time;
+      (* (match Ptime.compare time prev_time with *)
+      (* | 0 -> Eio.traceln "[ ERROR ] Time immobile! @[%a@]@." (pp_i bars i) res *)
+      (* | 1 -> () *)
+      (* | _ -> invalid_arg "Time decreasing"); *)
+      Eio.traceln "compute %d @[%a@]@." i (pp_i bars i) res;
       (* Eio.traceln "%a" Time.pp prev_time; *)
       (* assert (Ptime.compare time prev_time = 1); *)
       aux @@ Result.return @@ (i + 1, time)
