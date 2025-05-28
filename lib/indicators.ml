@@ -446,9 +446,8 @@ module TimestampedTbl = struct
   type tbl = Point.t t
   type t = tbl
 
-  (* let tbl : t = create 1000 *)
   let get_key tbl = get tbl
-  let create () = create 1000
+  let create () = create 200
 
   let get (tbl : t) instrument (time : Time.t) =
     let key = Instrument.Timestamped.{ instrument; time } in
@@ -523,12 +522,11 @@ let pp : t Format.printer =
 (*   | Live -> Live (Hashtbl.create 100) *)
 (*   | Precomputed -> Precomputed *)
 
-let empty () = { ty = Live; time = Ptime.min; tbl = TimestampedTbl.create () }
+let empty ty = { ty; time = Ptime.min; tbl = TimestampedTbl.create () }
 (* Live Ptime.min *)
 (* let get (x : vectortbl) symbol = Hashtbl.find_opt x symbol *)
 
-let get_top (x : t) symbol =
-  TimestampedTbl.get x.tbl symbol x.time
+let get_top (x : t) symbol = TimestampedTbl.get x.tbl symbol x.time
 (* let* res = *)
 (*   match x with *)
 (*   | Precomputed tbl -> *)
@@ -578,7 +576,7 @@ let get_top (x : t) symbol =
 (*   let _ = List.map (initialize_single ~precompute:true config target) symbols in *)
 (*   () *)
 
-let compute_i config bars i =
+let compute_i indicators config bars i =
   let ( let* ) = Result.( let* ) in
   let* res =
     Bars.fold bars (Ok ()) @@ fun instrument price_history prev ->
@@ -594,7 +592,7 @@ let compute_i config bars i =
         let previous_item_timestamp = Item.timestamp previous_item in
         assert (not @@ Time.equal timestamp previous_item_timestamp);
         let res =
-          TimestampedTbl.get instrument
+          TimestampedTbl.get indicators instrument previous_item_timestamp
         in
         match res with
         | Ok x -> Some x
@@ -609,28 +607,29 @@ let compute_i config bars i =
       Point.of_latest config timestamp price_history previous_indicator
         current_item instrument
     in
-    TimestampedTbl.set instrument timestamp new_point;
+    TimestampedTbl.set indicators instrument timestamp new_point;
     Result.return ()
   in
   Result.return res
 
 let compute_latest config bars x =
-  match x with
+  match x.ty with
   | Precomputed -> Result.return ()
-  | Live _ ->
+  | Live ->
     let ( let* ) = Result.( let* ) in
     let* length = Bars.length_check bars in
-    let* () = compute_i config bars (length - 1) in
+    let* () = compute_i x.tbl config bars (length - 1) in
     Result.return ()
 
 let compute config bars =
   let ( let* ) = Result.( let* ) in
+  let indicators = TimestampedTbl.create () in
   let* length = Bars.length_check bars in
   let rec aux i =
     let* i = i in
     if i >= length then Result.return i
     else
-      let* () = compute_i config bars i in
+      let* () = compute_i indicators config bars i in
       aux @@ Result.return @@ (i + 1)
   in
   let* res = aux @@ Result.return 0 in

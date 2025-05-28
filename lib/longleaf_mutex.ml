@@ -14,7 +14,7 @@ let create () =
   let orders_mutex = Pmutex.make Order.History.empty in
   let symbols_mutex = Pmutex.make None in
   let stats_mutex = Pmutex.make @@ Stats.empty () in
-  let indicators_mutex = Pmutex.make @@ Indicators.empty () in
+  let indicators_mutex = Pmutex.make @@ Indicators.empty Precomputed in
   let target_symbol = Pmutex.make None in
   {
     shutdown_mutex;

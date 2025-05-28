@@ -21,8 +21,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
          order_history = Order.History.empty;
          indicators =
            (match Input.options.context.indicator_type with
-           | Options.IndicatorType.Live -> Indicators.empty ()
-           | Precomputed -> Precomputed);
+           | Options.IndicatorType.Live -> Indicators.empty Live
+           | Precomputed -> Indicators.empty Precomputed);
          positions = Backend_position.make () (* active_orders = []; *);
          time = None;
        }

@@ -31,9 +31,7 @@ type 'a t = {
 }
 
 let listen (x : _ t) = { x with current = Listening }
-
-let indicators (state : _ t) symbol =
-  Indicators.get_top state.indicators ?time:state.time symbol
+let indicators (state : _ t) symbol = Indicators.get_top state.indicators symbol
 
 let record_order state order =
   let ( let* ) = Result.( let* ) in
