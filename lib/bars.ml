@@ -207,7 +207,8 @@ let combine (l : t list) : t =
           | None -> Vector.create ())
         (Vector.of_list l)
     in
-    Vector.sort' Item.compare data;
+    Vector.uniq_sort Item.compare data;
+    (* Vector.sort' Item.compare data; *)
     data
   in
   let new_table = Hashtbl.create @@ List.length keys in
