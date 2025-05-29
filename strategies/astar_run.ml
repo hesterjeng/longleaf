@@ -66,7 +66,7 @@ module Node : Astar.INPUT with type node = node_ = struct
 
   let compute_results x =
     let res = run x in
-    let goal = res >=. 200000.0 in
+    let goal = res >=. 400000.0 in
     let winner_val =
       match !winner with
       | Some { winner_result; _ } ->

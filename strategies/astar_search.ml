@@ -89,7 +89,7 @@ module EnumeratedSignal = struct
   (* end *)
 
   type t = Empty | And of AtomSet.t | Or of AtomSet.t
-  [@@deriving yojson, eq, show]
+  [@@deriving yojson, eq, show, ord]
 
   let is_empty = function
     | Empty -> true
