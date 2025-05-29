@@ -686,19 +686,20 @@ let compute config bars =
   let* length = Bars.length_check bars in
   let rec aux i =
     let* i, prev_time = i in
-    (* Eio.traceln "compute: %d" i; *)
+    if i mod 200 = 0 then Eio.traceln "compute: %d" i;
     if i >= length then Result.return i
     else
       let* latest = Bars.get_i bars i in
       Bars.append latest history;
       let* time = compute_i res.tbl config bars ~history i in
-      (match Ptime.compare time prev_time with
-      | 0 -> Eio.traceln "[ ERROR ] Time immobile! @[%a@]@." (pp_i bars i) res
-      | 1 -> ()
-      | _ -> invalid_arg "Time decreasing");
-      (* Eio.traceln "compute %d @[%a@]@." i (pp_i bars i) res; *)
-      (* Eio.traceln "%a" Time.pp prev_time; *)
-      (* assert (Ptime.compare time prev_time = 1); *)
+      let* () =
+        match Ptime.compare time prev_time with
+        | 1 -> Result.return ()
+        | _ ->
+          Error.fatal
+          @@ Format.asprintf "[ ERROR ] Time not increasing! @[%a@]@."
+               (pp_i bars i) res
+      in
       aux @@ Result.return @@ (i + 1, time)
   in
   let* _ = aux @@ Result.return (0, Ptime.min) in
