@@ -14,6 +14,7 @@ type t [@@deriving show]
 
 val pp_stats : t Format.printer
 val get : t -> Instrument.t -> Item.t Vector.vector option
+val get_i : t -> int -> (Latest.t, Error.t) result
 val fold : t -> 'a -> (Instrument.t -> Price_history.t -> 'a -> 'a) -> 'a
 
 val map :

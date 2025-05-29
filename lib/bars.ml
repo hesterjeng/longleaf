@@ -119,6 +119,21 @@ let split ~midpoint ~target_length ~combined_length (x : t) : t * t =
 
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
+let get_i (x : t) i : (Latest.t, Error.t) result=
+  let ( let* ) = Result.( let* ) in
+  let tbl = Hashtbl.create 100 in
+  let* () =
+    fold x (Ok ()) @@ fun instrument history acc ->
+    let* _ = acc in
+    let* elt =
+      try Result.return @@ Vector.get history i with
+      | _ -> Error.missing_data "bars.ml: attempted illegal bars index access"
+    in
+    Hashtbl.replace tbl instrument elt;
+    Result.return ()
+  in
+  Result.return tbl
+
 let get_res (x : t) symbol =
   match get x symbol with
   | None ->
