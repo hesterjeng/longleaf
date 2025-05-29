@@ -480,7 +480,8 @@ module TimestampedTbl = struct
       match cmp with
       | 0 -> ()
       | _ ->
-        Eio.traceln "%a %a" Point.pp res Point.pp point;
+        Eio.traceln "Trying to replace: @[%a@]@. with @[%a@]@." Point.pp res
+          Point.pp point;
         invalid_arg "Attempt to rebind in indicators.ml")
 end
 
@@ -611,50 +612,68 @@ let pp_i bars i : t Format.printer =
 (*   let _ = List.map (initialize_single ~precompute:true config target) symbols in *)
 (*   () *)
 
-let compute_i indicators config bars i =
+let compute_i ?(compare_preloaded = false) indicators config full_bars ?history
+    i =
   let ( let* ) = Result.( let* ) in
   let* res =
-    Bars.fold bars (Ok Ptime.min) @@ fun instrument price_history prev ->
+    Bars.fold full_bars (Ok Ptime.min)
+    @@ fun instrument full_price_history prev ->
     let* _prev = prev in
     let* current_item =
-      try Result.return @@ Vector.get price_history i with
+      try Result.return @@ Vector.get full_price_history i with
       | _ -> Error.missing_data "Missing index when computing price history"
     in
     let timestamp = Item.timestamp current_item in
-    let previous_indicator =
-      try
-        let previous_item = Vector.get price_history (i - 1) in
+    (* let history = Price_history.empty () in *)
+    let* previous_indicator =
+      match i with
+      | n when n > 0 ->
+        let previous_item = Vector.get full_price_history (i - 1) in
         let previous_item_timestamp = Item.timestamp previous_item in
         assert (not @@ Time.equal timestamp previous_item_timestamp);
-        let res =
+        let* res =
           TimestampedTbl.get indicators instrument previous_item_timestamp
         in
-        match res with
-        | Ok x -> Some x
-        | Error _ ->
-          Eio.traceln
-            "Indicators.compute_i: couldn't find indicators for previous (%d)" i;
-          None
-      with
-      | _ ->
-        if i > 0 then Eio.traceln "Indicators.compute_i: No previous %d" i;
-        None
+        if compare_preloaded then Eio.traceln "previous: %a" Point.pp res;
+        Result.return @@ Option.return res
+      | 0 -> Result.return None
+      | _ -> Error.fatal "Impossible negative indicator access"
+    in
+    (* let history = Vector.slice_iter full_price_history 0 i |> Vector.of_iter in *)
+    let* history =
+      (match history with
+      | None -> Option.return full_price_history
+      | Some h -> Bars.get h instrument)
+      |> function
+      | Some x -> Result.return x
+      | None -> Error.fatal "indicators.compute_i: Missing history vector"
     in
     let new_point =
-      Point.of_latest config timestamp price_history previous_indicator
-        current_item instrument
+      Point.of_latest config timestamp history previous_indicator current_item
+        instrument
     in
+    (* if Instrument.equal new_point.symbol (Security "CMCSA") then *)
+    (*   Eio.traceln "@[%a@]@." Point.pp new_point; *)
     TimestampedTbl.set indicators instrument timestamp new_point;
     Result.return timestamp
   in
-  Eio.traceln "[ %a ] computed indicators %d" Time.pp res i;
+  (* Eio.traceln "[ %a ] computed indicators %d" Time.pp res i; *)
   Result.return res
 
-let compute_latest config bars x =
+let compute_latest compare_preloaded config bars x =
+  let ( let* ) = Result.( let* ) in
   match x.ty with
-  | Precomputed -> Result.return x
+  | Precomputed ->
+    let* () =
+      let* length = Bars.length_check bars in
+      match compare_preloaded with
+      | true ->
+        let _ = compute_i ~compare_preloaded x.tbl config bars (length - 1) in
+        Result.return ()
+      | false -> Result.return ()
+    in
+    Result.return x
   | Live ->
-    let ( let* ) = Result.( let* ) in
     let* length = Bars.length_check bars in
     let* _ = compute_i x.tbl config bars (length - 1) in
     Eio.traceln "computed indicators %d (latest)" (length - 1);
@@ -663,18 +682,21 @@ let compute_latest config bars x =
 let compute config bars =
   let ( let* ) = Result.( let* ) in
   let res = { tbl = TimestampedTbl.create (); ty = Precomputed } in
+  let history = Bars.empty () in
   let* length = Bars.length_check bars in
   let rec aux i =
     let* i, prev_time = i in
     (* Eio.traceln "compute: %d" i; *)
     if i >= length then Result.return i
     else
-      let* time = compute_i res.tbl config bars i in
-      (* (match Ptime.compare time prev_time with *)
-      (* | 0 -> Eio.traceln "[ ERROR ] Time immobile! @[%a@]@." (pp_i bars i) res *)
-      (* | 1 -> () *)
-      (* | _ -> invalid_arg "Time decreasing"); *)
-      Eio.traceln "compute %d @[%a@]@." i (pp_i bars i) res;
+      let* latest = Bars.get_i bars i in
+      Bars.append latest history;
+      let* time = compute_i res.tbl config bars ~history i in
+      (match Ptime.compare time prev_time with
+      | 0 -> Eio.traceln "[ ERROR ] Time immobile! @[%a@]@." (pp_i bars i) res
+      | 1 -> ()
+      | _ -> invalid_arg "Time decreasing");
+      (* Eio.traceln "compute %d @[%a@]@." i (pp_i bars i) res; *)
       (* Eio.traceln "%a" Time.pp prev_time; *)
       (* assert (Ptime.compare time prev_time = 1); *)
       aux @@ Result.return @@ (i + 1, time)

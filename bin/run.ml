@@ -48,7 +48,7 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
         b
       in
       let target_bars =
-        let b = Options.Preload.load preload in
+        let b = Options.Preload.load target in
         Bars.sort (Ord.opp Item.compare) b;
         b
       in

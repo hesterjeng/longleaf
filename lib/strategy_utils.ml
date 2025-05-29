@@ -129,8 +129,8 @@ module Make (Backend : Backend_intf.S) = struct
     assert (Ptime.compare time state.time = 1);
     Bars.append latest state.bars;
     let* indicators =
-      Indicators.compute_latest Input.options.indicators_config state.bars
-        state.indicators
+      Indicators.compute_latest context.compare_preloaded
+        Input.options.indicators_config state.bars state.indicators
     in
     let* value = Backend_position.value positions latest in
     let risk_free_value =
