@@ -766,3 +766,23 @@ let precompute_preload (preload : Bars.t) =
 (*          else () *)
 (*        | Error _ -> ()); *)
 (*     Vector.push indicators_vector new_indicators *)
+
+module V2 = struct
+
+  open Bigarray
+
+  type t = (float, float64_elt, c_layout) Array2.t
+
+  type slice = (float, float64_elt, c_layout) Array1.t
+
+  (* Row 0 : time (float) *)
+  (* Row 1 : price *)
+  (* Row 2 : open *)
+  (* Row 3 : high *)
+  (* Row 4 : low *)
+  (* Row 5 : close *)
+  (* Row 6 : SMA *)
+
+  let make size : t = Array2.create float64 c_layout 7 size
+
+end
