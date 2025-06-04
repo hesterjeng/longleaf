@@ -1,8 +1,13 @@
 module Hashtbl_make = Hashtbl.Make
 module Hashtbl = Hashtbl_make (Instrument)
 
+let fold (x : 'a Hashtbl.t) init f = Hashtbl.fold f x init
+
 module Latest = struct
   type t = Item.t Hashtbl.t
+
+  let fold (x : t) init f =
+    fold x init f
 
   let get_opt : t -> Instrument.t -> Item.t option = Hashtbl.find_opt
   let empty () : t = Hashtbl.create 0
@@ -15,7 +20,6 @@ module Latest = struct
     Format.fprintf fmt "@[%a@]@." pp seq
 
   let show x = Format.asprintf "%a" pp x
-  let fold (x : t) init f = Hashtbl.fold f x init
 
   let get x (symbol : Instrument.t) : (Item.t, Error.t) result =
     match Hashtbl.find_opt x symbol with
@@ -57,7 +61,6 @@ end
 type t = Price_history.t Hashtbl.t
 
 let of_seq x = Hashtbl.of_seq x
-let fold (x : t) init f = Hashtbl.fold f x init
 
 let pp : t Format.printer =
  fun fmt x ->
@@ -367,4 +370,19 @@ module V2 = struct
     in
     let seq = Seq.of_list mapped in
     Result.return @@ Hashtbl.of_seq seq
+
+  let get (x : t) instrument =
+    Hashtbl.find_opt x instrument |> function
+    | Some x -> Result.return x
+    | None -> Error.missing_data "Missing data for instrument in V2 bars"
+
+  let length (x : t) =
+    let ( let* ) = Result.( let* ) in
+    fold x (Ok 0) @@ fun _ ph acc ->
+    let* acc = acc in
+    let len = Price_history.V2.length ph in
+    match acc with
+    | 0 -> Ok len
+    | n when len = n -> Ok acc
+    | _ -> Error.fatal "Mismated price history v2 matrices in Bars v2"
 end

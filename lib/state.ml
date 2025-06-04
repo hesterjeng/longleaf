@@ -21,7 +21,7 @@ type 'a t = {
   (* These are mutable hashtables tracking data *)
   indicators : Indicators.t;
   (* Historical data *)
-  bars : Bars.t;
+  bars : Bars.V2.t;
   time : Time.t;
   (* The current tick the state machine is on *)
   tick : int;
@@ -36,20 +36,20 @@ let indicators (state : _ t) symbol =
   (* Eio.traceln "state: %a" Time.pp state.time; *)
   Indicators.get_top state.indicators ~time:state.time symbol
 
-let indicators_back_n (state : _ t) symbol n =
-  let ( let* ) = Option.( let* ) in
-  let* bars = Bars.get state.bars symbol in
-  let length = Bars.length state.bars in
-  let* time =
-    try
-      Vector.get bars (length - (n + 1)) |> Item.timestamp |> Option.return
-    with
-    | _ -> None
-  in
-  let* res =
-    Option.of_result @@ Indicators.get_top state.indicators ~time symbol
-  in
-  Option.return res
+(* let indicators_back_n (state : _ t) symbol n = *)
+(*   let ( let* ) = Option.( let* ) in *)
+(*   let* bars = Bars.get state.bars symbol in *)
+(*   let length = Bars.length state.bars in *)
+(*   let* time = *)
+(*     try *)
+(*       Vector.get bars (length - (n + 1)) |> Item.timestamp |> Option.return *)
+(*     with *)
+(*     | _ -> None *)
+(*   in *)
+(*   let* res = *)
+(*     Option.of_result @@ Indicators.get_top state.indicators ~time symbol *)
+(*   in *)
+(*   Option.return res *)
 
 let record_order state order =
   let ( let* ) = Result.( let* ) in

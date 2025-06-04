@@ -6,7 +6,6 @@ module Latest : sig
   val iter : (Instrument.t -> Item.t -> unit) -> t -> unit
   val timestamp : t -> (Time.t, Error.t) result
   val of_seq : (Instrument.t * Item.t) Seq.t -> t
-  val fold : t -> 'a -> (Instrument.t -> Item.t -> 'a -> 'a) -> 'a
   val set : t -> Instrument.t -> Item.t -> unit
 end
 
@@ -40,3 +39,10 @@ val split :
   midpoint:int -> target_length:int -> combined_length:int -> t -> t * t
 
 val empty : unit -> t
+
+module V2 : sig
+  type t
+
+  val get : t -> Instrument.t -> (Price_history.V2.t, Error.t) result
+  val length : t -> (int, Error.t) result
+end

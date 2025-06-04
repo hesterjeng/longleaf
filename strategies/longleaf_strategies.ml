@@ -75,8 +75,8 @@ let all = List.map fst Variants.descriptions
 let strats =
   let ( --> ) x y = (x, run_generic y) in
   [
-    BuyAndHold --> (module Buy_and_hold.Make);
-    Listener --> (module Listener.Make);
+    (* BuyAndHold --> (module Buy_and_hold.Make); *)
+    (* Listener --> (module Listener.Make); *)
     (* Monaspa --> (module Monaspa.Make); *)
     (* DoubleTop --> (module Double_top.DoubleTop); *)
     (* LowBoll --> (module Buy_low_bollinger.BuyLowBollinger); *)
@@ -88,7 +88,7 @@ let strats =
     (* Crossover --> (module Crossover.Make); *)
     (* SlowCrossover --> (module Slow_crossover.Make); *)
     (* ConfirmedCrossover --> (module Confirmed_crossover.Make); *)
-    ThrowingCrossover --> (module Throwing_crossover.Make);
+    (* ThrowingCrossover --> (module Throwing_crossover.Make); *)
     (* LiberatedCrossover --> (module Liberated_crossover.Make); *)
     (* Channel --> (module Channel.Make); *)
     (* SpyTrader --> (module Spytrader.Make); *)

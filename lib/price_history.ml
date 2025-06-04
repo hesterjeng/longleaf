@@ -29,6 +29,8 @@ module V2 = struct
       | SMA -> 8
   end
 
+  let length x = Array2.dim2 x.data
+
   (* Row 0 : i (index)*)
   (* Row 1 : time (float) *)
   (* Row 2 : price *)
