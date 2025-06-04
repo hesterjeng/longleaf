@@ -349,3 +349,7 @@ module Infill = struct
     in
     ()
 end
+
+module V2 = struct
+  type t = Price_history.V2.t Hashtbl.t
+end
