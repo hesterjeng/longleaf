@@ -7,12 +7,13 @@ module Collections = Ticker_collections
 let run_options (context : Context.t) : Options.t =
   let symbols =
     match context.runtype with
-    | RandomTickerBacktest | MultiRandomTickerBacktest ->
-        let arr = Array.of_list Collections.sp100 in
-        let eighty_percent =
-          (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
-        in
-        Owl_stats.choose arr eighty_percent |> Array.to_list
+    | RandomTickerBacktest
+    | MultiRandomTickerBacktest ->
+      let arr = Array.of_list Collections.sp100 in
+      let eighty_percent =
+        (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
+      in
+      Owl_stats.choose arr eighty_percent |> Array.to_list
     | _ -> Collections.sp100
   in
   {
@@ -20,7 +21,8 @@ let run_options (context : Context.t) : Options.t =
     tick = 600.0;
     overnight = true;
     resume_after_liquidate = true;
-    indicators_config : Indicator_config.t = { fft = false };
+    indicators_config : Indicator_config.t =
+      { fft = false; compare_preloaded = context.compare_preloaded };
     dropout = false;
     randomized_backtest_length = 1000;
     context;
@@ -63,6 +65,7 @@ type t =
   | LiberatedCrossover
   | Monaspa
   | Channel
+  | Astar
 [@@deriving show, eq, yojson, variants]
 
 let all = List.map fst Variants.descriptions
@@ -74,7 +77,7 @@ let strats =
   [
     BuyAndHold --> (module Buy_and_hold.Make);
     Listener --> (module Listener.Make);
-    Monaspa --> (module Monaspa.Make);
+    (* Monaspa --> (module Monaspa.Make); *)
     (* DoubleTop --> (module Double_top.DoubleTop); *)
     (* LowBoll --> (module Buy_low_bollinger.BuyLowBollinger); *)
     (* LowBoll2 --> (module Lowboll2.Make); *)
@@ -86,8 +89,8 @@ let strats =
     (* SlowCrossover --> (module Slow_crossover.Make); *)
     (* ConfirmedCrossover --> (module Confirmed_crossover.Make); *)
     ThrowingCrossover --> (module Throwing_crossover.Make);
-    LiberatedCrossover --> (module Liberated_crossover.Make);
-    Channel --> (module Channel.Make);
+    (* LiberatedCrossover --> (module Liberated_crossover.Make); *)
+    (* Channel --> (module Channel.Make); *)
     (* SpyTrader --> (module Spytrader.Make); *)
   ]
 
@@ -97,20 +100,19 @@ let run_strat (context : Context.t) strategy =
   match f with
   | Some f -> f context
   | None ->
-      invalid_arg
-      @@ Format.asprintf "Did not find a strategy implementation for %a" pp
-           strategy
+    invalid_arg
+    @@ Format.asprintf "Did not find a strategy implementation for %a" pp
+         strategy
 
 (** Function for Cmdliner use. *)
 let of_string_res x =
   let j = `List [ `String x ] in
-  try Result.return @@ t_of_yojson j
-  with _ ->
-    let all = List.map fst Variants.descriptions in
+  try Result.return @@ t_of_yojson j with
+  | _ ->
     Result.fail
     @@ `Msg
          (Format.asprintf
-            "@[Unknown runtype selected: %s@]@.@[Valid options are: %a@]@." x
+            "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@." x
             (List.pp String.pp) all)
 
 (** Function for Cmdliner use. *)
@@ -120,36 +122,59 @@ type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 (** Track some statistics if we are doing multiple backtests. *)
 
+let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
+    ~(sell : Astar_search.EnumeratedSignal.t) =
+  let x = Astar_search.EnumeratedSignal.to_strategy buy sell in
+  run_generic x context
+
 (** Top level function for running strategies based on a context.*)
 let run (context : Context.t) strategy =
   match context.runtype with
-  | Live | Paper | Backtest | Manual | Montecarlo | RandomSliceBacktest
+  | AstarSearch ->
+    (* Eio.traceln "Loading context..."; *)
+    (* let context = Options.Context.load context in *)
+    (* Eio.traceln "Loading indicators..."; *)
+    (* let preload = Options.Preload.bars context.preload in *)
+    (* let target = Options.Preload.bars context.target in *)
+    (* Indicators.precompute preload target; *)
+    (* assert (Options.Preload.is_loaded context.preload); *)
+    (* assert (Options.Preload.is_loaded context.target); *)
+    Eio.traceln "Running A*...";
+    (* let context = { context with indicator_type = Precomputed } in *)
+    let res = Astar_run.top context in
+    0.0
+  | Live
+  | Paper
+  | Backtest
+  | Manual
+  | Montecarlo
+  | RandomSliceBacktest
   | RandomTickerBacktest ->
-      run_strat context strategy
-  | Multitest | MultiMontecarlo | MultiRandomSliceBacktest
+    run_strat context strategy
+  | Multitest
+  | MultiMontecarlo
+  | MultiRandomSliceBacktest
   | MultiRandomTickerBacktest ->
-      let init = Array.make 30 () in
-      let res = Array.map (fun _ -> run_strat context strategy) init in
-      Array.sort Float.compare res;
-      let mean = Owl_stats.mean res in
-      let std = Owl_stats.std res in
-      let min, max = Owl_stats.minmax res in
-      let result = { mean; min; max; std } in
-      Eio.traceln "@[%a@]@.@[%a@]@." pp_multitest result (Array.pp Float.pp) res;
-      let histogram = Owl_stats.histogram (`N 10) res in
-      let percent_profitable =
-        Array.filter (fun x -> x >=. 100000.0) res
-        |> Array.length |> Float.of_int
-        |> fun f -> f /. (Float.of_int @@ Array.length res)
-      in
-      let percent_great =
-        Array.filter (fun x -> x >=. 110000.0) res
-        |> Array.length |> Float.of_int
-        |> fun f -> f /. (Float.of_int @@ Array.length res)
-      in
-      Eio.traceln "@[percent profitable: %f@]@." percent_profitable;
-      Eio.traceln "@[percent great: %f@]@." percent_great;
-      let normalised_histogram = Owl_stats.normalise histogram in
-      Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
-      Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
-      0.0
+    let init = Array.make 30 () in
+    let res = Array.map (fun _ -> run_strat context strategy) init in
+    Array.sort Float.compare res;
+    let mean = Owl_stats.mean res in
+    let std = Owl_stats.std res in
+    let min, max = Owl_stats.minmax res in
+    let result = { mean; min; max; std } in
+    Eio.traceln "@[%a@]@.@[%a@]@." pp_multitest result (Array.pp Float.pp) res;
+    let histogram = Owl_stats.histogram (`N 10) res in
+    let percent_profitable =
+      Array.filter (fun x -> x >=. 100000.0) res |> Array.length |> Float.of_int
+      |> fun f -> f /. (Float.of_int @@ Array.length res)
+    in
+    let percent_great =
+      Array.filter (fun x -> x >=. 110000.0) res |> Array.length |> Float.of_int
+      |> fun f -> f /. (Float.of_int @@ Array.length res)
+    in
+    Eio.traceln "@[percent profitable: %f@]@." percent_profitable;
+    Eio.traceln "@[percent great: %f@]@." percent_great;
+    let normalised_histogram = Owl_stats.normalise histogram in
+    Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
+    Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
+    0.0

@@ -20,8 +20,13 @@ end
 module Side = struct
   type t = Buy | Sell [@@deriving show, yojson, eq]
 
-  let to_color = function Buy -> "green" | Sell -> "red"
-  let to_string = function Buy -> "buy" | Sell -> "sell"
+  let to_color = function
+    | Buy -> "green"
+    | Sell -> "red"
+
+  let to_string = function
+    | Buy -> "buy"
+    | Sell -> "sell"
 end
 
 module OrderType = struct
@@ -86,7 +91,7 @@ end = struct
     | Min i -> Format.asprintf "%dmin" i
     | Hour i -> Format.asprintf "%dhour" i
     | x ->
-        invalid_arg @@ Format.asprintf "Tiingo intraday doesn't support %a" pp x
+      invalid_arg @@ Format.asprintf "Tiingo intraday doesn't support %a" pp x
 
   type conv = int option -> t [@@deriving show]
 
@@ -96,12 +101,23 @@ end = struct
     | None -> invalid_arg "Expected interval argument"
 
   let conv_of_string : string -> (conv, _) result = function
-    | "minute" | "min" | "Minute" | "Min" ->
-        Result.return @@ fun i -> Min (get_interval i)
-    | "hour" | "Hour" -> Result.return @@ fun i -> Hour (get_interval i)
-    | "day" | "Day" -> Result.return @@ fun _ -> Day
-    | "week" | "Week" -> Result.return @@ fun _ -> Week
-    | "month" | "Month" -> Result.return @@ fun i -> Month (get_interval i)
+    | "minute"
+    | "min"
+    | "Minute"
+    | "Min" ->
+      Result.return @@ fun i -> Min (get_interval i)
+    | "hour"
+    | "Hour" ->
+      Result.return @@ fun i -> Hour (get_interval i)
+    | "day"
+    | "Day" ->
+      Result.return @@ fun _ -> Day
+    | "week"
+    | "Week" ->
+      Result.return @@ fun _ -> Week
+    | "month"
+    | "Month" ->
+      Result.return @@ fun i -> Month (get_interval i)
     | _ -> Result.fail @@ `Msg "Invalid timeframe selection"
 
   let conv = Cmdliner.Arg.conv (conv_of_string, pp_conv)
@@ -180,6 +196,6 @@ module Status = struct
     | `String "suspended" -> Suspended
     | `String "calculated" -> Calculated
     | `String s ->
-        invalid_arg @@ Format.asprintf "Unknown Status.t constructor %s" s
+      invalid_arg @@ Format.asprintf "Unknown Status.t constructor %s" s
     | _ -> invalid_arg "Expected a string inside json for Status.t"
 end

@@ -5,10 +5,10 @@ let () =
   let uri = Uri.of_string "http://localhost:8080/shutdown" in
   match Piaf.Client.Oneshot.get ~sw env uri with
   | Ok r ->
-      Eio.traceln "@[Response: %a@]@." Piaf.Response.pp_hum r;
-      Eio.traceln "@[Shutdown command sent.@]@.";
-      exit 0
+    Eio.traceln "@[Response: %a@]@." Piaf.Response.pp_hum r;
+    Eio.traceln "@[Shutdown command sent.@]@.";
+    exit 0
   | Error e ->
-      Eio.traceln "@[%a@]@." Piaf.Error.pp_hum e;
-      Eio.traceln "@[Error while sending shutdown command.@]@.";
-      exit 1
+    Eio.traceln "@[%a@]@." Piaf.Error.pp_hum e;
+    Eio.traceln "@[Error while sending shutdown command.@]@.";
+    exit 1

@@ -24,7 +24,9 @@ module BuyReason = struct
     in
     let amt_above = current_price -. upper_bb in
     let pass = current_price >=. upper_bb && not is_owned in
-    match pass with true -> Some { symbol; amt_above } | false -> None
+    match pass with
+    | true -> Some { symbol; amt_above }
+    | false -> None
 end
 
 module SellReason = struct
@@ -35,7 +37,9 @@ module SellReason = struct
     let symbol = buying_order.symbol in
     let current_price = State.price state symbol in
     let pass = current_price >=. buying_order.price in
-    match pass with true -> Some (Below1StdBollinger symbol) | false -> None
+    match pass with
+    | true -> Some (Below1StdBollinger symbol)
+    | false -> None
 end
 
 module Make (Backend : Backend.S) : Strategy.S = struct
@@ -48,48 +52,48 @@ module Make (Backend : Backend.S) : Strategy.S = struct
       let ( let+ ) = Option.( let+ ) in
       match x with
       | { symbol; _ } ->
-          let current_cash = Backend_position.get_cash state.positions in
-          (* let item = Bars.Latest.get state.latest symbol in *)
-          let side = Side.Buy in
-          let tif = TimeInForce.GoodTillCanceled in
-          let order_type = OrderType.Market in
-          let price = State.price state symbol in
-          let+ qty =
-            match Util.qty ~current_cash ~pct:1.0 ~price with
-            | 0 -> None
-            | qty -> Some qty
-          in
-          let timestamp = State.timestamp state symbol in
-          let reason =
-            [
-              Format.asprintf "Buying %d (%a): Above 3 std bollinger band" qty
-                Time.pp timestamp;
-            ]
-          in
-          Order.make ~tick:state.tick ~symbol ~side ~tif ~order_type ~qty ~price
-            ~timestamp ~reason ~profit:None
+        let current_cash = Backend_position.get_cash state.positions in
+        (* let item = Bars.Latest.get state.latest symbol in *)
+        let side = Side.Buy in
+        let tif = TimeInForce.GoodTillCanceled in
+        let order_type = OrderType.Market in
+        let price = State.price state symbol in
+        let+ qty =
+          match Util.qty ~current_cash ~pct:1.0 ~price with
+          | 0 -> None
+          | qty -> Some qty
+        in
+        let timestamp = State.timestamp state symbol in
+        let reason =
+          [
+            Format.asprintf "Buying %d (%a): Above 3 std bollinger band" qty
+              Time.pp timestamp;
+          ]
+        in
+        Order.make ~tick:state.tick ~symbol ~side ~tif ~order_type ~qty ~price
+          ~timestamp ~reason ~profit:None
 
     let of_sell_reason ~(buying_order : Order.t) (state : state)
         (x : SellReason.t) =
       match x with
       | Below1StdBollinger symbol ->
-          let side = Side.Sell in
-          let tif = TimeInForce.GoodTillCanceled in
-          let order_type = OrderType.Market in
-          let price = State.price state symbol in
-          let qty = buying_order.qty in
-          let timestamp = State.timestamp state symbol in
-          let profit =
-            Float.of_int buying_order.qty *. (price -. buying_order.price)
-          in
-          let reason =
-            [
-              Format.asprintf "Selling %d (%a): Below 1 std bollinger band" qty
-                Time.pp timestamp;
-            ]
-          in
-          Order.make ~symbol ~side ~tick:state.tick ~tif ~order_type ~qty ~price
-            ~timestamp ~reason ~profit:(Some profit)
+        let side = Side.Sell in
+        let tif = TimeInForce.GoodTillCanceled in
+        let order_type = OrderType.Market in
+        let price = State.price state symbol in
+        let qty = buying_order.qty in
+        let timestamp = State.timestamp state symbol in
+        let profit =
+          Float.of_int buying_order.qty *. (price -. buying_order.price)
+        in
+        let reason =
+          [
+            Format.asprintf "Selling %d (%a): Below 1 std bollinger band" qty
+              Time.pp timestamp;
+          ]
+        in
+        Order.make ~symbol ~side ~tick:state.tick ~tif ~order_type ~qty ~price
+          ~timestamp ~reason ~profit:(Some profit)
   end
 
   let shutdown () =
@@ -108,8 +112,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
           match previous_opt with
           | None -> Some x
           | Some previous ->
-              if previous.amt_above <=. x.amt_above then Some previous
-              else Some x)
+            if previous.amt_above <=. x.amt_above then Some previous else Some x)
         None passes
       |> fun selection -> Option.bind selection (Order.of_buy_reason state)
     in
@@ -117,8 +120,8 @@ module Make (Backend : Backend.S) : Strategy.S = struct
       match selected with
       | None -> Ok state
       | Some choice ->
-          let* state = Backend.place_order state choice in
-          Result.return @@ { state with content = choice :: state.content }
+        let* state = Backend.place_order state choice in
+        Result.return @@ { state with content = choice :: state.content }
     in
     { state with State.current = Listening }
 
@@ -126,16 +129,16 @@ module Make (Backend : Backend.S) : Strategy.S = struct
     let open Result.Infix in
     match SellReason.make ~buying_order state with
     | None ->
-        Result.return
-        @@ { state with State.current = Listening; content = [ buying_order ] }
+      Result.return
+      @@ { state with State.current = Listening; content = [ buying_order ] }
     | Some reason ->
-        let order = Order.of_sell_reason ~buying_order state reason in
-        let* state = Backend.place_order state order in
-        let new_content =
-          List.filter (fun x -> not @@ Order.equal x buying_order) state.content
-        in
-        Result.return
-        @@ { state with State.current = Listening; content = new_content }
+      let order = Order.of_sell_reason ~buying_order state reason in
+      let* state = Backend.place_order state order in
+      let new_content =
+        List.filter (fun x -> not @@ Order.equal x buying_order) state.content
+      in
+      Result.return
+      @@ { state with State.current = Listening; content = new_content }
 
   let sell_fold state buying_order =
     let ( let* ) = Result.( let* ) in
@@ -149,17 +152,15 @@ module Make (Backend : Backend.S) : Strategy.S = struct
     (* Eio.traceln "@[buylowbollinger: %a@]@." State.pp_state current; *)
     match current with
     | Ordering -> (
-        let positions = state.content in
-        let length = List.length positions in
-        (* Eio.traceln "%d positions" length; *)
-        match length with
-        | 0 ->
-            let* sold_high =
-              List.fold_left sell_fold (Ok state) state.content
-            in
-            let* purchase = buy sold_high in
-            Result.return purchase
-        | _ -> List.fold_left sell_fold (Ok state) state.content)
+      let positions = state.content in
+      let length = List.length positions in
+      (* Eio.traceln "%d positions" length; *)
+      match length with
+      | 0 ->
+        let* sold_high = List.fold_left sell_fold (Ok state) state.content in
+        let* purchase = buy sold_high in
+        Result.return purchase
+      | _ -> List.fold_left sell_fold (Ok state) state.content)
     | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step

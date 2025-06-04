@@ -24,7 +24,8 @@ let get_piaf ~client ~headers ~endpoint : (Yojson.Safe.t, Error.t) result =
     (* let resp_headers = Response.headers resp in *)
     (* Eio.traceln "response headers: %a" Headers.pp_hum resp_headers; *)
     res
-  with Yojson.Json_error s as e ->
+  with
+  | Yojson.Json_error s as e ->
     let resp_headers = Response.headers resp in
     Eio.traceln "@[%s@]@." json;
     Eio.traceln
@@ -75,25 +76,25 @@ let read_file_as_string filename =
     res
   with
   | Sys_error e ->
-      Eio.traceln "%s" e;
-      invalid_arg "Util.read_file_as_string"
+    Eio.traceln "%s" e;
+    invalid_arg "Util.read_file_as_string"
   | End_of_file ->
-      Eio.traceln "Util.read_file_as_string: EOF";
-      invalid_arg "Util.read_file_as_string"
+    Eio.traceln "Util.read_file_as_string: EOF";
+    invalid_arg "Util.read_file_as_string"
 
 let handle_output output =
   (* Redirect stdout and stderr to the selected file *)
   match output with
   | None -> ()
   | Some file_path ->
-      let fd =
-        Unix.openfile file_path
-          [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC ]
-          0o644
-      in
-      Unix.dup2 fd Unix.stdout;
-      Unix.dup2 fd Unix.stderr;
-      Unix.close fd
+    let fd =
+      Unix.openfile file_path
+        [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC ]
+        0o644
+    in
+    Unix.dup2 fd Unix.stdout;
+    Unix.dup2 fd Unix.stderr;
+    Unix.close fd
 
 let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
   assert (n >= 0);
@@ -103,7 +104,9 @@ let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
 let random_state = Random.State.make_self_init ()
 
 let random_choose_opt l =
-  match l with [] -> None | l -> Some (List.random_choose l random_state)
+  match l with
+  | [] -> None
+  | l -> Some (List.random_choose l random_state)
 
 (* mean and sigma chosen so that P (x >= 1.0) ~ 0.2 *)
 let one_in_five =
@@ -117,14 +120,14 @@ let handle_output output =
   match output with
   | None -> ()
   | Some file_path ->
-      let fd =
-        Unix.openfile file_path
-          [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC ]
-          0o644
-      in
-      Unix.dup2 fd Unix.stdout;
-      Unix.dup2 fd Unix.stderr;
-      Unix.close fd
+    let fd =
+      Unix.openfile file_path
+        [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC ]
+        0o644
+    in
+    Unix.dup2 fd Unix.stdout;
+    Unix.dup2 fd Unix.stderr;
+    Unix.close fd
 
 let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
   let length = Vector.length vec in
@@ -133,7 +136,9 @@ let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
 let random_state = Random.State.make_self_init ()
 
 let random_choose_opt l =
-  match l with [] -> None | l -> Some (List.random_choose l random_state)
+  match l with
+  | [] -> None
+  | l -> Some (List.random_choose l random_state)
 
 (* mean and sigma chosen so that P (x >= 1.0) ~ 0.2 *)
 let one_in_five =
@@ -150,7 +155,7 @@ end
 let qty ~current_cash ~pct ~price =
   match current_cash >=. 0.0 with
   | true ->
-      let tenp = current_cash *. pct in
-      let max_amt = tenp /. price in
-      if max_amt >=. 1.0 then floor max_amt |> Float.to_int else 0
+    let tenp = current_cash *. pct in
+    let max_amt = tenp /. price in
+    if max_amt >=. 1.0 then floor max_amt |> Float.to_int else 0
   | false -> 0

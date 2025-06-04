@@ -11,7 +11,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
   let ready_to_buy = ref true
 
   let pass (_state : 'a State.t) symbol =
-    let signal = Signal.make symbol Buy true in
+    let signal = Signal.make symbol true in
     let ( let&& ) = Signal.let_and signal in
     Result.return
     @@
@@ -23,7 +23,9 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
     signal
 
   let score _ symbol =
-    match symbol with Instrument.Security "SPY" -> Ok 1.0 | _ -> Ok 0.0
+    match symbol with
+    | Instrument.Security "SPY" -> Ok 1.0
+    | _ -> Ok 0.0
 end
 
 (* The functor uses the score to choose the symbol with the highest score *)
@@ -32,7 +34,7 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (_state : 'a State.t) ~(buying_order : Order.t) =
-    Result.return @@ Signal.make buying_order.symbol Sell false
+    Result.return @@ Signal.make buying_order.symbol false
 end
 
 (* Create a strategy with our parameters *)

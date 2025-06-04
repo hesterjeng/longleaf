@@ -25,7 +25,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let trading_client =
     let res =
       let ty =
-        match Input.options.context.runtype with Live -> Live | _ -> Paper
+        match Input.options.context.runtype with
+        | Live -> Live
+        | _ -> Paper
       in
       Piaf.Client.create ~sw:context.switch context.eio_env
       @@ apca_api_base_url ty
@@ -85,7 +87,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
          content;
          stats = Stats.empty ();
          order_history = Order.History.empty;
-         indicators = Indicators.empty ();
+         indicators = Indicators.empty Live;
+         time = Ptime.min;
        }
 
   let next_market_open () =
@@ -124,35 +127,35 @@ module Make (Input : BACKEND_INPUT) : S = struct
     (* Backend_position.set_cash account.cash; *)
     match symbols with
     | [] ->
-        Eio.traceln "No symbols in latest bars request.";
-        Result.return @@ Bars.Latest.empty ()
+      Eio.traceln "No symbols in latest bars request.";
+      Result.return @@ Bars.Latest.empty ()
     | _ ->
-        (* let _ = Backtesting.latest_bars symbols in *)
-        (* let res = Market_data_api.Stock.latest_bars symbols in *)
-        let* res =
-          match Tiingo.latest symbols with
-          | Ok x -> Result.return x
-          | Error s ->
+      (* let _ = Backtesting.latest_bars symbols in *)
+      (* let res = Market_data_api.Stock.latest_bars symbols in *)
+      let* res =
+        match Tiingo.latest symbols with
+        | Ok x -> Result.return x
+        | Error s ->
+          Eio.traceln
+            "Error %a from Tiingo.latest, trying again after 5 seconds."
+            Error.pp s;
+          Ticker.tick ~runtype env 5.0;
+          Tiingo.latest symbols
+      in
+      let* () =
+        Result.fold_l
+          (fun acc x ->
+            match Bars.Latest.get res x with
+            | Ok _ -> Result.return acc
+            | Error _ as e ->
               Eio.traceln
-                "Error %a from Tiingo.latest, trying again after 5 seconds."
-                Error.pp s;
-              Ticker.tick ~runtype env 5.0;
-              Tiingo.latest symbols
-        in
-        let* () =
-          Result.fold_l
-            (fun acc x ->
-              match Bars.Latest.get res x with
-              | Ok _ -> Result.return acc
-              | Error _ as e ->
-                  Eio.traceln
-                    "[error] Missing data in Alpaca_backend.latest_bars for %a"
-                    Instrument.pp x;
-                  e)
-            () symbols
-        in
-        if save_received then Bars.append res received_data;
-        Ok res
+                "[error] Missing data in Alpaca_backend.latest_bars for %a"
+                Instrument.pp x;
+              e)
+          () symbols
+      in
+      if save_received then Bars.append res received_data;
+      Ok res
 
   let get_clock = Trading_api.Clock.get
 

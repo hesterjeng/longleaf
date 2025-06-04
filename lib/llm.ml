@@ -30,14 +30,14 @@ module OpenAI = struct
     let body = create_request_body content in
     match Piaf.Client.Oneshot.post ~headers ~body ~sw env uri with
     | Ok { body; _ } -> (
-        Yojson.Safe.from_string
-        @@
-        match Piaf.Body.to_string body with
-        | Ok body_str -> body_str
-        | Error e -> invalid_arg @@ Piaf.Error.to_string e)
+      Yojson.Safe.from_string
+      @@
+      match Piaf.Body.to_string body with
+      | Ok body_str -> body_str
+      | Error e -> invalid_arg @@ Piaf.Error.to_string e)
     | Error (`Connect_error e) ->
-        Eio.traceln "@[Unable to connect to host: %s@]@." e;
-        invalid_arg e
+      Eio.traceln "@[Unable to connect to host: %s@]@." e;
+      invalid_arg e
     | Error e -> invalid_arg @@ Piaf.Error.to_string e
 end
 
@@ -73,16 +73,16 @@ module Anthropic = struct
     let body = create_request_body content in
     match Piaf.Client.Oneshot.post ~headers ~body ~sw env uri with
     | Ok { body; _ } -> (
-        Yojson.Safe.from_string
-        @@
-        match Piaf.Body.to_string body with
-        | Ok body_str -> body_str
-        | Error e ->
-            Eio.traceln
-              "@[Error while trying to convert response body to string:@]@.";
-            invalid_arg @@ Piaf.Error.to_string e)
+      Yojson.Safe.from_string
+      @@
+      match Piaf.Body.to_string body with
+      | Ok body_str -> body_str
+      | Error e ->
+        Eio.traceln
+          "@[Error while trying to convert response body to string:@]@.";
+        invalid_arg @@ Piaf.Error.to_string e)
     | Error (`Connect_error e) ->
-        Eio.traceln "@[Unable to connect to host: %s@]@." e;
-        invalid_arg e
+      Eio.traceln "@[Unable to connect to host: %s@]@." e;
+      invalid_arg e
     | Error e -> invalid_arg @@ Piaf.Error.to_string e
 end

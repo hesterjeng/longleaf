@@ -5,6 +5,7 @@ type 'a t = {
 [@@deriving show, yojson]
 
 let make x = { data = x; mutex = Eio.Mutex.create () }
+let equal f x y = Bool.equal (f x.data) (f y.data)
 
 let set mut value =
   Eio.Mutex.use_rw ~protect:true mut.mutex @@ fun () -> mut.data <- value

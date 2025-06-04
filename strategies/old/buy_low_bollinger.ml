@@ -178,10 +178,10 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     let cash_available = Backend_position.get_cash state.positions in
     match cash_available >=. 0.0 with
     | true ->
-        let tenp = cash_available *. pct in
-        let current_price = State.price state symbol in
-        let max_amt = tenp /. current_price in
-        if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
+      let tenp = cash_available *. pct in
+      let current_price = State.price state symbol in
+      let max_amt = tenp /. current_price in
+      if max_amt >=. 1.0 then Float.round max_amt |> Float.to_int else 0
     | false -> 0
 
   (* Check if we meet the conditions for placing a short for one of our symbols. *)
@@ -197,23 +197,23 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
     let random_drop =
       match Backend.Input.options.dropout with
       | true ->
-          (* Eio.traceln "buylow: %d possibilities, selecting one randomly" *)
-          (* (List.length possibilities); *)
-          List.filter_map
-            (fun x -> if Util.coin_flip () then Some x else None)
-            possibilities
-      | false ->
-          (* Eio.traceln "buylow: %d possibilities, selecting first" *)
-          (* (List.length possibilities); *)
+        (* Eio.traceln "buylow: %d possibilities, selecting one randomly" *)
+        (* (List.length possibilities); *)
+        List.filter_map
+          (fun x -> if Util.coin_flip () then Some x else None)
           possibilities
+      | false ->
+        (* Eio.traceln "buylow: %d possibilities, selecting first" *)
+        (* (List.length possibilities); *)
+        possibilities
     in
     let choice = List.head_opt random_drop in
     let* state =
       match choice with
       | None -> Ok state
       | Some (order, _) ->
-          let* state = Backend.place_order state order in
-          Result.return @@ { state with content = DT_Status.Placed (0, order) }
+        let* state = Backend.place_order state order in
+        Result.return @@ { state with content = DT_Status.Placed (0, order) }
     in
     Result.return @@ { state with State.current = Listening }
 
@@ -228,52 +228,54 @@ module BuyLowBollinger (Backend : Backend.S) : Strategy.S = struct
         ~price_difference
     in
     match cover_reason with
-    | Profited _ | HoldingPeriod _ | StopLoss _ | FSO_High _ ->
-        let profit =
-          Float.of_int buying_order.qty *. (current_price -. buying_order.price)
-        in
-        let reason =
-          Format.asprintf "Exiting because of %a. Profit: %f"
-            Conditions.Sell_reason.pp cover_reason profit
-          :: buying_order.reason
-        in
-        (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
-        let* state =
-          Backend.place_order state
-          @@ Order.make ~symbol:buying_order.symbol ~side:Side.Sell
-               ~tick:state.tick ~tif:buying_order.tif
-               ~order_type:buying_order.order_type ~qty:buying_order.qty
-               ~price:current_price ~timestamp ~reason ~profit:(Some profit)
-        in
-        Result.return
-        @@ { state with State.current = Listening; content = DT_Status.Waiting }
+    | Profited _
+    | HoldingPeriod _
+    | StopLoss _
+    | FSO_High _ ->
+      let profit =
+        Float.of_int buying_order.qty *. (current_price -. buying_order.price)
+      in
+      let reason =
+        Format.asprintf "Exiting because of %a. Profit: %f"
+          Conditions.Sell_reason.pp cover_reason profit
+        :: buying_order.reason
+      in
+      (* Eio.traceln "@[Profit from covering: %f@]@." profit; *)
+      let* state =
+        Backend.place_order state
+        @@ Order.make ~symbol:buying_order.symbol ~side:Side.Sell
+             ~tick:state.tick ~tif:buying_order.tif
+             ~order_type:buying_order.order_type ~qty:buying_order.qty
+             ~price:current_price ~timestamp ~reason ~profit:(Some profit)
+      in
+      Result.return
+      @@ { state with State.current = Listening; content = DT_Status.Waiting }
     | Hold ->
-        (* Eio.traceln "@[Holding...@]@."; *)
-        Result.return
-        @@ {
-             state with
-             State.current = Listening;
-             content = DT_Status.Placed (time_held + 1, buying_order);
-           }
+      (* Eio.traceln "@[Holding...@]@."; *)
+      Result.return
+      @@ {
+           state with
+           State.current = Listening;
+           content = DT_Status.Placed (time_held + 1, buying_order);
+         }
     | HoldBelowBollinger ->
-        Eio.traceln
-          "Resetting hold time because we dipped below bollinger band.";
-        Result.return
-        @@ {
-             state with
-             State.current = Listening;
-             content = DT_Status.Placed (0, buying_order);
-           }
+      Eio.traceln "Resetting hold time because we dipped below bollinger band.";
+      Result.return
+      @@ {
+           state with
+           State.current = Listening;
+           content = DT_Status.Placed (0, buying_order);
+         }
 
   let step (state : state) =
     let current = state.current in
     (* Eio.traceln "@[buylowbollinger: %a@]@." State.pp_state current; *)
     match current with
     | Ordering -> (
-        (* Eio.traceln "@[%a@]@." DT_Status.pp state.content; *)
-        match state.content with
-        | Waiting -> place_buy ~state
-        | Placed (time_held, order) -> exit_position ~state time_held order)
+      (* Eio.traceln "@[%a@]@." DT_Status.pp state.content; *)
+      match state.content with
+      | Waiting -> place_buy ~state
+      | Placed (time_held, order) -> exit_position ~state time_held order)
     | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step

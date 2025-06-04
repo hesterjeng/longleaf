@@ -22,6 +22,7 @@ type 'a t = {
   indicators : Indicators.t;
   (* Historical data *)
   bars : Bars.t;
+  time : Time.t;
   (* The current tick the state machine is on *)
   tick : int;
   tick_length : float;
@@ -30,6 +31,25 @@ type 'a t = {
 }
 
 let listen (x : _ t) = { x with current = Listening }
+
+let indicators (state : _ t) symbol =
+  (* Eio.traceln "state: %a" Time.pp state.time; *)
+  Indicators.get_top state.indicators ~time:state.time symbol
+
+let indicators_back_n (state : _ t) symbol n =
+  let ( let* ) = Option.( let* ) in
+  let* bars = Bars.get state.bars symbol in
+  let length = Bars.length state.bars in
+  let* time =
+    try
+      Vector.get bars (length - (n + 1)) |> Item.timestamp |> Option.return
+    with
+    | _ -> None
+  in
+  let* res =
+    Option.of_result @@ Indicators.get_top state.indicators ~time symbol
+  in
+  Option.return res
 
 let record_order state order =
   let ( let* ) = Result.( let* ) in
@@ -45,7 +65,7 @@ let activate_order state order =
 
 let place_order (state : 'a t) (order : Order.t) =
   let ( let* ) = Result.( let* ) in
-  Eio.traceln "@[%a@]@." Order.pp order;
+  (* Eio.traceln "Placing order: @[%a@]@." Order.pp order; *)
   let* state = record_order state order in
   let* new_positions = Backend_position.execute_order state.positions order in
   Result.return { state with positions = new_positions }

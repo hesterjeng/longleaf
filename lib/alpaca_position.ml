@@ -8,7 +8,9 @@ module Side = struct
     | _ -> invalid_arg "unknown side in Position.Side.t_of_yojson"
 
   let yojson_of_t (x : t) : Yojson.Safe.t =
-    match x with Long -> `String "long" | Short -> `String "short"
+    match x with
+    | Long -> `String "long"
+    | Short -> `String "short"
 end
 
 type raw = {
@@ -35,8 +37,8 @@ type raw = {
 type alpaca_position_response = raw list [@@deriving show, yojson]
 
 let alpaca_position_response_of_yojson x =
-  try alpaca_position_response_of_yojson x
-  with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->
+  try alpaca_position_response_of_yojson x with
+  | Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _) ->
     let err = Printexc.to_string e in
     invalid_arg @@ Format.asprintf "%s" err
 

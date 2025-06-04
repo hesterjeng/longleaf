@@ -10,8 +10,8 @@ type t = {
 [@@deriving show]
 
 let getenv_opt s =
-  try Option.some @@ Unix.getenv s
-  with Not_found ->
+  try Option.some @@ Unix.getenv s with
+  | Not_found ->
     Eio.traceln "error: Could not find environment variable %s" s;
     None
 
@@ -33,7 +33,8 @@ let make () =
       (* polygon_key; *)
       tiingo_key;
     }
-  with Not_found ->
+  with
+  | Not_found ->
     Eio.traceln
       "@[Could not find an environment variable.  Is the .envrc configured?@]@.";
     exit 1

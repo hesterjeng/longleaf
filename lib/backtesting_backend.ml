@@ -19,8 +19,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
          tick_length = Input.options.tick;
          stats = Stats.empty ();
          order_history = Order.History.empty;
-         indicators = Indicators.empty ();
+         indicators = Input.options.context.indicators;
+         (* (match Input.options.context.indicators.ty with *)
+         (* | Options.IndicatorType.Live -> Indicators.empty Live *)
+         (* | Precomputed -> Indicators.empty Precomputed); *)
          positions = Backend_position.make () (* active_orders = []; *);
+         time = Ptime.min;
        }
 
   let context = Input.options.context
@@ -38,54 +42,55 @@ module Make (Input : BACKEND_INPUT) : S = struct
     match Input.target with
     | Some b -> b
     | None ->
-        Eio.traceln "Creating empty data_remaining for backtesting backend.";
-        Bars.empty ()
+      Eio.traceln "Creating empty data_remaining for backtesting backend.";
+      Bars.empty ()
 
   let place_order = State.place_order
   let received_data = Bars.empty ()
 
   let latest_bars _ =
-    let module Hashtbl = Bars.Hashtbl in
-    let latest : Bars.Latest.t =
-      Hashtbl.create (Hashtbl.length data_remaining)
+    let ( let* ) = Result.( let* ) in
+    let latest : Bars.Latest.t = Bars.Latest.empty () in
+    let* () =
+      Bars.fold data_remaining (Ok ()) @@ fun symbol vector prev ->
+      let* _ = prev in
+      Vector.pop vector |> function
+      | None -> Error.missing_data "backtesting_backend.ml:latest_bars"
+      | Some value ->
+        Bars.Latest.set latest symbol value;
+        Result.return @@ ()
     in
-    let found =
-      Hashtbl.to_seq data_remaining
-      |> Seq.find_map @@ fun (symbol, vector) ->
-         Vector.pop vector |> function
-         | None ->
-             Option.return @@ `MissingData "backtesting_backend.ml:latest_bars"
-         | Some value ->
-             Hashtbl.replace latest symbol value;
-             None
-    in
-    match found with Some err -> Error err | None -> Ok latest
+    Result.return latest
 
   let last_data_bar =
     Eio.traceln "@[Creating last data bar.@]";
-    let module Hashtbl = Bars.Hashtbl in
+    (* let module Hashtbl = Bars.Hashtbl in *)
     let ( let* ) = Result.( let* ) in
-    let tbl : Bars.Latest.t = Hashtbl.create 20 in
+    (* let tbl : Bars.Latest.t = Hashtbl.create 20 in *)
+    let tbl = Bars.Latest.empty () in
     let* target =
       match Input.target with
       | Some x -> Ok x
       | None -> Error.missing_data "No target to create last data bar"
     in
     let res =
-      Hashtbl.to_seq target
-      |>
-      let fold f = Seq.fold f (Ok tbl) in
-      fold @@ fun ok (symbol, vector) ->
+      Bars.fold target (Ok tbl)
+      @@
+      (* Hashtbl.to_seq target *)
+      (* |> *)
+      (* let fold f = Seq.fold f (Ok tbl) in *)
+      (* fold @@ *)
+      fun symbol vector ok ->
       let* _ = ok in
       let l = Vector.length vector in
       match l with
       | 0 -> Error.missing_data @@ Instrument.symbol symbol
       | _ ->
-          Result.return
-          @@
-          let item = Vector.get vector 0 in
-          Hashtbl.replace tbl symbol item;
-          tbl
+        Result.return
+        @@
+        let item = Vector.get vector 0 in
+        Bars.Latest.set tbl symbol item;
+        tbl
     in
     res
 

@@ -65,8 +65,8 @@ module Make (Alpaca : Util.CLIENT) = struct
       }
 
     let t_of_yojson x =
-      try t_of_yojson x
-      with Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
+      try t_of_yojson x with
+      | Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
         Eio.traceln "@[%a]@." Yojson.Safe.pp x;
         let err = Printexc.to_string e in
         invalid_arg @@ Format.asprintf "[account error] %s" err
@@ -122,36 +122,35 @@ module Make (Alpaca : Util.CLIENT) = struct
       let response = post ~headers ~body ~endpoint in
       match Response.status response with
       | `OK -> (
-          Response.body response |> Piaf.Body.to_string |> function
-          | Ok x ->
-              let json = Yojson.Safe.from_string x in
-              Eio.traceln "@[response from create_market_order:@[%a@]@.@]@."
-                Yojson.Safe.pp json;
-              let response_t = response_of_yojson json in
-              Pmutex.set order.id response_t.id;
-              Pmutex.set order.status response_t.status;
-              Ok ()
-          | Error e ->
-              Eio.traceln
-                "@[Error when converting create_market_order reponse body to \
-                 string: %a@]@."
-                Piaf.Error.pp_hum e;
-              Result.fail
-              @@ `FatalError
-                   "Error converting create_market_order response body to \
-                    string")
+        Response.body response |> Piaf.Body.to_string |> function
+        | Ok x ->
+          let json = Yojson.Safe.from_string x in
+          Eio.traceln "@[response from create_market_order:@[%a@]@.@]@."
+            Yojson.Safe.pp json;
+          let response_t = response_of_yojson json in
+          Pmutex.set order.id response_t.id;
+          Pmutex.set order.status response_t.status;
+          Ok ()
+        | Error e ->
+          Eio.traceln
+            "@[Error when converting create_market_order reponse body to \
+             string: %a@]@."
+            Piaf.Error.pp_hum e;
+          Result.fail
+          @@ `FatalError
+               "Error converting create_market_order response body to string")
       | s ->
-          Eio.traceln "@[[error] Status %a in create_market_order@]@."
-            Status.pp_hum s;
-          Eio.traceln "@[Order: %a@]@." Order.pp order;
-          let _ =
-            let+ account = Accounts.get_account () in
-            Eio.traceln "@[Account: %a@]@." Accounts.pp account;
-            let+ body = Response.body response |> Piaf.Body.to_string in
-            Eio.traceln "@[Body: %s@]@." body
-          in
-          Eio.traceln "@[Response: %a@]@." Response.pp_hum response;
-          Result.fail @@ `FatalError "Bad response in create_market_order"
+        Eio.traceln "@[[error] Status %a in create_market_order@]@."
+          Status.pp_hum s;
+        Eio.traceln "@[Order: %a@]@." Order.pp order;
+        let _ =
+          let+ account = Accounts.get_account () in
+          Eio.traceln "@[Account: %a@]@." Accounts.pp account;
+          let+ body = Response.body response |> Piaf.Body.to_string in
+          Eio.traceln "@[Body: %s@]@." body
+        in
+        Eio.traceln "@[Response: %a@]@." Response.pp_hum response;
+        Result.fail @@ `FatalError "Bad response in create_market_order"
 
     let get_all_orders () =
       let endpoint = "/v2/orders" in

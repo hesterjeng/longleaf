@@ -22,11 +22,11 @@ end
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)
 module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass (state : 'a State.t) instrument =
-    let signal = Signal.make instrument Buy true in
+    let signal = Signal.make instrument true in
     let ( let&& ) = Signal.let_and signal in
     let ( let$ ) = Signal.let_get_opt signal in
-    let+ i = Indicators.get_top state.indicators instrument in
-    let$ prev = i.previous in
+    let+ i = State.indicators state instrument in
+    let$ prev = State.indicators_back_n state instrument 1 in
     (* let$ prev_prev = prev.previous in *)
     let&& () = (prev.fso.k <=. prev.fso.d, "prev k <= d") in
     let&& () = (i.fso.k -. i.fso.d >=. 20.0, " k >= d by 20") in
@@ -36,7 +36,7 @@ module Buy_inp : Template.Buy_trigger.INPUT = struct
 
   let score (state : 'a State.t) symbol =
     let ( let+ ) = Result.( let+ ) in
-    let+ i = Indicators.get_top state.indicators symbol in
+    let+ i = State.indicators state symbol in
     -1.0 *. i.relative_strength_index
 
   let num_positions = 1
@@ -48,13 +48,19 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
   let make (state : 'a State.t) ~(buying_order : Order.t) =
-    let signal = Signal.make buying_order.symbol Sell false in
+    let signal = Signal.make buying_order.symbol false in
     let ( let$ ) = Signal.let_get_opt signal in
     let ( let|| ) = Signal.let_or signal in
     let* price = State.price state buying_order.symbol in
-    let* i = Indicators.get_top state.indicators buying_order.symbol in
-    let+ price_history = Bars.get_res state.bars buying_order.symbol in
-    let$ prev = i.previous in
+    let* i = State.indicators state buying_order.symbol in
+    let+ price_history =
+      match Bars.get state.bars buying_order.symbol with
+      | Some x -> Ok x
+      | None ->
+        Eio.traceln "throwing_crossover: Missing price history for symbol";
+        Error.missing_data "missing price history in throwing crossover"
+    in
+    let$ prev = State.indicators_back_n state buying_order.symbol 1 in
     let ticks_held = state.tick - buying_order.tick in
     let high_since_purchase =
       Util.last_n ticks_held price_history |> Math.max_close |> Item.last

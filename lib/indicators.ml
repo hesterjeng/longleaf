@@ -1,11 +1,15 @@
-module Hashtbl = Hashtbl.Make (Instrument)
-
 module Point_ty = struct
-  type cci = { cci : float; typical_price : float; ema_cci : float }
-  [@@deriving show, yojson, fields ~getters]
+  type cci = {
+    cci : float;
+    typical_price : float;
+    ema_cci : float;
+    ema_typical_price : float;
+    ema_absolute_divergence : float;
+  }
+  [@@deriving show, yojson, fields ~getters, ord]
 
   type fso = { k : float; d : float; d_slow : float }
-  [@@deriving show, yojson, fields ~getters]
+  [@@deriving show, yojson, fields ~getters, ord]
 
   (* Type for average divergance calculation *)
   type adx = {
@@ -15,11 +19,11 @@ module Point_ty = struct
     adx : float;
     ema_adx : float;
   }
-  [@@deriving show, yojson, fields ~getters]
+  [@@deriving show, yojson, fields ~getters, ord]
 
   type t = {
     symbol : Instrument.t;
-    timestamp : Time.t;
+    timestamp : Time.t; [@compare Ptime.compare]
     item : Item.t;
     price : float;
     volume : int;
@@ -43,30 +47,27 @@ module Point_ty = struct
     average_gain : float;
     average_loss : float;
     relative_strength_index : float;
-    (* fast_stochastic_oscillator_k : float; *)
-    (* fast_stochastic_oscillator_d : float; *)
-    (* fast_stochastic_oscillator_d68 : float; *)
     fourier_transform : (Fourier.t[@yojson.opaque]);
+        [@opaque] [@compare fun _ _ -> 0]
     ft_normalized_magnitude : float;
     fft_mean_squared_error : float;
     adx : adx;
     cci : cci;
     fso : fso;
-    previous : t option;
   }
-  [@@deriving show, yojson, fields ~getters]
+  [@@deriving show, yojson, fields ~getters, ord]
 
-  let last_n n (x : t) =
-    let rec aux (n : int) x acc =
-      match n with
-      | n when n > 0 -> (
-          let acc = x :: acc in
-          match x.previous with
-          | Some next -> aux (n - 1) next acc
-          | None -> acc)
-      | _ -> acc
-    in
-    aux n x []
+  (* let last_n n (x : t) = *)
+  (*   let rec aux (n : int) x acc = *)
+  (*     match n with *)
+  (*     | n when n > 0 -> ( *)
+  (*       let acc = x :: acc in *)
+  (*       match x.previous with *)
+  (*       | Some next -> aux (n - 1) next acc *)
+  (*       | None -> acc) *)
+  (*     | _ -> acc *)
+  (*   in *)
+  (*   aux n x [] *)
 
   let adx x = x.adx.adx
   let cci x = x.cci.cci
@@ -157,7 +158,11 @@ module RSI = struct
   let rsi mau mad =
     assert (not @@ Float.is_nan mad);
     assert (not @@ Float.is_nan mau);
-    let ratio = match mad with 0.0 -> 0.0 | _ -> mau /. mad in
+    let ratio =
+      match mad with
+      | 0.0 -> 0.0
+      | _ -> mau /. mad
+    in
     100.0 -. (100.0 *. (1.0 /. (1.0 +. ratio)))
 end
 
@@ -236,36 +241,36 @@ module ADX = struct
   let top previous current : t =
     match previous with
     | None ->
-        {
-          ema_positive_dm = 0.0;
-          ema_negative_dm = 0.0;
-          ema_di_diff = 0.0;
-          adx = 0.0;
-          ema_adx = 0.0;
-        }
+      {
+        ema_positive_dm = 0.0;
+        ema_negative_dm = 0.0;
+        ema_di_diff = 0.0;
+        adx = 0.0;
+        ema_adx = 0.0;
+      }
     | Some previous ->
-        let ema_positive_dm = ema_pdm 14 previous current in
-        let ema_negative_dm = ema_ndm 14 previous current in
-        let pdi =
-          positive_directional_indicator ~ema_pdm:ema_positive_dm 14 previous
-            current
-        in
-        let ndi =
-          negative_directional_indicator ~ema_ndm:ema_negative_dm 14 previous
-            current
-        in
-        let ema_di_diff =
-          let abs_diff = Float.abs (pdi -. ndi) in
-          assert (abs_diff <=. pdi +. ndi);
-          Math.ema 14 previous.adx.ema_di_diff @@ Float.abs (pdi -. ndi)
-        in
-        let adx = adx ~pdi ~ndi ~ema_di_diff in
-        let ema_adx = Math.ema 140 previous.adx.ema_adx adx in
-        let res : t =
-          { ema_positive_dm; ema_negative_dm; ema_di_diff; adx; ema_adx }
-        in
-        (* Eio.traceln "%a" Point_ty.pp_adx res; *)
-        res
+      let ema_positive_dm = ema_pdm 14 previous current in
+      let ema_negative_dm = ema_ndm 14 previous current in
+      let pdi =
+        positive_directional_indicator ~ema_pdm:ema_positive_dm 14 previous
+          current
+      in
+      let ndi =
+        negative_directional_indicator ~ema_ndm:ema_negative_dm 14 previous
+          current
+      in
+      let ema_di_diff =
+        let abs_diff = Float.abs (pdi -. ndi) in
+        assert (abs_diff <=. pdi +. ndi);
+        Math.ema 14 previous.adx.ema_di_diff @@ Float.abs (pdi -. ndi)
+      in
+      let adx = adx ~pdi ~ndi ~ema_di_diff in
+      let ema_adx = Math.ema 140 previous.adx.ema_adx adx in
+      let res : t =
+        { ema_positive_dm; ema_negative_dm; ema_di_diff; adx; ema_adx }
+      in
+      (* Eio.traceln "%a" Point_ty.pp_adx res; *)
+      res
 end
 
 module CCI = struct
@@ -279,33 +284,43 @@ module CCI = struct
   let top (previous : Point_ty.t option) (item : Item.t) : t =
     let typical_price = typical_price item in
     match previous with
-    | None -> { typical_price; cci = 0.0; ema_cci = 0.0 }
+    | None ->
+      {
+        typical_price;
+        cci = 0.0;
+        ema_cci = 0.0;
+        ema_typical_price = typical_price;
+        ema_absolute_divergence = 0.0;
+      }
     | Some prev ->
-        let sma_pt =
-          Math.simple_moving_average ~current:typical_price 140
-            (fun (x : Point_ty.t) -> x.cci.typical_price)
-            Point_ty.previous prev
-        in
-        let current_divergence = Float.abs @@ (typical_price -. sma_pt) in
-        let mean_absolute_divergence =
-          Math.simple_moving_average ~current:current_divergence 140
-            (fun (x : Point_ty.t) ->
-              Float.abs @@ (x.cci.typical_price -. sma_pt))
-            Point_ty.previous prev
-        in
-        let cci =
-          match mean_absolute_divergence with
-          | 0.0 -> prev.cci.cci
-          | _ -> (
-              1.0 /. 0.015
-              *. ((typical_price -. sma_pt) /. mean_absolute_divergence)
-              |> function
-              | x when x >=. 100.0 -> 100.0
-              | x when x <=. -100.0 -> -100.0
-              | x -> x)
-        in
-        let ema_cci = Math.ema 140 prev.cci.ema_cci cci in
-        { typical_price; cci; ema_cci }
+      let ema_typical_price =
+        Math.ema 140 prev.cci.ema_typical_price typical_price
+      in
+      let absolute_divergence =
+        Float.abs @@ (typical_price -. ema_typical_price)
+      in
+      let ema_absolute_divergence =
+        Math.ema 140 prev.cci.ema_absolute_divergence absolute_divergence
+      in
+      let cci =
+        match ema_absolute_divergence with
+        | 0.0 -> prev.cci.cci
+        | _ -> (
+          1.0 /. 0.015
+          *. ((typical_price -. ema_typical_price) /. ema_absolute_divergence)
+          |> function
+          | x when x >=. 100.0 -> 100.0
+          | x when x <=. -100.0 -> -100.0
+          | x -> x)
+      in
+      let ema_cci = Math.ema 140 prev.cci.ema_cci cci in
+      {
+        typical_price;
+        cci;
+        ema_cci;
+        ema_absolute_divergence;
+        ema_typical_price;
+      }
 end
 
 module FSO = struct
@@ -331,18 +346,13 @@ module FSO = struct
     match previous with
     | None -> { k = 0.0; d = 0.0; d_slow = 0.0 }
     | Some prev ->
-        let k = pK 140 price_history item in
-        let d =
-          Math.simple_moving_average ~current:k 35
-            (fun (x : Point_ty.t) -> x.fso.k)
-            Point_ty.previous prev
-        in
-        let d_slow =
-          Math.simple_moving_average ~current:d 34
-            (fun (x : Point_ty.t) -> x.fso.d)
-            Point_ty.previous prev
-        in
-        { k; d; d_slow }
+      let k = pK 140 price_history item in
+      let d = Math.ema 35 prev.fso.d k in
+      let d_slow = Math.ema 34 prev.fso.d_slow d in
+      (* Math.simple_moving_average ~current:d 34 *)
+      (*   (fun (x : Point_ty.t) -> x.fso.d) *)
+      (*   Point_ty.previous prev *)
+      { k; d; d_slow }
 end
 
 (* module Fourier = Fourier *)
@@ -367,8 +377,8 @@ module Point = struct
       match previous with
       | None -> (price, 0.0, 0.0)
       | Some prev ->
-          assert (Instrument.equal symbol prev.symbol);
-          (prev.price, prev.average_gain, prev.average_loss)
+        assert (Instrument.equal symbol prev.symbol);
+        (prev.price, prev.average_gain, prev.average_loss)
     in
     let average_gain =
       RSI.mau 14.0 previous_average_gain price previous_price
@@ -385,8 +395,8 @@ module Point = struct
       match previous with
       | None -> 0.0
       | Some prev ->
-          Fourier.mean_squared_error config prev.fourier_transform
-            fourier_transform
+        Fourier.mean_squared_error config prev.fourier_transform
+          fourier_transform
     in
     let previous_adl =
       match previous with
@@ -431,7 +441,6 @@ module Point = struct
         fourier_transform;
         ft_normalized_magnitude;
         fft_mean_squared_error;
-        previous;
         adx;
         cci;
       }
@@ -439,87 +448,321 @@ module Point = struct
     res
 end
 
-type t = Point.t Vector.vector Hashtbl.t
+module TimestampedTbl = struct
+  include CCHashtbl.Make (Instrument.Timestamped)
+
+  type tbl = Point.t t
+  type t = tbl
+
+  let get_key tbl = get tbl
+  let create () = create 200
+
+  let get (tbl : t) instrument (time : Time.t) =
+    let key = Instrument.Timestamped.{ instrument; time } in
+    match find_opt tbl key with
+    | None ->
+      Error.missing_data
+      @@ Format.asprintf
+           "Missing data from precomputed indicator table for @[%a@]@."
+           Instrument.Timestamped.pp key
+    | Some x ->
+      (* Eio.traceln "@[TimestampedTbl.get: Got @[%a@]@. from %a@]@." Point.pp x *)
+      (*   Instrument.Timestamped.pp key; *)
+      assert (Time.equal time x.timestamp);
+      Result.return x
+
+  let set (tbl : t) instrument time point =
+    let key = Instrument.Timestamped.{ instrument; time } in
+    match get_key tbl key with
+    | None -> replace tbl key point
+    | Some res -> (
+      let cmp = Point.compare res point in
+      match cmp with
+      | 0 -> ()
+      | _ ->
+        Eio.traceln "Trying to replace: @[%a@]@. with @[%a@]@." Point.pp res
+          Point.pp point;
+        invalid_arg "Attempt to rebind in indicators.ml")
+end
+
+type ty = Live | Precomputed [@@deriving show { with_path = false }]
+type t = { ty : ty; tbl : TimestampedTbl.t }
+
+(* FIXME:  This doesn't work I don't think *)
+let to_vector_table (x : t) =
+  Eio.traceln "BUGGED: Indicators.of_timestampedtbl";
+  let keys = TimestampedTbl.keys_list x.tbl in
+  let vector_tbl = Hashtbl.create 100 in
+  let symbols =
+    List.map (fun (k : Instrument.Timestamped.t) -> k.instrument) keys
+  in
+  let vector_of_symbol symbol =
+    let keys =
+      List.filter
+        (fun (k : Instrument.Timestamped.t) ->
+          Instrument.equal symbol k.instrument)
+        keys
+    in
+    let results =
+      List.map (fun k -> TimestampedTbl.get_key x.tbl k) keys
+      |> List.filter_map Fun.id |> Vector.of_list
+    in
+    Vector.sort'
+      (fun (x : Point.t) y -> Ptime.compare x.timestamp y.timestamp)
+      results;
+    Hashtbl.replace vector_tbl symbol results;
+    ()
+  in
+  List.iter vector_of_symbol symbols;
+  vector_tbl
 
 let pp : t Format.printer =
+ fun fmt x -> Format.fprintf fmt "new Indicator.t printer NYI"
+(* let keys = Bars.keys bars in *)
+(* let points = List.map (fun v -> Vector.get v i) in *)
+(* match x with *)
+(* | Live x -> *)
+(*   Format.fprintf fmt "custom indicator printer %a" Time.pp x *)
+(*   (\* let seq = Hashtbl.to_seq x in *\) *)
+(*   (\* let pp = Seq.pp @@ Pair.pp Instrument.pp (Vector.pp Point.pp) in *\) *)
+(*   (\* Format.fprintf fmt "@[%a@]@." pp seq *\) *)
+(* | Precomputed _ -> invalid_arg "Printing precomputed indicators NYI" *)
+
+(* let empty (x : Options.IndicatorType.t) = *)
+(*   match x with *)
+(*   | Live -> Live (Hashtbl.create 100) *)
+(*   | Precomputed -> Precomputed *)
+
+let empty ty = { ty; tbl = TimestampedTbl.create () }
+(* Live Ptime.min *)
+(* let get (x : vectortbl) symbol = Hashtbl.find_opt x symbol *)
+
+let get_top (x : t) ?time symbol =
+  match time with
+  | Some time -> TimestampedTbl.get x.tbl symbol time
+  | None -> Error.missing_data "Must pass time parameter to Indicators.get_top"
+
+let pp_i bars i : t Format.printer =
  fun fmt x ->
-  let seq = Hashtbl.to_seq x in
-  let pp = Seq.pp @@ Pair.pp Instrument.pp (Vector.pp Point.pp) in
-  Format.fprintf fmt "@[%a@]@." pp seq
-
-let empty () = Hashtbl.create 100
-let get (x : t) symbol = Hashtbl.find_opt x symbol
-let get_instrument (x : t) instrument = get x instrument
-
-let get_top (x : t) symbol =
-  match get x symbol with
-  | None ->
-      Error.missing_data
-      @@ Format.asprintf "Missing indicators vector for %a" Instrument.pp symbol
-  | Some vec -> (
-      match Vector.top vec with
-      | Some top -> Ok top
-      | None ->
-          Error.missing_data
-          @@ Format.asprintf "Indicators vector for %a is empty" Instrument.pp
-               symbol)
-
-let get_indicator (x : t) symbol f =
-  let res =
-    let open Option.Infix in
-    let* ind = get_instrument x symbol in
-    let+ top = Vector.top ind in
-    f top
-  in
-  Option.get_exn_or
-    (Format.asprintf "indicators.ml: Unable to get indicator for symbol %a"
-       Instrument.pp symbol)
-    res
-
-let initialize_single config bars symbol =
-  let initial_stats_vector = Vector.create () in
-  let bars_vec =
-    Bars.get bars symbol |> function
-    | Some x -> x
-    | None ->
-        invalid_arg "Expected to have bars data when initializing indicators"
-  in
-  (* Create a vector to store the data so far *)
-  let bars_upto_now = Vector.create () in
-  (* Function to generate the indicators from the bars *)
-  let fold i previous item =
-    let timestamp = Item.timestamp item in
-    let res =
-      Point.of_latest config timestamp bars_upto_now previous item symbol
+  let r =
+    let ( let* ) = Result.( let* ) in
+    Bars.fold bars (Ok []) @@ fun instrument vec acc ->
+    let* acc = acc in
+    let* i =
+      try
+        Vector.get vec i |> Item.timestamp |> fun time ->
+        get_top x ~time instrument
+      with
+      | _ -> Error.fatal "indicators.ml: illegal bars index access"
     in
-    Vector.push initial_stats_vector res;
-    Vector.push bars_upto_now (Vector.get bars_vec i);
-    Option.return res
+    Result.return @@ ((i.symbol, i.timestamp) :: acc)
   in
-  let _ =
-    (* Fold, so that we have access to the previous indicator record *)
-    Vector.foldi fold None bars_vec
-  in
-  initial_stats_vector
+  match r with
+  | Ok x ->
+    Format.fprintf fmt "%a"
+      (List.pp ~pp_sep:Format.newline (Pair.pp Instrument.pp Time.pp))
+      x
+  | Error _ -> Format.fprintf fmt "error in Indicators.pp_i"
+(* let* res = *)
+(*   match x with *)
+(*   | Precomputed tbl -> *)
+(*     let res = TimestampedTbl.get tbl symbol time in *)
+(*     res *)
+(*   | Live time -> *)
+(*     let res = TimestampedTbl.get symbol (Some time) in *)
+(*     res *)
+(* in *)
+(* (\* Eio.traceln "indicators.get_top:@[%a@]@." Point.pp res; *\) *)
+(* Result.return res *)
 
-let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t)
-    (x : t) =
-  let seq = Hashtbl.to_seq latest_bars in
-  let iter f = Seq.iter f seq in
-  iter @@ fun (symbol, latest) ->
-  let symbol_history =
-    Bars.get bars symbol |> function Some x -> x | None -> assert false
+(* let initialize_single ?(precompute = false) config bars symbol = *)
+(*   let initial_stats_vector = Vector.create () in *)
+(*   let bars_vec = *)
+(*     Bars.get bars symbol |> function *)
+(*     | Some x -> x *)
+(*     | None -> *)
+(*       invalid_arg "Expected to have bars data when initializing indicators" *)
+(*   in *)
+(*   (\* Create a vector to store the data so far *\) *)
+(*   let bars_upto_now = Vector.create () in *)
+(*   (\* Function to generate the indicators from the bars *\) *)
+(*   let fold i previous item = *)
+(*     let timestamp = Item.timestamp item in *)
+(*     let res = *)
+(*       Point.of_latest config timestamp bars_upto_now previous item symbol *)
+(*     in *)
+(*     if precompute then TimestampedTbl.set symbol timestamp res; *)
+(*     Vector.push initial_stats_vector res; *)
+(*     Vector.push bars_upto_now (Vector.get bars_vec i); *)
+(*     Option.return res *)
+(*   in *)
+(*   let _ = *)
+(*     (\* Fold, so that we have access to the previous indicator record *\) *)
+(*     Vector.foldi fold None bars_vec *)
+(*   in *)
+(*   initial_stats_vector *)
+
+(* let precompute (preload : Bars.t) (target : Bars.t) = *)
+(*   let config = { Indicator_config.fft = false; compare_preloaded = false } in *)
+(*   let symbols = Bars.keys preload in *)
+(*   assert (not @@ List.is_empty symbols); *)
+(*   let _ = *)
+(*     List.map (initialize_single ~precompute:true config preload) symbols *)
+(*   in *)
+(*   let _ = List.map (initialize_single ~precompute:true config target) symbols in *)
+(*   () *)
+
+let compute_i ?(compare_preloaded = false) indicators config full_bars ?history
+    i =
+  let ( let* ) = Result.( let* ) in
+  let* res =
+    Bars.fold full_bars (Ok Ptime.min)
+    @@ fun instrument full_price_history prev ->
+    let* _prev = prev in
+    let* current_item =
+      try Result.return @@ Vector.get full_price_history i with
+      | _ -> Error.missing_data "Missing index when computing price history"
+    in
+    let timestamp = Item.timestamp current_item in
+    (* let history = Price_history.empty () in *)
+    let* previous_indicator =
+      match i with
+      | n when n > 0 ->
+        let previous_item = Vector.get full_price_history (i - 1) in
+        let previous_item_timestamp = Item.timestamp previous_item in
+        assert (not @@ Time.equal timestamp previous_item_timestamp);
+        let* res =
+          TimestampedTbl.get indicators instrument previous_item_timestamp
+        in
+        if compare_preloaded then Eio.traceln "previous: %a" Point.pp res;
+        Result.return @@ Option.return res
+      | 0 -> Result.return None
+      | _ -> Error.fatal "Impossible negative indicator access"
+    in
+    (* let history = Vector.slice_iter full_price_history 0 i |> Vector.of_iter in *)
+    let* history =
+      (match history with
+      | None -> Option.return full_price_history
+      | Some h -> Bars.get h instrument)
+      |> function
+      | Some x -> Result.return x
+      | None -> Error.fatal "indicators.compute_i: Missing history vector"
+    in
+    let new_point =
+      Point.of_latest config timestamp history previous_indicator current_item
+        instrument
+    in
+    (* if Instrument.equal new_point.symbol (Security "CMCSA") then *)
+    (*   Eio.traceln "@[%a@]@." Point.pp new_point; *)
+    TimestampedTbl.set indicators instrument timestamp new_point;
+    Result.return timestamp
   in
-  let indicators_vector =
-    match get x symbol with
-    | Some i -> i
-    | None ->
-        let new_vector = initialize_single config bars symbol in
-        Hashtbl.replace x symbol new_vector;
-        new_vector
+  (* Eio.traceln "[ %a ] computed indicators %d" Time.pp res i; *)
+  Result.return res
+
+let compute_latest compare_preloaded config bars x =
+  let ( let* ) = Result.( let* ) in
+  match x.ty with
+  | Precomputed ->
+    let* () =
+      let* length = Bars.length_check bars in
+      match compare_preloaded with
+      | true ->
+        let _ = compute_i ~compare_preloaded x.tbl config bars (length - 1) in
+        Result.return ()
+      | false -> Result.return ()
+    in
+    Result.return x
+  | Live ->
+    let* length = Bars.length_check bars in
+    let* _ = compute_i x.tbl config bars (length - 1) in
+    Eio.traceln "computed indicators %d (latest)" (length - 1);
+    Result.return x
+
+let compute config bars =
+  let ( let* ) = Result.( let* ) in
+  let res = { tbl = TimestampedTbl.create (); ty = Precomputed } in
+  let history = Bars.empty () in
+  let* length = Bars.length_check bars in
+  let rec aux i =
+    let* i, prev_time = i in
+    if i mod 200 = 0 then Eio.traceln "compute: %d" i;
+    if i >= length then Result.return i
+    else
+      let* latest = Bars.get_i bars i in
+      Bars.append latest history;
+      let* time = compute_i res.tbl config bars ~history i in
+      let* () =
+        match Ptime.compare time prev_time with
+        | 1 -> Result.return ()
+        | _ ->
+          Error.fatal
+          @@ Format.asprintf "[ ERROR ] Time not increasing! @[%a@]@."
+               (pp_i bars i) res
+      in
+      aux @@ Result.return @@ (i + 1, time)
   in
-  let previous = Vector.top indicators_vector in
-  let new_indicators =
-    Point.of_latest config timestamp symbol_history previous latest symbol
-  in
-  Vector.push indicators_vector new_indicators
+  let* _ = aux @@ Result.return (0, Ptime.min) in
+  Result.return res
+
+(* let pp_status time : t Format.printer = *)
+(*  fun fmt x -> *)
+(*   match Time.equal time x.time with *)
+(*   | true -> Format.fprintf fmt "%a ok" pp_ty x.ty *)
+(*   | false -> Format.fprintf fmt "%a out of sync" pp_ty x.ty *)
+
+let precompute (preload : Bars.t) (target : Bars.t) =
+  let ( let* ) = Result.( let* ) in
+  let config = { Indicator_config.fft = false; compare_preloaded = false } in
+  let combined = Bars.combine [ preload; target ] in
+  Eio.traceln "Beginning Indicators.compute";
+  let* indicators = compute config combined in
+  Eio.traceln "Finished Indicators.compute";
+  Result.return indicators
+
+let precompute_preload (preload : Bars.t) =
+  let ( let* ) = Result.( let* ) in
+  let config = { Indicator_config.fft = false; compare_preloaded = false } in
+  Eio.traceln "Sorting combined bars...";
+  (* Bars.sort (Ord.opp Item.compare) preload; *)
+  Eio.traceln "Beginning Indicators.compute";
+  let* indicators = compute config preload in
+  Eio.traceln "Finished Indicators.compute";
+  Result.return indicators
+
+(* let add_latest config timestamp (bars : Bars.t) (latest_bars : Bars.Latest.t) *)
+(*     (x : t) = *)
+(*   match x with *)
+(*   | Precomputed -> () *)
+(*   | Live x -> *)
+(*     let iter f = Bars.Latest.iter f latest_bars in *)
+(*     iter @@ fun symbol latest -> *)
+(*     let symbol_history = *)
+(*       Bars.get bars symbol |> function *)
+(*       | Some x -> x *)
+(*       | None -> assert false *)
+(*     in *)
+(*     let indicators_vector = *)
+(*       match get x symbol with *)
+(*       | Some i -> i *)
+(*       | None -> *)
+(*         let new_vector = initialize_single config bars symbol in *)
+(*         Hashtbl.replace x symbol new_vector; *)
+(*         new_vector *)
+(*     in *)
+(*     let previous = Vector.top indicators_vector in *)
+(*     let new_indicators = *)
+(*       Point.of_latest config timestamp symbol_history previous latest symbol *)
+(*     in *)
+(*     (if config.compare_preloaded then *)
+(*        let from_tbl = TimestampedTbl.get symbol (Some timestamp) in *)
+(*        match from_tbl with *)
+(*        | Ok x -> *)
+(*          if x.price <>. new_indicators.price || x.fso.k <>. new_indicators.fso.k *)
+(*          then ( *)
+(*            Eio.traceln "Price mismatch: @[%a@]@.@[%a@]@." Point.pp *)
+(*              new_indicators Point.pp x; *)
+(*            () (\* invalid_arg "price mismatch" *\)) *)
+(*          else () *)
+(*        | Error _ -> ()); *)
+(*     Vector.push indicators_vector new_indicators *)

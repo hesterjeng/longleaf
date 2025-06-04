@@ -1,5 +1,5 @@
 module Headers = Piaf.Headers
-module Hashtbl = Bars.Hashtbl
+(* module Hashtbl = Bars.Hashtbl *)
 
 type item = {
   ticker : Instrument.t;
@@ -18,15 +18,14 @@ type item = {
 let item_of_yojson x =
   match x with
   | `Null ->
-      Result.fail @@ `JsonError "tiingo_api: received null in item_of_yojson"
+    Result.fail @@ `JsonError "tiingo_api: received null in item_of_yojson"
   | _ -> (
-      try Result.return @@ item_of_yojson x
-      with s ->
-        Eio.traceln "[tiingo_api] %a" Yojson.Safe.pp x;
-        let e = Printexc.to_string s in
-        Eio.traceln "[tiingo_api] %s" e;
-        Result.fail @@ `JsonError "Error while decoding json of Tiingo_api.item"
-      )
+    try Result.return @@ item_of_yojson x with
+    | s ->
+      Eio.traceln "[tiingo_api] %a" Yojson.Safe.pp x;
+      let e = Printexc.to_string s in
+      Eio.traceln "[tiingo_api] %s" e;
+      Result.fail @@ `JsonError "Error while decoding json of Tiingo_api.item")
 
 type t = item list [@@deriving show { with_path = false }]
 
@@ -50,7 +49,7 @@ let item_to_bar_item (x : item) : Item.t =
 let to_latest (l : t) : Bars.Latest.t =
   let res =
     List.map (fun (x : item) -> (x.ticker, item_to_bar_item x)) l
-    |> Seq.of_list |> Hashtbl.of_seq
+    |> Seq.of_list |> Bars.Latest.of_seq
   in
   res
 
@@ -61,8 +60,8 @@ let tiingo_client eio_env sw =
   match res with
   | Ok x -> x
   | Error s ->
-      Eio.traceln "%a" Piaf.Error.pp_hum s;
-      invalid_arg "Unable to create Tiingo client"
+    Eio.traceln "%a" Piaf.Error.pp_hum s;
+    invalid_arg "Unable to create Tiingo client"
 
 module Make (Tiingo : Util.CLIENT) = struct
   let client = Tiingo.client
@@ -103,7 +102,7 @@ module Make (Tiingo : Util.CLIENT) = struct
   module Data = struct
     module Request = Market_data_api.Request
     module Timeframe = Trading_types.Timeframe
-    module Hashbtl = Bars.Hashtbl
+    (* module Hashbtl = Bars.Hashtbl *)
 
     type t = {
       date : Time.t;
@@ -130,10 +129,10 @@ module Make (Tiingo : Util.CLIENT) = struct
         let endpoint =
           (match request.timeframe with
           | Day ->
-              Uri.of_string
-                ("/tiingo/daily/" ^ String.lowercase_ascii symbol ^ "/prices")
+            Uri.of_string
+              ("/tiingo/daily/" ^ String.lowercase_ascii symbol ^ "/prices")
           | _ ->
-              Uri.of_string ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices"))
+            Uri.of_string ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices"))
           |> fun e ->
           Uri.add_query_params' e
           @@ ([
@@ -144,14 +143,18 @@ module Make (Tiingo : Util.CLIENT) = struct
                   | x -> Option.return @@ Timeframe.to_string_tiingo x );
                 ("startDate", Option.return @@ Time.to_ymd request.start);
                 ( "forceFill",
-                  match request.timeframe with Day -> None | _ -> Some "true" );
+                  match request.timeframe with
+                  | Day -> None
+                  | _ -> Some "true" );
                 ( "columns",
                   match request.timeframe with
                   | Day -> None
                   | _ -> Option.return @@ "open,high,low,close,volume" );
               ]
              |> List.filter_map (fun (x, y) ->
-                    match y with None -> None | Some y -> Some (x, y)))
+                    match y with
+                    | None -> None
+                    | Some y -> Some (x, y)))
           |> (fun uri ->
           match request.end_ with
           | Some end_t -> Uri.add_query_param' uri ("endDate", Time.to_ymd end_t)
@@ -166,10 +169,10 @@ module Make (Tiingo : Util.CLIENT) = struct
           get ~headers ~endpoint |> function
           | Ok x -> x
           | Error e ->
-              Eio.traceln
-                "tiingo_api.ml: Error while getting historical Tiingo data: %a"
-                Error.pp e;
-              invalid_arg "Bad data when getting Tiingo historical bars"
+            Eio.traceln
+              "tiingo_api.ml: Error while getting historical Tiingo data: %a"
+              Error.pp e;
+            invalid_arg "Bad data when getting Tiingo historical bars"
         in
         (* Eio.traceln "keys: %a" Yojson.Safe.pp resp; *)
         resp |> resp_of_yojson |> List.map item_of |> fun l ->
@@ -184,7 +187,7 @@ module Make (Tiingo : Util.CLIENT) = struct
             let res =
               List.map (get_data request) request_symbols |> Seq.of_list
             in
-            Hashtbl.of_seq res)
+            Bars.of_seq res)
           split_requests
       in
       let final = Bars.combine r in

@@ -14,51 +14,58 @@ module Latest = struct
     Format.fprintf fmt "@[%d@]@." (Seq.length seq);
     Format.fprintf fmt "@[%a@]@." pp seq
 
+  let show x = Format.asprintf "%a" pp x
+  let fold (x : t) init f = Hashtbl.fold f x init
+
   let get x (symbol : Instrument.t) : (Item.t, Error.t) result =
     match Hashtbl.find_opt x symbol with
     | Some x -> Ok x
     | None ->
-        let err =
-          Format.asprintf "[error] Unable to find price data for %a in Bars.get"
-            Instrument.pp symbol
-        in
-        Eio.traceln "%a" pp x;
-        Error.missing_data err
+      let err =
+        Format.asprintf "[error] Unable to find price data for %a in Bars.get"
+          Instrument.pp symbol
+      in
+      Eio.traceln "%a" pp x;
+      Error.missing_data err
+
+  let iter f (x : t) : unit = Hashtbl.iter (fun x y -> f x y) x
 
   let timestamp (x : t) =
-    ( (fun f -> Hashtbl.fold f x (Ok None)) @@ fun _ item prev ->
+    let ( let* ) = Result.( let* ) in
+    let* res =
+      fold x (Ok None) @@ fun _ item prev ->
+      let* prev = prev in
       match prev with
-      | Ok None -> Result.return @@ Some (Item.timestamp item)
-      | Ok (Some prev_time) -> (
-          let current_timestamp = Item.timestamp item in
-          match Ptime.compare prev_time current_timestamp with
-          | 1 | 0 -> prev
-          | -1 ->
-              (* Eio.traceln *)
-              (*   "@[@[Time mismatch in latest bars:@]@.@[%a@]@.@[%a@]@.@]@." *)
-              (*   Time.pp prev_time Time.pp (Item.timestamp item); *)
-              Ok (Some current_timestamp)
-          | _ -> invalid_arg "Impossible return value from Ptime.compare")
-      | Error _ -> prev )
-    |> function
-    | Ok None ->
-        Eio.traceln "Current latest: %a" pp x;
-        Result.fail @@ `MissingData "No values in Bars.Latest.t"
-    | Ok (Some res) ->
-        (* Eio.traceln "Ok Bars.Latest.t"; *)
-        Ok res
-    | Error e ->
-        Eio.traceln "%a" pp x;
-        Result.fail @@ `MissingData e
+      | None -> Result.return @@ Option.return @@ Item.timestamp item
+      | Some prev_time -> (
+        let current_timestamp = Item.timestamp item in
+        match Ptime.compare prev_time current_timestamp with
+        | 0 -> Result.return prev
+        | -1
+        | 1 ->
+          Error.fatal "Time mismatch in Bars.timestamp"
+        | _ -> Error.fatal "Impossible return value from Ptime.compare")
+    in
+    match res with
+    | None -> Error.missing_data "No values in Bars.Latest.t"
+    | Some t -> Result.return t
+
+  let of_seq x = Hashtbl.of_seq x
+  let set x symbol value = Hashtbl.replace x symbol value
 end
 
 type t = Price_history.t Hashtbl.t
+
+let of_seq x = Hashtbl.of_seq x
+let fold (x : t) init f = Hashtbl.fold f x init
 
 let pp : t Format.printer =
  fun fmt x ->
   let seq = Hashtbl.to_seq x in
   let pp = Seq.pp @@ Pair.pp Instrument.pp Price_history.pp in
   Format.fprintf fmt "@[%a@]@." pp seq
+
+let show x = Format.asprintf "%a" pp x
 
 let pp_stats : t Format.printer =
  fun fmt x ->
@@ -75,15 +82,15 @@ let length (x : t) =
     match length with
     | 0 -> Vector.length vec
     | _ -> (
-        let new_length = Vector.length vec in
-        match length = new_length with
-        | true -> length
-        | false ->
-            Eio.traceln
-              "error: bars.ml: Length mistmatch at symbol %a: previous length: \
-               %d current length: %d"
-              Instrument.pp symbol length new_length;
-            Int.min length new_length)
+      let new_length = Vector.length vec in
+      match length = new_length with
+      | true -> length
+      | false ->
+        Eio.traceln
+          "error: bars.ml: Length mistmatch at symbol %a: previous length: %d \
+           current length: %d"
+          Instrument.pp symbol length new_length;
+        Int.min length new_length)
   in
   Seq.fold folder 0 seq
 
@@ -112,13 +119,28 @@ let split ~midpoint ~target_length ~combined_length (x : t) : t * t =
 
 let get (x : t) symbol = Hashtbl.find_opt x symbol
 
+let get_i (x : t) i : (Latest.t, Error.t) result =
+  let ( let* ) = Result.( let* ) in
+  let tbl = Hashtbl.create 100 in
+  let* () =
+    fold x (Ok ()) @@ fun instrument history acc ->
+    let* _ = acc in
+    let* elt =
+      try Result.return @@ Vector.get history i with
+      | _ -> Error.missing_data "bars.ml: attempted illegal bars index access"
+    in
+    Hashtbl.replace tbl instrument elt;
+    Result.return ()
+  in
+  Result.return tbl
+
 let get_res (x : t) symbol =
   match get x symbol with
   | None ->
-      Result.fail
-      @@ `MissingData
-           (Format.asprintf "[error: Bars.get_err] Symbol history for %a"
-              Instrument.pp symbol)
+    Result.fail
+    @@ `MissingData
+         (Format.asprintf "[error: Bars.get_err] Symbol history for %a"
+            Instrument.pp symbol)
   | Some x -> Result.return x
 
 let sort cmp (x : t) = Hashtbl.iter (fun _ vector -> Vector.sort' cmp vector) x
@@ -132,10 +154,10 @@ let add_order (order : Order.t) (data : t) =
     Vector.pop symbol_history |> function
     | Some x -> Result.return x
     | None ->
-        Result.fail
-        @@ `MissingData
-             (Format.asprintf "[error: Bars.add_order] No data for %a in bars"
-                Instrument.pp symbol)
+      Result.fail
+      @@ `MissingData
+           (Format.asprintf "[error: Bars.add_order] No data for %a in bars"
+              Instrument.pp symbol)
   in
   let* _ =
     match Ptime.equal order.timestamp @@ Item.timestamp top with
@@ -157,11 +179,9 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
         (fun (sym, data) ->
           match data with
           | `List datapoints ->
-              let* instrument = Instrument.of_string_res sym in
-              let res =
-                List.map Item.t_of_yojson datapoints |> Vector.of_list
-              in
-              Result.return (instrument, res)
+            let* instrument = Instrument.of_string_res sym in
+            let res = List.map Item.t_of_yojson datapoints |> Vector.of_list in
+            Result.return (instrument, res)
           | _ -> Error.json "Expected a list of datapoints in Bars.t_of_yojson")
         assoc
     in
@@ -169,6 +189,11 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
     Result.return @@ Hashtbl.of_seq seq
   in
   res
+
+let of_file file =
+  Yojson.Safe.from_file file |> t_of_yojson |> function
+  | Ok x -> x
+  | Error e -> invalid_arg @@ Error.show e
 
 let yojson_of_t (x : t) : Yojson.Safe.t =
   `Assoc
@@ -183,6 +208,7 @@ let yojson_of_t (x : t) : Yojson.Safe.t =
     ]
 
 let keys (x : t) = Hashtbl.to_seq_keys x |> Seq.to_list
+let iter f (x : t) : unit = Hashtbl.iter f x
 
 (* FIXME: This function does a lot of work to ensure that things are in the correct order *)
 let combine (l : t list) : t =
@@ -196,7 +222,8 @@ let combine (l : t list) : t =
           | None -> Vector.create ())
         (Vector.of_list l)
     in
-    Vector.sort' Item.compare data;
+    Vector.uniq_sort Item.compare data;
+    (* Vector.sort' Item.compare data; *)
     data
   in
   let new_table = Hashtbl.create @@ List.length keys in
@@ -209,24 +236,12 @@ let copy (x : t) : t =
   Hashtbl.of_seq tbl
 
 let append (latest : Latest.t) (x : t) =
-  Hashtbl.to_seq latest
-  |> Seq.iter @@ fun (symbol, item) ->
-     match get x symbol with
-     | None -> Hashtbl.replace x symbol @@ Vector.return item
-     | Some h -> Vector.push h item
-
-let print_to_file ?(filename : string option) bars prefix =
-  let bars_json = yojson_of_t bars in
-  let str = Yojson.Safe.to_string bars_json in
-  let tail =
-    match filename with
-    | Some n -> n
-    | None -> Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
-  in
-  let filename = Format.sprintf "data/%s_%s.json" prefix tail in
-  let oc = open_out filename in
-  output_string oc str;
-  close_out oc
+  Hashtbl.iter
+    (fun symbol item ->
+      match get x symbol with
+      | None -> Hashtbl.replace x symbol @@ Vector.return item
+      | Some h -> Vector.push h item)
+    latest
 
 let print_to_file_direct bars filename =
   let bars_json = yojson_of_t bars in
@@ -234,6 +249,35 @@ let print_to_file_direct bars filename =
   let oc = open_out filename in
   output_string oc str;
   close_out oc
+
+let print_to_file ?(filename : string option) bars prefix =
+  let tail =
+    match filename with
+    | Some n -> n
+    | None -> Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
+  in
+  let filename = Format.sprintf "data/%s_%s.json" prefix tail in
+  print_to_file_direct bars filename
+
+let map f (x : t) : t = Hashtbl.to_seq x |> Seq.map f |> Hashtbl.of_seq
+
+let length_check (x : t) =
+  let ( let* ) = Result.( let* ) in
+  let res =
+    fold x (Result.return @@ -1) @@ fun _ history acc ->
+    let* acc = acc in
+    let l = Vector.length history in
+    match acc with
+    | -1 -> Result.return l
+    | x ->
+      let* ok =
+        match acc = x with
+        | true -> Result.return acc
+        | false -> Error.fatal "Mismatched bars vector lengths"
+      in
+      Result.return ok
+  in
+  res
 
 module Infill = struct
   (* Alpaca market data api can have missing data. *)
@@ -277,21 +321,21 @@ module Infill = struct
             match Timetbl.find_opt tbl current_time with
             | Some _ -> ()
             | None ->
-                let previous_time =
-                  if i > 0 then
-                    Vector.get most_used_vector (i - 1) |> Item.timestamp
-                  else (
-                    Eio.traceln "Lacking initial value, using first value.";
-                    let found = Hashtbl.find original_bars symbol in
-                    assert (not @@ Vector.is_empty found);
-                    Vector.get found 0 |> Item.timestamp)
-                in
-                (* Eio.traceln "Creating value for %d: %s" i current_time; *)
-                let previous_value =
-                  Timetbl.find_opt tbl previous_time
-                  |> Option.get_exn_or "Expected to find previous time"
-                in
-                Timetbl.replace tbl current_time @@ previous_value)
+              let previous_time =
+                if i > 0 then
+                  Vector.get most_used_vector (i - 1) |> Item.timestamp
+                else (
+                  Eio.traceln "Lacking initial value, using first value.";
+                  let found = Hashtbl.find original_bars symbol in
+                  assert (not @@ Vector.is_empty found);
+                  Vector.get found 0 |> Item.timestamp)
+              in
+              (* Eio.traceln "Creating value for %d: %s" i current_time; *)
+              let previous_value =
+                Timetbl.find_opt tbl previous_time
+                |> Option.get_exn_or "Expected to find previous time"
+              in
+              Timetbl.replace tbl current_time @@ previous_value)
           most_used_vector;
         (* Now, we should have good tables whose lengths are appropriate. *)
         (* We need to convert the current table back to a vector. *)

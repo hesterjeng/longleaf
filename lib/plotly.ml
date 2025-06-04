@@ -28,17 +28,14 @@ let layout title =
       (*     ]; *)
     ]
 
-let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
-    (indicators : Indicators.t) indicator_name indicator_get
-    (symbol : Instrument.t) : Yojson.Safe.t option =
-  let+ indicators_vec =
-    match Indicators.get indicators symbol with
-    | Some indicators -> Some indicators
-    | None ->
-        Eio.traceln "Could not get indicators for %a from mutex?" Instrument.pp
-          symbol;
-        None
-  in
+let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") indicators_tbl
+    indicator_name indicator_get (symbol : Instrument.t) : Yojson.Safe.t option
+    =
+  (* let* indicators = Option.return @@ Indicators.of_timestampedtbl () *)
+  (* in *)
+  let ( let* ) = Option.( let* ) in
+  let* indicators_vec = Hashtbl.get indicators_tbl symbol in
+  assert (not @@ Vector.is_empty indicators_vec);
   let time (p : Indicators.Point.t) : Yojson.Safe.t =
     let timestamp = Ptime.to_rfc3339 p.timestamp in
     `String timestamp
@@ -63,23 +60,24 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
   let visible = if show then "true" else "legendonly" in
   (* if String.equal "SMA 5" indicator_name && String.equal symbol "NVDA" then *)
   (*   Eio.traceln "@[%a@]@." (List.pp ~pp_sep:Format.newline Yojson.Safe.pp) y; *)
-  `Assoc
-    [
-      ("x", `List x);
-      ("y", `List y);
-      ("text", `String indicator_name);
-      ("name", `String indicator_name);
-      ("yaxis", `String yaxis);
-      ("type", `String "scatter");
-      ("visible", `String visible);
-      ( "line",
-        `Assoc
-          [
-            (* ("color", `String "red"); *)
-            ("dash", `String "dash");
-            ("width", `Int 2);
-          ] );
-    ]
+  Option.return
+  @@ `Assoc
+       [
+         ("x", `List x);
+         ("y", `List y);
+         ("text", `String indicator_name);
+         ("name", `String indicator_name);
+         ("yaxis", `String yaxis);
+         ("type", `String "scatter");
+         ("visible", `String visible);
+         ( "line",
+           `Assoc
+             [
+               (* ("color", `String "red"); *)
+               ("dash", `String "dash");
+               ("width", `Int 2);
+             ] );
+       ]
 
 let price_trace (data : Item.t list) (symbol : Instrument.t) : Yojson.Safe.t =
   let x =
@@ -281,7 +279,9 @@ module Stats = struct
           (Instrument.symbol x.symbol)
           (String.concat "<br>" x.reason)
       in
-      match x.side with Buy -> `Left hovertext | Sell -> `Right hovertext
+      match x.side with
+      | Buy -> `Left hovertext
+      | Sell -> `Right hovertext
     in
     let pair = List.partition_filter_map filter item.orders in
     let buy_hovertext, sell_hovertext =

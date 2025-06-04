@@ -27,7 +27,7 @@ type t = { history : item list; position_ratio : PositionRatio.t }
 
 let empty () : t = { position_ratio = PositionRatio.none; history = [] }
 
-let append (i : item) (x : t) =
+let cons (x : t) (i : item) =
   { history = i :: x.history; position_ratio = x.position_ratio }
 
 let compare x y = Ptime.compare x.time y.time
@@ -44,6 +44,7 @@ let increment_position_ratio (x : t) =
   { x with position_ratio = PositionRatio.increment x.position_ratio }
 
 (* FIXME: This seems strange, why are we converting to an array and then unconverting? *)
+(* BUG: very high computational complexity *)
 let add_orders (h : Order.History.t) (x : t) : t =
   let orders = h.all in
   let stats_array = Array.of_list x.history in
