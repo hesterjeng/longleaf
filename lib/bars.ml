@@ -352,4 +352,19 @@ end
 
 module V2 = struct
   type t = Price_history.V2.t Hashtbl.t
+
+  let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
+    let ( let* ) = Result.( let* ) in
+    let bars = Yojson.Safe.Util.member "bars" json in
+    let assoc = Yojson.Safe.Util.to_assoc bars in
+    let* mapped =
+      Result.map_l
+        (fun (symbol, json) ->
+          let* instrument = Instrument.of_string_res symbol in
+          let* ph = Price_history.V2.t_of_yojson json in
+          Result.return @@ (instrument, ph))
+        assoc
+    in
+    let seq = Seq.of_list mapped in
+    Result.return @@ Hashtbl.of_seq seq
 end
