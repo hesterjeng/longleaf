@@ -19,7 +19,7 @@ type 'a t = {
   stats : Stats.t;
   positions : Backend_position.t;
   (* These are mutable hashtables tracking data *)
-  indicators : Indicators.t;
+  (* indicators : Indicators.t; *)
   (* Historical data *)
   bars : Bars.V2.t;
   time : Time.t;
@@ -32,9 +32,9 @@ type 'a t = {
 
 let listen (x : _ t) = { x with current = Listening }
 
-let indicators (state : _ t) symbol =
-  (* Eio.traceln "state: %a" Time.pp state.time; *)
-  Indicators.get_top state.indicators ~time:state.time symbol
+(* let indicators (state : _ t) symbol = *)
+(*   (\* Eio.traceln "state: %a" Time.pp state.time; *\) *)
+(*   Indicators.get_top state.indicators ~time:state.time symbol *)
 
 (* let indicators_back_n (state : _ t) symbol n = *)
 (*   let ( let* ) = Option.( let* ) in *)

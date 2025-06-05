@@ -303,6 +303,13 @@ end
 module V2 = struct
   type t = Price_history.V2.t Hashtbl.t
 
+  let copy x =
+    let copied = Hashtbl.copy x in
+    Hashtbl.iter
+      (fun s ph -> Hashtbl.replace copied s @@ Price_history.V2.copy ph)
+      x;
+    copied
+
   let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
     let ( let* ) = Result.( let* ) in
     let bars = Yojson.Safe.Util.member "bars" json in
@@ -317,6 +324,12 @@ module V2 = struct
     in
     let seq = Seq.of_list mapped in
     Result.return @@ Hashtbl.of_seq seq
+
+  let yojson_of_t (x : t) : Yojson.Safe.t =
+    Eio.traceln "Bars.V2.yojson_of_t NYI";
+    `Null
+
+  let empty () = Hashtbl.create 100
 
   let get (x : t) instrument =
     Hashtbl.find_opt x instrument |> function

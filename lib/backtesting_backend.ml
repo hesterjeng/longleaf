@@ -19,7 +19,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          tick_length = Input.options.tick;
          stats = Stats.empty ();
          order_history = Order.History.empty;
-         indicators = Input.options.context.indicators;
+         (* indicators = Input.options.context.indicators; *)
          (* (match Input.options.context.indicators.ty with *)
          (* | Options.IndicatorType.Live -> Indicators.empty Live *)
          (* | Precomputed -> Indicators.empty Precomputed); *)
@@ -38,12 +38,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let save_received = context.save_received
 
   (* Ordered in reverse time order when INPUT is created *)
-  let data_remaining =
+  let data_remaining : Bars.Latest.t Queue.t =
     match Input.target with
     | Some b -> b
     | None ->
-      Eio.traceln "Creating empty data_remaining for backtesting backend.";
-      Bars.empty ()
+      Eio.traceln "Creating empty data_remaining for backtesting backend?";
+      Queue.create ()
 
   let place_order = State.place_order
   let received_data = Bars.empty ()

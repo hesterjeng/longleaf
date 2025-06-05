@@ -122,6 +122,7 @@ module Make (Tiingo : Util.CLIENT) = struct
       Item.make ~timestamp:date ~open_ ~high ~low ~close
         ~volume:(Int.of_float volume) ~last:close ~order:None ()
 
+    (* Function for downloading preload bars data on the fly *)
     let top ?(afterhours = false) (starting_request : Request.t) =
       let split_requests = Request.split starting_request in
       let get_data (request : Request.t) instrument =

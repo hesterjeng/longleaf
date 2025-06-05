@@ -87,7 +87,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          content;
          stats = Stats.empty ();
          order_history = Order.History.empty;
-         indicators = Indicators.empty Live;
+         (* indicators = Indicators.empty Live; *)
          time = Ptime.min;
        }
 

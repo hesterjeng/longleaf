@@ -9,13 +9,29 @@ module V2 = struct
   type t = {
     data : (float, float64_elt, c_layout) Array2.t;
     current : int;
+    size : int;
     indicators_computed : bool;
   }
 
   type slice = (float, float64_elt, c_layout) Array1.t
 
   module Row = struct
-    type t = Index | Time | Last | Open | High | Low | Close | Volume | SMA
+    type t =
+      | Index
+      | Time
+      | Last
+      | Open
+      | High
+      | Low
+      | Close
+      | Volume
+      | SMA
+      | FSO_K
+      | FSO_D
+      | RSI
+    [@@deriving variants]
+
+    let count = List.length Variants.descriptions
 
     let to_int = function
       | Index -> 0
@@ -27,6 +43,9 @@ module V2 = struct
       | Close -> 6
       | Volume -> 7
       | SMA -> 8
+      | FSO_K -> 9
+      | FSO_D -> 10
+      | RSI -> 11
   end
 
   let length x = Array2.dim2 x.data
@@ -41,18 +60,28 @@ module V2 = struct
   (* Row 6 : close *)
   (* Row 7:  volume *)
   (* Row 8 : SMA *)
+  (* Row 9 : FSO_K *)
+  (* Row 10 : FSO_D *)
+  (* Row 11 : RSI *)
 
   let set (res : t) (x : Row.t) i value =
     Array2.set res.data (Row.to_int x) i @@ value
 
   let get (res : t) (x : Row.t) i = Array2.get res.data (Row.to_int x) i
+  let get_top (res : t) (x : Row.t) = get res x @@ res.current
 
   let make size : t =
     {
-      data = Array2.create float64 c_layout 9 size;
+      data = Array2.create float64 c_layout Row.count size;
       current = 0;
+      size;
       indicators_computed = false;
     }
+
+  let copy (x : t) =
+    let r = make x.size in
+    Array2.blit x.data r.data;
+    { r with current = x.current; indicators_computed = x.indicators_computed }
 
   let add_item (x : t) (item : Item.t) =
     let i = x.current in

@@ -46,6 +46,10 @@ module V2 : sig
   val get : t -> Instrument.t -> (Price_history.V2.t, Error.t) result
   val length : t -> (int, Error.t) result
   val of_file : string -> t
+  val yojson_of_t : t -> Yojson.Safe.t
+  val t_of_yojson : Yojson.Safe.t -> (t, Error.t) result
+  val empty : unit -> t
+  val copy : t -> t
   val append : Latest.t -> t -> (unit, Error.t) result
   val pp : t Format.printer
 end

@@ -74,7 +74,7 @@ module Context = struct
   type t = {
     strategy : string;
     runtype : RunType.t;
-    indicators : Indicators.t; [@opaque]
+    (* indicators : Indicators.t; [@opaque] *)
     eio_env : Eio_unix.Stdenv.base; [@opaque]
     longleaf_env : Environment.t; [@opaque]
     switch : Eio.Switch.t; [@opaque]

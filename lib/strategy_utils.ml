@@ -129,11 +129,11 @@ module Make (Backend : Backend_intf.S) = struct
     let* positions = Backend_position.update state.positions ~previous latest in
     let* time = Bars.Latest.timestamp latest in
     assert (Ptime.compare time state.time = 1);
-    Bars.append latest state.bars;
-    let* indicators =
-      Indicators.compute_latest context.compare_preloaded
-        Input.options.indicators_config state.bars state.indicators
-    in
+    let* () = Bars.V2.append latest state.bars in
+    (* let* indicators = *)
+    (*   Indicators.compute_latest context.compare_preloaded *)
+    (*     Input.options.indicators_config state.bars state.indicators *)
+    (* in *)
     let* value = Backend_position.value positions latest in
     let risk_free_value =
       Stats.risk_free_value state.stats Input.options.tick
@@ -150,7 +150,7 @@ module Make (Backend : Backend_intf.S) = struct
     in
     if context.print_tick_arg then
       Eio.traceln "[ %a ] CASH %f" Time.pp time value;
-    Result.return @@ { state with latest; stats; positions; time; indicators }
+    Result.return @@ { state with latest; stats; positions; time }
 
   let start_time = ref 0.0
 
@@ -172,8 +172,8 @@ module Make (Backend : Backend_intf.S) = struct
       if not Backend.Input.options.context.no_gui then (
         Pmutex.set mutices.data_mutex state.bars;
         Pmutex.set mutices.orders_mutex state.order_history;
-        Pmutex.set mutices.stats_mutex state.stats;
-        Pmutex.set mutices.indicators_mutex state.indicators);
+        Pmutex.set mutices.stats_mutex state.stats
+        (* Pmutex.set mutices.indicators_mutex state.indicators *));
       (* Eio.traceln "tick"; *)
       let* listened = listen_tick () in
       match listened with
@@ -204,8 +204,8 @@ module Make (Backend : Backend_intf.S) = struct
           Stats.add_orders state.order_history state.stats
         in
         Pmutex.set mutices.data_mutex state.bars;
-        Pmutex.set mutices.stats_mutex stats_with_orders;
-        Pmutex.set mutices.indicators_mutex state.indicators);
+        Pmutex.set mutices.stats_mutex stats_with_orders
+        (* Pmutex.set mutices.indicators_mutex state.indicators *));
       let filename = get_filename () in
       output_data state filename;
       output_order_history state filename;

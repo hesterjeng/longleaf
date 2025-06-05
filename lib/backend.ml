@@ -9,7 +9,7 @@ let make_bars (options : Options.t) =
   let symbols = options.symbols in
   let* bars =
     match preload with
-    | None -> Result.return @@ Bars.empty ()
+    | None -> Result.return @@ Bars.V2.empty ()
     | Download ->
       Eio.traceln "Downloading data from tiingo for preload";
       let module Param = struct
@@ -30,14 +30,15 @@ let make_bars (options : Options.t) =
       in
       let res = Tiingo.Data.top request in
       (* Bars.sort Item.compare res; *)
-      Result.return res
+      invalid_arg "Downloading Bars in V2 format NYI"
+      (* Result.return res *)
     | File file ->
       Eio.traceln "Preloading bars from %s" file;
-      let* res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
+      let* res = Yojson.Safe.from_file file |> Bars.V2.t_of_yojson in
       (* Bars.sort Item.compare res; *)
       Result.return res
     | Loaded b ->
-      let res = Bars.copy b in
+      let res = Bars.V2.copy b in
       (* Bars.sort Item.compare res; *)
       Result.return res
   in
@@ -45,25 +46,27 @@ let make_bars (options : Options.t) =
     match target with
     | None -> Ok None
     | Download -> Error.missing_data "NYI Download target"
-    | Loaded bars -> Result.return @@ Option.return @@ Bars.copy bars
+    | Loaded bars -> Result.return @@ Option.return @@ Bars.V2.copy bars
     | File t -> (
       let* res =
-        let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in
+        let conv = Yojson.Safe.from_file t |> Bars.V2.t_of_yojson in
         conv
       in
       (* Bars.sort (Ord.opp Item.compare) res; *)
       match context.runtype with
       | Options.RunType.Montecarlo
       | MultiMontecarlo ->
-        Result.return @@ Option.some
-        @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res
+        invalid_arg "Montecarlo testing with V2 bars NYI"
+        (* Result.return @@ Option.some *)
+        (* @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res *)
       | _ -> Result.return @@ Some res)
   in
   match context.runtype with
   | RandomSliceBacktest
   | MultiRandomSliceBacktest ->
-    let bars, target = Slice_backtesting.top ~options bars target in
-    Result.return @@ (bars, Some target)
+    invalid_arg "Random slice backtesting with V2 bars NYI"
+    (* let bars, target = Slice_backtesting.top ~options bars target in *)
+    (* Result.return @@ (bars, Some target) *)
   | Live
   | Manual
   | Paper
@@ -76,7 +79,8 @@ let make_bars (options : Options.t) =
   | AstarSearch ->
     Result.return @@ (bars, target)
 
-let make_backend_input (options : Options.t) bars target =
+let make_backend_input (options : Options.t) (bars : Bars.V2.t)
+    (target : Bars.V2.t option) =
   let ( let* ) = Result.( let* ) in
   (* let* bars, target = *)
   (*   match (bars, target) with *)

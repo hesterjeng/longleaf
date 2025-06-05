@@ -4,9 +4,8 @@ module type BACKEND_INPUT = sig
   val bars : Bars.V2.t
   (** Historical information, ordered with in time order *)
 
-  val target : Bars.t option
-  (** The target is the bars that will be iterated over in a backtest Ordered in
-      reverse time order, so that we can pop off next values easily *)
+  val target : Bars.Latest.t Queue.t option
+  (** The next data point *)
 end
 
 module type S = sig

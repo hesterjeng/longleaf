@@ -50,19 +50,26 @@ module EnumeratedSignal = struct
       in
       List.flat_map (fun f -> List.map f EnumeratedValue.all) constructors
 
-    let to_boolean_func (x : t) =
-     fun (indicators : Indicators.t) (instrument : Instrument.t)
-         (time : Time.t) ->
-      let ( let+ ) = Result.( let+ ) in
-      let+ i = Indicators.get_top ~time indicators instrument in
-      assert (Time.equal time i.timestamp);
-      match x with
-      | FSO_k_gt v -> i.fso.k >. EnumeratedValue.to_float v
-      | FSO_k_lt v -> i.fso.k <. EnumeratedValue.to_float v
-      | FSO_d_gt v -> i.fso.d >. EnumeratedValue.to_float v
-      | FSO_d_lt v -> i.fso.d <. EnumeratedValue.to_float v
-      | RSI_gt v -> i.relative_strength_index >. EnumeratedValue.to_float v
-      | RSI_lt v -> i.relative_strength_index <. EnumeratedValue.to_float v
+    let to_boolean_func (x : t) (state : 'a State.t) (instrument : Instrument.t)
+        =
+      let ( let* ) = Result.( let* ) in
+      let* data = Bars.V2.get state.bars instrument in
+      let res =
+        match x with
+        | FSO_k_gt v ->
+          Price_history.V2.get_top data FSO_K >. EnumeratedValue.to_float v
+        | FSO_k_lt v ->
+          Price_history.V2.get_top data FSO_K <. EnumeratedValue.to_float v
+        | FSO_d_gt v ->
+          Price_history.V2.get_top data FSO_D >. EnumeratedValue.to_float v
+        | FSO_d_lt v ->
+          Price_history.V2.get_top data FSO_D <. EnumeratedValue.to_float v
+        | RSI_gt v ->
+          Price_history.V2.get_top data RSI >. EnumeratedValue.to_float v
+        | RSI_lt v ->
+          Price_history.V2.get_top data RSI <. EnumeratedValue.to_float v
+      in
+      Result.return res
 
     (* let all = *)
   end
@@ -124,7 +131,7 @@ module EnumeratedSignal = struct
         | false -> Result.return false
         | true ->
           let boolean_func = Atom.to_boolean_func atom in
-          let* res = boolean_func state.indicators instrument time in
+          let* res = boolean_func state instrument in
           Result.return res
       in
       let or_ atom acc =
@@ -133,7 +140,7 @@ module EnumeratedSignal = struct
         | true -> Result.return true
         | false ->
           let boolean_func = Atom.to_boolean_func atom in
-          let* res = boolean_func state.indicators instrument time in
+          let* res = boolean_func state instrument in
           Result.return res
       in
       match x with
