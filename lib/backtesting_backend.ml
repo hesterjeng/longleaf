@@ -19,10 +19,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
          tick_length = Input.options.tick;
          stats = Stats.empty ();
          order_history = Order.History.empty;
-         (* indicators = Input.options.context.indicators; *)
-         (* (match Input.options.context.indicators.ty with *)
-         (* | Options.IndicatorType.Live -> Indicators.empty Live *)
-         (* | Precomputed -> Indicators.empty Precomputed); *)
          positions = Backend_position.make () (* active_orders = []; *);
          time = Ptime.min;
        }
@@ -49,50 +45,23 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let received_data = Bars.empty ()
 
   let latest_bars _ =
-    let ( let* ) = Result.( let* ) in
-    let latest : Bars.Latest.t = Bars.Latest.empty () in
-    let* () =
-      Bars.fold data_remaining (Ok ()) @@ fun symbol vector prev ->
-      let* _ = prev in
-      Vector.pop vector |> function
-      | None -> Error.missing_data "backtesting_backend.ml:latest_bars"
-      | Some value ->
-        Bars.Latest.set latest symbol value;
-        Result.return @@ ()
-    in
-    Result.return latest
+    match Queue.take_opt data_remaining with
+    | Some next -> Result.return next
+    | None -> Error.missing_data "backtesting_backend.ml: latest_bars"
 
   let last_data_bar =
     Eio.traceln "@[Creating last data bar.@]";
-    (* let module Hashtbl = Bars.Hashtbl in *)
     let ( let* ) = Result.( let* ) in
-    (* let tbl : Bars.Latest.t = Hashtbl.create 20 in *)
-    let tbl = Bars.Latest.empty () in
     let* target =
       match Input.target with
       | Some x -> Ok x
       | None -> Error.missing_data "No target to create last data bar"
     in
-    let res =
-      Bars.fold target (Ok tbl)
-      @@
-      (* Hashtbl.to_seq target *)
-      (* |> *)
-      (* let fold f = Seq.fold f (Ok tbl) in *)
-      (* fold @@ *)
-      fun symbol vector ok ->
-      let* _ = ok in
-      let l = Vector.length vector in
-      match l with
-      | 0 -> Error.missing_data @@ Instrument.symbol symbol
-      | _ ->
-        Result.return
-        @@
-        let item = Vector.get vector 0 in
-        Bars.Latest.set tbl symbol item;
-        tbl
-    in
-    res
+    let res = Queue.fold (fun _ latest -> Some latest) None target in
+    match res with
+    | Some res -> Result.return res
+    | None ->
+      Error.fatal "No last data bar in Backtesting_backend.last_data_bar?"
 
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in

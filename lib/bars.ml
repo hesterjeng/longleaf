@@ -361,4 +361,46 @@ module V2 = struct
 
   let pp : t Format.printer =
    fun fmt _ -> Format.fprintf fmt "@[<Bars.V2.pp opaque>@]@."
+
+  let latest_i (x : t) i =
+    let ( let* ) = Result.( let* ) in
+    let res = Latest.empty () in
+    let* () =
+      fold x (Ok ()) @@ fun instrument ph acc ->
+      let* _ = acc in
+      let get = Price_history.V2.get ph in
+      let* timestamp =
+        get Time i |> Ptime.of_float_s |> function
+        | Some x -> Ok x
+        | None -> Error.fatal "Illegal time in Bars.V2.last_bar"
+      in
+      Latest.set res instrument
+      @@ {
+           timestamp;
+           last = get Last i;
+           open_ = get Open i;
+           high = get High i;
+           low = get Low i;
+           close = get Close i;
+           volume = Int.of_float @@ get Volume i;
+         };
+      Result.return ()
+    in
+    Result.return res
+
+  let to_queue (x : t) : (Latest.t Queue.t, Error.t) result =
+    let ( let* ) = Result.( let* ) in
+    let q : Latest.t Queue.t = Queue.create () in
+    let* len = length x in
+    let* () =
+      let r = Int.range' 0 len in
+      Iter.fold
+        (fun acc i ->
+          let* _ = acc in
+          let* latest = latest_i x i in
+          Queue.add latest q;
+          Result.return ())
+        (Ok ()) r
+    in
+    Result.return q
 end

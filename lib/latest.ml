@@ -52,4 +52,4 @@ let timestamp (x : t) =
   | Some t -> Result.return t
 
 let of_seq x = Hashtbl.of_seq x
-let set x symbol value = Hashtbl.replace x symbol value
+let set x symbol (value : Item.t) = Hashtbl.replace x symbol value

@@ -233,6 +233,11 @@ module Run = struct
   let run_generic ?(run_options = run_options) ?bars ?target
       (module Strat : Strategy.BUILDER) context =
     let options = run_options context in
+    let bars =
+      match bars with
+      | Some bars -> bars
+      | None -> invalid_arg "Cannot Template.run_generic with bars None"
+    in
     (* let () = check_bars options in *)
     let module Backend =
       (val Backend.make options bars target |> function
