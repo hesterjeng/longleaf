@@ -99,15 +99,17 @@ module Make (Backend : Backend_intf.S) = struct
 
   let output_data (state : _ State.t) filename =
     if context.save_to_file then (
-      let prefix =
-        match Backend.is_backtest with
-        | true -> "backtest"
-        | false -> "live"
-      in
-      Eio.traceln "Saving all bars...";
-      Bars.print_to_file ~filename state.bars prefix;
-      Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received"))
-    else ()
+      Eio.traceln "strategy_utils: Save to file info NYI";
+      ())
+    (* let prefix = *)
+    (*   match Backend.is_backtest with *)
+    (*   | true -> "backtest" *)
+    (*   | false -> "live" *)
+    (* in *)
+    (* Eio.traceln "Saving all bars..."; *)
+    (* Bars.print_to_file ~filename state.bars prefix; *)
+    (* Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received")) *)
+      else ()
 
   let output_order_history (state : _ State.t) filename =
     if context.save_to_file then (

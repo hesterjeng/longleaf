@@ -1,7 +1,7 @@
 module type BACKEND_INPUT = sig
   val options : Options.t
 
-  val bars : Bars.t
+  val bars : Bars.V2.t
   (** Historical information, ordered with in time order *)
 
   val target : Bars.t option

@@ -30,6 +30,7 @@ module V2 = struct
   end
 
   let length x = Array2.dim2 x.data
+  let current x = x.current
 
   (* Row 0 : i (index)*)
   (* Row 1 : time (float) *)
@@ -53,29 +54,39 @@ module V2 = struct
       indicators_computed = false;
     }
 
-  let t_of_yojson (json : Yojson.Safe.t) =
+  let add_item (x : t) (item : Item.t) =
+    let i = x.current in
+    try
+      set x Index i (Float.of_int i);
+      set x Time i @@ Ptime.to_float_s @@ Item.timestamp item;
+      set x Last i @@ Item.last item;
+      set x Open i @@ Item.open_ item;
+      set x High i @@ Item.high item;
+      set x Low i @@ Item.low item;
+      set x Close i @@ Item.close item;
+      set x Volume i @@ Float.of_int @@ Item.volume item;
+      Ok ()
+    with
+    | _ -> Error.fatal "Illegal index accessin Price_history.V2.add_item"
+
+  let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
+    let ( let* ) = Result.( let* ) in
     match json with
     | `List items ->
       let size = List.length items in
       let res = make size in
-      let rec aux i l =
+      let rec aux i l acc =
         match l with
-        | [] -> ()
+        | [] -> acc
         | current_j :: xs ->
+          let* acc = acc in
           let current = Item.t_of_yojson current_j in
           assert (i < size);
           assert (get res SMA i =. 0.0);
-          set res Index i (Float.of_int i);
-          set res Time i @@ Ptime.to_float_s @@ Item.timestamp current;
-          set res Last i @@ Item.last current;
-          set res Open i @@ Item.open_ current;
-          set res High i @@ Item.high current;
-          set res Low i @@ Item.low current;
-          set res Close i @@ Item.close current;
-          set res Volume i @@ Float.of_int @@ Item.volume current;
-          aux (i + 1) xs
+          let* () = add_item res current in
+          aux (i + 1) xs @@ Result.return { acc with current = acc.current + 1 }
       in
-      aux 0 items;
+      let* res = aux 0 items (Ok res) in
       Result.return res
     | _ ->
       Error.json "Expected a list of datapoints in Price_history.V2.t_of_yojson"

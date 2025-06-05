@@ -53,7 +53,7 @@ let indicators (state : _ t) symbol =
 
 let record_order state order =
   let ( let* ) = Result.( let* ) in
-  let* () = Bars.add_order order state.bars in
+  (* let* () = Bars.add_order order state.bars in *)
   let new_h = Order.History.add state.order_history order in
   Result.return @@ { state with order_history = new_h }
 

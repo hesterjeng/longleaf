@@ -78,11 +78,11 @@ let make_bars (options : Options.t) =
 
 let make_backend_input (options : Options.t) bars target =
   let ( let* ) = Result.( let* ) in
-  let* bars, target =
-    match (bars, target) with
-    | Some b, Some t -> Result.return @@ (Bars.copy b, Option.map Bars.copy t)
-    | _ -> make_bars options
-  in
+  (* let* bars, target = *)
+  (*   match (bars, target) with *)
+  (*   | Some b, Some t -> Result.return @@ (Bars.copy b, Option.map Bars.copy t) *)
+  (*   | _ -> make_bars options *)
+  (* in *)
   Result.return
   @@ (module struct
        let options = options
