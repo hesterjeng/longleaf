@@ -114,10 +114,10 @@ let add_order (order : Order.t) (data : t) =
     | true -> Ok ()
     | false -> Result.fail @@ `FatalError "[error: bars.ml] Timestamp mismatch"
   in
-  let* order_added = Item.add_order order top in
-  Vector.push symbol_history order_added;
-  Ok ()
-(* assert (Ptime.equal order.timestamp @@ ) *)
+  invalid_arg "Bars.add_order deprecated"
+(* let* order_added = Item.add_order order top in *)
+(* Vector.push symbol_history order_added; *)
+(* Ok () *)
 
 let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in

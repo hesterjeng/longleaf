@@ -122,7 +122,7 @@ module Item = struct
         in
         Item.make ~timestamp ~open_:(get open_arr i) ~high:(get high_arr i)
           ~low:(get low_arr i) ~close:(get close_arr i) ~last:(get last_arr i)
-          ~volume:(get volume_arr i) ())
+          ~volume:(get volume_arr i))
       target_times
 
   let of_item_vector ~print ~preload ~target =

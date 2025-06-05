@@ -43,8 +43,8 @@ let item_to_bar_item (x : item) : Item.t =
   let close = x.prevClose in
   let last = x.last in
   let volume = x.volume in
-  let order = None in
-  Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume ~order ()
+  (* let order = None in *)
+  Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume
 
 let to_latest (l : t) : Bars.Latest.t =
   let res =
@@ -120,7 +120,7 @@ module Make (Tiingo : Util.CLIENT) = struct
     let item_of (x : t) : Item.t =
       let { date; open_; high; low; close; volume } = x in
       Item.make ~timestamp:date ~open_ ~high ~low ~close
-        ~volume:(Int.of_float volume) ~last:close ~order:None ()
+        ~volume:(Int.of_float volume) ~last:close
 
     (* Function for downloading preload bars data on the fly *)
     let top ?(afterhours = false) (starting_request : Request.t) =
