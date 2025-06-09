@@ -5,13 +5,11 @@ let fold (x : 'a Hashtbl.t) init f = Hashtbl.fold f x init
 
 module Latest = Latest
 
-type t = Price_history.V2.t Hashtbl.t
+type t = Price_history.t Hashtbl.t
 
 let copy x =
   let copied = Hashtbl.copy x in
-  Hashtbl.iter
-    (fun s ph -> Hashtbl.replace copied s @@ Price_history.V2.copy ph)
-    x;
+  Hashtbl.iter (fun s ph -> Hashtbl.replace copied s @@ Price_history.copy ph) x;
   copied
 
 let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
@@ -22,7 +20,7 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
     Result.map_l
       (fun (symbol, json) ->
         let* instrument = Instrument.of_string_res symbol in
-        let* ph = Price_history.V2.t_of_yojson json in
+        let* ph = Price_history.t_of_yojson json in
         Result.return @@ (instrument, ph))
       assoc
   in
@@ -44,7 +42,7 @@ let length (x : t) =
   let ( let* ) = Result.( let* ) in
   fold x (Ok 0) @@ fun _ ph acc ->
   let* acc = acc in
-  let len = Price_history.V2.length ph in
+  let len = Price_history.length ph in
   match acc with
   | 0 -> Ok len
   | n when len = n -> Ok acc
@@ -60,7 +58,7 @@ let append (latest : Latest.t) (x : t) =
   fold latest (Ok ()) @@ fun symbol item acc ->
   let* acc = acc in
   let* ph = get x symbol in
-  let* () = Price_history.V2.add_item ph item in
+  let* () = Price_history.add_item ph item in
   Result.return acc
 
 let pp : t Format.printer =
@@ -72,7 +70,7 @@ let latest_i (x : t) i =
   let* () =
     fold x (Ok ()) @@ fun instrument ph acc ->
     let* _ = acc in
-    let get = Price_history.V2.get ph in
+    let get = Price_history.get ph in
     let* timestamp =
       get Time i |> Ptime.of_float_s |> function
       | Some x -> Ok x
@@ -107,3 +105,7 @@ let to_queue (x : t) : (Latest.t Queue.t, Error.t) result =
       (Ok ()) r
   in
   Result.return q
+
+let combine (l : t list) : t =
+  let ( let* ) = Result.( let* ) in
+  ()

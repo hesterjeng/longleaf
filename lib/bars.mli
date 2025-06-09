@@ -11,7 +11,7 @@ end
 
 type t
 
-val get : t -> Instrument.t -> (Price_history.V2.t, Error.t) result
+val get : t -> Instrument.t -> (Price_history.t, Error.t) result
 val length : t -> (int, Error.t) result
 val of_file : string -> t
 val yojson_of_t : t -> Yojson.Safe.t

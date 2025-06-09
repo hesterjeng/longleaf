@@ -55,24 +55,26 @@ let mean_squared_error (config : Indicator_config.t) (fft1 : t) (fft2 : t) =
       (* Eio.traceln "%f" final; *)
       final
 
-(* Fast fourier transform *)
-let fft (config : Indicator_config.t) (l : Price_history.t) (last : Item.t) : t
-    =
-  if not config.fft then empty
-  else
-    let arr =
-      Vector.map Item.last l |> Vector.to_array |> fun a ->
-      Array.append a [| Item.last last |]
-    in
-    let bigarray = Genarray.of_array Float64 arr [| Array.length arr |] in
-    let yf = Owl_fft.D.rfft ~axis:0 bigarray in
-    (* Eio.traceln "fft: length : %a" (Array.pp Int.pp) (Genarray.shape yf); *)
-    yf
+(* Disabled because of new bars *)
 
-(* Normalized maginitude of fourier transform *)
-let fft_nm (config : Indicator_config.t) (yf : t) (l : Price_history.t) =
-  if not config.fft then 0.0
-  else
-    let length = Vector.length l + 1 |> Float.of_int in
-    let mag = Genarray.l2norm yf |> Genarray.sum' |> Complex.norm in
-    mag /. length
+(* Fast fourier transform *)
+(* let fft (config : Indicator_config.t) (l : Price_history.t) (last : Item.t) : t *)
+(*     = *)
+(*   if not config.fft then empty *)
+(*   else *)
+(*     let arr = *)
+(*       Vector.map Item.last l |> Vector.to_array |> fun a -> *)
+(*       Array.append a [| Item.last last |] *)
+(*     in *)
+(*     let bigarray = Genarray.of_array Float64 arr [| Array.length arr |] in *)
+(*     let yf = Owl_fft.D.rfft ~axis:0 bigarray in *)
+(*     (\* Eio.traceln "fft: length : %a" (Array.pp Int.pp) (Genarray.shape yf); *\) *)
+(*     yf *)
+
+(* (\* Normalized maginitude of fourier transform *\) *)
+(* let fft_nm (config : Indicator_config.t) (yf : t) (l : Price_history.t) = *)
+(*   if not config.fft then 0.0 *)
+(*   else *)
+(*     let length = Vector.length l + 1 |> Float.of_int in *)
+(*     let mag = Genarray.l2norm yf |> Genarray.sum' |> Complex.norm in *)
+(*     mag /. length *)

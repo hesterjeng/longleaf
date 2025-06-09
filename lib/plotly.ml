@@ -1,4 +1,4 @@
-module IP = Indicators.Point
+(* module IP = Indicators.Point *)
 open Option.Infix
 
 let layout title =
