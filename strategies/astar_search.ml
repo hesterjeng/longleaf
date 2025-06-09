@@ -124,7 +124,7 @@ module EnumeratedSignal = struct
     let ( let* ) = Result.( let* ) in
     fun (state : 'a State.t) (instrument : Instrument.t) :
         (Signal.t, Error.t) result ->
-      let time = state.time in
+      (* let time = state.time in *)
       let and_ atom acc =
         let* acc = acc in
         match acc with

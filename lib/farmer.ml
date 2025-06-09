@@ -58,7 +58,7 @@ let do_action state action =
     Option.return
     @@ { state with tc_status = Some (BuildVillager 25); food = food -. 50.0 }
 
-let next_possible_states state = invalid_arg "nyi"
+let next_possible_states _state = invalid_arg "nyi"
 
 module Diophantine = struct
   type node = int

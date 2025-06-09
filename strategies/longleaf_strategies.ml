@@ -80,7 +80,7 @@ let all = List.map fst Variants.descriptions
 (** Add a handler for your strategy here, imitating the styles of the others.
     There must be a handler or your strategy will not work. *)
 let strats =
-  let ( --> ) x y = (x, run_generic y) in
+  (* let ( --> ) x y = (x, run_generic y) in *)
   [ (* BuyAndHold --> (module Buy_and_hold.Make); *)
     (* Listener --> (module Listener.Make); *)
     (* Monaspa --> (module Monaspa.Make); *)
@@ -147,6 +147,7 @@ let run (context : Context.t) strategy =
     Eio.traceln "Running A*...";
     (* let context = { context with indicator_type = Precomputed } in *)
     let res = Astar_run.top context in
+    Eio.traceln "A* completed: %a" (Option.pp Astar_run.StrategySearch.pp) res;
     0.0
   | Live
   | Paper
