@@ -142,15 +142,16 @@ let set_item (x : t) (i : int) (item : Item.t) =
     set x Volume i @@ Float.of_int @@ Item.volume item;
     Ok ()
   with
-  | _ -> Error.fatal "Illegal index accessin Price_history.V2.add_item"
+  | _ -> Error.fatal "Illegal index accessin Price_history.V2.set_item"
 
 let add_item (x : t) (item : Item.t) =
   let ( let* ) = Result.( let* ) in
   let* () = set_item x x.current item in
   Result.return @@ { x with current = x.current + 1 }
 
-let of_items size (l : Item.t list) =
+let of_items (l : Item.t list) =
   let ( let* ) = Result.( let* ) in
+  let size = 2 * List.length l in
   let matrix = make size in
   let sorted = List.sort Item.compare l in
   let* res =

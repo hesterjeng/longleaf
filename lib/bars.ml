@@ -109,7 +109,7 @@ let to_queue (x : t) : (Latest.t Queue.t, Error.t) result =
 
 let keys (x : t) = Hashtbl.to_seq_keys x |> Seq.to_list
 
-let combine size (l : t list) : (t, Error.t) result =
+let combine (l : t list) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
   let keys = List.flat_map keys l |> List.uniq ~eq:Instrument.equal in
   let get_data key = Result.map_l (fun bar -> get bar key) l in
@@ -119,7 +119,7 @@ let combine size (l : t list) : (t, Error.t) result =
         let* acc = acc in
         let* data = get_data key in
         let items = List.flat_map Price_history.to_items data in
-        let* combined = Price_history.of_items size items in
+        let* combined = Price_history.of_items items in
         Result.return @@ Seq.cons (key, combined) acc)
       (Ok Seq.empty) keys
   in
