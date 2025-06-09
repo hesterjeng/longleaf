@@ -20,6 +20,7 @@ val empty : unit -> t
 val copy : t -> t
 val append : Latest.t -> t -> (unit, Error.t) result
 val pp : t Format.printer
+val combine : t list -> (t, Error.t) result
 
 (* val last_bar : t -> (Latest.t, Error.t) result *)
 val to_queue : t -> (Latest.t Queue.t, Error.t) result

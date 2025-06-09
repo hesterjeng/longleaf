@@ -10,8 +10,12 @@ let top ~(options : Options.t) bars target =
   let target =
     target |> Option.get_exn_or "Must have target for slice backtesting"
   in
-  let combined = Bars.combine [ preload; target ] in
-  let combined_length = Bars.length combined in
+  let combined = Bars.combine [ preload; target ] |> function | Ok x -> x | Error _ -> invalid_arg "problem in Bars.combine slice backtesting"
+  in
+  let combined_length = Bars.length combined |> function
+    | Ok x -> x
+    | _ -> invalid_arg "problem getting length of bars in slice backtesting"
+  in
   let midpoint = select_midpoint combined_length in
   let new_bars, new_target =
     Bars.split ~midpoint ~target_length:options.randomized_backtest_length
