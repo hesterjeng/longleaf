@@ -4,7 +4,7 @@ type t = {
   high : float; [@key "h"]
   low : float; [@key "l"]
   close : float; [@key "c"] (* We are using this as the latest price... *)
-  last : float; [@yojson.default Float.max_finite_value]
+  last : float; [@yojson.default Float.nan]
   volume : int; [@key "v"] (* order : Order.t option; [@default None] *)
 }
 [@@deriving show { with_path = false }, yojson, make]
