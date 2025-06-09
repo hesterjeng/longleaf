@@ -130,14 +130,16 @@ module Item = struct
     |> Vector.of_array
 end
 
-module Bars = struct
-  let of_bars ~preload ~(target : Bars.t) : Bars.t =
-    Bars.map
-      (fun (symbol, target) ->
-        let preload =
-          Bars.get preload symbol
-          |> Option.get_exn_or "Must have preload in monte carlo"
-        in
-        (symbol, Item.of_item_vector ~print:false ~preload ~target))
-      target
-end
+(* Disabled for V2 bars *)
+
+(* module Bars = struct *)
+(*   let of_bars ~preload ~(target : Bars.t) : Bars.t = *)
+(*     Bars.map *)
+(*       (fun (symbol, target) -> *)
+(*         let preload = *)
+(*           Bars.get preload symbol *)
+(*           |> Option.get_exn_or "Must have preload in monte carlo" *)
+(*         in *)
+(*         (symbol, Item.of_item_vector ~print:false ~preload ~target)) *)
+(*       target *)
+(* end *)

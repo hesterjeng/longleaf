@@ -9,7 +9,7 @@ let make_bars (options : Options.t) =
   let symbols = options.symbols in
   let* bars =
     match preload with
-    | None -> Result.return @@ Bars.V2.empty ()
+    | None -> Result.return @@ Bars.empty ()
     | Download ->
       Eio.traceln "Downloading data from tiingo for preload";
       let module Param = struct
@@ -34,11 +34,11 @@ let make_bars (options : Options.t) =
       (* Result.return res *)
     | File file ->
       Eio.traceln "Preloading bars from %s" file;
-      let* res = Yojson.Safe.from_file file |> Bars.V2.t_of_yojson in
+      let* res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
       (* Bars.sort Item.compare res; *)
       Result.return res
     | Loaded b ->
-      let res = Bars.V2.copy b in
+      let res = Bars.copy b in
       (* Bars.sort Item.compare res; *)
       Result.return res
   in
@@ -46,10 +46,10 @@ let make_bars (options : Options.t) =
     match target with
     | None -> Ok None
     | Download -> Error.missing_data "NYI Download target"
-    | Loaded bars -> Result.return @@ Option.return @@ Bars.V2.copy bars
+    | Loaded bars -> Result.return @@ Option.return @@ Bars.copy bars
     | File t -> (
       let* res =
-        let conv = Yojson.Safe.from_file t |> Bars.V2.t_of_yojson in
+        let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in
         conv
       in
       (* Bars.sort (Ord.opp Item.compare) res; *)
@@ -79,18 +79,18 @@ let make_bars (options : Options.t) =
   | AstarSearch ->
     Result.return @@ (bars, target)
 
-let make_backend_input (options : Options.t) (bars : Bars.V2.t)
-    (target : Bars.V2.t option) =
+let make_backend_input (options : Options.t) (bars : Bars.t)
+    (target : Bars.t option) =
   let ( let* ) = Result.( let* ) in
-  let bars = Bars.V2.copy bars in
+  let bars = Bars.copy bars in
   let* target =
     match target with
     | Some t ->
-      let* q = Bars.V2.to_queue t in
+      let* q = Bars.to_queue t in
       Result.return @@ Option.return q
     | None -> Result.return @@ None
   in
-  (* Option.map Bars.V2.to_queue target in *)
+  (* Option.map Bars.to_queue target in *)
   Result.return
   @@ (module struct
        let options = options

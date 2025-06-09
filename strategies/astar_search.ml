@@ -53,7 +53,7 @@ module EnumeratedSignal = struct
     let to_boolean_func (x : t) (state : 'a State.t) (instrument : Instrument.t)
         =
       let ( let* ) = Result.( let* ) in
-      let* data = Bars.V2.get state.bars instrument in
+      let* data = Bars.get state.bars instrument in
       let res =
         match x with
         | FSO_k_gt v ->

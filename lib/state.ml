@@ -21,7 +21,7 @@ type 'a t = {
   (* These are mutable hashtables tracking data *)
   (* indicators : Indicators.t; *)
   (* Historical data *)
-  bars : Bars.V2.t;
+  bars : Bars.t;
   time : Time.t;
   (* The current tick the state machine is on *)
   tick : int;

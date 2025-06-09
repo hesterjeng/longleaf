@@ -129,7 +129,7 @@ module Make (Backend : Backend_intf.S) = struct
     let* positions = Backend_position.update state.positions ~previous latest in
     let* time = Bars.Latest.timestamp latest in
     assert (Ptime.compare time state.time = 1);
-    let* () = Bars.V2.append latest state.bars in
+    let* () = Bars.append latest state.bars in
     (* let* indicators = *)
     (*   Indicators.compute_latest context.compare_preloaded *)
     (*     Input.options.indicators_config state.bars state.indicators *)

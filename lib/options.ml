@@ -40,7 +40,7 @@ end
 
 module Preload = struct
   (* Start with empty bars, load bars from a file, or download data *)
-  type t = None | File of string | Download | Loaded of Bars.V2.t
+  type t = None | File of string | Download | Loaded of Bars.t
   [@@deriving show, variants]
 
   let of_string_res x =
@@ -60,7 +60,7 @@ module Preload = struct
   let load = function
     | None -> invalid_arg "Cannot load missing preload in Options.Preload.load"
     | File s ->
-      let res = Bars.V2.of_file s in
+      let res = Bars.of_file s in
       res
     | Download -> invalid_arg "Cannot load download in Options.Preload.load"
     | Loaded b -> b

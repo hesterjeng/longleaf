@@ -146,10 +146,10 @@ let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
 (* in *)
 (* order_trace side orders *)
 
-let of_bars (bars : Bars.V2.t) indicators symbol : Yojson.Safe.t option =
+let of_bars (bars : Bars.t) indicators symbol : Yojson.Safe.t option =
   Eio.traceln "Plots.of_bars NYI";
   None
-(* let* data_vec = Bars.V2.get bars symbol in *)
+(* let* data_vec = Bars.get bars symbol in *)
 (* let data = Vector.to_list data_vec in *)
 (* let* ema_12_trace = *)
 (*   indicator_trace ~drop:12 indicators "EMA(12)" IP.ema_12 symbol *)
