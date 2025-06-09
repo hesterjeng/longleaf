@@ -183,5 +183,3 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
     Result.return res
   | _ ->
     Error.json "Expected a list of datapoints in Price_history.V2.t_of_yojson"
-
-let combine (l : t list) = Array2.slice_left

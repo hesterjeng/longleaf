@@ -53,12 +53,13 @@ let of_file file =
   | Ok x -> x
   | Error e -> invalid_arg @@ Error.show e
 
-let append (latest : Latest.t) (x : t) =
+let append (latest : Latest.t) (x : t) : (unit, Error.t) result =
   let ( let* ) = Result.( let* ) in
   fold latest (Ok ()) @@ fun symbol item acc ->
   let* acc = acc in
   let* ph = get x symbol in
-  let* () = Price_history.add_item ph item in
+  let* appended = Price_history.add_item ph item in
+  Hashtbl.replace x symbol appended;
   Result.return acc
 
 let pp : t Format.printer =
@@ -106,6 +107,20 @@ let to_queue (x : t) : (Latest.t Queue.t, Error.t) result =
   in
   Result.return q
 
-let combine (l : t list) : t =
+let keys (x : t) = Hashtbl.to_seq_keys x |> Seq.to_list
+
+let combine size (l : t list) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
-  ()
+  let keys = List.flat_map keys l |> List.uniq ~eq:Instrument.equal in
+  let get_data key = Result.map_l (fun bar -> get bar key) l in
+  let* assoc_seq =
+    List.fold_left
+      (fun acc key ->
+        let* acc = acc in
+        let* data = get_data key in
+        let items = List.flat_map Price_history.to_items data in
+        let* combined = Price_history.of_items size items in
+        Result.return @@ Seq.cons (key, combined) acc)
+      (Ok Seq.empty) keys
+  in
+  Result.return @@ Hashtbl.of_seq assoc_seq
