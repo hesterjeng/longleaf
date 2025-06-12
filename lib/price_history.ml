@@ -142,7 +142,7 @@ let set_item (x : t) (i : int) (item : Item.t) =
     set x Volume i @@ Float.of_int @@ Item.volume item;
     Ok ()
   with
-  | _ -> Error.fatal "Illegal index accessin Price_history.V2.set_item"
+  | _ -> Error.fatal "Illegal index access in Price_history.V2.set_item"
 
 let add_item (x : t) (item : Item.t) =
   let ( let* ) = Result.( let* ) in
