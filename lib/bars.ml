@@ -124,3 +124,6 @@ let combine (l : t list) : (t, Error.t) result =
       (Ok Seq.empty) keys
   in
   Result.return @@ Hashtbl.of_seq assoc_seq
+
+let of_seq = Hashtbl.of_seq
+let of_list l = of_seq @@ Seq.of_list l
