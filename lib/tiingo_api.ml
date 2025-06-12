@@ -124,6 +124,7 @@ module Make (Tiingo : Util.CLIENT) = struct
 
     (* Function for downloading preload bars data on the fly *)
     let top ?(afterhours = false) (starting_request : Request.t) =
+      let ( let* ) = Result.( let* ) in
       let split_requests = Request.split starting_request in
       let get_data (request : Request.t) instrument =
         let symbol = Instrument.symbol instrument in
@@ -166,29 +167,19 @@ module Make (Tiingo : Util.CLIENT) = struct
           |> Uri.to_string
         in
         Eio.traceln "%s" endpoint;
-        let resp =
-          get ~headers ~endpoint |> function
-          | Ok x -> x
-          | Error e ->
-            Eio.traceln
-              "tiingo_api.ml: Error while getting historical Tiingo data: %a"
-              Error.pp e;
-            invalid_arg "Bad data when getting Tiingo historical bars"
-        in
-        (* Eio.traceln "keys: %a" Yojson.Safe.pp resp; *)
-        resp |> resp_of_yojson |> List.map item_of |> fun l ->
-        (instrument, Vector.of_list l)
+        let* json = get ~headers ~endpoint in
+        let resp = resp_of_yojson json in
+        let* data = List.map item_of resp |> Price_history.of_items in
+        Result.return @@ (instrument, data)
       in
-      let r : Bars.t list =
+      let* r =
         let request_symbols =
           List.map Instrument.of_string starting_request.symbols
         in
-        List.map
+        Result.map_l
           (fun request ->
-            let res =
-              List.map (get_data request) request_symbols |> Seq.of_list
-            in
-            Bars.of_seq res)
+            let* res = Result.map_l (get_data request) request_symbols in
+            Result.return @@ Bars.of_list res)
           split_requests
       in
       let final = Bars.combine r in
