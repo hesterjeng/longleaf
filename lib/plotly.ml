@@ -28,30 +28,24 @@ let layout title =
       (*     ]; *)
     ]
 
-let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") indicators_tbl
-    indicator_name indicator_get (symbol : Instrument.t) : Yojson.Safe.t option
-    =
-  (* let* indicators = Option.return @@ Indicators.of_timestampedtbl () *)
-  (* in *)
-  let ( let* ) = Option.( let* ) in
-  let* indicators_vec = Hashtbl.get indicators_tbl symbol in
-  assert (not @@ Vector.is_empty indicators_vec);
-  let time (p : Indicators.Point.t) : Yojson.Safe.t =
-    let timestamp = Ptime.to_rfc3339 p.timestamp in
+let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") bars
+    (indicator : Data.Type.t) (symbol : Instrument.t) =
+  let ( let* ) = Result.( let* ) in
+  let* data = Bars.get bars symbol in
+  let indicator_name = Data.Type.show indicator in
+  let time i : Yojson.Safe.t =
+    let timestamp =
+      Data.get data Time i |> Ptime.of_float_s
+      |> Option.map Ptime.to_rfc3339
+      |> Option.get_exn_or "Illegal time stored in data table (plotly.ml)"
+    in
     `String timestamp
   in
-  let value (p : Indicators.Point.t) : Yojson.Safe.t =
-    `Float
-      (let res = indicator_get p in
-       if Float.is_nan res then
-         Eio.traceln "ERROR: NaN in data for indicator %s!" indicator_name;
-       res)
-  in
+  let value i : Yojson.Safe.t = `Float (Data.get data indicator i) in
   let x, y =
-    Vector.map
-      (fun (p : Indicators.Point.t) -> Pair.make (time p) (value p))
-      indicators_vec
-    |> Vector.to_list |> List.drop drop |> List.split
+    let l = Data.length data in
+    List.map (fun i -> Pair.make (time i) (value i)) (List.range' 0 l)
+    |> List.drop drop |> List.split
   in
   if List.length x <> List.length y then (
     Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
@@ -60,7 +54,8 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") indicators_tbl
   let visible = if show then "true" else "legendonly" in
   (* if String.equal "SMA 5" indicator_name && String.equal symbol "NVDA" then *)
   (*   Eio.traceln "@[%a@]@." (List.pp ~pp_sep:Format.newline Yojson.Safe.pp) y; *)
-  Option.return
+  (* Option.return *)
+  Result.return
   @@ `Assoc
        [
          ("x", `List x);

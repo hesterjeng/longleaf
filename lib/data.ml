@@ -31,7 +31,7 @@ module Type = struct
     | FSO_K
     | FSO_D
     | RSI
-  [@@deriving variants]
+  [@@deriving variants, show]
 
   let count = List.length Variants.descriptions
 
