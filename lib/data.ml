@@ -17,7 +17,7 @@ type t = {
 
 type slice = (float, float64_elt, c_layout) Array1.t
 
-module Row = struct
+module Type = struct
   type t =
     | Index
     | Time
@@ -66,28 +66,28 @@ let current x = x.current
 (*   | false -> Error.fatal "Price_history.collect_column: illegal column access" *)
 (*   | true -> *)
 
-(* Row 0 : i (index)*)
-(* Row 1 : time (float) *)
-(* Row 2 : price *)
-(* Row 3 : open *)
-(* Row 4 : high *)
-(* Row 5 : low *)
-(* Row 6 : close *)
-(* Row 7:  volume *)
-(* Row 8 : SMA *)
-(* Row 9 : FSO_K *)
-(* Row 10 : FSO_D *)
-(* Row 11 : RSI *)
+(* Type 0 : i (index)*)
+(* Type 1 : time (float) *)
+(* Type 2 : price *)
+(* Type 3 : open *)
+(* Type 4 : high *)
+(* Type 5 : low *)
+(* Type 6 : close *)
+(* Type 7:  volume *)
+(* Type 8 : SMA *)
+(* Type 9 : FSO_K *)
+(* Type 10 : FSO_D *)
+(* Type 11 : RSI *)
 
-let set (res : t) (x : Row.t) i value =
-  Array2.set res.data (Row.to_int x) i @@ value
+let set (res : t) (x : Type.t) i value =
+  Array2.set res.data (Type.to_int x) i @@ value
 
-let get (res : t) (x : Row.t) i =
-  let res = Array2.get res.data (Row.to_int x) i in
+let get (res : t) (x : Type.t) i =
+  let res = Array2.get res.data (Type.to_int x) i in
   assert (not @@ Float.is_nan res);
   res
 
-let get_top (res : t) (x : Row.t) =
+let get_top (res : t) (x : Type.t) =
   let res = get res x @@ res.current in
   assert (not @@ Float.is_nan res);
   res
@@ -119,7 +119,7 @@ let to_items (x : t) =
 
 let make size : t =
   {
-    data = Array2.init float64 c_layout Row.count size (fun _ _ -> Float.nan);
+    data = Array2.init float64 c_layout Type.count size (fun _ _ -> Float.nan);
     current = 0;
     size;
     indicators_computed = false;

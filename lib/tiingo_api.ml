@@ -169,7 +169,7 @@ module Make (Tiingo : Util.CLIENT) = struct
         Eio.traceln "%s" endpoint;
         let* json = get ~headers ~endpoint in
         let resp = resp_of_yojson json in
-        let* data = List.map item_of resp |> Price_history.of_items in
+        let* data = List.map item_of resp |> Data.of_items in
         Result.return @@ (instrument, data)
       in
       let* r =
