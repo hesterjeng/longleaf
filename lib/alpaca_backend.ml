@@ -154,7 +154,10 @@ module Make (Input : BACKEND_INPUT) : S = struct
               e)
           () symbols
       in
-      if save_received then Bars.append res received_data;
+      let* () =
+        if save_received then Bars.append res received_data
+        else Result.return ()
+      in
       Ok res
 
   let get_clock = Trading_api.Clock.get
