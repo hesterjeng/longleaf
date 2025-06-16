@@ -86,7 +86,6 @@ let get (data : t) (x : Type.t) i =
   let res = Array2.get data.data (Type.to_int x) i in
   assert (i >= 0);
   assert (i < data.size);
-  assert (i = data.current);
   assert (not @@ Float.is_nan res);
   res
 
