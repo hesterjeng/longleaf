@@ -1,3 +1,5 @@
+[@@@warning "-26-27"]
+
 let select_midpoint length =
   assert (length >= 8000);
   let start_range = 1000 in
@@ -21,12 +23,13 @@ let top ~(options : Options.t) bars target =
     | _ -> invalid_arg "problem getting length of bars in slice backtesting"
   in
   let midpoint = select_midpoint combined_length in
-  let new_bars, new_target =
-    Bars.split ~midpoint ~target_length:options.randomized_backtest_length
-      ~combined_length combined
-  in
-  Eio.traceln "Sorting random slices...";
-  Bars.sort Item.compare new_bars;
-  Bars.sort (Ord.opp Item.compare) new_target;
-  Eio.traceln "Finished creating random slice...";
-  (new_bars, new_target)
+  invalid_arg "Slice backtesting broken with new bars"
+(* let new_bars, new_target = *)
+(*   Bars.split ~midpoint ~target_length:options.randomized_backtest_length *)
+(*     ~combined_length combined *)
+(* in *)
+(* Eio.traceln "Sorting random slices..."; *)
+(* Bars.sort Item.compare new_bars; *)
+(* Bars.sort (Ord.opp Item.compare) new_target; *)
+(* Eio.traceln "Finished creating random slice..."; *)
+(* (new_bars, new_target) *)

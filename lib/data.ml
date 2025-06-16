@@ -82,8 +82,11 @@ let current x = x.current
 let set (res : t) (x : Type.t) i value =
   Array2.set res.data (Type.to_int x) i @@ value
 
-let get (res : t) (x : Type.t) i =
-  let res = Array2.get res.data (Type.to_int x) i in
+let get (data : t) (x : Type.t) i =
+  let res = Array2.get data.data (Type.to_int x) i in
+  assert (i >= 0);
+  assert (i < data.size);
+  assert (i = data.current);
   assert (not @@ Float.is_nan res);
   res
 
