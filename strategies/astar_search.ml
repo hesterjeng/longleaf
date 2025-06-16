@@ -56,18 +56,12 @@ module EnumeratedSignal = struct
       let* data = Bars.get state.bars instrument in
       let res =
         match x with
-        | FSO_k_gt v ->
-          Price_history.V2.get_top data FSO_K >. EnumeratedValue.to_float v
-        | FSO_k_lt v ->
-          Price_history.V2.get_top data FSO_K <. EnumeratedValue.to_float v
-        | FSO_d_gt v ->
-          Price_history.V2.get_top data FSO_D >. EnumeratedValue.to_float v
-        | FSO_d_lt v ->
-          Price_history.V2.get_top data FSO_D <. EnumeratedValue.to_float v
-        | RSI_gt v ->
-          Price_history.V2.get_top data RSI >. EnumeratedValue.to_float v
-        | RSI_lt v ->
-          Price_history.V2.get_top data RSI <. EnumeratedValue.to_float v
+        | FSO_k_gt v -> Data.get_top data FSO_K >. EnumeratedValue.to_float v
+        | FSO_k_lt v -> Data.get_top data FSO_K <. EnumeratedValue.to_float v
+        | FSO_d_gt v -> Data.get_top data FSO_D >. EnumeratedValue.to_float v
+        | FSO_d_lt v -> Data.get_top data FSO_D <. EnumeratedValue.to_float v
+        | RSI_gt v -> Data.get_top data RSI >. EnumeratedValue.to_float v
+        | RSI_lt v -> Data.get_top data RSI <. EnumeratedValue.to_float v
       in
       Result.return res
 
