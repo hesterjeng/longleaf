@@ -76,10 +76,15 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Backend_position.make () |> fun p ->
       Backend_position.set_cash p account_cash
     in
+    let* bars =
+      match Input.target with
+      | None -> Error.fatal "No historical data for alpaca backend"
+      | Some b -> Result.return b
+    in
     Result.return
     @@ {
          State.current = Initialize;
-         bars = Input.bars;
+         bars;
          tick = 0;
          tick_length = Input.options.tick;
          positions;
@@ -116,7 +121,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let last_data_bar =
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
-  let latest_bars (symbols : Instrument.t list) =
+  let latest_bars (symbols : Instrument.t list) _ =
     let ( let* ) = Result.( let* ) in
     (* let* account = Trading_api.Accounts.get_account () in *)
     (* let backend_cash = Backend_position.get_cash in *)
@@ -155,7 +160,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
           () symbols
       in
       let* () =
-        if save_received then Bars.append res received_data
+        if save_received then
+          invalid_arg "Alpaca_backend.latest_bars save_received nyi"
+          (* Bars.append res received_data *)
         else Result.return ()
       in
       Ok res
@@ -172,7 +179,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let symbols = Backend_position.symbols state.positions in
-    let* last_data_bar = latest_bars symbols in
+    let* last_data_bar = latest_bars symbols state.tick in
     let* liquidated_state =
       List.fold_left
         (fun prev symbol ->
@@ -180,15 +187,16 @@ module Make (Input : BACKEND_INPUT) : S = struct
           let qty = Backend_position.qty state.positions symbol in
           assert (qty <> 0);
           let* latest_info = Bars.Latest.get last_data_bar symbol in
-          let order : Order.t =
+          let* order : Order.t =
             let side = if qty >= 0 then Side.Sell else Side.Buy in
             let tif = TimeInForce.GoodTillCanceled in
             let order_type = OrderType.Market in
             let qty = Int.abs qty in
-            let price = Item.last latest_info in
-            let timestamp = Item.timestamp latest_info in
-            Order.make ~symbol ~tick:state.tick ~side ~tif ~order_type ~qty
-              ~price ~timestamp ~profit:None ~reason:[ "Liquidate" ]
+            let* price = Data.Column.last latest_info in
+            let* timestamp = Data.Column.timestamp latest_info in
+            Result.return
+            @@ Order.make ~symbol ~tick:state.tick ~side ~tif ~order_type ~qty
+                 ~price ~timestamp ~profit:None ~reason:[ "Liquidate" ]
           in
           place_order prev order)
         (Ok state) symbols

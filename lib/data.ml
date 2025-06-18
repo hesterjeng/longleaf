@@ -76,12 +76,52 @@ module Column = struct
     let i = Type.to_int ty in
     Array1.get x i
 
+  let set (col : t) (ty : Type.t) x =
+    let err = Error.fatal "Data.Column.set" in
+    Error.guard err @@ fun () ->
+    let i = Type.to_int ty in
+    Array1.set col i x
+
+  let set_exn (col : t) (ty : Type.t) x =
+    let i = Type.to_int ty in
+    Array1.set col i x
+
   let timestamp (x : t) =
     let ( let* ) = Result.( let* ) in
     let* time_f = get x Time in
     match Ptime.of_float_s time_f with
     | Some t -> Result.return t
     | None -> Error.fatal "Illegal timestamp in Data.Column.timestamp"
+
+  let last x = get x Last
+
+  let last_exn (x : t) =
+    let i = Type.to_int Last in
+    try Array1.get x i with
+    | e ->
+      Eio.traceln "Error getting last price in Data.Column.last_exn";
+      raise e
+
+  let open_ x = get x Open
+  let high x = get x High
+  let low x = get x Low
+  let close x = get x Close
+  let volume x = get x Volume
+
+  let of_item (x : Item.t) =
+    let arr : t =
+      Array1.init float64 c_layout Type.count (fun _ -> Float.nan)
+    in
+    let timestamp = Ptime.to_float_s x.timestamp in
+    let volume = Float.of_int x.volume in
+    set_exn arr Time timestamp;
+    set_exn arr Volume volume;
+    set_exn arr Open x.open_;
+    set_exn arr High x.high;
+    set_exn arr Low x.low;
+    set_exn arr Close x.close;
+    set_exn arr Last x.last;
+    arr
 end
 
 (* let pp_array : (float, float64_elt, c_layout) Array2.t Format.printer = *)
@@ -180,9 +220,33 @@ let set_item (x : t) (i : int) (item : Item.t) =
   with
   | _ -> Error.fatal "Illegal index access in Price_history.V2.set_item"
 
+let set_column (x : t) (i : int) (column : Column.t) =
+  let ( let* ) = Result.( let* ) in
+  let* timestamp = Column.timestamp column in
+  let* last = Column.last column in
+  let* open_ = Column.open_ column in
+  let* high = Column.high column in
+  let* low = Column.low column in
+  let* close = Column.close column in
+  let* volume = Column.volume column in
+  set x Index i (Float.of_int i);
+  set x Time i @@ Ptime.to_float_s timestamp;
+  set x Last i last;
+  set x Open i open_;
+  set x High i high;
+  set x Low i low;
+  set x Close i close;
+  set x Volume i volume;
+  Result.return ()
+
 let add_item (x : t) (item : Item.t) =
   let ( let* ) = Result.( let* ) in
   let* () = set_item x x.current item in
+  Result.return @@ { x with current = x.current + 1 }
+
+let add_column (x : t) (column : Column.t) =
+  let ( let* ) = Result.( let* ) in
+  let* () = set_column x x.current column in
   Result.return @@ { x with current = x.current + 1 }
 
 let of_items (l : Item.t list) =

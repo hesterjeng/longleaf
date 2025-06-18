@@ -1,3 +1,5 @@
+module Column = Data.Column
+
 module Portfolio = struct
   type t = (Instrument.t * int) list [@@deriving show]
 
@@ -59,7 +61,7 @@ let value pos (latest : Bars.Latest.t) =
   | n ->
     let* previous_value = previous_value in
     let* item = Bars.Latest.get latest instrument in
-    let symbol_price = Item.last item in
+    let* symbol_price = Column.last item in
     let symbol_value = Float.of_int n *. symbol_price in
     Result.return @@ (symbol_value +. previous_value)
 
@@ -103,10 +105,12 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
     let order_price = order.price in
     let symbol = order.symbol in
     let* current_price =
-      Bars.Latest.get latest symbol |> Result.map Item.last
+      let* column = Bars.Latest.get latest symbol in
+      Column.last column
     in
     let* previous_price =
-      Bars.Latest.get previous symbol |> Result.map Item.last
+      let* column = Bars.Latest.get previous symbol in
+      Column.last column
     in
     let crossing x0 x1 =
       (x0 <=. order_price && x1 >=. order_price)
@@ -137,14 +141,15 @@ let liquidate pos (bars : Bars.Latest.t) =
     | qty ->
       let side = if qty >= 0 then Side.Sell else Side.Buy in
       let* latest = Bars.Latest.get bars instrument in
-      let order : Order.t =
+      let* order =
         let tif = TimeInForce.GoodTillCanceled in
         let order_type = OrderType.Market in
         let qty = Int.abs qty in
-        let price = Item.last latest in
-        let timestamp = Item.timestamp latest in
-        Order.make ~tick:(-1) ~symbol:instrument ~side ~tif ~order_type ~qty
-          ~price ~timestamp ~profit:None ~reason:[ "Liquidating" ]
+        let* price = Column.last latest in
+        let* timestamp = Column.timestamp latest in
+        Result.return
+        @@ Order.make ~tick:(-1) ~symbol:instrument ~side ~tif ~order_type ~qty
+             ~price ~timestamp ~profit:None ~reason:[ "Liquidating" ]
       in
       Eio.traceln "Liquidation @[%a@]@." Order.pp order;
       let* res = execute_order pos order in

@@ -2,11 +2,11 @@ module Latest : sig
   type t [@@deriving show]
 
   val empty : unit -> t
-  val get : t -> Instrument.t -> (Item.t, Error.t) result
-  val iter : (Instrument.t -> Item.t -> unit) -> t -> unit
+  val get : t -> Instrument.t -> (Data.Column.t, Error.t) result
+  val iter : (Instrument.t -> Data.Column.t -> unit) -> t -> unit
   val timestamp : t -> (Time.t, Error.t) result
-  val of_seq : (Instrument.t * Item.t) Seq.t -> t
-  val set : t -> Instrument.t -> Item.t -> unit
+  val of_seq : (Instrument.t * Data.Column.t) Seq.t -> t
+  val set : t -> Instrument.t -> Data.Column.t -> unit
 end
 
 type t
@@ -26,6 +26,7 @@ val pp_stats : t Format.printer
 val combine : t list -> (t, Error.t) result
 val print_to_file : ?filename:string -> t -> string -> unit
 val print_to_file_direct : t -> string -> unit
+val fold : t -> 'a -> (Instrument.t -> Data.t -> 'a -> 'a) -> 'a
 
 (* val last_bar : t -> (Latest.t, Error.t) result *)
-val to_queue : t -> (Latest.t Queue.t, Error.t) result
+(* val to_queue : t -> (Latest.t Queue.t, Error.t) result *)

@@ -87,11 +87,11 @@ let map (f : 'a -> 'b) (x : 'a t) = { x with content = f x.content }
 let ( >|= ) x f = map f x
 let ( let+ ) = ( >|= )
 
-let price (state : 'a t) symbol =
-  Result.map Item.last @@ Bars.Latest.get state.latest symbol
+(* let price (state : 'a t) symbol = *)
+(*   Result.map Data.Column.last_exn @@ Bars.Latest.get state.latest symbol *)
 
-let volume (state : 'a t) symbol =
-  Result.map Item.volume @@ Bars.Latest.get state.latest symbol
+(* let volume (state : 'a t) symbol = *)
+(*   Result.map Item.volume @@ Bars.Latest.get state.latest symbol *)
 
-let timestamp (state : 'a t) symbol =
-  Result.map Item.timestamp @@ Bars.Latest.get state.latest symbol
+(* let timestamp (state : 'a t) symbol = *)
+(*   Result.map Item.timestamp @@ Bars.Latest.get state.latest symbol *)

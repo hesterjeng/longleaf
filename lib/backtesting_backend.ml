@@ -9,10 +9,16 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let get_data_client _ = Result.fail @@ `MissingClient "Data"
 
   let init_state content =
+    let ( let* ) = Result.( let* ) in
+    let* bars =
+      match Input.target with
+      | None -> Error.fatal "No target for backtest"
+      | Some b -> Result.return b
+    in
     Result.return
     @@ {
          State.current = Initialize;
-         bars = Input.bars;
+         bars;
          latest = Bars.Latest.empty ();
          content;
          tick = 0;
@@ -43,6 +49,40 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let place_order = State.place_order
   let received_data = Bars.empty ()
+  let target = Input.target
+
+  let last_data_bar =
+    let ( let* ) = Result.( let* ) in
+    let last_data_bar = Bars.Latest.empty () in
+    match target with
+    | None -> Error.missing_data "No target to create last data bar"
+    | Some target ->
+      let* length = Bars.length target in
+      let* () =
+        Bars.fold target (Ok ()) @@ fun instrument data ok ->
+        let* _ok = ok in
+        let* col = Data.Column.of_data data (length - 1) in
+        assert (not @@ Float.is_nan @@ Data.Column.last_exn col);
+        Bars.Latest.set last_data_bar instrument col;
+        Result.return ()
+      in
+      Result.return last_data_bar
+
+  let latest_bars _ i =
+    let ( let* ) = Result.( let* ) in
+    let latest_data_bar = Bars.Latest.empty () in
+    match target with
+    | None -> Error.missing_data "No target to create last data bar"
+    | Some target ->
+      let* () =
+        Bars.fold target (Ok ()) @@ fun instrument data ok ->
+        let* _ok = ok in
+        let* col = Data.Column.of_data data i in
+        assert (not @@ Float.is_nan @@ Data.Column.last_exn col);
+        Bars.Latest.set latest_data_bar instrument col;
+        Result.return ()
+      in
+      Result.return latest_data_bar
 
   (* let latest_bars _ = *)
   (*   match Queue.take_opt data_remaining with *)

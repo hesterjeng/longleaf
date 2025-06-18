@@ -87,22 +87,21 @@ let make_backend_input (options : Options.t) =
     | Download ->
       Error.fatal "Expected to have loaded target when creating backend"
     | None -> Result.return None
-    | Loaded t ->
-      let* q = Bars.to_queue t in
-      Result.return @@ Option.return q
+    | Loaded t -> Result.return @@ Some t
   in
-  let* bars =
-    match options.context.preload with
-    | File _
-    | Download
-    | None ->
-      Error.fatal "Expected to have preloaded bars when creating backend"
-    | Loaded b -> Result.return b
-  in
+  (* let* bars = *)
+  (*   match options.context.preload with *)
+  (*   | File _ *)
+  (*   | Download *)
+  (*   | None -> *)
+  (*     Error.fatal "Expected to have preloaded bars when creating backend" *)
+  (*   | Loaded b -> Result.return b *)
+  (* in *)
   Result.return
   @@ (module struct
        let options = options
-       let bars = bars
+
+       (* let bars = bars *)
        let target = target
      end : BACKEND_INPUT)
 
