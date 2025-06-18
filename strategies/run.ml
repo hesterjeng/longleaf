@@ -29,19 +29,17 @@ let run_options (context : Context.t) : Options.t =
   }
 
 (** Helper function to reduce code duplication. *)
-let top ?(run_options = run_options) ?bars ?target
+let top ?(run_options = run_options)
     (module Strat : Strategy.BUILDER) context =
   let options = run_options context in
-  let bars =
-    match bars with
-    | None ->
-      invalid_arg
-        "Longleaf_strategies.run_generic: Cannot run_generic with bars None"
-    | Some x -> x
-  in
+  (* let bars = *)
+  (*   match bars with *)
+  (*   | None -> invalid_arg "Run.top: Cannot run_generic with bars None" *)
+  (*   | Some x -> x *)
+  (* in *)
   (* let () = check_bars options in *)
   let module Backend =
-    (val Backend.make options bars target |> function
+    (val Backend.make options |> function
          | Ok x -> x
          | Error _ -> invalid_arg "Error while creating backend")
   in

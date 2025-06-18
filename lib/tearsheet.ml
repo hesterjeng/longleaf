@@ -1,4 +1,5 @@
 type t = {
+  cash : float;
   position_taken_ratio : float;
   num_orders : int;
   sharpe_ratio : float;
@@ -167,7 +168,9 @@ let make (state : 'a State.t) : t =
     /. Float.of_int state.stats.position_ratio.positions_possible
   in
   let biggest_winner, biggest_loser = biggest h in
+  let cash = Backend_position.get_cash state.positions in
   {
+    cash;
     num_orders = Order.History.length h;
     sharpe_ratio = sharpe_ratio stats;
     win_percentage = win_percentage h;

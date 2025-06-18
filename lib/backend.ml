@@ -79,8 +79,8 @@ let make_bars (options : Options.t) =
   | AstarSearch ->
     Result.return @@ (bars, target)
 
-let make_backend_input (options : Options.t) (bars : Bars.t)
-    (target : Bars.t option) =
+let make_backend_input (options : Options.t)
+  =
   let ( let* ) = Result.( let* ) in
   let bars = Bars.copy bars in
   let* target =
@@ -98,9 +98,9 @@ let make_backend_input (options : Options.t) (bars : Bars.t)
        let target = target
      end : BACKEND_INPUT)
 
-let make (options : Options.t) bars target =
+let make (options : Options.t) =
   let ( let* ) = Result.( let* ) in
-  let* mod_ = make_backend_input options bars target in
+  let* mod_ = make_backend_input options in
   let module Input = (val mod_) in
   let* res =
     match options.context.runtype with
