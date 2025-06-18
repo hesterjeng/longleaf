@@ -79,18 +79,26 @@ let make_bars (options : Options.t) =
   | AstarSearch ->
     Result.return @@ (bars, target)
 
-let make_backend_input (options : Options.t)
-  =
+let make_backend_input (options : Options.t) =
   let ( let* ) = Result.( let* ) in
-  let bars = Bars.copy bars in
   let* target =
-    match target with
-    | Some t ->
+    match options.context.target with
+    | File _
+    | Download ->
+      Error.fatal "Expected to have loaded target when creating backend"
+    | None -> Result.return None
+    | Loaded t ->
       let* q = Bars.to_queue t in
       Result.return @@ Option.return q
-    | None -> Result.return @@ None
   in
-  (* Option.map Bars.to_queue target in *)
+  let* bars =
+    match options.context.preload with
+    | File _
+    | Download
+    | None ->
+      Error.fatal "Expected to have preloaded bars when creating backend"
+    | Loaded b -> Result.return b
+  in
   Result.return
   @@ (module struct
        let options = options

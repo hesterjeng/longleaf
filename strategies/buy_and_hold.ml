@@ -1,7 +1,6 @@
 module S = Signal
 
 (* module SI = S.Indicator *)
-module I = Indicators
 
 (* module P = I.Point *)
 (* module F = S.Flag *)

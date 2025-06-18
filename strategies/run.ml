@@ -29,8 +29,7 @@ let run_options (context : Context.t) : Options.t =
   }
 
 (** Helper function to reduce code duplication. *)
-let top ?(run_options = run_options)
-    (module Strat : Strategy.BUILDER) context =
+let top ?(run_options = run_options) (module Strat : Strategy.BUILDER) context =
   let options = run_options context in
   (* let bars = *)
   (*   match bars with *)

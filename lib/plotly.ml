@@ -1,5 +1,4 @@
 (* module IP = Indicators.Point *)
-open Option.Infix
 
 let layout title =
   let ( = ) = fun x y -> (x, y) in
