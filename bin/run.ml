@@ -34,15 +34,16 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
     ~precompute_indicators_arg ~compare_preloaded ~switch () : Options.Context.t
     =
   let _ = stacktrace in
+  let _ = preload in
   let target : Options.Preload.t =
     match target with
     | Some s -> File s
     | None -> None
   in
   let _ = precompute_indicators_arg in
-  let _indicators, preload, target =
+  let target =
     Eio.traceln "Disabled precomputation for new indicators...";
-    (0, preload, target)
+    target
     (* match precompute_indicators_arg with *)
     (* | true -> *)
     (*   let preload_bars = *)
