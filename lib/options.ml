@@ -78,7 +78,7 @@ module Context = struct
     eio_env : Eio_unix.Stdenv.base; [@opaque]
     longleaf_env : Environment.t; [@opaque]
     switch : Eio.Switch.t; [@opaque]
-    preload : Preload.t; [@opaque]
+    (* preload : Preload.t; [@opaque] *)
     target : Preload.t; [@opaque]
     compare_preloaded : bool;
     save_received : bool;
@@ -93,7 +93,7 @@ module Context = struct
   let load x =
     {
       x with
-      preload = Loaded (Preload.load x.preload);
+      (* preload = Loaded (Preload.load x.preload); *)
       target = Loaded (Preload.load x.target);
     }
 end
