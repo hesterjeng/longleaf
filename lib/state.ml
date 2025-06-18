@@ -90,6 +90,18 @@ let ( let+ ) = ( >|= )
 (* let price (state : 'a t) symbol = *)
 (*   Result.map Data.Column.last_exn @@ Bars.Latest.get state.latest symbol *)
 
+let price (state : 'a t) symbol =
+  let ( let* ) = Result.( let* ) in
+  let* col = Bars.Latest.get state.latest symbol in
+  let price = Data.Column.last_exn col in
+  Result.return price
+
+let timestamp (state : 'a t) symbol =
+  let ( let* ) = Result.( let* ) in
+  let* col = Bars.Latest.get state.latest symbol in
+  let* time = Data.Column.timestamp col in
+  Result.return time
+
 (* let volume (state : 'a t) symbol = *)
 (*   Result.map Item.volume @@ Bars.Latest.get state.latest symbol *)
 

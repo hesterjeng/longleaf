@@ -183,7 +183,7 @@ module Make
         List.fold_left sell_fold (Ok state) state.order_history.active
       in
       let* complete = buy ~held_symbols sold_state in
-      Result.return complete complete
+      Result.return complete
       (* { complete with tick = complete.tick + 1 } *)
     | _ -> SU.handle_nonlogical_state state
 

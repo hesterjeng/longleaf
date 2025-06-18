@@ -98,7 +98,7 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
     eio_env;
     longleaf_env;
     switch;
-    preload;
+    (* preload; *)
     target;
     save_received;
     compare_preloaded;

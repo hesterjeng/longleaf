@@ -4,11 +4,11 @@ module type BACKEND_INPUT = Backend_intf.BACKEND_INPUT
 let make_bars (options : Options.t) =
   let ( let* ) = Result.( let* ) in
   let context = options.context in
-  let preload = context.preload in
+  (* let preload = context.preload in *)
   let target = context.target in
   let symbols = options.symbols in
   let* bars =
-    match preload with
+    match target with
     | None -> Result.return @@ Bars.empty ()
     | Download ->
       Eio.traceln "Downloading data from tiingo for preload";
