@@ -34,34 +34,34 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let save_received = context.save_received
 
   (* Ordered in reverse time order when INPUT is created *)
-  let data_remaining : Bars.Latest.t Queue.t =
-    match Input.target with
-    | Some b -> b
-    | None ->
-      Eio.traceln "Creating empty data_remaining for backtesting backend?";
-      Queue.create ()
+  (* let data_remaining : Bars.Latest.t Queue.t = *)
+  (*   match Input.target with *)
+  (*   | Some b -> b *)
+  (*   | None -> *)
+  (*     Eio.traceln "Creating empty data_remaining for backtesting backend?"; *)
+  (*     Queue.create () *)
 
   let place_order = State.place_order
   let received_data = Bars.empty ()
 
-  let latest_bars _ =
-    match Queue.take_opt data_remaining with
-    | Some next -> Result.return next
-    | None -> Error.missing_data "backtesting_backend.ml: latest_bars"
+  (* let latest_bars _ = *)
+  (*   match Queue.take_opt data_remaining with *)
+  (*   | Some next -> Result.return next *)
+  (*   | None -> Error.missing_data "backtesting_backend.ml: latest_bars" *)
 
-  let last_data_bar =
-    Eio.traceln "@[Creating last data bar.@]";
-    let ( let* ) = Result.( let* ) in
-    let* target =
-      match Input.target with
-      | Some x -> Ok x
-      | None -> Error.missing_data "No target to create last data bar"
-    in
-    let res = Queue.fold (fun _ latest -> Some latest) None target in
-    match res with
-    | Some res -> Result.return res
-    | None ->
-      Error.fatal "No last data bar in Backtesting_backend.last_data_bar?"
+  (* let last_data_bar = *)
+  (*   Eio.traceln "@[Creating last data bar.@]"; *)
+  (*   let ( let* ) = Result.( let* ) in *)
+  (*   let* target = *)
+  (*     match Input.target with *)
+  (*     | Some x -> Ok x *)
+  (*     | None -> Error.missing_data "No target to create last data bar" *)
+  (*   in *)
+  (*   let res = Queue.fold (fun _ latest -> Some latest) None target in *)
+  (*   match res with *)
+  (*   | Some res -> Result.return res *)
+  (*   | None -> *)
+  (*     Error.fatal "No last data bar in Backtesting_backend.last_data_bar?" *)
 
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in

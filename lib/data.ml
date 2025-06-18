@@ -5,17 +5,22 @@ type float64_elt = Bigarray.float64_elt
 type c_layout = Bigarray.c_layout
 
 let c_layout = Bigarray.c_layout
+let fortran_layout = Bigarray.fortran_layout
 let float64 = Bigarray.float64
 
+type data_matrix = (float, float64_elt, c_layout) Array2.t
+
 type t = {
-  data : (float, float64_elt, c_layout) Array2.t;
+  data : data_matrix;
   current : int;
   size : int;
   indicators_computed : bool;
 }
+
+type data = t
 (* [@@deriving show] *)
 
-type slice = (float, float64_elt, c_layout) Array1.t
+(* type slice = (float, float64_elt, c_layout) Array1.t *)
 
 module Type = struct
   type t =
@@ -48,6 +53,25 @@ module Type = struct
     | FSO_K -> 9
     | FSO_D -> 10
     | RSI -> 11
+end
+
+module Column = struct
+  type t = (float, float64_elt, c_layout) Array1.t
+
+  let of_data (x : data) i : (t, Error.t) result =
+    let err = Error.fatal "Data.Column.of_data" in
+    Error.guard err @@ fun () ->
+    let matrix = Array2.change_layout x.data fortran_layout in
+    let col = Array2.slice_right matrix @@ (i + 1) in
+    let c_col = Array1.change_layout col c_layout in
+    assert (Array1.dim c_col = Type.count);
+    c_col
+
+  let get (x : t) (ty : Type.t) =
+    let err = Error.fatal "Data.Column.get" in
+    Error.guard err @@ fun () ->
+    let i = Type.to_int ty in
+    Array1.get x i
 end
 
 (* let pp_array : (float, float64_elt, c_layout) Array2.t Format.printer = *)

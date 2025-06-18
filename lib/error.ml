@@ -29,3 +29,7 @@ exception Longleaf_error
 let raise (x : t) =
   Eio.traceln "@[%a@]@." pp x;
   raise Longleaf_error
+
+let guard err f : ('a, t) result =
+  try Result.return @@ f () with
+  | _ -> err

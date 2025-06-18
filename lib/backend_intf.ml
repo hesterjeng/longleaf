@@ -4,8 +4,8 @@ module type BACKEND_INPUT = sig
   val bars : Bars.t
   (** Historical information, ordered with in time order *)
 
-  val target : Bars.Latest.t Queue.t option
-  (** The next data point *)
+  val target : Bars.t option
+  (** The data to be iterated over *)
 end
 
 module type S = sig
