@@ -67,6 +67,7 @@ module Downloader = struct
   let top eio_env request prefix output_file
       (downloader_arg : Downloader_ty.t option) afterhours =
     Eio.Switch.run @@ fun switch ->
+    let ( let* ) = Result.( let* ) in
     (* Util.yojson_safe true @@ fun () -> *)
     let longleaf_env = Environment.make () in
     let data_client = data_client switch eio_env in
@@ -76,7 +77,7 @@ module Downloader = struct
     end in
     let module MDA = Market_data_api.Make (Conn) in
     Eio.traceln "Making request %a..." Market_data_api.Request.pp request;
-    let bars =
+    let* bars =
       match downloader_arg with
       | Some Alpaca -> (
         MDA.Stock.historical_bars request |> function
@@ -102,7 +103,8 @@ module Downloader = struct
     (match output_file with
     | Some filename -> Bars.print_to_file_direct bars filename
     | None -> Bars.print_to_file bars prefix);
-    Piaf.Client.shutdown data_client
+    Piaf.Client.shutdown data_client;
+    Result.return ()
 end
 
 module Cmd = struct
