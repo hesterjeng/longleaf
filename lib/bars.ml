@@ -65,6 +65,12 @@ let append (latest : Latest.t) (x : t) : (unit, Error.t) result =
 let pp : t Format.printer =
  fun fmt _ -> Format.fprintf fmt "@[<Bars.pp opaque>@]@."
 
+let pp_stats : t Format.printer =
+ fun fmt b ->
+  match length b with
+  | Ok len -> Format.fprintf fmt "@[bars length: %d@]@." len
+  | Error _ -> Format.fprintf fmt "@[Error when printing bars stats@]@."
+
 let latest_i (x : t) i =
   let ( let* ) = Result.( let* ) in
   let res = Latest.empty () in
