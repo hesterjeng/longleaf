@@ -29,14 +29,15 @@ let example_node context : node_ =
   }
 
 let run (x : node_) =
+  let ( let* ) = Result.( let* ) in
   Eio.traceln "Running enumerated strategy %a" pp_node_ x;
-  let res =
+  let* res =
     if EnumeratedSignal.is_empty x.buy || EnumeratedSignal.is_empty x.sell then
-      0.0
+      Result.return 0.0
     else Run.top (EnumeratedSignal.to_strategy x.buy x.sell) x.context
   in
   Eio.traceln "Ending value: %f" res;
-  res
+  Result.return res
 
 module Node : Astar.INPUT with type node = node_ = struct
   type node = node_ [@@deriving show]
@@ -62,7 +63,11 @@ module Node : Astar.INPUT with type node = node_ = struct
   let winner : winner option ref = ref None
 
   let compute_results x =
-    let res = run x in
+    let res =
+      run x |> function
+      | Ok x -> x
+      | Error e -> Error.raise e
+    in
     let goal = res >=. 400000.0 in
     let winner_val =
       match !winner with

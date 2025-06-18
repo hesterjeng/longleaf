@@ -31,19 +31,11 @@ let run_options (context : Context.t) : Options.t =
 (** Helper function to reduce code duplication. *)
 let top ?(run_options = run_options) (module Strat : Strategy.BUILDER) context =
   let options = run_options context in
-  (* let bars = *)
-  (*   match bars with *)
-  (*   | None -> invalid_arg "Run.top: Cannot run_generic with bars None" *)
-  (*   | Some x -> x *)
-  (* in *)
-  (* let () = check_bars options in *)
-  let module Backend =
-    (val Backend.make options |> function
-         | Ok x -> x
-         | Error _ -> invalid_arg "Error while creating backend")
-  in
+  let ( let* ) = Result.( let* ) in
+  let* backend = Backend.make options in
+  let module Backend = (val backend) in
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running.";
   let res = S.run () in
   Backend.shutdown ();
-  res
+  Result.return res

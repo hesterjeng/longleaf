@@ -108,8 +108,8 @@ let make_backend_input (options : Options.t) =
 
 let make (options : Options.t) =
   let ( let* ) = Result.( let* ) in
-  let* mod_ = make_backend_input options in
-  let module Input = (val mod_) in
+  let* backend_input = make_backend_input options in
+  let module Input = (val backend_input) in
   let* res =
     match options.context.runtype with
     | Manual -> Error.fatal "Cannot create a strategy with manual runtype"

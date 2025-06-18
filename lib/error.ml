@@ -23,3 +23,9 @@ let int_of_string (x : string) =
 let fatal (x : string) = Result.fail @@ `FatalError x
 let json (x : string) = Result.fail @@ `JsonError x
 let missing_data (x : string) = Result.fail @@ `MissingData x
+
+exception Longleaf_error
+
+let raise (x : t) =
+  Eio.traceln "@[%a@]@." pp x;
+  raise Longleaf_error
