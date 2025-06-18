@@ -58,6 +58,9 @@ end
 module Column = struct
   type t = (float, float64_elt, c_layout) Array1.t
 
+  let pp : t Format.printer =
+   fun fmt _ -> Format.fprintf fmt "<Data.Column.pp NYI>>"
+
   let of_data (x : data) i : (t, Error.t) result =
     let err = Error.fatal "Data.Column.of_data" in
     Error.guard err @@ fun () ->
@@ -72,6 +75,13 @@ module Column = struct
     Error.guard err @@ fun () ->
     let i = Type.to_int ty in
     Array1.get x i
+
+  let timestamp (x : t) =
+    let ( let* ) = Result.( let* ) in
+    let* time_f = get x Time in
+    match Ptime.of_float_s time_f with
+    | Some t -> Result.return t
+    | None -> Error.fatal "Illegal timestamp in Data.Column.timestamp"
 end
 
 (* let pp_array : (float, float64_elt, c_layout) Array2.t Format.printer = *)
