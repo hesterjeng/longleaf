@@ -24,6 +24,8 @@ val append : Latest.t -> t -> (unit, Error.t) result
 val pp : t Format.printer
 val pp_stats : t Format.printer
 val combine : t list -> (t, Error.t) result
+val print_to_file : ?filename:string -> t -> string -> unit
+val print_to_file_direct : t -> string -> unit
 
 (* val last_bar : t -> (Latest.t, Error.t) result *)
 val to_queue : t -> (Latest.t Queue.t, Error.t) result

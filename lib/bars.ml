@@ -133,3 +133,19 @@ let combine (l : t list) : (t, Error.t) result =
 
 let of_seq = Hashtbl.of_seq
 let of_list l = of_seq @@ Seq.of_list l
+
+let print_to_file_direct bars filename =
+  let bars_json = yojson_of_t bars in
+  let str = Yojson.Safe.to_string bars_json in
+  let oc = open_out filename in
+  output_string oc str;
+  close_out oc
+
+let print_to_file ?(filename : string option) bars prefix =
+  let tail =
+    match filename with
+    | Some n -> n
+    | None -> Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
+  in
+  let filename = Format.sprintf "data/%s_%s.json" prefix tail in
+  print_to_file_direct bars filename
