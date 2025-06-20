@@ -57,7 +57,9 @@ let length (x : t) =
 
 let of_file file =
   Yojson.Safe.from_file file |> t_of_yojson |> function
-  | Ok x -> x
+  | Ok x ->
+    Eio.traceln "Finished loading bars from %s" file;
+    x
   | Error e -> invalid_arg @@ Error.show e
 
 let append (latest : Latest.t) (x : t) : (unit, Error.t) result =

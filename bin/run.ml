@@ -1,4 +1,5 @@
 open Longleaf_lib
+module Preload = Options.Preload
 
 let runtype_target_check ~runtype ~target : unit =
   match target with
@@ -35,9 +36,9 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
     =
   let _ = stacktrace in
   let _ = preload in
-  let target : Options.Preload.t =
+  let target : Preload.t =
     match target with
-    | Some s -> File s
+    | Some s -> Preload.(Loaded (load @@ File s))
     | None -> None
   in
   let _ = precompute_indicators_arg in

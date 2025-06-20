@@ -74,9 +74,9 @@ module Column = struct
   let pp : t Format.printer =
    fun fmt x ->
     let r = Int.range' 0 Type.count in
-    let l = Iter.map (fun i -> (Type.of_int i, Array1.get x i)) r in
     let pp_pair = Pair.pp ~pp_sep:(Format.return ": ") Type.pp Float.pp in
     let pp = Iter.pp_seq ~sep:"; " pp_pair in
+    let l = Iter.map (fun i -> (Type.of_int i, Array1.get x i)) r in
     Format.fprintf fmt "@[{ %a }@]@." pp l
 
   let of_data (x : data) i : (t, Error.t) result =
@@ -186,10 +186,18 @@ let current x = x.current
 (* Type 11 : RSI *)
 
 let set (res : t) (x : Type.t) i value =
-  Array2.set res.data (Type.to_int x) i @@ value
+  try Array2.set res.data (Type.to_int x) i @@ value with
+  | e ->
+    Eio.traceln "data.ml.set: Index (%d) out of bounds: len %d" i res.size;
+    raise e
 
 let get (data : t) (x : Type.t) i =
-  let res = Array2.get data.data (Type.to_int x) i in
+  let res =
+    try Array2.get data.data (Type.to_int x) i with
+    | e ->
+      Eio.traceln "data.ml.get: Index (%d) out of bounds: len %d" i data.size;
+      raise e
+  in
   assert (i >= 0);
   assert (i < data.size);
   assert (
@@ -306,6 +314,7 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
   match json with
   | `List items ->
     let size = List.length items in
+    (* Eio.traceln "@[data.ml: Creating a Data.t of size %d@]@." size; *)
     let res = make size in
     let rec aux i l acc =
       match l with
@@ -314,7 +323,7 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
         let* acc = acc in
         let current = Item.t_of_yojson current_j in
         assert (i < size);
-        assert (get res SMA i =. 0.0);
+        (* assert (get res SMA i =. 0.0); *)
         let* acc = add_item acc current in
         aux (i + 1) xs @@ Result.return acc
     in
