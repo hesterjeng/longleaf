@@ -184,6 +184,8 @@ let get (data : t) (x : Type.t) i =
     match not @@ Float.is_nan res with
     | false ->
       Eio.traceln "%a index %d NaN" Type.pp x i;
+      let col = Column.of_data data i in
+      Eio.traceln "%a" (Result.pp' Column.pp Error.pp) col;
       false
     | true -> true);
   res
