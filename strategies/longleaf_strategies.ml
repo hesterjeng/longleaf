@@ -30,9 +30,10 @@ let all = List.map fst Variants.descriptions
 
 (** Add a handler for your strategy here, imitating the styles of the others.
     There must be a handler or your strategy will not work. *)
-let strats =
-  (* let ( --> ) x y = (x, Run.top y) in *)
-  [ (* BuyAndHold --> (module Buy_and_hold.Make); *)
+let strats : (t * (Context.t -> (_, _) result)) list =
+  let ( --> ) x y = (x, Strategy.run y) in
+  [
+    (* BuyAndHold --> (module Buy_and_hold.Make); *)
     (* Listener --> (module Listener.Make); *)
     (* Monaspa --> (module Monaspa.Make); *)
     (* DoubleTop --> (module Double_top.DoubleTop); *)
@@ -49,18 +50,25 @@ let strats =
     (* LiberatedCrossover --> (module Liberated_crossover.Make); *)
     (* Channel --> (module Channel.Make); *)
     (* SpyTrader --> (module Spytrader.Make); *)
-    (* (Astarexample, Astar_example.m) *)
-    (* (val Astar_example.m) *) ]
+    Astarexample --> (module Astar_example.Make) (* (val Astar_example.m) *);
+  ]
 
 (** Based on the context, select and run the strategy. *)
-let run_strat (context : Context.t) strategy =
+let run_strat_ (context : Context.t) strategy =
+  let ( let* ) = Result.( let* ) in
   let f = List.Assoc.get ~eq:equal strategy strats in
-  match f with
-  | Some f -> f context
-  | None ->
-    invalid_arg
-    @@ Format.asprintf "Did not find a strategy implementation for %a" pp
-         strategy
+  let* strat =
+    match f with
+    | None -> Error.fatal "Unable to find strategy implementation"
+    | Some f -> Result.return f
+  in
+  let* res = strat context in
+  Result.return res
+
+let run_strat context strategy =
+  match run_strat_ context strategy with
+  | Ok x -> x
+  | Error e -> Error.raise e
 
 (** Function for Cmdliner use. *)
 let of_string_res x =
