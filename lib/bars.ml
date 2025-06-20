@@ -29,17 +29,14 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
 
 let yojson_of_t (x : t) : (Yojson.Safe.t, Error.t) result =
   let ( let* ) = Result.( let* ) in
-  let tbl = Hashtbl.create @@ Hashtbl.length x in
   let* res =
-    fold x (Ok ()) @@ fun symbol data ok ->
-    let* ok = ok in
-    let json : Yojson.Safe.t =
-      `List
-      (Data.to_items data |> List.map Item.yojson_of_t)
-    in
-    Result.return ()
+    Error.guard (Error.json "Error in Bars.yojson_of_t") @@ fun () ->
+    fold x [] @@ fun symbol data acc ->
+    let json = Data.yojson_of_t data in
+    (Instrument.symbol symbol, json) :: acc
   in
-  Result.return `Null
+  let core : Yojson.Safe.t = `Assoc res in
+  Result.return @@ `Assoc [ ("bars", core) ]
 
 let empty () = Hashtbl.create 100
 
@@ -145,11 +142,13 @@ let of_seq = Hashtbl.of_seq
 let of_list l = of_seq @@ Seq.of_list l
 
 let print_to_file_direct bars filename =
-  let bars_json = yojson_of_t bars in
+  let ( let* ) = Result.( let* ) in
+  let* bars_json = yojson_of_t bars in
   let str = Yojson.Safe.to_string bars_json in
   let oc = open_out filename in
   output_string oc str;
-  close_out oc
+  close_out oc;
+  Result.return ()
 
 let print_to_file ?(filename : string option) bars prefix =
   let tail =

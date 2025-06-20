@@ -285,11 +285,5 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
   | _ ->
     Error.json "Expected a list of datapoints in Price_history.V2.t_of_yojson"
 
-let yojson_of_t (x : t) =
-  let data = x.data in
-  let fortran_layout =
-    Array2.change_layout data fortran_layout
-  in
-  let arr = Array.create_float @@ length
-  Array2.change_layout
-  Array2.slice_left
+let yojson_of_t (x : t) : Yojson.Safe.t =
+  to_items x |> List.map Item.yojson_of_t |> fun l -> `List l
