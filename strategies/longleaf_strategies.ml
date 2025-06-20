@@ -23,6 +23,7 @@ type t =
   | Monaspa
   | Channel
   | Astar
+  | Astarexample
 [@@deriving show, eq, yojson, variants]
 
 let all = List.map fst Variants.descriptions
@@ -30,7 +31,7 @@ let all = List.map fst Variants.descriptions
 (** Add a handler for your strategy here, imitating the styles of the others.
     There must be a handler or your strategy will not work. *)
 let strats =
-  (* let ( --> ) x y = (x, run_generic y) in *)
+  (* let ( --> ) x y = (x, Run.top y) in *)
   [ (* BuyAndHold --> (module Buy_and_hold.Make); *)
     (* Listener --> (module Listener.Make); *)
     (* Monaspa --> (module Monaspa.Make); *)
@@ -47,7 +48,9 @@ let strats =
     (* ThrowingCrossover --> (module Throwing_crossover.Make); *)
     (* LiberatedCrossover --> (module Liberated_crossover.Make); *)
     (* Channel --> (module Channel.Make); *)
-    (* SpyTrader --> (module Spytrader.Make); *) ]
+    (* SpyTrader --> (module Spytrader.Make); *)
+    (* (Astarexample, Astar_example.m) *)
+    (* (val Astar_example.m) *) ]
 
 (** Based on the context, select and run the strategy. *)
 let run_strat (context : Context.t) strategy =

@@ -98,18 +98,21 @@ module Make (Backend : Backend_intf.S) = struct
   let get_filename () = Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
 
   let output_data (state : _ State.t) filename =
-    if context.save_to_file then (
-      Eio.traceln "strategy_utils: Save to file info NYI";
-      ())
-    (* let prefix = *)
-    (*   match Backend.is_backtest with *)
-    (*   | true -> "backtest" *)
-    (*   | false -> "live" *)
-    (* in *)
-    (* Eio.traceln "Saving all bars..."; *)
-    (* Bars.print_to_file ~filename state.bars prefix; *)
-    (* Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received")) *)
-      else ()
+    let ( let* ) = Result.( let* ) in
+    match context.save_to_file with
+    | true ->
+      let prefix =
+        match Backend.is_backtest with
+        | true -> "backtest"
+        | false -> "live"
+      in
+      Eio.traceln "Saving all bars...";
+      let* () = Bars.print_to_file ~filename state.bars prefix in
+      let* () =
+        Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received")
+      in
+      Result.return ()
+    | false -> Result.return ()
 
   let output_order_history (state : _ State.t) filename =
     if context.save_to_file then (
@@ -210,7 +213,7 @@ module Make (Backend : Backend_intf.S) = struct
         Pmutex.set mutices.stats_mutex stats_with_orders
         (* Pmutex.set mutices.indicators_mutex state.indicators *));
       let filename = get_filename () in
-      output_data state filename;
+      let* () = output_data state filename in
       output_order_history state filename;
       let tearsheet = Tearsheet.make state in
       Eio.traceln "%a" Tearsheet.pp tearsheet;

@@ -124,6 +124,8 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
       ("name", `String (Trading_types.Side.to_string side));
     ]
 
+[@@@warning "-27"]
+
 let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
   invalid_arg
     "plotly.ml: order_trace_side: FIXME items no longer have order field"
@@ -257,6 +259,8 @@ let of_bars (bars : Bars.t) indicators symbol : Yojson.Safe.t option =
 (*            ]; *)
 (*        "layout" = layout @@ Instrument.symbol symbol; *)
 (*      ] *)
+
+[@@@warning "+27"]
 
 module Stats = struct
   module Side = Trading_types.Side

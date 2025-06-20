@@ -28,9 +28,10 @@ let make_bars (options : Options.t) =
           end_ = Some end_;
         }
       in
-      let res = Tiingo.Data.top request in
+      let* res = Tiingo.Data.top request in
+      Result.return res
       (* Bars.sort Item.compare res; *)
-      invalid_arg "Downloading Bars in V2 format NYI"
+      (* invalid_arg "Downloading Bars in V2 format NYI" *)
       (* Result.return res *)
     | File file ->
       Eio.traceln "Preloading bars from %s" file;
