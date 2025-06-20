@@ -83,7 +83,7 @@ type multitest = { mean : float; min : float; max : float; std : float }
 let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
     ~(sell : Astar_search.EnumeratedSignal.t) =
   let x = Astar_search.EnumeratedSignal.to_strategy buy sell in
-  Run.top x context
+  Strategy.run x context
 
 (** Top level function for running strategies based on a context.*)
 let run (context : Context.t) strategy =

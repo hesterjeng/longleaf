@@ -36,7 +36,7 @@ let run_options (context : Context.t) : Options.t =
   }
 
 (** Helper function to reduce code duplication. *)
-let top ?(run_options = run_options) (module Strat : BUILDER) context =
+let run ?(run_options = run_options) (module Strat : BUILDER) context =
   let options = run_options context in
   let ( let* ) = Result.( let* ) in
   let* backend = Backend.make options in

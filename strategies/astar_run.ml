@@ -34,7 +34,7 @@ let run (x : node_) =
   let* res =
     if EnumeratedSignal.is_empty x.buy || EnumeratedSignal.is_empty x.sell then
       Result.return 0.0
-    else Run.top (EnumeratedSignal.to_strategy x.buy x.sell) x.context
+    else Strategy.run (EnumeratedSignal.to_strategy x.buy x.sell) x.context
   in
   Eio.traceln "Ending value: %f" res;
   Result.return res
