@@ -27,9 +27,19 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
   let seq = Seq.of_list mapped in
   Result.return @@ Hashtbl.of_seq seq
 
-let yojson_of_t (x : t) : Yojson.Safe.t =
-  Eio.traceln "Bars.yojson_of_t NYI";
-  `Null
+let yojson_of_t (x : t) : (Yojson.Safe.t, Error.t) result =
+  let ( let* ) = Result.( let* ) in
+  let tbl = Hashtbl.create @@ Hashtbl.length x in
+  let* res =
+    fold x (Ok ()) @@ fun symbol data ok ->
+    let* ok = ok in
+    let json : Yojson.Safe.t =
+      `List
+      (Data.to_items data |> List.map Item.yojson_of_t)
+    in
+    Result.return ()
+  in
+  Result.return `Null
 
 let empty () = Hashtbl.create 100
 
