@@ -174,3 +174,8 @@ module EnumeratedSignal = struct
 end
 
 (* type strategy = { buy : EnumeratedSignal.t; sell : EnumeratedSignal.t } *)
+
+let run_astar (context : Options.Context.t) ~(buy : EnumeratedSignal.t)
+    ~(sell : EnumeratedSignal.t) =
+  let x = EnumeratedSignal.to_strategy buy sell in
+  Strategy.run x context

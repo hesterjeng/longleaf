@@ -80,11 +80,6 @@ type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 (** Track some statistics if we are doing multiple backtests. *)
 
-let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
-    ~(sell : Astar_search.EnumeratedSignal.t) =
-  let x = Astar_search.EnumeratedSignal.to_strategy buy sell in
-  Strategy.run x context
-
 (** Top level function for running strategies based on a context.*)
 let run (context : Context.t) strategy =
   match context.runtype with
