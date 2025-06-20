@@ -41,54 +41,7 @@ let mk_context ~runtype ~preload ~stacktrace ~no_gui ~target ~save_received
     | None -> None
   in
   let _ = precompute_indicators_arg in
-  let target =
-    Eio.traceln "Disabled precomputation for new indicators...";
-    target
-    (* match precompute_indicators_arg with *)
-    (* | true -> *)
-    (*   let preload_bars = *)
-    (*     let b = Options.Preload.load preload in *)
-    (*     Bars.sort Item.compare b; *)
-    (*     b *)
-    (*   in *)
-    (*   let target_bars = *)
-    (*     let b = Options.Preload.load target in *)
-    (*     Bars.sort (Ord.opp Item.compare) b; *)
-    (*     b *)
-    (*   in *)
-    (*   let preload : Options.Preload.t = Loaded preload_bars in *)
-    (*   let target : Options.Preload.t = Loaded target_bars in *)
-    (*   Eio.traceln "Precomputing indicators..."; *)
-    (*   let indicators = *)
-    (*     Indicators.precompute preload_bars target_bars |> function *)
-    (*     | Ok indicators -> indicators *)
-    (*     | Error e -> *)
-    (*       Eio.traceln "%a" Error.pp e; *)
-    (*       invalid_arg "Error while computing indicators" *)
-    (*   in *)
-    (*   (indicators, preload, target) *)
-    (* | false -> *)
-    (*   let preload_bars = *)
-    (*     let b = Options.Preload.load preload in *)
-    (*     Bars.sort Item.compare b; *)
-    (*     b *)
-    (*   in *)
-    (*   let indicators = *)
-    (*     Indicators.precompute_preload preload_bars |> function *)
-    (*     | Ok x -> { x with ty = Live } *)
-    (*     | Error e -> *)
-    (*       Eio.traceln "%a" Error.pp e; *)
-    (*       invalid_arg "Error while computing indicators" *)
-    (*   in *)
-    (*   let target_bars = *)
-    (*     let b = Options.Preload.load target in *)
-    (*     Bars.sort (Ord.opp Item.compare) b; *)
-    (*     b *)
-    (*   in *)
-    (*   let preload : Options.Preload.t = Loaded preload_bars in *)
-    (*   let target : Options.Preload.t = Loaded target_bars in *)
-    (*   (indicators, preload, target) *)
-  in
+  let target = Options.Preload.(Loaded (load target)) in
   let longleaf_env = Environment.make () in
   let mutices = Longleaf_mutex.create () in
   {

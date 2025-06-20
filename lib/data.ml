@@ -53,13 +53,33 @@ module Type = struct
     | FSO_K -> 9
     | FSO_D -> 10
     | RSI -> 11
+
+  let of_int = function
+    | 0 -> Index
+    | 1 -> Time
+    | 2 -> Last
+    | 3 -> Open
+    | 4 -> High
+    | 5 -> Low
+    | 6 -> Close
+    | 7 -> Volume
+    | 8 -> SMA
+    | 9 -> FSO_K
+    | 10 -> FSO_D
+    | 11 -> RSI
+    | _ -> invalid_arg "Invalid Data.Type.of_int"
 end
 
 module Column = struct
   type t = (float, float64_elt, c_layout) Array1.t
 
   let pp : t Format.printer =
-   fun fmt _ -> Format.fprintf fmt "<Data.Column.pp NYI>>"
+   fun fmt x ->
+    let r = Int.range' 0 Type.count in
+    let l = Iter.map (fun i -> (Type.of_int i, Array1.get x i)) r in
+    let pp_pair = Pair.pp Type.pp Float.pp in
+    let pp = Iter.pp_seq ~sep:";@ " pp_pair in
+    Format.fprintf fmt "@[%a@]@." pp l
 
   let of_data (x : data) i : (t, Error.t) result =
     let err = Error.fatal "Data.Column.of_data" in
@@ -160,12 +180,16 @@ let get (data : t) (x : Type.t) i =
   let res = Array2.get data.data (Type.to_int x) i in
   assert (i >= 0);
   assert (i < data.size);
-  assert (not @@ Float.is_nan res);
+  assert (
+    match not @@ Float.is_nan res with
+    | false ->
+      Eio.traceln "%a index %d NaN" Type.pp x i;
+      false
+    | true -> true);
   res
 
 let get_top (res : t) (x : Type.t) =
   let res = get res x @@ res.current in
-  assert (not @@ Float.is_nan res);
   res
 
 let item_of_column x i =
