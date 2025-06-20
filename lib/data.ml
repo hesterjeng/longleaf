@@ -20,8 +20,6 @@ type t = {
 type data = t
 (* [@@deriving show] *)
 
-(* type slice = (float, float64_elt, c_layout) Array1.t *)
-
 module Type = struct
   type t =
     | Index
@@ -36,7 +34,7 @@ module Type = struct
     | FSO_K
     | FSO_D
     | RSI
-  [@@deriving variants, show]
+  [@@deriving variants, show { with_path = false }]
 
   let count = List.length Variants.descriptions
 
@@ -77,18 +75,32 @@ module Column = struct
    fun fmt x ->
     let r = Int.range' 0 Type.count in
     let l = Iter.map (fun i -> (Type.of_int i, Array1.get x i)) r in
-    let pp_pair = Pair.pp Type.pp Float.pp in
-    let pp = Iter.pp_seq ~sep:";@ " pp_pair in
-    Format.fprintf fmt "@[%a@]@." pp l
+    let pp_pair = Pair.pp ~pp_sep:(Format.return ": ") Type.pp Float.pp in
+    let pp = Iter.pp_seq ~sep:"; " pp_pair in
+    Format.fprintf fmt "@[{ %a }@]@." pp l
 
   let of_data (x : data) i : (t, Error.t) result =
-    let err = Error.fatal "Data.Column.of_data" in
-    Error.guard err @@ fun () ->
-    let matrix = Array2.change_layout x.data fortran_layout in
-    let col = Array2.slice_right matrix @@ (i + 1) in
-    let c_col = Array1.change_layout col c_layout in
-    assert (Array1.dim c_col = Type.count);
-    c_col
+    let ( let* ) = Result.( let* ) in
+    let* arr =
+      Error.guard (Error.fatal "Data.Column.of_data") @@ fun () ->
+      Array1.init float64 c_layout Type.count @@ fun row ->
+      Array2.get x.data row i
+    in
+    (* let guard i x = *)
+    (*   Error.guard (Error.fatal (Format.asprintf "Data.Column.of_data %d" i)) x *)
+    (* in *)
+    (* let* matrix = *)
+    (*   guard 0 @@ fun () -> Array2.change_layout x.data fortran_layout *)
+    (* in *)
+    (* let* col = guard 1 @@ fun () -> Array2.slice_right matrix @@ (i + 1) in *)
+    (* let* c_col = guard 2 @@ fun () -> Array1.change_layout col c_layout in *)
+    (* assert ( *)
+    (*   match Array1.dim c_col = Type.count with *)
+    (*   | true -> true *)
+    (*   | false -> *)
+    (*     Eio.traceln "array1 dim %d, expected %d" (Array1.dim c_col) Type.count; *)
+    (*     false); *)
+    Result.return arr
 
   let get (x : t) (ty : Type.t) =
     let err = Error.fatal "Data.Column.get" in
