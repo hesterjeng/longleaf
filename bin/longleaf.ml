@@ -1,8 +1,8 @@
 module Longleaf = Longleaf_lib
+module Options = Longleaf.Options
 
 module Args = struct
   module Runtype = Longleaf.Options.RunType
-  module Preload = Longleaf.Options.Preload
 
   (* Define the CLI arguments *)
   let runtype_arg =
@@ -24,28 +24,32 @@ module Args = struct
       & pos 1 (some Longleaf_strategies.conv) None
       & info [] ~docv:"strategy" ~doc)
 
-  let preload_arg =
-    let preload_conv = Preload.conv in
-    let doc =
-      "The data used to \"warmup\" indicators.  This data should be just \
-       before the target data.  Valid choices are \"none\", \"download\", or \
-       \"%s\" where %s is the file you want preloaded as bars.  This data will \
-       be in the background, as historical information.  If this value is \
-       None, the strategy will run on the target data as if there were no \
-       preloaded data.  If the argument is Download, an attempt to download \
-       some market data will be made.  Otherwise, `--preload $file will` \
-       attempt to use $file, which is expects to be a file in Alpaca market \
-       data JSON format."
-    in
-    Cmdliner.Arg.(value & opt preload_conv None & info [ "p"; "preload" ] ~doc)
+  (* let preload_arg = *)
+  (*   let preload_conv = Preload.conv in *)
+  (*   let doc = *)
+  (*     "The data used to \"warmup\" indicators.  This data should be just \ *)
+  (*      before the target data.  Valid choices are \"none\", \"download\", or \ *)
+  (*      \"%s\" where %s is the file you want preloaded as bars.  This data will \ *)
+  (*      be in the background, as historical information.  If this value is \ *)
+  (*      None, the strategy will run on the target data as if there were no \ *)
+  (*      preloaded data.  If the argument is Download, an attempt to download \ *)
+  (*      some market data will be made.  Otherwise, `--preload $file will` \ *)
+  (*      attempt to use $file, which is expects to be a file in Alpaca market \ *)
+  (*      data JSON format." *)
+  (*   in *)
+  (*   Cmdliner.Arg.(value & opt preload_conv None & info [ "p"; "preload" ] ~doc) *)
 
   let target_arg =
+    let preload_conv = Longleaf.Target.conv in
     let doc =
       "The data file to actually backtest on.  This is only for use with \
        backtesting.  The algorithm will process this information as if it is \
        being received over the wire."
     in
-    Cmdliner.Arg.(value & opt (some string) None & info [ "t"; "target" ] ~doc)
+    Cmdliner.Arg.(
+      value
+      & opt preload_conv (invalid_arg "Must select target")
+      & info [ "t"; "target" ] ~doc)
 
   let output_file_arg =
     let doc = "Output file for a log." in
@@ -82,26 +86,33 @@ module Args = struct
   let nowait_market_open =
     let doc = "Don't wait for market open to try running the strategy." in
     Cmdliner.Arg.(value & flag & info [ "nowait-market-open" ] ~doc)
+
+  let start_arg =
+    let doc = "Starting index for backtest" in
+    Cmdliner.Arg.(value & opt (some int) None & info [ "i"; "index" ] ~doc)
 end
 
 module Cmd = struct
-  let run runtype preload stacktrace output no_gui target save_received
-      strategy_arg save_to_file nowait_market_open print_tick_arg
-      precompute_indicators_arg compare_preloaded =
+  let run runtype stacktrace output no_gui target save_received strategy_arg
+      save_to_file nowait_market_open print_tick_arg precompute_indicators_arg
+      compare_preloaded =
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output output;
     (* let reporter = Logs_fmt.reporter () in *)
     (* Logs.set_reporter reporter; *)
     (* Logs.set_level ~all:true (Some Logs.Info); *)
     Eio_main.run @@ fun eio_env ->
-    Run.top ~stacktrace ~preload ~runtype ~no_gui ~target ~save_received
-      ~eio_env ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg
-      ~precompute_indicators_arg ~compare_preloaded
+    let cli_args =
+      Options.CLI.make ~runtype ~stacktrace ~no_gui ~target ~save_received
+        ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg
+        ~precompute_indicators_arg ~compare_preloaded
+    in
+    Run.top ~eio_env cli_args
 
   let top =
     let term =
       Cmdliner.Term.(
-        const run $ Args.runtype_arg $ Args.preload_arg $ Args.stacktrace_arg
+        const run $ Args.runtype_arg $ Args.stacktrace_arg
         $ Args.output_file_arg $ Args.no_gui_arg $ Args.target_arg
         $ Args.save_received_arg $ Args.strategy_arg $ Args.save_to_file
         $ Args.nowait_market_open $ Args.print_tick_arg

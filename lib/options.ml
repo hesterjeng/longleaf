@@ -38,36 +38,28 @@ module RunType = struct
     | _ -> false
 end
 
-module Preload = struct
-  (* Start with empty bars, load bars from a file, or download data *)
-  type t = None | File of string | Download | Loaded of Bars.t
-  [@@deriving show, variants]
+module CLI = struct
+  type flags =
+    {
+      stacktrace : bool;
+      no_gui : bool;
+      save_received : bool;
+      save_to_file : bool;
+      nowait_market_open : bool;
+      print_tick_arg : bool;
+      precompute_indicators_arg : bool;
+      compare_preloaded : bool;
+      randomized_backtest_length : bool;
+      start : int;
+    } [@@deriving show]
 
-  let of_string_res x =
-    match x with
-    | "None"
-    | "none" ->
-      Ok None
-    | "Download"
-    | "download" ->
-      Ok Download
-    | s when Sys.file_exists s -> Ok (File s)
-    | _ ->
-      Error (`Msg "Expected a valid preload selection, or file doesn't exist")
-
-  let conv = Cmdliner.Arg.conv (of_string_res, pp)
-
-  let load = function
-    | None -> invalid_arg "Cannot load missing preload in Options.Preload.load"
-    | File s ->
-      let res = Bars.of_file s in
-      res
-    | Download -> invalid_arg "Cannot load download in Options.Preload.load"
-    | Loaded b -> b
-
-  let bars = function
-    | Loaded b -> b
-    | _ -> invalid_arg "Preload.bars: bars not loaded"
+  type 'a t = {
+    runtype : RunType.t;
+    target : Target.t;
+    strategy_arg : 'a;
+    flags : flags;
+  }
+  [@@deriving make]
 end
 
 module Context = struct
@@ -79,34 +71,35 @@ module Context = struct
     longleaf_env : Environment.t; [@opaque]
     switch : Eio.Switch.t; [@opaque]
     (* preload : Preload.t; [@opaque] *)
-    target : Preload.t; [@opaque]
-    compare_preloaded : bool;
-    save_received : bool;
-    no_gui : bool;
-    nowait_market_open : bool;
+    target : Target.t; [@opaque]
+    flags : CLI.flags;
+    (* compare_preloaded : bool; *)
+    (* save_received : bool; *)
+    (* no_gui : bool; *)
+    (* nowait_market_open : bool; *)
     mutices : Longleaf_mutex.t;
-    save_to_file : bool;
-    print_tick_arg : bool;
+    (* save_to_file : bool; *)
+    (* print_tick_arg : bool; *)
   }
   [@@deriving show]
 
-  let load x =
-    {
-      x with
-      (* preload = Loaded (Preload.load x.preload); *)
-      target = Loaded (Preload.load x.target);
-    }
+  (* let load x = *)
+  (*   { *)
+  (*     x with *)
+  (*     (\* preload = Loaded (Preload.load x.preload); *\) *)
+  (*     target = Target.load x.target; *)
+  (*   } *)
 end
 
 type t = {
   symbols : string list;
   tick : float;
-  overnight : bool;
-  resume_after_liquidate : bool;
+  (* overnight : bool; *)
+  (* resume_after_liquidate : bool; *)
   indicators_config : Indicator_config.t;
-  dropout : bool;
-  randomized_backtest_length : int;
+  (* dropout : bool; *)
+  (* randomized_backtest_length : int; *)
   context : Context.t;
 }
 
-let load (x : t) = { x with context = Context.load x.context }
+(* let load (x : t) = { x with context = Context.load x.context } *)
