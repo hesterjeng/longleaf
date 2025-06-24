@@ -39,7 +39,7 @@ module RunType = struct
 end
 
 module CLI = struct
-  type flags = {
+  type t = {
     stacktrace : bool;
     no_gui : bool;
     save_received : bool;
@@ -53,41 +53,45 @@ module CLI = struct
   }
   [@@deriving show]
 
-  type 'a t = {
-    runtype : RunType.t;
-    target : Target.t;
-    strategy_arg : 'a;
-    flags : flags;
-  }
-  [@@deriving make]
+  (* type 'a t = { *)
+  (*   runtype : RunType.t; *)
+  (*   target : Target.t; *)
+  (*   strategy_arg : 'a; *)
+  (*   flags : flags; *)
+  (* } *)
+  (* [@@deriving make] *)
 end
 
-module Context = struct
-  type t = {
-    strategy : string;
-    runtype : RunType.t;
-    eio_env : Eio_unix.Stdenv.base; [@opaque]
-    longleaf_env : Environment.t; [@opaque]
-    switch : Eio.Switch.t; [@opaque]
-    target : Target.t; [@opaque]
-    flags : CLI.flags;
-    mutices : Longleaf_mutex.t;
-  }
-  [@@deriving show]
-
-  (* let load x = *)
-  (*   { *)
-  (*     x with *)
-  (*     (\* preload = Loaded (Preload.load x.preload); *\) *)
-  (*     target = Target.load x.target; *)
-  (*   } *)
-end
-
+(* module Context = struct *)
 type t = {
   symbols : string list;
   tick : float;
   indicators_config : Indicator_config.t;
-  context : Context.t;
+  strategy : string;
+  runtype : RunType.t;
+  eio_env : Eio_unix.Stdenv.base; [@opaque]
+  longleaf_env : Environment.t; [@opaque]
+  switch : Eio.Switch.t; [@opaque]
+  target : Target.t; [@opaque]
+  flags : CLI.t;
+  strategy_arg : string;
+  mutices : Longleaf_mutex.t;
 }
+[@@deriving show]
+
+(* let load x = *)
+(*   { *)
+(*     x with *)
+(*     (\* preload = Loaded (Preload.load x.preload); *\) *)
+(*     target = Target.load x.target; *)
+(*   } *)
+(* end *)
+
+(* type t = { *)
+(*   symbols : string list; *)
+(*   tick : float; *)
+(*   indicators_config : Indicator_config.t; *)
+(*   context : Context.t; *)
+(* } *)
 
 (* let load (x : t) = { x with context = Context.load x.context } *)

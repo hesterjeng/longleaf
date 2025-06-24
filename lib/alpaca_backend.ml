@@ -15,33 +15,33 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (* module Backtesting = Backtesting_backend.Make (Input) *)
   module Input = Input
 
-  let context = Input.options.context
-  let env = context.eio_env
-  let runtype = context.runtype
+  (* let context = Input.options.context *)
+  let opts = Input.options
+  let env = opts.eio_env
+  (* let runtype = context.runtype *)
 
   (* let overnight = context.flags.ov *)
   (*   (\* Input.options.overnight *\)  *)
-  let save_received = context.flags.save_received
+  let save_received = opts.flags.save_received
   let received_data = Bars.empty ()
 
   let trading_client =
     let res =
       let ty =
-        match Input.options.context.runtype with
+        match opts.runtype with
         | Live -> Live
         | _ -> Paper
       in
-      Piaf.Client.create ~sw:context.switch context.eio_env
-      @@ apca_api_base_url ty
+      Piaf.Client.create ~sw:opts.switch opts.eio_env @@ apca_api_base_url ty
     in
     match res with
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create trading client"
 
-  let tiingo_client = Tiingo_api.tiingo_client context.eio_env context.switch
+  let tiingo_client = Tiingo_api.tiingo_client opts.eio_env opts.switch
 
   module Tiingo_client : Util.CLIENT = struct
-    let longleaf_env = context.longleaf_env
+    let longleaf_env = opts.longleaf_env
     let client = tiingo_client
   end
 
@@ -49,7 +49,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let data_client =
     let res =
-      Piaf.Client.create ~sw:context.switch context.eio_env apca_api_data_url
+      Piaf.Client.create ~sw:opts.switch opts.eio_env apca_api_data_url
     in
     match res with
     | Ok x -> x
@@ -60,12 +60,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
-    let longleaf_env = context.longleaf_env
+    let longleaf_env = opts.longleaf_env
   end)
 
   module Market_data_api = Market_data_api.Make (struct
     let client = data_client
-    let longleaf_env = context.longleaf_env
+    let longleaf_env = opts.longleaf_env
   end)
 
   let init_state content =
@@ -101,7 +101,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let next_market_open () =
     let ( let* ) = Result.( let* ) in
     let* clock = Trading_api.Clock.get () in
-    if clock.is_open || context.flags.nowait_market_open then Result.return None
+    if clock.is_open || opts.flags.nowait_market_open then Result.return None
     else Result.return @@ Some clock.next_open
 
   let next_market_close () =
@@ -146,7 +146,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
           Eio.traceln
             "Error %a from Tiingo.latest, trying again after 5 seconds."
             Error.pp s;
-          Ticker.tick ~runtype env 5.0;
+          Ticker.tick ~runtype:opts.runtype opts.eio_env 5.0;
           Tiingo.latest symbols
       in
       let* () =

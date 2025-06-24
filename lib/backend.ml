@@ -3,9 +3,9 @@ module type BACKEND_INPUT = Backend_intf.BACKEND_INPUT
 
 let make_bars (options : Options.t) =
   let ( let* ) = Result.( let* ) in
-  let context = options.context in
+  (* let context = options.context in *)
   (* let preload = context.preload in *)
-  let target = context.target in
+  let target = options.target in
   let symbols = options.symbols in
   let* bars =
     match target with
@@ -13,8 +13,8 @@ let make_bars (options : Options.t) =
     | Download ->
       Eio.traceln "Downloading data from tiingo for preload";
       let module Param = struct
-        let longleaf_env = context.longleaf_env
-        let client = Tiingo_api.tiingo_client context.eio_env context.switch
+        let longleaf_env = options.longleaf_env
+        let client = Tiingo_api.tiingo_client options.eio_env options.switch
       end in
       let module Tiingo = Tiingo_api.Make (Param) in
       let request : Market_data_api.Request.t =
@@ -62,7 +62,7 @@ let make_bars (options : Options.t) =
     (*     (\* @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res *\) *)
     (*   | _ -> Result.return @@ Some res) *)
   in
-  match context.runtype with
+  match options.runtype with
   | RandomSliceBacktest
   | MultiRandomSliceBacktest ->
     invalid_arg "Random slice backtesting with V2 bars NYI"
@@ -83,7 +83,7 @@ let make_bars (options : Options.t) =
 let make_backend_input (options : Options.t) =
   let ( let* ) = Result.( let* ) in
   let* target =
-    match options.context.target with
+    match options.target with
     (* | File _ *)
     | Download ->
       Error.fatal "Expected to have loaded target when creating backend"
@@ -111,7 +111,7 @@ let make (options : Options.t) =
   let* backend_input = make_backend_input options in
   let module Input = (val backend_input) in
   let* res =
-    match options.context.runtype with
+    match options.runtype with
     | Manual -> Error.fatal "Cannot create a strategy with manual runtype"
     | Paper
     | Live ->

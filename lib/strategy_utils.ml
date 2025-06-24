@@ -2,9 +2,9 @@ module Make (Backend : Backend_intf.S) = struct
   module Input = Backend.Input
 
   let ( let* ) = Result.( let* )
-  let context = Input.options.context
-  let mutices : Longleaf_mutex.t = context.mutices
-  let runtype = context.runtype
+  let options = Input.options
+  let mutices : Longleaf_mutex.t = options.mutices
+  let runtype = options.runtype
 
   let listen_tick () : (State.state, Error.t) result =
     Eio.Fiber.any
@@ -100,7 +100,7 @@ module Make (Backend : Backend_intf.S) = struct
 
   let output_data (state : _ State.t) filename =
     let ( let* ) = Result.( let* ) in
-    match context.flags.save_to_file with
+    match options.flags.save_to_file with
     | true ->
       let prefix =
         match Backend.is_backtest with
@@ -116,7 +116,7 @@ module Make (Backend : Backend_intf.S) = struct
     | false -> Result.return ()
 
   let output_order_history (state : _ State.t) filename =
-    if context.flags.save_to_file then (
+    if options.flags.save_to_file then (
       let json_str =
         Order.History.yojson_of_t state.order_history |> Yojson.Safe.to_string
       in
@@ -154,7 +154,7 @@ module Make (Backend : Backend_intf.S) = struct
            cash = Backend_position.get_cash state.positions;
          }
     in
-    if context.flags.print_tick_arg then
+    if options.flags.print_tick_arg then
       Eio.traceln "[ %a ] CASH %f" Time.pp time value;
     Result.return
     @@ { state with latest; stats; positions; time; tick = state.tick + 1 }
@@ -176,7 +176,7 @@ module Make (Backend : Backend_intf.S) = struct
       Eio.traceln "Running...";
       Result.return @@ { state with current = Listening }
     | Listening -> (
-      if not context.flags.no_gui then (
+      if not options.flags.no_gui then (
         Pmutex.set mutices.data_mutex state.bars;
         Pmutex.set mutices.orders_mutex state.order_history;
         Pmutex.set mutices.stats_mutex state.stats
@@ -206,7 +206,7 @@ module Make (Backend : Backend_intf.S) = struct
       Result.return { state with current = Listening }
     | Finished code ->
       Eio.traceln "@[Reached finished state.@]@.";
-      if not context.flags.no_gui then (
+      if not options.flags.no_gui then (
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
         in

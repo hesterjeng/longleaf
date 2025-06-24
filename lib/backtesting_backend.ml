@@ -29,16 +29,18 @@ module Make (Input : BACKEND_INPUT) : S = struct
          time = Ptime.min;
        }
 
-  let context = Input.options.context
+  let opts = Input.options
+
+  (* let context = Input.options.context *)
   let next_market_open _ = Ok None
   let next_market_close _ = Ok Ptime.max
-  let env = context.eio_env
-  let symbols = List.map Instrument.security Input.options.symbols
+  let env = opts.eio_env
+  let symbols = List.map Instrument.security opts.symbols
   let is_backtest = true
   let shutdown () = ()
 
   (* let overnight = Input.options.overnight *)
-  let save_received = context.flags.save_received
+  let save_received = opts.flags.save_received
 
   (* Ordered in reverse time order when INPUT is created *)
   (* let data_remaining : Bars.Latest.t Queue.t = *)
