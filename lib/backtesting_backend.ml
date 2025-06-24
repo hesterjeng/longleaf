@@ -36,8 +36,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let symbols = List.map Instrument.security Input.options.symbols
   let is_backtest = true
   let shutdown () = ()
-  let overnight = Input.options.overnight
-  let save_received = context.save_received
+
+  (* let overnight = Input.options.overnight *)
+  let save_received = context.flags.save_received
 
   (* Ordered in reverse time order when INPUT is created *)
   (* let data_remaining : Bars.Latest.t Queue.t = *)

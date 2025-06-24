@@ -18,8 +18,10 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let context = Input.options.context
   let env = context.eio_env
   let runtype = context.runtype
-  let overnight = Input.options.overnight
-  let save_received = context.save_received
+
+  (* let overnight = context.flags.ov *)
+  (*   (\* Input.options.overnight *\)  *)
+  let save_received = context.flags.save_received
   let received_data = Bars.empty ()
 
   let trading_client =
@@ -99,7 +101,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let next_market_open () =
     let ( let* ) = Result.( let* ) in
     let* clock = Trading_api.Clock.get () in
-    if clock.is_open || context.nowait_market_open then Result.return None
+    if clock.is_open || context.flags.nowait_market_open then Result.return None
     else Result.return @@ Some clock.next_open
 
   let next_market_close () =
@@ -171,7 +173,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let place_order state order =
     let ( let* ) = Result.( let* ) in
-    assert (not @@ Input.options.dropout);
     let* () = Trading_api.Orders.create_market_order order in
     let* state = State.place_order state order in
     Result.return state

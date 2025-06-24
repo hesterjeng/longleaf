@@ -54,19 +54,20 @@ module Make (Backend : Backend_intf.S) = struct
            let time_until_close =
              Ptime.diff close_time now |> Ptime.Span.to_float_s
            in
-           while Backend.overnight || time_until_close >=. 600.0 do
+           while time_until_close >=. 600.0 do
              Eio.Fiber.yield ()
            done;
            Eio.traceln
              "@[Liquidating because we are within 10 minutes to market \
               close.@]@.";
-           match Input.options.resume_after_liquidate with
-           | false -> Result.return @@ State.BeginShutdown
-           | true ->
-             Eio.traceln
-               "Liquidating and then continuing because we are approaching \
-                market close.";
-             Result.return @@ State.LiquidateContinue);
+           Result.return State.BeginShutdown);
+         (* match context.flags.resume_after_liquidate with *)
+         (* | false -> Result.return @@ State.BeginShutdown *)
+         (* | true -> *)
+         (*   Eio.traceln *)
+         (*     "Liquidating and then continuing because we are approaching \ *)
+           (*      market close."; *)
+         (*   Result.return @@ State.LiquidateContinue); *)
        ]
 
   let run ~init_state step =
@@ -99,7 +100,7 @@ module Make (Backend : Backend_intf.S) = struct
 
   let output_data (state : _ State.t) filename =
     let ( let* ) = Result.( let* ) in
-    match context.save_to_file with
+    match context.flags.save_to_file with
     | true ->
       let prefix =
         match Backend.is_backtest with
@@ -115,7 +116,7 @@ module Make (Backend : Backend_intf.S) = struct
     | false -> Result.return ()
 
   let output_order_history (state : _ State.t) filename =
-    if context.save_to_file then (
+    if context.flags.save_to_file then (
       let json_str =
         Order.History.yojson_of_t state.order_history |> Yojson.Safe.to_string
       in
@@ -153,7 +154,7 @@ module Make (Backend : Backend_intf.S) = struct
            cash = Backend_position.get_cash state.positions;
          }
     in
-    if context.print_tick_arg then
+    if context.flags.print_tick_arg then
       Eio.traceln "[ %a ] CASH %f" Time.pp time value;
     Result.return
     @@ { state with latest; stats; positions; time; tick = state.tick + 1 }
@@ -175,7 +176,7 @@ module Make (Backend : Backend_intf.S) = struct
       Eio.traceln "Running...";
       Result.return @@ { state with current = Listening }
     | Listening -> (
-      if not Backend.Input.options.context.no_gui then (
+      if not context.flags.no_gui then (
         Pmutex.set mutices.data_mutex state.bars;
         Pmutex.set mutices.orders_mutex state.order_history;
         Pmutex.set mutices.stats_mutex state.stats
@@ -205,7 +206,7 @@ module Make (Backend : Backend_intf.S) = struct
       Result.return { state with current = Listening }
     | Finished code ->
       Eio.traceln "@[Reached finished state.@]@.";
-      if not Backend.Input.options.context.no_gui then (
+      if not context.flags.no_gui then (
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
         in

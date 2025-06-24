@@ -16,7 +16,7 @@ module type S = sig
   val is_backtest : bool
 
   (* TODO: Do something with this? *)
-  val overnight : bool
+  (* val overnight : bool *)
 
   (* Save data that is received in a live/paper run *)
   (* val save_received : bool *)

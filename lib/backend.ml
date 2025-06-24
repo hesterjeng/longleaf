@@ -9,7 +9,7 @@ let make_bars (options : Options.t) =
   let symbols = options.symbols in
   let* bars =
     match target with
-    | None -> Result.return @@ Bars.empty ()
+    (* | None -> Result.return @@ Bars.empty () *)
     | Download ->
       Eio.traceln "Downloading data from tiingo for preload";
       let module Param = struct
@@ -30,14 +30,14 @@ let make_bars (options : Options.t) =
       in
       let* res = Tiingo.Data.top request in
       Result.return res
-      (* Bars.sort Item.compare res; *)
-      (* invalid_arg "Downloading Bars in V2 format NYI" *)
-      (* Result.return res *)
-    | File file ->
-      Eio.traceln "Preloading bars from %s" file;
-      let* res = Yojson.Safe.from_file file |> Bars.t_of_yojson in
-      (* Bars.sort Item.compare res; *)
-      Result.return res
+    (* Bars.sort Item.compare res; *)
+    (* invalid_arg "Downloading Bars in V2 format NYI" *)
+    (* Result.return res *)
+    (* | File file -> *)
+    (*   Eio.traceln "Preloading bars from %s" file; *)
+    (*   let* res = Yojson.Safe.from_file file |> Bars.t_of_yojson in *)
+    (*   (\* Bars.sort Item.compare res; *\) *)
+    (*   Result.return res *)
     | Loaded b ->
       let res = Bars.copy b in
       (* Bars.sort Item.compare res; *)
@@ -45,22 +45,22 @@ let make_bars (options : Options.t) =
   in
   let* target =
     match target with
-    | None -> Ok None
+    (* | None -> Ok None *)
     | Download -> Error.missing_data "NYI Download target"
     | Loaded bars -> Result.return @@ Option.return @@ Bars.copy bars
-    | File t -> (
-      let* res =
-        let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in
-        conv
-      in
-      (* Bars.sort (Ord.opp Item.compare) res; *)
-      match context.runtype with
-      | Options.RunType.Montecarlo
-      | MultiMontecarlo ->
-        invalid_arg "Montecarlo testing with V2 bars NYI"
-        (* Result.return @@ Option.some *)
-        (* @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res *)
-      | _ -> Result.return @@ Some res)
+    (* | File t -> ( *)
+    (*   let* res = *)
+    (*     let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in *)
+    (*     conv *)
+    (*   in *)
+    (*   (\* Bars.sort (Ord.opp Item.compare) res; *\) *)
+    (*   match context.runtype with *)
+    (*   | Options.RunType.Montecarlo *)
+    (*   | MultiMontecarlo -> *)
+    (*     invalid_arg "Montecarlo testing with V2 bars NYI" *)
+    (*     (\* Result.return @@ Option.some *\) *)
+    (*     (\* @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res *\) *)
+    (*   | _ -> Result.return @@ Some res) *)
   in
   match context.runtype with
   | RandomSliceBacktest
@@ -84,10 +84,10 @@ let make_backend_input (options : Options.t) =
   let ( let* ) = Result.( let* ) in
   let* target =
     match options.context.target with
-    | File _
+    (* | File _ *)
     | Download ->
       Error.fatal "Expected to have loaded target when creating backend"
-    | None -> Result.return None
+    (* | None -> Result.return None *)
     | Loaded t -> Result.return @@ Some t
   in
   (* let* bars = *)
