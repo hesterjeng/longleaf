@@ -52,7 +52,7 @@ let symbols pos =
       | _ -> Some sym)
     pos.portfolio
 
-let value pos (latest : Bars.Latest.t) =
+let value pos (bars : Bars.t) =
   let ( let* ) = Result.( let* ) in
   (fun f -> List.fold_left f (Ok pos.cash) pos.portfolio)
   @@ fun previous_value (instrument, qty) ->
@@ -60,8 +60,8 @@ let value pos (latest : Bars.Latest.t) =
   | 0 -> previous_value
   | n ->
     let* previous_value = previous_value in
-    let* item = Bars.Latest.get latest instrument in
-    let* symbol_price = Column.last item in
+    let* data = Bars.get bars instrument in
+    let symbol_price = Data.get_top data Last in
     let symbol_value = Float.of_int n *. symbol_price in
     Result.return @@ (symbol_value +. previous_value)
 

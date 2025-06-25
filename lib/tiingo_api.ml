@@ -46,20 +46,16 @@ let item_to_bar_item (x : item) : Item.t =
   (* let order = None in *)
   Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume
 
-let to_latest (l : t) : Bars.Latest.t =
-  let res =
-    let res =
-      List.map
-        (fun (x : item) ->
-          ( x.ticker,
-            let bi = item_to_bar_item x in
-            Data.Column.of_item bi
-            (* item_to_bar_item x |> Data.Column.of_item *) ))
-        l
-    in
-    Seq.of_list res |> Bars.Latest.of_seq
-  in
-  res
+let add_items (bars : Bars.t) (l : t) =
+  let ( let* ) = Result.( let* ) in
+  List.fold_left
+    (fun acc item ->
+      let* () = acc in
+      let* data = Bars.get bars item.ticker in
+      let item = item_to_bar_item item in
+      let* () = Data.add_item data item in
+      Result.return ())
+    (Ok ()) l
 
 let tiingo_client eio_env sw =
   let res =
@@ -93,8 +89,7 @@ module Make (Tiingo : Util.CLIENT) = struct
     let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
     get ~headers ~endpoint
 
-  let latest tickers =
-    let ( let+ ) = Result.( let+ ) in
+  let latest bars tickers =
     let ( let* ) = Result.( let* ) in
     let symbols = List.map Instrument.symbol tickers |> String.concat "," in
     let endpoint =
@@ -104,8 +99,9 @@ module Make (Tiingo : Util.CLIENT) = struct
     (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
     let* resp = get ~headers ~endpoint in
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
-    let+ tiingo = t_of_yojson resp in
-    to_latest tiingo
+    let* tiingo = t_of_yojson resp in
+    let* () = add_items bars tiingo in
+    Result.return ()
 
   module Data = struct
     module Request = Market_data_api.Request

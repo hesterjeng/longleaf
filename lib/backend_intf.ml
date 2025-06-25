@@ -32,10 +32,7 @@ module type S = sig
   val next_market_open : unit -> (Time.t option, Error.t) result
   val next_market_close : unit -> (Time.t, Error.t) result
   val place_order : 'a State.t -> Order.t -> ('a State.t, Error.t) result
-
-  val latest_bars :
-    Instrument.t list -> Bars.t -> int -> (Bars.Latest.t, Error.t) result
-
+  val update_bars : Instrument.t list -> Bars.t -> int -> (unit, Error.t) result
   val last_data_bar : (Bars.Latest.t, Error.t) result
   val liquidate : 'a State.t -> ('a State.t, Error.t) Result.t
 end

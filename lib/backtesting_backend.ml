@@ -71,21 +71,21 @@ module Make (Input : BACKEND_INPUT) : S = struct
       in
       Result.return last_data_bar
 
-  let latest_bars _ _ i =
-    let ( let* ) = Result.( let* ) in
-    let latest_data_bar = Bars.Latest.empty () in
-    match target with
-    | None -> Error.missing_data "No target to create last data bar"
-    | Some target ->
-      let* () =
-        Bars.fold target (Ok ()) @@ fun instrument data ok ->
-        let* _ok = ok in
-        let* col = Data.Column.of_data data i in
-        assert (not @@ Float.is_nan @@ Data.Column.last_exn col);
-        Bars.Latest.set latest_data_bar instrument col;
-        Result.return ()
-      in
-      Result.return latest_data_bar
+  let update_bars _ _ _i = Result.return ()
+  (* let ( let* ) = Result.( let* ) in *)
+  (* let latest_data_bar = Bars.Latest.empty () in *)
+  (* match target with *)
+  (* | None -> Error.missing_data "No target to create last data bar" *)
+  (* | Some target -> *)
+  (*   let* () = *)
+  (*     Bars.fold target (Ok ()) @@ fun instrument data ok -> *)
+  (*     let* _ok = ok in *)
+  (*     let* col = Data.Column.of_data data i in *)
+  (*     assert (not @@ Float.is_nan @@ Data.Column.last_exn col); *)
+  (*     Bars.Latest.set latest_data_bar instrument col; *)
+  (*     Result.return () *)
+  (*   in *)
+  (*   Result.return () *)
 
   (* let latest_bars _ = *)
   (*   match Queue.take_opt data_remaining with *)

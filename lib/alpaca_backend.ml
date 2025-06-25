@@ -90,7 +90,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
          tick = 0;
          tick_length = Input.options.tick;
          positions;
-         latest = Bars.Latest.empty ();
          content;
          stats = Stats.empty ();
          order_history = Order.History.empty;
@@ -123,7 +122,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let last_data_bar =
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
-  let latest_bars (symbols : Instrument.t list) _ =
+  let latest_bars (symbols : Instrument.t list) bars _ =
     let ( let* ) = Result.( let* ) in
     (* let* account = Trading_api.Accounts.get_account () in *)
     (* let backend_cash = Backend_position.get_cash in *)
@@ -139,15 +138,15 @@ module Make (Input : BACKEND_INPUT) : S = struct
     | _ ->
       (* let _ = Backtesting.latest_bars symbols in *)
       (* let res = Market_data_api.Stock.latest_bars symbols in *)
-      let* res =
-        match Tiingo.latest symbols with
+      let* () =
+        match Tiingo.latest bars symbols with
         | Ok x -> Result.return x
         | Error s ->
           Eio.traceln
             "Error %a from Tiingo.latest, trying again after 5 seconds."
             Error.pp s;
           Ticker.tick ~runtype:opts.flags.runtype opts.eio_env 5.0;
-          Tiingo.latest symbols
+          Tiingo.latest bars symbols
       in
       let* () =
         Result.fold_l

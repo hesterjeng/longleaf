@@ -18,7 +18,6 @@ type t = {
 }
 
 type data = t
-(* [@@deriving show] *)
 
 module Type = struct
   type t =
@@ -87,94 +86,6 @@ let get (data : t) (x : Type.t) i =
     | true -> true);
   res
 
-(* module Column = struct *)
-(*   type t = (float, float64_elt, c_layout) Array1.t *)
-
-(*   let pp : t Format.printer = *)
-(*    fun fmt x -> *)
-(*     let r = Int.range' 0 Type.count in *)
-(*     let pp_pair = Pair.pp ~pp_sep:(Format.return ": ") Type.pp Float.pp in *)
-(*     let pp = Iter.pp_seq ~sep:"; " pp_pair in *)
-(*     let l = Iter.map (fun i -> (Type.of_int i, Array1.get x i)) r in *)
-(*     Format.fprintf fmt "@[{ %a }@]@." pp l *)
-
-(*   let of_data (x : data) i : (t, Error.t) result = *)
-(*     let ( let* ) = Result.( let* ) in *)
-(*     let* arr = *)
-(*       Error.guard (Error.fatal "Data.Column.of_data") @@ fun () -> *)
-(*       Array1.init float64 c_layout Type.count @@ fun row -> *)
-(*       Array2.get x.data row i *)
-(*     in *)
-(*     (\* let guard i x = *\) *)
-(*     (\*   Error.guard (Error.fatal (Format.asprintf "Data.Column.of_data %d" i)) x *\) *)
-(*     (\* in *\) *)
-(*     (\* let* matrix = *\) *)
-(*     (\*   guard 0 @@ fun () -> Array2.change_layout x.data fortran_layout *\) *)
-(*     (\* in *\) *)
-(*     (\* let* col = guard 1 @@ fun () -> Array2.slice_right matrix @@ (i + 1) in *\) *)
-(*     (\* let* c_col = guard 2 @@ fun () -> Array1.change_layout col c_layout in *\) *)
-(*     (\* assert ( *\) *)
-(*     (\*   match Array1.dim c_col = Type.count with *\) *)
-(*     (\*   | true -> true *\) *)
-(*     (\*   | false -> *\) *)
-(*     (\*     Eio.traceln "array1 dim %d, expected %d" (Array1.dim c_col) Type.count; *\) *)
-(*     (\*     false); *\) *)
-(*     Result.return arr *)
-
-(*   let get (x : t) (ty : Type.t) = *)
-(*     let err = Error.fatal "Data.Column.get" in *)
-(*     Error.guard err @@ fun () -> *)
-(*     let i = Type.to_int ty in *)
-(*     Array1.get x i *)
-
-(*   let set (col : t) (ty : Type.t) x = *)
-(*     let err = Error.fatal "Data.Column.set" in *)
-(*     Error.guard err @@ fun () -> *)
-(*     let i = Type.to_int ty in *)
-(*     Array1.set col i x *)
-
-(*   let set_exn (col : t) (ty : Type.t) x = *)
-(*     let i = Type.to_int ty in *)
-(*     Array1.set col i x *)
-
-(*   let timestamp (x : t) = *)
-(*     let ( let* ) = Result.( let* ) in *)
-(*     let* time_f = get x Time in *)
-(*     match Ptime.of_float_s time_f with *)
-(*     | Some t -> Result.return t *)
-(*     | None -> Error.fatal "Illegal timestamp in Data.Column.timestamp" *)
-
-(*   let last x = get x Last *)
-
-(*   let last_exn (x : t) = *)
-(*     let i = Type.to_int Last in *)
-(*     try Array1.get x i with *)
-(*     | e -> *)
-(*       Eio.traceln "Error getting last price in Data.Column.last_exn"; *)
-(*       raise e *)
-
-(*   let open_ x = get x Open *)
-(*   let high x = get x High *)
-(*   let low x = get x Low *)
-(*   let close x = get x Close *)
-(*   let volume x = get x Volume *)
-
-(*   let of_item (x : Item.t) = *)
-(*     let arr : t = *)
-(*       Array1.init float64 c_layout Type.count (fun _ -> Float.nan) *)
-(*     in *)
-(*     let timestamp = Ptime.to_float_s x.timestamp in *)
-(*     let volume = Float.of_int x.volume in *)
-(*     set_exn arr Time timestamp; *)
-(*     set_exn arr Volume volume; *)
-(*     set_exn arr Open x.open_; *)
-(*     set_exn arr High x.high; *)
-(*     set_exn arr Low x.low; *)
-(*     set_exn arr Close x.close; *)
-(*     set_exn arr Last x.last; *)
-(*     arr *)
-(* end *)
-
 module Column = struct
   type t = { data : data_matrix; index : int }
 
@@ -230,47 +141,10 @@ module Column = struct
   let low x = get x Low
   let close x = get x Close
   let volume x = get x Volume
-
-  (* let of_item data i (item : Item.t) = *)
-  (*   let ( let* ) = Result.( let* ) in *)
-  (*   let* col = of_data data i in *)
-  (*   let* () = set col Open item.open_ in *)
-  (*   let* () = set col High item.high in *)
-  (*   let* () = set col Low item.low in *)
-  (*   let* () = set col Close item.close in *)
-  (*   let* () = set col Volume @@ Float.of_int item.volume in *)
-  (*   let* () = set col Last item.last in *)
-  (*   Result.return col *)
 end
-
-(* let pp_array : (float, float64_elt, c_layout) Array2.t Format.printer = *)
-(*   invalid_arg "nyi" *)
 
 let length x = Array2.dim2 x.data
 let current x = x.current
-
-(* let item_of_column x i : (Item.t, Error.t) result = *)
-(*   match *)
-
-(* let items (x : t) = *)
-
-(* let collect_column x i = *)
-(*   match i < x.size && i >= 0 with *)
-(*   | false -> Error.fatal "Price_history.collect_column: illegal column access" *)
-(*   | true -> *)
-
-(* Type 0 : i (index)*)
-(* Type 1 : time (float) *)
-(* Type 2 : price *)
-(* Type 3 : open *)
-(* Type 4 : high *)
-(* Type 5 : low *)
-(* Type 6 : close *)
-(* Type 7:  volume *)
-(* Type 8 : SMA *)
-(* Type 9 : FSO_K *)
-(* Type 10 : FSO_D *)
-(* Type 11 : RSI *)
 
 let set (res : t) (x : Type.t) i value =
   try Array2.set res.data (Type.to_int x) i @@ value with
@@ -356,26 +230,26 @@ let set_column (x : t) (i : int) (column : Column.t) =
 let add_item (x : t) (item : Item.t) =
   let ( let* ) = Result.( let* ) in
   let* () = set_item x x.current item in
-  Result.return x
+  Result.return ()
 
 let add_column (x : t) (column : Column.t) =
   let ( let* ) = Result.( let* ) in
   let* () = set_column x x.current column in
-  Result.return x
+  Result.return ()
 
 let of_items (l : Item.t list) =
   let ( let* ) = Result.( let* ) in
   let size = 2 * List.length l in
   let matrix = make size in
   let sorted = List.sort Item.compare l in
-  let* res =
+  let* () =
     List.fold_left
       (fun acc item ->
-        let* acc = acc in
-        add_item acc item)
-      (Ok matrix) sorted
+        let* () = acc in
+        add_item matrix item)
+      (Ok ()) sorted
   in
-  Result.return res
+  Result.return matrix
 
 let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
@@ -392,8 +266,8 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
         let current = Item.t_of_yojson current_j in
         assert (i < size);
         (* assert (get res SMA i =. 0.0); *)
-        let* acc = add_item acc current in
-        aux (i + 1) xs @@ Result.return acc
+        let* () = add_item acc current in
+        aux (i + 1) xs @@ Result.return res
     in
     let* res = aux 0 items (Ok res) in
     Result.return res

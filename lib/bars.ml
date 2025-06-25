@@ -55,6 +55,24 @@ let length (x : t) =
   | n when len = n -> Ok acc
   | _ -> Error.fatal "Mismatched price history v2 matrices in Bars v2"
 
+let timestamp (x : t) =
+  let res =
+    fold x None @@ fun _symbol data acc ->
+    let timestamp = Data.get_top data Time in
+    match acc with
+    | None -> Some timestamp
+    | Some prev ->
+      assert (Float.equal prev timestamp);
+      Some prev
+  in
+  match res with
+  | None -> Error.fatal "Could not get Bars.timestamp"
+  | Some t -> (
+    match Ptime.of_float_s t with
+    | Some s -> Result.return s
+    | None -> Error.fatal "Error converting timestamp in Bars.timestamp")
+(* Ptime.of_float_s res *)
+
 let of_file file =
   Yojson.Safe.from_file file |> t_of_yojson |> function
   | Ok x ->
