@@ -68,70 +68,157 @@ module Type = struct
     | _ -> invalid_arg "Invalid Data.Type.of_int"
 end
 
+
+let get (data : t) (x : Type.t) i =
+  let res =
+    try Array2.get data.data (Type.to_int x) i with
+    | e ->
+      Eio.traceln "data.ml.get: Index (%d) out of bounds: len %d" i data.size;
+      raise e
+  in
+  assert (i >= 0);
+  assert (i < data.size);
+  assert (
+    match not @@ Float.is_nan res with
+    | false ->
+      Eio.traceln "%a index %d NaN" Type.pp x i;
+      false
+      (* let col = Column.of_data data i in *)
+      (* Eio.traceln "%a" (Result.pp' Column.pp Error.pp) col; *)
+    | true -> true);
+  res
+
+(* module Column = struct *)
+(*   type t = (float, float64_elt, c_layout) Array1.t *)
+
+(*   let pp : t Format.printer = *)
+(*    fun fmt x -> *)
+(*     let r = Int.range' 0 Type.count in *)
+(*     let pp_pair = Pair.pp ~pp_sep:(Format.return ": ") Type.pp Float.pp in *)
+(*     let pp = Iter.pp_seq ~sep:"; " pp_pair in *)
+(*     let l = Iter.map (fun i -> (Type.of_int i, Array1.get x i)) r in *)
+(*     Format.fprintf fmt "@[{ %a }@]@." pp l *)
+
+(*   let of_data (x : data) i : (t, Error.t) result = *)
+(*     let ( let* ) = Result.( let* ) in *)
+(*     let* arr = *)
+(*       Error.guard (Error.fatal "Data.Column.of_data") @@ fun () -> *)
+(*       Array1.init float64 c_layout Type.count @@ fun row -> *)
+(*       Array2.get x.data row i *)
+(*     in *)
+(*     (\* let guard i x = *\) *)
+(*     (\*   Error.guard (Error.fatal (Format.asprintf "Data.Column.of_data %d" i)) x *\) *)
+(*     (\* in *\) *)
+(*     (\* let* matrix = *\) *)
+(*     (\*   guard 0 @@ fun () -> Array2.change_layout x.data fortran_layout *\) *)
+(*     (\* in *\) *)
+(*     (\* let* col = guard 1 @@ fun () -> Array2.slice_right matrix @@ (i + 1) in *\) *)
+(*     (\* let* c_col = guard 2 @@ fun () -> Array1.change_layout col c_layout in *\) *)
+(*     (\* assert ( *\) *)
+(*     (\*   match Array1.dim c_col = Type.count with *\) *)
+(*     (\*   | true -> true *\) *)
+(*     (\*   | false -> *\) *)
+(*     (\*     Eio.traceln "array1 dim %d, expected %d" (Array1.dim c_col) Type.count; *\) *)
+(*     (\*     false); *\) *)
+(*     Result.return arr *)
+
+(*   let get (x : t) (ty : Type.t) = *)
+(*     let err = Error.fatal "Data.Column.get" in *)
+(*     Error.guard err @@ fun () -> *)
+(*     let i = Type.to_int ty in *)
+(*     Array1.get x i *)
+
+(*   let set (col : t) (ty : Type.t) x = *)
+(*     let err = Error.fatal "Data.Column.set" in *)
+(*     Error.guard err @@ fun () -> *)
+(*     let i = Type.to_int ty in *)
+(*     Array1.set col i x *)
+
+(*   let set_exn (col : t) (ty : Type.t) x = *)
+(*     let i = Type.to_int ty in *)
+(*     Array1.set col i x *)
+
+(*   let timestamp (x : t) = *)
+(*     let ( let* ) = Result.( let* ) in *)
+(*     let* time_f = get x Time in *)
+(*     match Ptime.of_float_s time_f with *)
+(*     | Some t -> Result.return t *)
+(*     | None -> Error.fatal "Illegal timestamp in Data.Column.timestamp" *)
+
+(*   let last x = get x Last *)
+
+(*   let last_exn (x : t) = *)
+(*     let i = Type.to_int Last in *)
+(*     try Array1.get x i with *)
+(*     | e -> *)
+(*       Eio.traceln "Error getting last price in Data.Column.last_exn"; *)
+(*       raise e *)
+
+(*   let open_ x = get x Open *)
+(*   let high x = get x High *)
+(*   let low x = get x Low *)
+(*   let close x = get x Close *)
+(*   let volume x = get x Volume *)
+
+(*   let of_item (x : Item.t) = *)
+(*     let arr : t = *)
+(*       Array1.init float64 c_layout Type.count (fun _ -> Float.nan) *)
+(*     in *)
+(*     let timestamp = Ptime.to_float_s x.timestamp in *)
+(*     let volume = Float.of_int x.volume in *)
+(*     set_exn arr Time timestamp; *)
+(*     set_exn arr Volume volume; *)
+(*     set_exn arr Open x.open_; *)
+(*     set_exn arr High x.high; *)
+(*     set_exn arr Low x.low; *)
+(*     set_exn arr Close x.close; *)
+(*     set_exn arr Last x.last; *)
+(*     arr *)
+(* end *)
+
 module Column = struct
-  type t = (float, float64_elt, c_layout) Array1.t
+  type t = { data : data_matrix; index : int }
+
+  let of_data (x : data) i : (t, Error.t) result =
+    if i >= 0 && i < x.size then Result.return { data = x.data; index = i }
+    else
+      Error.fatal
+      @@ Format.sprintf "Data.LogicalColumn.of_data: index %d out of bounds" i
+
+  let get (x : t) (ty : Type.t) =
+    let err = Error.fatal "Data.LogicalColumn.get" in
+    Error.guard err @@ fun () -> Array2.get x.data (Type.to_int ty) x.index
 
   let pp : t Format.printer =
    fun fmt x ->
     let r = Int.range' 0 Type.count in
     let pp_pair = Pair.pp ~pp_sep:(Format.return ": ") Type.pp Float.pp in
     let pp = Iter.pp_seq ~sep:"; " pp_pair in
-    let l = Iter.map (fun i -> (Type.of_int i, Array1.get x i)) r in
+    let l =
+      Iter.map (fun i -> (Type.of_int i, Array2.get x.data i x.index)) r
+    in
     Format.fprintf fmt "@[{ %a }@]@." pp l
 
-  let of_data (x : data) i : (t, Error.t) result =
-    let ( let* ) = Result.( let* ) in
-    let* arr =
-      Error.guard (Error.fatal "Data.Column.of_data") @@ fun () ->
-      Array1.init float64 c_layout Type.count @@ fun row ->
-      Array2.get x.data row i
-    in
-    (* let guard i x = *)
-    (*   Error.guard (Error.fatal (Format.asprintf "Data.Column.of_data %d" i)) x *)
-    (* in *)
-    (* let* matrix = *)
-    (*   guard 0 @@ fun () -> Array2.change_layout x.data fortran_layout *)
-    (* in *)
-    (* let* col = guard 1 @@ fun () -> Array2.slice_right matrix @@ (i + 1) in *)
-    (* let* c_col = guard 2 @@ fun () -> Array1.change_layout col c_layout in *)
-    (* assert ( *)
-    (*   match Array1.dim c_col = Type.count with *)
-    (*   | true -> true *)
-    (*   | false -> *)
-    (*     Eio.traceln "array1 dim %d, expected %d" (Array1.dim c_col) Type.count; *)
-    (*     false); *)
-    Result.return arr
+  let set (col : t) (ty : Type.t) value =
+    let err = Error.fatal "Data.LogicalColumn.set" in
+    Error.guard err @@ fun () -> Array2.set col.data (Type.to_int ty) col.index value
 
-  let get (x : t) (ty : Type.t) =
-    let err = Error.fatal "Data.Column.get" in
-    Error.guard err @@ fun () ->
-    let i = Type.to_int ty in
-    Array1.get x i
-
-  let set (col : t) (ty : Type.t) x =
-    let err = Error.fatal "Data.Column.set" in
-    Error.guard err @@ fun () ->
-    let i = Type.to_int ty in
-    Array1.set col i x
-
-  let set_exn (col : t) (ty : Type.t) x =
-    let i = Type.to_int ty in
-    Array1.set col i x
+  let set_exn (col : t) (ty : Type.t) value =
+    Array2.set col.data (Type.to_int ty) col.index value
 
   let timestamp (x : t) =
     let ( let* ) = Result.( let* ) in
     let* time_f = get x Time in
     match Ptime.of_float_s time_f with
     | Some t -> Result.return t
-    | None -> Error.fatal "Illegal timestamp in Data.Column.timestamp"
+    | None -> Error.fatal "Illegal timestamp in Data.LogicalColumn.timestamp"
 
   let last x = get x Last
 
   let last_exn (x : t) =
-    let i = Type.to_int Last in
-    try Array1.get x i with
+    try get x Last with
     | e ->
-      Eio.traceln "Error getting last price in Data.Column.last_exn";
+      Eio.traceln "Error getting last price in Data.LogicalColumn.last_exn";
       raise e
 
   let open_ x = get x Open
@@ -139,21 +226,6 @@ module Column = struct
   let low x = get x Low
   let close x = get x Close
   let volume x = get x Volume
-
-  let of_item (x : Item.t) =
-    let arr : t =
-      Array1.init float64 c_layout Type.count (fun _ -> Float.nan)
-    in
-    let timestamp = Ptime.to_float_s x.timestamp in
-    let volume = Float.of_int x.volume in
-    set_exn arr Time timestamp;
-    set_exn arr Volume volume;
-    set_exn arr Open x.open_;
-    set_exn arr High x.high;
-    set_exn arr Low x.low;
-    set_exn arr Close x.close;
-    set_exn arr Last x.last;
-    arr
 end
 
 (* let pp_array : (float, float64_elt, c_layout) Array2.t Format.printer = *)
@@ -191,24 +263,6 @@ let set (res : t) (x : Type.t) i value =
     Eio.traceln "data.ml.set: Index (%d) out of bounds: len %d" i res.size;
     raise e
 
-let get (data : t) (x : Type.t) i =
-  let res =
-    try Array2.get data.data (Type.to_int x) i with
-    | e ->
-      Eio.traceln "data.ml.get: Index (%d) out of bounds: len %d" i data.size;
-      raise e
-  in
-  assert (i >= 0);
-  assert (i < data.size);
-  assert (
-    match not @@ Float.is_nan res with
-    | false ->
-      Eio.traceln "%a index %d NaN" Type.pp x i;
-      let col = Column.of_data data i in
-      Eio.traceln "%a" (Result.pp' Column.pp Error.pp) col;
-      false
-    | true -> true);
-  res
 
 let get_top (res : t) (x : Type.t) =
   let res = get res x @@ res.current in
