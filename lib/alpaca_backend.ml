@@ -28,7 +28,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let trading_client =
     let res =
       let ty =
-        match opts.runtype with
+        match opts.flags.runtype with
         | Live -> Live
         | _ -> Paper
       in
@@ -146,7 +146,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
           Eio.traceln
             "Error %a from Tiingo.latest, trying again after 5 seconds."
             Error.pp s;
-          Ticker.tick ~runtype:opts.runtype opts.eio_env 5.0;
+          Ticker.tick ~runtype:opts.flags.runtype opts.eio_env 5.0;
           Tiingo.latest symbols
       in
       let* () =

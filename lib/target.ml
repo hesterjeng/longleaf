@@ -13,7 +13,9 @@ let of_string_res x =
   | "download" ->
     Ok Download
   | s when Sys.file_exists s ->
+    Eio.traceln "Loading bars from %s" s;
     let res = Bars.of_file s in
+    Eio.traceln "Done loading bars";
     Result.return @@ Loaded res
   | _ ->
     Error (`Msg "Expected a valid preload selection, or file doesn't exist")

@@ -40,7 +40,9 @@ end
 
 module CLI = struct
   type t = {
+    runtype : RunType.t;
     stacktrace : bool;
+    strategy_arg : string;
     no_gui : bool;
     save_received : bool;
     save_to_file : bool;
@@ -48,50 +50,20 @@ module CLI = struct
     print_tick_arg : bool;
     precompute_indicators_arg : bool;
     compare_preloaded : bool;
-    randomized_backtest_length : bool;
     start : int;
   }
   [@@deriving show]
-
-  (* type 'a t = { *)
-  (*   runtype : RunType.t; *)
-  (*   target : Target.t; *)
-  (*   strategy_arg : 'a; *)
-  (*   flags : flags; *)
-  (* } *)
-  (* [@@deriving make] *)
 end
 
-(* module Context = struct *)
 type t = {
   symbols : string list;
   tick : float;
   indicators_config : Indicator_config.t;
-  strategy : string;
-  runtype : RunType.t;
   eio_env : Eio_unix.Stdenv.base; [@opaque]
   longleaf_env : Environment.t; [@opaque]
   switch : Eio.Switch.t; [@opaque]
   target : Target.t; [@opaque]
   flags : CLI.t;
-  strategy_arg : string;
   mutices : Longleaf_mutex.t;
 }
 [@@deriving show]
-
-(* let load x = *)
-(*   { *)
-(*     x with *)
-(*     (\* preload = Loaded (Preload.load x.preload); *\) *)
-(*     target = Target.load x.target; *)
-(*   } *)
-(* end *)
-
-(* type t = { *)
-(*   symbols : string list; *)
-(*   tick : float; *)
-(*   indicators_config : Indicator_config.t; *)
-(*   context : Context.t; *)
-(* } *)
-
-(* let load (x : t) = { x with context = Context.load x.context } *)

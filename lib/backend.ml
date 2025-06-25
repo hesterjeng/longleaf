@@ -62,7 +62,7 @@ let make_bars (options : Options.t) =
     (*     (\* @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res *\) *)
     (*   | _ -> Result.return @@ Some res) *)
   in
-  match options.runtype with
+  match options.flags.runtype with
   | RandomSliceBacktest
   | MultiRandomSliceBacktest ->
     invalid_arg "Random slice backtesting with V2 bars NYI"
@@ -111,7 +111,7 @@ let make (options : Options.t) =
   let* backend_input = make_backend_input options in
   let module Input = (val backend_input) in
   let* res =
-    match options.runtype with
+    match options.flags.runtype with
     | Manual -> Error.fatal "Cannot create a strategy with manual runtype"
     | Paper
     | Live ->

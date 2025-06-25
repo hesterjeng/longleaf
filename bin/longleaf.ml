@@ -14,15 +14,20 @@ module Args = struct
     Cmdliner.Arg.(
       required & pos 0 (some runtype_conv) None & info [] ~docv:"runtype" ~doc)
 
+  (* let strategy_arg = *)
+  (*   let doc = *)
+  (*     Format.asprintf "The selected strategy.  Valid choices are %a." *)
+  (*       (List.pp String.pp) Longleaf_strategies.all *)
+  (*   in *)
+  (*   Cmdliner.Arg.( *)
+  (*     required *)
+  (*     & pos 1 (some Longleaf_strategies.conv) None *)
+  (*     & info [] ~docv:"strategy" ~doc) *)
+
   let strategy_arg =
-    let doc =
-      Format.asprintf "The selected strategy.  Valid choices are %a."
-        (List.pp String.pp) Longleaf_strategies.all
-    in
+    let doc = "The selected strategy" in
     Cmdliner.Arg.(
-      required
-      & pos 1 (some Longleaf_strategies.conv) None
-      & info [] ~docv:"strategy" ~doc)
+      required & pos 1 (some string) None & info [] ~docv:"strategy" ~doc)
 
   (* let preload_arg = *)
   (*   let preload_conv = Preload.conv in *)
@@ -95,17 +100,31 @@ end
 module Cmd = struct
   let run runtype stacktrace output no_gui target save_received strategy_arg
       save_to_file nowait_market_open print_tick_arg precompute_indicators_arg
-      compare_preloaded =
+      compare_preloaded start =
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output output;
     (* let reporter = Logs_fmt.reporter () in *)
     (* Logs.set_reporter reporter; *)
     (* Logs.set_level ~all:true (Some Logs.Info); *)
     Eio_main.run @@ fun eio_env ->
-    let cli_args =
-      Options.CLI.make ~runtype ~stacktrace ~no_gui ~target ~save_received
-        ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg
-        ~precompute_indicators_arg ~compare_preloaded
+    let cli_args : Options.CLI.t =
+      {
+        runtype;
+        stacktrace;
+        no_gui;
+        save_received;
+        strategy_arg;
+        save_to_file;
+        nowait_market_open;
+        print_tick_arg;
+        precompute_indicators_arg;
+        compare_preloaded;
+        start;
+        (* randomized_backtest_length; *)
+      }
+      (* Options.CLI.make ~runtype ~stacktrace ~no_gui ~target ~save_received *)
+      (*   ~strategy_arg ~save_to_file ~nowait_market_open ~print_tick_arg *)
+      (*   ~precompute_indicators_arg ~compare_preloaded *)
     in
     Run.top ~eio_env cli_args
 
@@ -116,7 +135,7 @@ module Cmd = struct
         $ Args.output_file_arg $ Args.no_gui_arg $ Args.target_arg
         $ Args.save_received_arg $ Args.strategy_arg $ Args.save_to_file
         $ Args.nowait_market_open $ Args.print_tick_arg
-        $ Args.precompute_indicators_arg $ Args.compare_preload)
+        $ Args.precompute_indicators_arg $ Args.compare_preload $ Args.start_arg)
     in
     let doc =
       "This is the OCaml algorithmic trading platform longleaf.  It relies on \

@@ -1,5 +1,4 @@
 module Astar = Longleaf_lib.Astar
-module Context = Options.Context
 module Error = Longleaf_lib.Error
 module EnumeratedSignal = Astar_search.EnumeratedSignal
 module A = EnumeratedSignal.Atom
@@ -13,7 +12,7 @@ type results = {
 and node_ = {
   buy : EnumeratedSignal.t;
   sell : EnumeratedSignal.t;
-  context : Context.t; [@opaque]
+  context : Options.t; [@opaque]
   res : results option Pmutex.t;
 }
 [@@deriving show]

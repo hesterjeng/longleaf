@@ -4,7 +4,7 @@ module Make (Backend : Backend_intf.S) = struct
   let ( let* ) = Result.( let* )
   let options = Input.options
   let mutices : Longleaf_mutex.t = options.mutices
-  let runtype = options.runtype
+  let runtype = options.flags.runtype
 
   let listen_tick () : (State.state, Error.t) result =
     Eio.Fiber.any

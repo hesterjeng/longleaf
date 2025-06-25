@@ -1,4 +1,3 @@
-module Context = Options.Context
 module Collections = Ticker_collections
 
 (** Type of strategies that have been defined. To add a new strategy, you must
@@ -30,7 +29,7 @@ let all = List.map fst Variants.descriptions
 
 (** Add a handler for your strategy here, imitating the styles of the others.
     There must be a handler or your strategy will not work. *)
-let strats : (t * (Context.t -> (_, _) result)) list =
+let strats : (t * (Options.t -> (_, _) result)) list =
   let ( --> ) x y = (x, Strategy.run y) in
   [
     (* BuyAndHold --> (module Buy_and_hold.Make); *)
@@ -54,7 +53,7 @@ let strats : (t * (Context.t -> (_, _) result)) list =
   ]
 
 (** Based on the context, select and run the strategy. *)
-let run_strat_ (context : Context.t) strategy =
+let run_strat_ (context : Options.t) strategy =
   let ( let* ) = Result.( let* ) in
   let f = List.Assoc.get ~eq:equal strategy strats in
   let* strat =
@@ -89,8 +88,8 @@ type multitest = { mean : float; min : float; max : float; std : float }
 (** Track some statistics if we are doing multiple backtests. *)
 
 (** Top level function for running strategies based on a context.*)
-let run (context : Context.t) strategy =
-  match context.runtype with
+let run (context : Options.t) strategy =
+  match context.flags.runtype with
   | AstarSearch ->
     (* Eio.traceln "Loading context..."; *)
     (* let context = Options.Context.load context in *)
