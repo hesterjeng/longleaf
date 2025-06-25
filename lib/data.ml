@@ -68,7 +68,6 @@ module Type = struct
     | _ -> invalid_arg "Invalid Data.Type.of_int"
 end
 
-
 let get (data : t) (x : Type.t) i =
   let res =
     try Array2.get data.data (Type.to_int x) i with
@@ -201,7 +200,8 @@ module Column = struct
 
   let set (col : t) (ty : Type.t) value =
     let err = Error.fatal "Data.LogicalColumn.set" in
-    Error.guard err @@ fun () -> Array2.set col.data (Type.to_int ty) col.index value
+    Error.guard err @@ fun () ->
+    Array2.set col.data (Type.to_int ty) col.index value
 
   let set_exn (col : t) (ty : Type.t) value =
     Array2.set col.data (Type.to_int ty) col.index value
@@ -216,16 +216,31 @@ module Column = struct
   let last x = get x Last
 
   let last_exn (x : t) =
-    try get x Last with
-    | e ->
+    (* try get x Last with *)
+    (* | e -> *)
+    match get x Last with
+    | Ok x -> x
+    | Error e ->
       Eio.traceln "Error getting last price in Data.LogicalColumn.last_exn";
-      raise e
+      Eio.traceln "%a" Error.pp e;
+      invalid_arg "Illegal get operation"
 
   let open_ x = get x Open
   let high x = get x High
   let low x = get x Low
   let close x = get x Close
   let volume x = get x Volume
+
+  let of_item data i (item : Item.t) =
+    let ( let* ) = Result.( let* ) in
+    let* col = of_data data i in
+    let* () = set col Open item.open_ in
+    let* () = set col High item.high in
+    let* () = set col Low item.low in
+    let* () = set col Close item.close in
+    let* () = set col Volume @@ Float.of_int item.volume in
+    let* () = set col Last item.last in
+    Result.return col
 end
 
 (* let pp_array : (float, float64_elt, c_layout) Array2.t Format.printer = *)
@@ -262,7 +277,6 @@ let set (res : t) (x : Type.t) i value =
   | e ->
     Eio.traceln "data.ml.set: Index (%d) out of bounds: len %d" i res.size;
     raise e
-
 
 let get_top (res : t) (x : Type.t) =
   let res = get res x @@ res.current in

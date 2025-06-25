@@ -53,7 +53,7 @@ let length (x : t) =
   match acc with
   | 0 -> Ok len
   | n when len = n -> Ok acc
-  | _ -> Error.fatal "Mismated price history v2 matrices in Bars v2"
+  | _ -> Error.fatal "Mismatched price history v2 matrices in Bars v2"
 
 let of_file file =
   Yojson.Safe.from_file file |> t_of_yojson |> function
