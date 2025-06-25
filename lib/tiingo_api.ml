@@ -51,11 +51,10 @@ let to_latest (l : t) : Bars.Latest.t =
     let res =
       List.map
         (fun (x : item) ->
-          (x.ticker,
-           let bi = item_to_bar_item x in
-           Data.Column.of_item bi
-           (* item_to_bar_item x |> Data.Column.of_item *)
-          ))
+          ( x.ticker,
+            let bi = item_to_bar_item x in
+            Data.Column.of_item bi
+            (* item_to_bar_item x |> Data.Column.of_item *) ))
         l
     in
     Seq.of_list res |> Bars.Latest.of_seq

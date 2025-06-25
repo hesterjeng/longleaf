@@ -92,7 +92,7 @@ let execute_order (pos : t) (order : Order.t) : (t, Error.t) result =
   | _ -> Result.fail @@ `UnsupportedOrder (Order.show order)
 
 (* Execute Stop/Limit orders in the live field.  Market orders should not be in the live field. *)
-let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
+let update (x : t) (bars : Bars.t) (tick : int) =
   let ( let* ) = Result.( let* ) in
   let ( let@ ) = Fun.( let@ ) in
   (* Fold with an empty list of live orders as the accumulator. *)
@@ -102,16 +102,10 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
   fun order ->
     assert (not @@ Trading_types.OrderType.equal order.order_type Market);
     let* positions = positions in
+    let* data = Bars.get bars order.symbol in
     let order_price = order.price in
-    let symbol = order.symbol in
-    let* current_price =
-      let* column = Bars.Latest.get latest symbol in
-      Column.last column
-    in
-    let* previous_price =
-      let* column = Bars.Latest.get previous symbol in
-      Column.last column
-    in
+    let current_price = Data.get data Last tick in
+    let previous_price = Data.get data Last (tick - 1) in
     let crossing x0 x1 =
       (x0 <=. order_price && x1 >=. order_price)
       || (x0 >=. order_price && x1 <=. order_price)

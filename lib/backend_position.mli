@@ -10,6 +10,4 @@ val qty : t -> Instrument.t -> int
 val value : t -> Bars.Latest.t -> (float, Error.t) Result.t
 val is_empty : t -> bool
 val pp : t Format.printer
-
-val update :
-  t -> previous:Bars.Latest.t -> Bars.Latest.t -> (t, Error.t) Result.t
+val update : t -> Bars.t -> int -> (t, Error.t) Result.t

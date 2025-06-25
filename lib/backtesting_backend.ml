@@ -19,7 +19,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     @@ {
          State.current = Initialize;
          bars;
-         latest = Bars.Latest.empty ();
+         (* latest = Bars.Latest.empty (); *)
          content;
          tick = 0;
          tick_length = Input.options.tick;
@@ -71,7 +71,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       in
       Result.return last_data_bar
 
-  let latest_bars _ i =
+  let latest_bars _ _ i =
     let ( let* ) = Result.( let* ) in
     let latest_data_bar = Bars.Latest.empty () in
     match target with

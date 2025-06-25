@@ -12,7 +12,7 @@ type state =
 type 'a t = {
   current : state;
   (* Hashtable of latest bars *)
-  latest : Bars.Latest.t;
+  (* latest : Bars.Latest.t; *)
   (* Vector of orders made *)
   order_history : Order.History.t;
   (* List of statistics about portfolio value in reverse order *)
@@ -92,18 +92,15 @@ let ( let+ ) = ( >|= )
 
 let price (state : 'a t) symbol =
   let ( let* ) = Result.( let* ) in
-  let* col = Bars.Latest.get state.latest symbol in
-  let price = Data.Column.last_exn col in
+  (* let* col = *)
+  let* data = Bars.get state.bars symbol in
+  let price = Data.get data Last state.tick in
   Result.return price
 
 let timestamp (state : 'a t) symbol =
   let ( let* ) = Result.( let* ) in
-  let* col = Bars.Latest.get state.latest symbol in
-  let* time = Data.Column.timestamp col in
-  Result.return time
-
-(* let volume (state : 'a t) symbol = *)
-(*   Result.map Item.volume @@ Bars.Latest.get state.latest symbol *)
-
-(* let timestamp (state : 'a t) symbol = *)
-(*   Result.map Item.timestamp @@ Bars.Latest.get state.latest symbol *)
+  let* data = Bars.get state.bars symbol in
+  let time = Data.get data Time state.tick in
+  match Ptime.of_float_s time with
+  | Some t -> Result.return t
+  | None -> Error.fatal "Illegal timestamp (State.timestamp)"

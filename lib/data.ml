@@ -231,16 +231,16 @@ module Column = struct
   let close x = get x Close
   let volume x = get x Volume
 
-  let of_item data i (item : Item.t) =
-    let ( let* ) = Result.( let* ) in
-    let* col = of_data data i in
-    let* () = set col Open item.open_ in
-    let* () = set col High item.high in
-    let* () = set col Low item.low in
-    let* () = set col Close item.close in
-    let* () = set col Volume @@ Float.of_int item.volume in
-    let* () = set col Last item.last in
-    Result.return col
+  (* let of_item data i (item : Item.t) = *)
+  (*   let ( let* ) = Result.( let* ) in *)
+  (*   let* col = of_data data i in *)
+  (*   let* () = set col Open item.open_ in *)
+  (*   let* () = set col High item.high in *)
+  (*   let* () = set col Low item.low in *)
+  (*   let* () = set col Close item.close in *)
+  (*   let* () = set col Volume @@ Float.of_int item.volume in *)
+  (*   let* () = set col Last item.last in *)
+  (*   Result.return col *)
 end
 
 (* let pp_array : (float, float64_elt, c_layout) Array2.t Format.printer = *)
@@ -356,12 +356,12 @@ let set_column (x : t) (i : int) (column : Column.t) =
 let add_item (x : t) (item : Item.t) =
   let ( let* ) = Result.( let* ) in
   let* () = set_item x x.current item in
-  Result.return @@ { x with current = x.current + 1 }
+  Result.return x
 
 let add_column (x : t) (column : Column.t) =
   let ( let* ) = Result.( let* ) in
   let* () = set_column x x.current column in
-  Result.return @@ { x with current = x.current + 1 }
+  Result.return x
 
 let of_items (l : Item.t list) =
   let ( let* ) = Result.( let* ) in

@@ -128,14 +128,16 @@ module Make (Backend : Backend_intf.S) = struct
 
   let update_continue (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    let previous = state.latest in
-    let* latest = Backend.latest_bars Backend.symbols state.tick in
+    (* let previous = state.latest in *)
+    let* latest = Backend.latest_bars Backend.symbols state.bars state.tick in
     (* We have the index, we have state.bars, we have the newest info *)
     (* Here we can update indicators, BEFORE appending to bars *)
-    let* positions = Backend_position.update state.positions ~previous latest in
+    let* positions =
+      Backend_position.update state.positions state.bars state.tick
+    in
     let* time = Bars.Latest.timestamp latest in
     assert (Ptime.compare time state.time = 1);
-    let* () = Bars.append latest state.bars in
+    (* let* () = Bars.append latest state.bars in *)
     (* let* indicators = *)
     (*   Indicators.compute_latest context.compare_preloaded *)
     (*     Input.options.indicators_config state.bars state.indicators *)
@@ -157,7 +159,7 @@ module Make (Backend : Backend_intf.S) = struct
     if options.flags.print_tick_arg then
       Eio.traceln "[ %a ] CASH %f" Time.pp time value;
     Result.return
-    @@ { state with latest; stats; positions; time; tick = state.tick + 1 }
+    @@ { state with stats; positions; time; tick = state.tick + 1 }
 
   let start_time = ref 0.0
 

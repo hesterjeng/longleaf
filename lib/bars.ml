@@ -62,14 +62,14 @@ let of_file file =
     x
   | Error e -> invalid_arg @@ Error.show e
 
-let append (latest : Latest.t) (x : t) : (unit, Error.t) result =
-  let ( let* ) = Result.( let* ) in
-  fold latest (Ok ()) @@ fun symbol item acc ->
-  let* acc = acc in
-  let* ph = get x symbol in
-  let* appended = Data.add_column ph item in
-  Hashtbl.replace x symbol appended;
-  Result.return acc
+(* let append (latest : Latest.t) (x : t) : (unit, Error.t) result = *)
+(*   let ( let* ) = Result.( let* ) in *)
+(*   fold latest (Ok ()) @@ fun symbol item acc -> *)
+(*   let* acc = acc in *)
+(*   let* ph = get x symbol in *)
+(*   let* appended = Data.add_column ph item in *)
+(*   Hashtbl.replace x symbol appended; *)
+(*   Result.return acc *)
 
 let pp : t Format.printer =
  fun fmt _ -> Format.fprintf fmt "@[<Bars.pp opaque>@]@."

@@ -8,7 +8,7 @@ type t = Column.t Hashtbl.t
 
 let fold (x : t) init f = fold x init f
 let get_opt : t -> Instrument.t -> Column.t option = Hashtbl.find_opt
-let empty () : t = Hashtbl.create 0
+let empty () : t = Hashtbl.create 100
 
 let pp : t Format.printer =
  fun fmt x ->
