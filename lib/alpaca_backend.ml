@@ -122,6 +122,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let last_data_bar =
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
+  let update_bars _ _ _i = Result.return ()
+
   let latest_bars (symbols : Instrument.t list) bars _ =
     let ( let* ) = Result.( let* ) in
     (* let* account = Trading_api.Accounts.get_account () in *)
@@ -186,14 +188,16 @@ module Make (Input : BACKEND_INPUT) : S = struct
           let* prev = prev in
           let qty = Backend_position.qty state.positions symbol in
           assert (qty <> 0);
-          let* latest_info = Bars.Latest.get last_data_bar symbol in
+          let* data = Bars.get state.bars symbol in
+          let last_column = Data.get_top data in
+          (* let* latest_info = Bars.Latest.get last_data_bar symbol in *)
           let* order : Order.t =
             let side = if qty >= 0 then Side.Sell else Side.Buy in
             let tif = TimeInForce.GoodTillCanceled in
             let order_type = OrderType.Market in
             let qty = Int.abs qty in
-            let* price = Data.Column.last latest_info in
-            let* timestamp = Data.Column.timestamp latest_info in
+            let price = last_column Last in
+            let* timestamp = last_column Time |> Time.of_float_res in
             Result.return
             @@ Order.make ~symbol ~tick:state.tick ~side ~tif ~order_type ~qty
                  ~price ~timestamp ~profit:None ~reason:[ "Liquidate" ]
