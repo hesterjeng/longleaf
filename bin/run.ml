@@ -15,8 +15,6 @@ let mk_options switch eio_env flags target : Options.t =
     mutices;
   }
 
-(* type cli_args = Longleaf_strategies.t Options.CLI.t *)
-
 let top ~eio_env (flags : Options.CLI.t) target =
   let domain_manager = Eio.Stdenv.domain_mgr eio_env in
   let mutices = Longleaf_mutex.create () in
@@ -24,7 +22,7 @@ let top ~eio_env (flags : Options.CLI.t) target =
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
     let options = mk_options switch eio_env flags target in
-    let _res = Longleaf_strategies.run options strategy_arg in
+    let _res = Longleaf_strategies.run options in
     ()
   in
   let run_server () =
