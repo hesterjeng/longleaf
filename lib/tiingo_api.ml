@@ -15,6 +15,8 @@ type item = {
 }
 [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
+let compare_item x y = Ptime.compare x.timestamp y.timestamp
+
 let item_of_yojson x =
   match x with
   | `Null ->
@@ -100,6 +102,7 @@ module Make (Tiingo : Util.CLIENT) = struct
     let* resp = get ~headers ~endpoint in
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
     let* tiingo = t_of_yojson resp in
+    assert (List.is_sorted ~cmp:compare_item tiingo);
     let* () = add_items bars tiingo in
     Result.return ()
 

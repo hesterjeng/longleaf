@@ -134,7 +134,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     match symbols with
     | [] ->
       Eio.traceln "No symbols in latest bars request.";
-      Result.return @@ Bars.Latest.empty ()
+      Result.return ()
     | _ ->
       (* let _ = Backtesting.latest_bars symbols in *)
       (* let res = Market_data_api.Stock.latest_bars symbols in *)
@@ -148,25 +148,25 @@ module Make (Input : BACKEND_INPUT) : S = struct
           Ticker.tick ~runtype:opts.flags.runtype opts.eio_env 5.0;
           Tiingo.latest bars symbols
       in
-      let* () =
-        Result.fold_l
-          (fun acc x ->
-            match Bars.Latest.get res x with
-            | Ok _ -> Result.return acc
-            | Error _ as e ->
-              Eio.traceln
-                "[error] Missing data in Alpaca_backend.latest_bars for %a"
-                Instrument.pp x;
-              e)
-          () symbols
-      in
+      (* let* () = *)
+      (*   Result.fold_l *)
+      (*     (fun acc x -> *)
+      (*       match Bars.Latest.get res x with *)
+      (*       | Ok _ -> Result.return acc *)
+      (*       | Error _ as e -> *)
+      (*         Eio.traceln *)
+      (*           "[error] Missing data in Alpaca_backend.latest_bars for %a" *)
+      (*           Instrument.pp x; *)
+      (*         e) *)
+      (*     () symbols *)
+      (* in *)
       let* () =
         if save_received then
           invalid_arg "Alpaca_backend.latest_bars save_received nyi"
           (* Bars.append res received_data *)
         else Result.return ()
       in
-      Ok res
+      Ok ()
 
   let get_clock = Trading_api.Clock.get
 
@@ -179,7 +179,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let symbols = Backend_position.symbols state.positions in
-    let* last_data_bar = latest_bars symbols state.tick in
+    (* let* () = latest_bars symbols state.tick in *)
     let* liquidated_state =
       List.fold_left
         (fun prev symbol ->
