@@ -52,23 +52,6 @@ let strats : (t * (Options.t -> (_, _) result)) list =
     Astarexample --> (module Astar_example.Make) (* (val Astar_example.m) *);
   ]
 
-(** Based on the context, select and run the strategy. *)
-let run_strat_ (context : Options.t) strategy =
-  let ( let* ) = Result.( let* ) in
-  let f = List.Assoc.get ~eq:equal strategy strats in
-  let* strat =
-    match f with
-    | None -> Error.fatal "Unable to find strategy implementation"
-    | Some f -> Result.return f
-  in
-  let* res = strat context in
-  Result.return res
-
-let run_strat context strategy =
-  match run_strat_ context strategy with
-  | Ok x -> x
-  | Error e -> Error.raise e
-
 (** Function for Cmdliner use. *)
 let of_string_res x =
   let j = `List [ `String x ] in
@@ -80,6 +63,24 @@ let of_string_res x =
             "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@." x
             (List.pp String.pp) all)
 
+(** Based on the context, select and run the strategy. *)
+let run_strat_ (context : Options.t) strategy =
+  let ( let* ) = Result.( let* ) in
+  let* strategy = of_string_res strategy in
+  let f = List.Assoc.get ~eq:equal strategy strats in
+  let* strat =
+    match f with
+    | None -> Error.fatal "Unable to find strategy implementation"
+    | Some f -> Result.return f
+  in
+  let* res = strat context in
+  Result.return res
+
+let run_strat context =
+  match run_strat_ context context.flags.strategy_arg with
+  | Ok x -> x
+  | Error e -> Error.raise e
+
 (** Function for Cmdliner use. *)
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
 
@@ -88,7 +89,8 @@ type multitest = { mean : float; min : float; max : float; std : float }
 (** Track some statistics if we are doing multiple backtests. *)
 
 (** Top level function for running strategies based on a context.*)
-let run (context : Options.t) strategy =
+let run (context : Options.t) =
+  (* let strategy = of_string_res context.flags.strategy_arg in *)
   match context.flags.runtype with
   | AstarSearch ->
     (* Eio.traceln "Loading context..."; *)
@@ -111,13 +113,13 @@ let run (context : Options.t) strategy =
   | Montecarlo
   | RandomSliceBacktest
   | RandomTickerBacktest ->
-    run_strat context strategy
+    run_strat context
   | Multitest
   | MultiMontecarlo
   | MultiRandomSliceBacktest
   | MultiRandomTickerBacktest ->
     let init = Array.make 30 () in
-    let res = Array.map (fun _ -> run_strat context strategy) init in
+    let res = Array.map (fun _ -> run_strat context) init in
     Array.sort Float.compare res;
     let mean = Owl_stats.mean res in
     let std = Owl_stats.std res in
