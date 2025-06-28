@@ -237,10 +237,10 @@ let add_item (x : t) (item : Item.t) i =
   let* () = set_item x i item in
   Result.return ()
 
-let add_column (x : t) (column : Column.t) =
-  let ( let* ) = Result.( let* ) in
-  let* () = set_column x x.current column in
-  Result.return ()
+(* let add_column (x : t) (column : Column.t) = *)
+(*   let ( let* ) = Result.( let* ) in *)
+(*   let* () = set_column x x.current column in *)
+(*   Result.return () *)
 
 let of_items (l : Item.t list) =
   let ( let* ) = Result.( let* ) in
@@ -248,10 +248,10 @@ let of_items (l : Item.t list) =
   let matrix = make size in
   let sorted = List.sort Item.compare l in
   let* () =
-    List.fold_left
-      (fun acc item ->
+    List.foldi
+      (fun acc i item ->
         let* () = acc in
-        add_item matrix item)
+        add_item matrix item i)
       (Ok ()) sorted
   in
   Result.return matrix
@@ -272,7 +272,7 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
         Eio.traceln "%d %a" i Item.pp current;
         assert (i < size);
         (* assert (get res SMA i =. 0.0); *)
-        let* () = add_item acc current in
+        let* () = add_item acc current i in
         aux (i + 1) xs @@ Result.return res
     in
     let* res = aux 0 items (Ok res) in

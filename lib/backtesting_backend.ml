@@ -65,8 +65,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
         Bars.fold target (Ok ()) @@ fun instrument data ok ->
         let* _ok = ok in
         let* col = Data.Column.of_data data (length - 1) in
-        Eio.traceln "%a" Instrument.pp instrument;
-        Eio.traceln "%a" Data.pp data;
+        (* Eio.traceln "%a" Instrument.pp instrument; *)
+        (* Eio.traceln "%a" Data.pp data; *)
         (* let* start = Data.Column.of_data data 0 in *)
         (* Eio.traceln "%a" Data.Column.pp col; *)
         (* Eio.traceln "%a" Data.Column.pp start; *)

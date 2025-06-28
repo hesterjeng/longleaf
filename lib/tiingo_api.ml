@@ -50,12 +50,12 @@ let item_to_bar_item (x : item) : Item.t =
 
 let add_items (bars : Bars.t) (l : t) =
   let ( let* ) = Result.( let* ) in
-  List.fold_left
-    (fun acc item ->
+  List.foldi
+    (fun acc i item ->
       let* () = acc in
       let* data = Bars.get bars item.ticker in
       let item = item_to_bar_item item in
-      let* () = Data.add_item data item in
+      let* () = Data.add_item data item i in
       Result.return ())
     (Ok ()) l
 
