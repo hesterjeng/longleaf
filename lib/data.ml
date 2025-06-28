@@ -256,26 +256,43 @@ let of_items (l : Item.t list) =
   in
   Result.return matrix
 
+let load_json_item (data : t) i (json : Yojson.Safe.t) =
+  match json with
+  | `Assoc
+      [
+        ("t", `String time);
+        ("o", `Float open_);
+        ("h", `Float high);
+        ("l", `Float low);
+        ("c", `Float close);
+        ("v", `Int volume);
+      ] ->
+    let time = Time.of_string time |> Ptime.to_float_s in
+    let volume = Float.of_int volume in
+    set data Time i time;
+    set data Open i open_;
+    set data High i high;
+    set data Low i low;
+    set data Close i close;
+    set data Last i close;
+    set data Volume i volume;
+    Result.return ()
+  | _ -> Error.fatal "Bad json in Data.load_json_item"
+
 let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
   match json with
   | `List items ->
     let size = List.length items in
-    (* Eio.traceln "@[data.ml: Creating a Data.t of size %d@]@." size; *)
     let res = make size in
-    let rec aux i l acc =
-      match l with
-      | [] -> acc
-      | current_j :: xs ->
-        let* acc = acc in
-        let current = Item.t_of_yojson current_j in
-        (* Eio.traceln "%d %a" i Item.pp current; *)
-        assert (i < size);
-        (* assert (get res SMA i =. 0.0); *)
-        let* () = add_item acc current i in
-        aux (i + 1) xs @@ Result.return res
+    let* () =
+      List.foldi
+        (fun acc i json ->
+          let* _ = acc in
+          let* () = load_json_item res i json in
+          Result.return ())
+        (Ok ()) items
     in
-    let* res = aux 0 items (Ok res) in
     Result.return res
   | _ ->
     Error.json "Expected a list of datapoints in Price_history.V2.t_of_yojson"

@@ -3,7 +3,7 @@ type t = {
   open_ : float; [@key "o"]
   high : float; [@key "h"]
   low : float; [@key "l"]
-  close : float; [@key "c"] (* We are using this as the latest price... *)
+  close : float; [@key "c"]
   last : float; [@yojson.default Float.nan]
   volume : int; [@key "v"] (* order : Order.t option; [@default None] *)
 }
