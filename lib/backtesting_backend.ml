@@ -65,8 +65,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
         Bars.fold target (Ok ()) @@ fun instrument data ok ->
         let* _ok = ok in
         let* col = Data.Column.of_data data (length - 1) in
-        assert (not @@ Float.is_nan @@ Data.Column.last_exn col);
+        Eio.traceln "%a" Data.pp data;
+        (* let* start = Data.Column.of_data data 0 in *)
+        (* Eio.traceln "%a" Data.Column.pp col; *)
+        (* Eio.traceln "%a" Data.Column.pp start; *)
         Bars.Latest.set last_data_bar instrument col;
+        assert (not @@ Float.is_nan @@ Data.Column.last_exn col);
         Result.return ()
       in
       Result.return last_data_bar
