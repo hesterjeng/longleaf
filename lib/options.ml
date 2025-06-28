@@ -54,6 +54,8 @@ module CLI = struct
   }
   [@@deriving show]
 
+  type cli = t
+
   module Args = struct
     (* module Runtype = Longleaf.Options.RunType *)
 
@@ -105,9 +107,8 @@ module CLI = struct
          being received over the wire."
       in
       Cmdliner.Arg.(
-        value
-        & opt preload_conv (invalid_arg "Must select target")
-        & info [ "t"; "target" ] ~doc)
+        required & pos 2 (some preload_conv) None & info [] ~docv:"target" ~doc)
+    (* Cmdliner.Arg.(value & opt preload_conv None & info [ "t"; "target" ] ~doc) *)
 
     let output_file_arg =
       let doc = "Output file for a log." in
@@ -148,14 +149,45 @@ module CLI = struct
 
     let start_arg =
       let doc = "Starting index for backtest" in
-      let opt =
-        Cmdliner.Arg.(value & opt (some int) None & info [ "i"; "index" ] ~doc)
-      in
-      Cmdliner.Term.map
-        (function
-          | None -> invalid_arg "Must have a start index with -i or --index"
-          | Some s -> s)
-        opt
+      Cmdliner.Arg.(value & opt int 0 & info [ "i"; "index" ] ~doc)
+  end
+
+  let cli_term =
+    let open Cmdliner.Term.Syntax in
+    let+ runtype = Args.runtype_arg
+    and+ stacktrace = Args.stacktrace_arg
+    and+ no_gui = Args.no_gui_arg
+    and+ save_received = Args.save_received_arg
+    and+ strategy_arg = Args.strategy_arg
+    and+ save_to_file = Args.save_to_file
+    and+ nowait_market_open = Args.nowait_market_open
+    and+ print_tick_arg = Args.print_tick_arg
+    and+ precompute_indicators_arg = Args.precompute_indicators_arg
+    and+ compare_preloaded = Args.compare_preload
+    and+ start = Args.start_arg in
+    {
+      runtype;
+      stacktrace;
+      no_gui;
+      save_received;
+      strategy_arg;
+      save_to_file;
+      nowait_market_open;
+      print_tick_arg;
+      precompute_indicators_arg;
+      compare_preloaded;
+      start;
+    }
+
+  module Full = struct
+    type t = { cli : cli; target : Target.t; output : string option }
+
+    let term =
+      let open Cmdliner.Term.Syntax in
+      let+ cli = cli_term
+      and+ target = Args.target_arg
+      and+ output = Args.output_file_arg in
+      { cli; target; output }
   end
 end
 

@@ -141,3 +141,46 @@ let run (context : Options.t) =
     Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
     Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
     0.0
+
+module Run = struct
+  open Longleaf_lib
+
+  let mk_options switch eio_env flags target : Options.t =
+    let longleaf_env = Environment.make () in
+    let mutices = Longleaf_mutex.create () in
+    {
+      symbols = Collections.sp100;
+      eio_env;
+      longleaf_env;
+      switch;
+      flags;
+      tick = 600.0;
+      indicators_config = Indicator_config.default;
+      target;
+      mutices;
+    }
+
+  let run_server eio_env (flags : Options.CLI.t) mutices () =
+    let domain_manager = Eio.Stdenv.domain_mgr eio_env in
+    match flags.no_gui with
+    | true -> ()
+    | false ->
+      Eio.Domain_manager.run domain_manager @@ fun () ->
+      Server.top ~mutices eio_env
+
+  let run_strategy eio_env flags target () =
+    let domain_manager = Eio.Stdenv.domain_mgr eio_env in
+    Eio.Domain_manager.run domain_manager @@ fun () ->
+    Eio.Switch.run @@ fun switch ->
+    let options = mk_options switch eio_env flags target in
+    let _res = run options in
+    ()
+
+  let top (flags : Options.CLI.t) target =
+    Eio_main.run @@ fun eio_env ->
+    let mutices = Longleaf_mutex.create () in
+    let run_strategy = run_strategy eio_env flags target in
+    let run_data_server = run_server eio_env flags mutices in
+    let _ = Eio.Fiber.both run_strategy run_data_server in
+    ()
+end
