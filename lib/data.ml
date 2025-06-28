@@ -261,7 +261,7 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
   match json with
   | `List items ->
     let size = List.length items in
-    Eio.traceln "@[data.ml: Creating a Data.t of size %d@]@." size;
+    (* Eio.traceln "@[data.ml: Creating a Data.t of size %d@]@." size; *)
     let res = make size in
     let rec aux i l acc =
       match l with
@@ -269,7 +269,7 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
       | current_j :: xs ->
         let* acc = acc in
         let current = Item.t_of_yojson current_j in
-        Eio.traceln "%d %a" i Item.pp current;
+        (* Eio.traceln "%d %a" i Item.pp current; *)
         assert (i < size);
         (* assert (get res SMA i =. 0.0); *)
         let* () = add_item acc current i in
