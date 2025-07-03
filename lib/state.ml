@@ -31,7 +31,9 @@ type 'a t = {
 }
 
 let pp_simple : 'a t Format.printer =
- fun fmt x -> Format.fprintf fmt "%a %d" Time.pp x.time x.tick
+ fun fmt x ->
+  let current = Bars.get_current x.bars |> Result.get_exn in
+  Format.fprintf fmt "%a %d %d" Time.pp x.time x.tick current
 
 let listen (x : _ t) = { x with current = Listening }
 

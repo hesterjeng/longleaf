@@ -162,6 +162,18 @@ let set_current bars i =
   (fun f -> Hashtbl.filter_map_inplace f bars) @@ fun _ data ->
   Option.return @@ { data with Data.current = i }
 
+let get_current (bars : t) =
+  let ( let* ) = Result.( let* ) in
+  fold bars (Ok 0) @@ fun _ data acc ->
+  let* acc = acc in
+  match acc with
+  | 0 -> Ok data.Data.current
+  | n when n > 0 -> (
+    match n = data.Data.current with
+    | true -> Ok n
+    | false -> Error.fatal "Current mismatch in bars.ml")
+  | _ -> Error.fatal "Bad bars length in bars.ml"
+
 let of_seq = Hashtbl.of_seq
 let of_list l = of_seq @@ Seq.of_list l
 
