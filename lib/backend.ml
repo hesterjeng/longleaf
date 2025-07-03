@@ -38,10 +38,10 @@ let make_bars (options : Options.t) =
     (*   let* res = Yojson.Safe.from_file file |> Bars.t_of_yojson in *)
     (*   (\* Bars.sort Item.compare res; *\) *)
     (*   Result.return res *)
-    | Loaded b ->
-      let res = Bars.copy b in
-      (* Bars.sort Item.compare res; *)
-      Result.return res
+    | Loaded b -> Result.return b
+    (* let res = Bars.copy b in *)
+    (* Bars.sort Item.compare res; *)
+    (* Result.return res *)
   in
   let* target =
     match target with
