@@ -9,6 +9,10 @@ let get_ohclv (x : Data.t) : Tacaml.Ohlcv.t =
     volume = Data.get_row x Volume;
   }
 
+let rsi_offset = 14
+let fso_offset = 17
+let sma_offset = 13
+
 let compute_all (config : Indicator_config.t) (bars : Bars.t) =
   match config.compute_live with
   | false ->
@@ -22,10 +26,14 @@ let compute_all (config : Indicator_config.t) (bars : Bars.t) =
     let rsi = Data.get_row data RSI |> Data.Row.slice 14 (length - 14) in
     let slow_k = Data.get_row data FSO_K |> Data.Row.slice 17 (length - 17) in
     let slow_d = Data.get_row data FSO_D |> Data.Row.slice 17 (length - 17) in
-    let* _, _ = TA.ta_rsi (0, length - 1) close 14 rsi in
-    let* _, _ = TA.ta_stoch (0, length - 1) ohclv 14 3 3 slow_k slow_d in
+    let sma = Data.get_row data SMA |> Data.Row.slice 14 (length - 14) in
+    let* outbeg, _ = TA.ta_rsi (0, length - 1) close 14 rsi in
+    assert (outbeg = rsi_offset);
+    let* outbeg, _ = TA.ta_stoch (0, length - 1) ohclv 14 3 3 slow_k slow_d in
+    assert (outbeg = fso_offset);
+    let* outbeg, _ = TA.ta_sma (0, length - 1) close 14 sma in
+    assert (outbeg = sma_offset);
     (* Eio.traceln "%a" (Data.pp_row RSI) data; *)
-    (* Eio.traceln "%d" length; *)
     (* Eio.traceln "%d, %d" outBegIdx outNBElement; *)
     (* Eio.traceln "%a" (Data.pp_row FSO_K) data; *)
     (* Error.fatal "NYI" *)
