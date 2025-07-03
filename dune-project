@@ -31,7 +31,7 @@
   ocamlgraph
   eio_main
   piaf
-  ta_caml
+  tacaml
   fileutils
   ocamlformat
   (alcotest :with-test)
