@@ -160,8 +160,9 @@ module Make (Backend : Backend_intf.S) = struct
     in
     (* if options.flags.print_tick_arg then *)
     (*   Eio.traceln "[ %a ] CASH %f" Time.pp time value; *)
-    Result.return
-    @@ { state with stats; positions; time; tick = state.tick + 1 }
+    let res = { state with stats; positions; time; tick = state.tick + 1 } in
+    Bars.set_current state.bars res.tick;
+    Result.return res
 
   let start_time = ref 0.0
 
