@@ -67,6 +67,9 @@ module Type = struct
     | _ -> invalid_arg "Invalid Data.Type.of_int"
 end
 
+let get_row (data : t) (x : Type.t) =
+  Array2.slice_left data.data @@ Type.to_int x
+
 let get (data : t) (x : Type.t) i =
   let res =
     try Array2.get data.data (Type.to_int x) i with
@@ -80,6 +83,7 @@ let get (data : t) (x : Type.t) i =
     match not @@ Float.is_nan res with
     | false ->
       Eio.traceln "%a index %d NaN" Type.pp x i;
+      (* Eio.traceln "%a" Data. *)
       false
       (* let col = Column.of_data data i in *)
       (* Eio.traceln "%a" (Result.pp' Column.pp Error.pp) col; *)
@@ -147,6 +151,13 @@ let pp : t Format.printer =
  fun fmt (x : t) ->
   let a = Array.init x.size @@ fun i -> Column.of_data x i |> Result.get_exn in
   Format.fprintf fmt "@[{ %a }@]@." (Array.pp Column.pp) a
+
+let pp_row (ty : Type.t) : t Format.printer =
+ fun fmt (x : t) ->
+  let bigarr = Array2.slice_left x.data @@ Type.to_int ty in
+  let i = Array1.dim bigarr in
+  let arr = Array.init i (fun i -> bigarr.{i}) in
+  Format.fprintf fmt "%a" (Array.pp Float.pp) arr
 
 let length x = Array2.dim2 x.data
 let current x = x.current
@@ -256,28 +267,28 @@ let of_items (l : Item.t list) =
   in
   Result.return matrix
 
+let member = Yojson.Safe.Util.member
+let float_member s x = Yojson.Safe.Util.member s x |> Yojson.Safe.Util.to_number
+let int_member s x = Yojson.Safe.Util.member s x |> Yojson.Safe.Util.to_int
+
 let load_json_item (data : t) i (json : Yojson.Safe.t) =
-  match json with
-  | `Assoc
-      [
-        ("t", `String time);
-        ("o", `Float open_);
-        ("h", `Float high);
-        ("l", `Float low);
-        ("c", `Float close);
-        ("v", `Int volume);
-      ] ->
-    let time = Time.of_string time |> Ptime.to_float_s in
-    let volume = Float.of_int volume in
+  try
+    let time =
+      member "t" json |> Yojson.Safe.Util.to_string |> Time.of_string
+      |> Ptime.to_float_s
+    in
     set data Time i time;
-    set data Open i open_;
-    set data High i high;
-    set data Low i low;
-    set data Close i close;
-    set data Last i close;
-    set data Volume i volume;
+    set data Open i @@ float_member "o" json;
+    set data High i @@ float_member "h" json;
+    set data Low i @@ float_member "l" json;
+    set data Close i @@ float_member "c" json;
+    set data Last i @@ float_member "c" json;
+    set data Volume i @@ Float.of_int @@ int_member "v" json;
     Result.return ()
-  | _ -> Error.fatal "Bad json in Data.load_json_item"
+  with
+  | _ ->
+    Eio.traceln "%a" Yojson.Safe.pp json;
+    Error.fatal "Bad json in Data.load_json_item"
 
 let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
