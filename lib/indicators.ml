@@ -1,6 +1,6 @@
 module TA = Tacaml.F
 
-let get_ohclv (x : Data.t) : TA.ohlcv =
+let get_ohclv (x : Data.t) : Tacaml.Ohlcv.t =
   {
     open_ = Data.get_row x Open;
     high = Data.get_row x High;
@@ -19,8 +19,8 @@ let compute_all (bars : Bars.t) =
   let rsi = Data.get_row data RSI |> Data.Row.slice 14 (length - 14) in
   let slow_k = Data.get_row data FSO_K |> Data.Row.slice 17 (length - 17) in
   let slow_d = Data.get_row data FSO_D |> Data.Row.slice 17 (length - 17) in
-  let* _, _ = TA.ta_rsi 0 (length - 1) close 14 rsi in
-  let* _, _ = TA.ta_stoch 0 (length - 1) ohclv 14 3 1 3 1 slow_k slow_d in
+  let* _, _ = TA.ta_rsi (0, length - 1) close 14 rsi in
+  let* _, _ = TA.ta_stoch (0, length - 1) ohclv 14 3 3 slow_k slow_d in
   (* Eio.traceln "%a" (Data.pp_row RSI) data; *)
   (* Eio.traceln "%d" length; *)
   (* Eio.traceln "%d, %d" outBegIdx outNBElement; *)

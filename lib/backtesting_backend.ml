@@ -13,15 +13,16 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let* bars =
       match Input.target with
       | None -> Error.fatal "No target for backtest"
-      | Some b -> Result.return b
+      | Some b ->
+        Bars.set_current b Input.options.flags.start;
+        Result.return b
     in
     Result.return
     @@ {
          State.current = Initialize;
          bars;
-         (* latest = Bars.Latest.empty (); *)
          content;
-         tick = 0;
+         tick = Input.options.flags.start;
          tick_length = Input.options.tick;
          stats = Stats.empty ();
          order_history = Order.History.empty;

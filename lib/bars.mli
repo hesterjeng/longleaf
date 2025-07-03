@@ -21,6 +21,7 @@ val t_of_yojson : Yojson.Safe.t -> (t, Error.t) result
 val empty : unit -> t
 val copy : t -> t
 val timestamp : t -> (Time.t, Error.t) result
+val set_current : t -> int -> unit
 
 (* val append : Latest.t -> t -> (unit, Error.t) result *)
 val pp : t Format.printer

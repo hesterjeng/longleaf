@@ -158,6 +158,10 @@ let combine (l : t list) : (t, Error.t) result =
   in
   Result.return @@ Hashtbl.of_seq assoc_seq
 
+let set_current bars i =
+  (fun f -> Hashtbl.filter_map_inplace f bars) @@ fun _ data ->
+  Option.return @@ { data with Data.current = i }
+
 let of_seq = Hashtbl.of_seq
 let of_list l = of_seq @@ Seq.of_list l
 
