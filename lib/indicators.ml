@@ -20,11 +20,13 @@ let compute_all (bars : Bars.t) =
   let slow_k = Data.get_row data FSO_K in
   let slow_d = Data.get_row data FSO_D in
   let* () = Error.guard_res @@ TA.ta_rsi 0 (length - 1) close 14 0 rsi in
-  let* () =
-    Error.guard_res
-    @@ TA.ta_stoch 0 (length - 1) ohclv 14 14 0 14 0 0 (-1) slow_k slow_d
-  in
-  Eio.traceln "%a" Bars.pp bars;
+  (* let* () = *)
+  (*   Error.guard_res *)
+  (*   @@ TA.ta_stoch 0 (length - 1) ohclv 14 3 0 3 0 0 (-1) slow_k slow_d *)
+  (* in *)
+  Eio.traceln "%a" (Data.pp_row RSI) data;
+  Eio.traceln "%d" length;
+  (* Eio.traceln "%a" (Data.pp_row FSO_K) data; *)
   Error.fatal "NYI"
 
 let initialize () =
