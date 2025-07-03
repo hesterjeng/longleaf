@@ -127,7 +127,7 @@ module Make (Backend : Backend_intf.S) = struct
     else ()
 
   let update_continue (state : 'a State.t) =
-    Eio.traceln "%a" State.pp_simple state;
+    (* Eio.traceln "%a" State.pp_simple state; *)
     let ( let* ) = Result.( let* ) in
     (* let previous = state.latest in *)
     let* () = Backend.update_bars Backend.symbols state.bars state.tick in
@@ -191,7 +191,10 @@ module Make (Backend : Backend_intf.S) = struct
         (* Pmutex.set mutices.indicators_mutex state.indicators *));
       (* Eio.traceln "tick"; *)
       let* listened = listen_tick () in
+      let* length = Bars.length state.bars in
       match listened with
+      | Continue when state.tick >= length - 1 ->
+        Result.return @@ { state with current = Liquidate }
       | Continue ->
         let* state = update_continue state in
         Result.return @@ { state with current = Ordering }
@@ -213,7 +216,9 @@ module Make (Backend : Backend_intf.S) = struct
       Ticker.tick ~runtype Backend.env 600.0;
       Result.return { state with current = Listening }
     | Finished code ->
-      Eio.traceln "@[Reached finished state.@]@.";
+      Eio.traceln "@[Reached finished state. %f@]@."
+        (Backend_position.get_cash state.positions);
+      Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
       if not options.flags.no_gui then (
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
@@ -224,10 +229,11 @@ module Make (Backend : Backend_intf.S) = struct
       let filename = get_filename () in
       let* () = output_data state filename in
       output_order_history state filename;
-      let tearsheet = Tearsheet.make state in
-      Eio.traceln "%a" Tearsheet.pp tearsheet;
+      (* let tearsheet = Tearsheet.make state in *)
+      (* Eio.traceln "%a" Tearsheet.pp tearsheet; *)
       assert (Backend_position.is_empty state.positions);
-      Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
+      Eio.traceln "Finished cleanup... %fs"
+        (Eio.Time.now Backend.env#clock -. !start_time);
       Result.fail @@ `Finished code
     | Ordering
     | Continue
