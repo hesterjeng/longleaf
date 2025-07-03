@@ -30,6 +30,9 @@ type 'a t = {
   content : 'a;
 }
 
+let pp_simple : 'a t Format.printer =
+ fun fmt x -> Format.fprintf fmt "%a %d" Time.pp x.time x.tick
+
 let listen (x : _ t) = { x with current = Listening }
 
 (* let indicators (state : _ t) symbol = *)

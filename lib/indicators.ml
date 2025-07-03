@@ -12,6 +12,7 @@ let get_ohclv (x : Data.t) : Tacaml.Ohlcv.t =
 let compute_all (config : Indicator_config.t) (bars : Bars.t) =
   match config.compute_live with
   | false ->
+    Eio.traceln "Precomputing indicators because of Indicator_config.t";
     let ( let* ) = Result.( let* ) in
     let* length = Bars.length bars in
     Bars.fold bars (Ok ()) @@ fun _ data acc ->
@@ -29,7 +30,9 @@ let compute_all (config : Indicator_config.t) (bars : Bars.t) =
     (* Eio.traceln "%a" (Data.pp_row FSO_K) data; *)
     (* Error.fatal "NYI" *)
     Result.return ()
-  | true -> Result.return ()
+  | true ->
+    Eio.traceln "Not precomputing indicators because of Indicator_config.t";
+    Result.return ()
 
 let initialize () =
   match TA.ta_initialize () with
