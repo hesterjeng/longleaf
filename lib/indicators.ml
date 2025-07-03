@@ -30,10 +30,10 @@ let compute_all (bars : Bars.t) =
 
 let initialize () =
   match TA.ta_initialize () with
-  | Ok () ->
-    Eio.traceln "Initialized TA-Lib";
-    Ok ()
-  | Error e -> Error.fatal e
+  | Ok () -> ()
+  | Error e ->
+    Eio.traceln "Problem when initializing TA-Lib";
+    invalid_arg e
 
 (* let top () = *)
 (*   TA.F. *)

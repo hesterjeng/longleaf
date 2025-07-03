@@ -23,5 +23,6 @@ let () =
   | Ok s ->
     Fmt_tty.setup_std_outputs ();
     Longleaf.Util.handle_output s.output;
+    Longleaf.Indicators.initialize ();
     let () = Longleaf_strategies.Run.top s.cli s.target in
     Stdlib.exit Cmd.Exit.ok

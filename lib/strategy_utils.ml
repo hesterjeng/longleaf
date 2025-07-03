@@ -174,7 +174,7 @@ module Make (Backend : Backend_intf.S) = struct
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
-      let* () = Indicators.initialize () in
+      (* let* () = Indicators.initialize () in *)
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       start_time := Eio.Time.now Backend.env#clock;
       Eio.traceln "Running...";
