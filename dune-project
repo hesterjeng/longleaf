@@ -34,6 +34,7 @@
   tacaml
   fileutils
   ocamlformat
+  yojson
   (alcotest :with-test)
 ))
 
@@ -46,20 +47,6 @@
  (depends
   dune
   ocaml
-  ptime
-  ppx_yojson_conv
-  ppx_deriving
-  ppx_variants_conv
-  ppx_fields_conv
-  cmdliner
-  landmarks
-  iter
-  owl
-  containers-data
-  ocamlgraph
-  eio_main
-  piaf
-  fileutils
-  ocamlformat
+  longleaf-lib
   (alcotest :with-test)
 ))
