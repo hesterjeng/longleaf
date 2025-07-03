@@ -179,6 +179,7 @@ module Make (Backend : Backend_intf.S) = struct
       let* () =
         Indicators.compute_all Input.options.indicators_config state.bars
       in
+      Bars.set_current state.bars state.tick;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       start_time := Eio.Time.now Backend.env#clock;
       Eio.traceln "Running...";
