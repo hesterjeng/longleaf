@@ -147,6 +147,10 @@ module Column = struct
   let volume x = get x Volume
 end
 
+module Row = struct
+  let slice x y a = Array1.sub a x y
+end
+
 let pp : t Format.printer =
  fun fmt (x : t) ->
   let a = Array.init x.size @@ fun i -> Column.of_data x i |> Result.get_exn in
