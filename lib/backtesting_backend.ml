@@ -54,6 +54,17 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let received_data = Bars.empty ()
   let target = Input.target
 
+  (* let () = *)
+  (*   match target with *)
+  (*   | None -> () *)
+  (*   | Some bars -> ( *)
+  (*     match Indicators.compute_all bars with *)
+  (*     | Ok () -> () *)
+  (*     | Error e -> *)
+  (*       Eio.traceln "%a" Error.pp e; *)
+  (*       invalid_arg "Error while precomputing indicators in backtesting backend" *)
+  (*     ) *)
+
   let last_data_bar =
     let ( let* ) = Result.( let* ) in
     let last_data_bar = Bars.Latest.empty () in
@@ -76,10 +87,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       in
       Result.return last_data_bar
 
-  let update_bars _ bars _i =
-    let ( let* ) = Result.( let* ) in
-    let* () = Indicators.compute_all bars in
-    Result.return ()
+  let update_bars _ _ _i = Result.return ()
   (* let ( let* ) = Result.( let* ) in *)
   (* let latest_data_bar = Bars.Latest.empty () in *)
   (* match target with *)
