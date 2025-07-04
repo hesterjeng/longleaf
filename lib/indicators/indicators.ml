@@ -17,10 +17,10 @@ let compute_all (config : Indicator_config.t) (bars : Bars.t) =
   match config.compute_live with
   | false ->
     Eio.traceln "Precomputing indicators because of Indicator_config.t";
-    let ( let* ) = Result.( let* ) in
-    let* length = Bars.length bars in
-    Bars.fold bars (Ok ()) @@ fun _ data acc ->
-    let* _ = acc in
+    (* let ( let* ) = Result.( let* ) in *)
+    (* let* length = Bars.length bars in *)
+    (* Bars.fold bars (Ok ()) @@ fun _ data acc -> *)
+    (* let* _ = acc in *)
     (* let close = Data.get_row data Close in *)
     (* let ohclv = get_ohclv data in *)
     (* let rsi = Data.get_row data RSI |> Data.Row.slice 14 (length - 14) in *)
