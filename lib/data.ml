@@ -67,9 +67,6 @@ module Type = struct
     | _ -> invalid_arg "Invalid Data.Type.of_int"
 end
 
-let get_row (data : t) (x : Type.t) =
-  Array2.slice_left data.data @@ Type.to_int x
-
 let get (data : t) (x : Type.t) i =
   let res =
     try Array2.get data.data (Type.to_int x) i with
@@ -148,8 +145,13 @@ module Column = struct
 end
 
 module Row = struct
-  let slice x y a = Array1.sub a x y
+  type t = (float, float64_elt, c_layout) Array1.t
+
+  let slice x y a : t = Array1.sub x y a
 end
+
+let get_row (data : t) (x : Type.t) : Row.t =
+  Array2.slice_left data.data @@ Type.to_int x
 
 let pp : t Format.printer =
  fun fmt (x : t) ->
