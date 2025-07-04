@@ -1,3 +1,4 @@
+module Data = Bars.Data
 module Headers = Piaf.Headers
 (* module Hashtbl = Bars.Hashtbl *)
 

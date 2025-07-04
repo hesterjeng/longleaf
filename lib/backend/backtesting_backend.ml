@@ -1,8 +1,9 @@
+module Data = Bars.Data
 open Backend_intf
 
 module Make (Input : BACKEND_INPUT) : S = struct
   (* module Ticker = Ticker.Instant *)
-  (* module Backend_position = Backend_position.Generative () *)
+  (* module Portfolio = Portfolio.Generative () *)
   module Input = Input
 
   let get_trading_client _ = Result.fail @@ `MissingClient "Trading"
@@ -26,7 +27,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          tick_length = Input.options.tick;
          stats = Stats.empty ();
          order_history = Order.History.empty;
-         positions = Backend_position.make () (* active_orders = []; *);
+         positions = Portfolio.make () (* active_orders = []; *);
          time = Ptime.min;
        }
 
@@ -126,6 +127,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let* last = last_data_bar in
-    let* new_positions = Backend_position.liquidate state.positions last in
+    let* new_positions = Portfolio.liquidate state.positions last in
     Result.return @@ { state with positions = new_positions }
 end

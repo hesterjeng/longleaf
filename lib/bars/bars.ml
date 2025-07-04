@@ -1,5 +1,6 @@
 module Hashtbl_make = Hashtbl.Make
 module Hashtbl = Hashtbl_make (Instrument)
+module Data = Data
 
 let fold (x : 'a Hashtbl.t) init f = Hashtbl.fold f x init
 

@@ -1,14 +1,14 @@
 module Array1 = Bigarray.Array1
 module Array2 = Bigarray.Array2
 
-type float64_elt = Bigarray.float64_elt
-type c_layout = Bigarray.c_layout
+(* type float64_elt = Bigarray.float64_elt *)
+(* type c_layout = Bigarray.c_layout *)
 
-let c_layout = Bigarray.c_layout
-let fortran_layout = Bigarray.fortran_layout
-let float64 = Bigarray.float64
+(* let c_layout = Bigarray.c_layout *)
+(* let fortran_layout = Bigarray.fortran_layout *)
+(* let float64 = Bigarray.float64 *)
 
-type data_matrix = (float, float64_elt, c_layout) Array2.t
+type data_matrix = (float, Bigarray.float64_elt, Bigarray.c_layout) Array2.t
 
 type t = {
   data : data_matrix;
@@ -145,7 +145,7 @@ module Column = struct
 end
 
 module Row = struct
-  type t = (float, float64_elt, c_layout) Array1.t
+  type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Array1.t
 
   let slice x y a : t = Array1.sub x y a
 end
@@ -205,7 +205,9 @@ let to_items (x : t) =
 
 let make size : t =
   {
-    data = Array2.init float64 c_layout Type.count size (fun _ _ -> Float.nan);
+    data =
+      Array2.init Bigarray.float64 Bigarray.c_layout Type.count size (fun _ _ ->
+          Float.nan);
     current = 0;
     size;
     indicators_computed = false;

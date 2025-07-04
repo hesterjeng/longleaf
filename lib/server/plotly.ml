@@ -1,5 +1,7 @@
 (* module IP = Indicators.Point *)
 
+module Data = Bars.Data
+
 let layout title =
   let ( = ) = fun x y -> (x, y) in
   `Assoc

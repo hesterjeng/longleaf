@@ -1,13 +1,6 @@
 open Backend_intf
 
-type runtype = Live | Paper
-
-let apca_api_base_url ty =
-  match ty with
-  | Live -> Uri.of_string "https://api.alpaca.markets/v2"
-  | Paper -> Uri.of_string "https://paper-api.alpaca.markets/v2"
-
-let apca_api_data_url = Uri.of_string "https://data.alpaca.markets/v2"
+(* type runtype = Live | Paper *)
 
 module Make (Input : BACKEND_INPUT) : S = struct
   open Trading_types
@@ -29,10 +22,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let res =
       let ty =
         match opts.flags.runtype with
-        | Live -> Live
-        | _ -> Paper
+        | Live -> `Live
+        | _ -> `Paper
       in
-      Piaf.Client.create ~sw:opts.switch opts.eio_env @@ apca_api_base_url ty
+      Piaf.Client.create ~sw:opts.switch opts.eio_env
+      @@ Util.apca_api_base_url ty
     in
     match res with
     | Ok x -> x
@@ -49,7 +43,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let data_client =
     let res =
-      Piaf.Client.create ~sw:opts.switch opts.eio_env apca_api_data_url
+      Piaf.Client.create ~sw:opts.switch opts.eio_env Util.apca_api_data_url
     in
     match res with
     | Ok x -> x
@@ -75,8 +69,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       account_status;
     let account_cash = account_status.cash in
     let positions =
-      Backend_position.make () |> fun p ->
-      Backend_position.set_cash p account_cash
+      Portfolio.make () |> fun p -> Portfolio.set_cash p account_cash
     in
     let* bars =
       match Input.target with
@@ -127,12 +120,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let latest_bars (symbols : Instrument.t list) bars _ =
     let ( let* ) = Result.( let* ) in
     (* let* account = Trading_api.Accounts.get_account () in *)
-    (* let backend_cash = Backend_position.get_cash in *)
+    (* let backend_cash = Portfolio.get_cash in *)
     (* if not @@ Float.equal backend_cash account.cash then *)
     (*   Eio.traceln "[alpaca_backend] Backend cash: %f Alpaca cash: %f" *)
-    (*     (Backend_position.get_cash ()) *)
+    (*     (Portfolio.get_cash ()) *)
     (*     account.cash; *)
-    (* Backend_position.set_cash account.cash; *)
+    (* Portfolio.set_cash account.cash; *)
     match symbols with
     | [] ->
       Eio.traceln "No symbols in latest bars request.";
@@ -180,16 +173,16 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    let symbols = Backend_position.symbols state.positions in
+    let symbols = Portfolio.symbols state.positions in
     (* let* () = latest_bars symbols state.tick in *)
     let* liquidated_state =
       List.fold_left
         (fun prev symbol ->
           let* prev = prev in
-          let qty = Backend_position.qty state.positions symbol in
+          let qty = Portfolio.qty state.positions symbol in
           assert (qty <> 0);
           let* data = Bars.get state.bars symbol in
-          let last_column = Data.get_top data in
+          let last_column = Bars.Data.get_top data in
           (* let* latest_info = Bars.Latest.get last_data_bar symbol in *)
           let* order : Order.t =
             let side = if qty >= 0 then Side.Sell else Side.Buy in

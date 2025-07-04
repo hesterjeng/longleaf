@@ -1,6 +1,7 @@
+module Data = Bars.Data
 module Column = Data.Column
 
-module Portfolio = struct
+module Positions_held = struct
   type t = (Instrument.t * int) list [@@deriving show]
 
   let qty p symbol =
@@ -17,7 +18,7 @@ end
 (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
 
 type t = {
-  portfolio : Portfolio.t;
+  portfolio : Positions_held.t;
   cash : float;
   live_orders : Order.t list; (* contracts : Contract.Position.t list; *)
 }
@@ -71,18 +72,18 @@ let is_empty (x : t) =
 let execute_order (pos : t) (order : Order.t) : (t, Error.t) result =
   let symbol = order.symbol in
   let price = order.price in
-  let current_amt = Portfolio.qty pos.portfolio symbol in
+  let current_amt = Positions_held.qty pos.portfolio symbol in
   let order_qty = order.qty in
   match (order.side, order.order_type) with
   | Buy, Market ->
     let portfolio =
-      Portfolio.set_qty pos.portfolio symbol (current_amt + order_qty)
+      Positions_held.set_qty pos.portfolio symbol (current_amt + order_qty)
     in
     let res = set_cash pos @@ (pos.cash -. (price *. Float.of_int order_qty)) in
     Ok { res with portfolio }
   | Sell, Market ->
     let portfolio =
-      Portfolio.set_qty pos.portfolio symbol (current_amt - order_qty)
+      Positions_held.set_qty pos.portfolio symbol (current_amt - order_qty)
     in
     let res = set_cash pos @@ (pos.cash +. (price *. Float.of_int order_qty)) in
     Ok { res with portfolio }

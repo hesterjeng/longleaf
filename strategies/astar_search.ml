@@ -1,5 +1,6 @@
 module Search = Longleaf_lib.Util.Astar
 module Error = Longleaf_lib.Error
+module Data = Bars.Data
 
 module EnumeratedValue = struct
   type t =

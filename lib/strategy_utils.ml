@@ -1,4 +1,4 @@
-module Make (Backend : Backend_intf.S) = struct
+module Make (Backend : Backend.S) = struct
   module Input = Backend.Input
 
   let ( let* ) = Result.( let* )
@@ -87,7 +87,7 @@ module Make (Backend : Backend_intf.S) = struct
         | Liquidate
         | Finished _ ->
           Eio.traceln "@[Exiting run.@]@.";
-          Backend_position.get_cash prev.positions
+          Portfolio.get_cash prev.positions
         | _ -> try_liquidating ())
     in
     match init_state with
@@ -133,9 +133,7 @@ module Make (Backend : Backend_intf.S) = struct
     let* () = Backend.update_bars Backend.symbols state.bars state.tick in
     (* We have the index, we have state.bars, we have the newest info *)
     (* Here we can update indicators, BEFORE appending to bars *)
-    let* positions =
-      Backend_position.update state.positions state.bars state.tick
-    in
+    let* positions = Portfolio.update state.positions state.bars state.tick in
     let* time = Bars.timestamp state.bars in
     (* let* time = Bars.Latest.timestamp latest in *)
     (* assert (Ptime.compare time state.time = 1); *)
@@ -144,7 +142,7 @@ module Make (Backend : Backend_intf.S) = struct
     (*   Indicators.compute_latest context.compare_preloaded *)
     (*     Input.options.indicators_config state.bars state.indicators *)
     (* in *)
-    let* value = Backend_position.value positions state.bars in
+    let* value = Portfolio.value positions state.bars in
     let risk_free_value =
       Stats.risk_free_value state.stats Input.options.tick
     in
@@ -155,7 +153,7 @@ module Make (Backend : Backend_intf.S) = struct
            value;
            orders = [];
            risk_free_value;
-           cash = Backend_position.get_cash state.positions;
+           cash = Portfolio.get_cash state.positions;
          }
     in
     (* if options.flags.print_tick_arg then *)
@@ -218,7 +216,7 @@ module Make (Backend : Backend_intf.S) = struct
       Result.return { state with current = Listening }
     | Finished code ->
       Eio.traceln "@[Reached finished state. %f@]@."
-        (Backend_position.get_cash state.positions);
+        (Portfolio.get_cash state.positions);
       Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
       if not options.flags.no_gui then (
         let stats_with_orders =
@@ -232,7 +230,7 @@ module Make (Backend : Backend_intf.S) = struct
       output_order_history state filename;
       (* let tearsheet = Tearsheet.make state in *)
       (* Eio.traceln "%a" Tearsheet.pp tearsheet; *)
-      assert (Backend_position.is_empty state.positions);
+      assert (Portfolio.is_empty state.positions);
       Eio.traceln "Finished cleanup... %fs"
         (Eio.Time.now Backend.env#clock -. !start_time);
       Result.fail @@ `Finished code

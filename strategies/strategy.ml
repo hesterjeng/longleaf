@@ -3,7 +3,7 @@ module type S = sig
   val shutdown : unit -> unit
 end
 
-module type BUILDER = functor (_ : Backend_intf.S) -> S
+module type BUILDER = functor (_ : Backend.S) -> S
 
 (** Helper function to reduce code duplication. *)
 let run (module Strat : BUILDER) options =

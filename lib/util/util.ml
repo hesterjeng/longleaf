@@ -165,3 +165,10 @@ let qty ~current_cash ~pct ~price =
 
 let random_filename () =
   Lots_of_words.select random_state ^ "_" ^ Lots_of_words.select random_state
+
+let apca_api_base_url ty =
+  match ty with
+  | `Live -> Uri.of_string "https://api.alpaca.markets/v2"
+  | `Paper -> Uri.of_string "https://paper-api.alpaca.markets/v2"
+
+let apca_api_data_url = Uri.of_string "https://data.alpaca.markets/v2"

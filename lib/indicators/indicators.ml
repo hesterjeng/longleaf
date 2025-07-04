@@ -1,5 +1,6 @@
 module TA = Tacaml.F
 module Config = Config
+module Data = Bars.Data
 
 let get_ohclv (x : Data.t) : Tacaml.Ohlcv.t =
   {

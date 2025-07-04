@@ -141,18 +141,18 @@ let compound_growth_rate (state : 'a State.t) =
   (* 23400 seconds per trading day *)
   (* 251 trading days per year *)
   (* ~ 5873400 trading seconds per year *)
-  assert (Backend_position.is_empty state.positions);
+  assert (Portfolio.is_empty state.positions);
   let ( ^ ) = Owl_maths.pow in
   let ticks_per_year = 5873400.0 /. state.tick_length in
   let exponent = ticks_per_year /. Float.of_int state.tick in
-  let ratio = Backend_position.get_cash state.positions /. 100000.0 in
+  let ratio = Portfolio.get_cash state.positions /. 100000.0 in
   let cagr = (ratio ^ exponent) -. 1.0 in
   cagr
 
 (* let annualized_value (state : 'a State.t) = *)
 (*   let ticks_per_year = 5873400.0 /. state.tick_length in *)
 (*   let tick = state.tick |> Float.of_int in *)
-(*   let ending_cash = Backend_position.get_cash state.positions in *)
+(*   let ending_cash = Portfolio.get_cash state.positions in *)
 (*   let starting_cash = 100000.0 in *)
 (*   0.0 *)
 
@@ -168,7 +168,7 @@ let make (state : 'a State.t) : t =
     /. Float.of_int state.stats.position_ratio.positions_possible
   in
   let biggest_winner, biggest_loser = biggest h in
-  let cash = Backend_position.get_cash state.positions in
+  let cash = Portfolio.get_cash state.positions in
   {
     cash;
     num_orders = Order.History.length h;

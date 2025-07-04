@@ -57,8 +57,7 @@ end
 module Downloader = struct
   let data_client switch eio_env =
     let res =
-      Piaf.Client.create ~sw:switch eio_env
-        Longleaf_lib.Alpaca_backend.apca_api_data_url
+      Piaf.Client.create ~sw:switch eio_env Longleaf_lib.Util.apca_api_data_url
     in
     match res with
     | Ok x -> x

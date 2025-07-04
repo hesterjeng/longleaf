@@ -9,6 +9,8 @@ module Latest : sig
   val set : t -> Instrument.t -> Data.Column.t -> unit
 end
 
+module Data = Data
+
 type t
 
 val get : t -> Instrument.t -> (Data.t, Error.t) result

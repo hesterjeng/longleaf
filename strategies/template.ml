@@ -85,7 +85,7 @@ module Make
   let buy_ (state : 'a State.t) selected =
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
-    let current_cash = Backend_position.get_cash state.positions in
+    let current_cash = Portfolio.get_cash state.positions in
     let pct = 1.0 /. Float.of_int (List.length selected) in
     assert (pct >=. 0.0 && pct <=. 1.0);
     let@ state f = List.fold_left f (Ok state) selected in
@@ -178,7 +178,7 @@ module Make
     let ( let* ) = Result.( let* ) in
     match state.current with
     | Ordering ->
-      let held_symbols = Backend_position.symbols state.positions in
+      let held_symbols = Portfolio.symbols state.positions in
       let* sold_state =
         List.fold_left sell_fold (Ok state) state.order_history.active
       in
