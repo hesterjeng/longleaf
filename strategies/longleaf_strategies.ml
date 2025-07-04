@@ -146,8 +146,8 @@ module Run = struct
   open Longleaf_lib
 
   let mk_options switch eio_env flags target : Options.t =
-    let longleaf_env = Environment.make () in
-    let mutices = Longleaf_mutex.create () in
+    let longleaf_env = Util.Environment.make () in
+    let mutices = Server.Longleaf_mutex.create () in
     {
       symbols = Collections.sp100;
       eio_env;
@@ -155,7 +155,7 @@ module Run = struct
       switch;
       flags;
       tick = 600.0;
-      indicators_config = Indicator_config.default;
+      indicators_config = Indicators.Config.default;
       target;
       mutices;
     }
@@ -178,7 +178,7 @@ module Run = struct
 
   let top (flags : Options.CLI.t) target =
     Eio_main.run @@ fun eio_env ->
-    let mutices = Longleaf_mutex.create () in
+    let mutices = Server.Longleaf_mutex.create () in
     let run_strategy = run_strategy eio_env flags target in
     let run_data_server = run_server eio_env flags mutices in
     let _ = Eio.Fiber.both run_strategy run_data_server in

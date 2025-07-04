@@ -1,4 +1,4 @@
-module Search = Longleaf_lib.Astar
+module Search = Longleaf_lib.Util.Astar
 module Error = Longleaf_lib.Error
 
 module EnumeratedValue = struct

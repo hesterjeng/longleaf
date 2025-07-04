@@ -194,9 +194,9 @@ end
 type t = {
   symbols : string list;
   tick : float;
-  indicators_config : Indicator_config.t;
+  indicators_config : Indicators.Config.t;
   eio_env : Eio_unix.Stdenv.base; [@opaque]
-  longleaf_env : Environment.t; [@opaque]
+  longleaf_env : Util.Environment.t; [@opaque]
   switch : Eio.Switch.t; [@opaque]
   target : Target.t; [@opaque]
   flags : CLI.t;

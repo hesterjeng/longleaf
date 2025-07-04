@@ -626,6 +626,7 @@ let words =
     "Possibility";
   ]
 
-let select () =
+let select state =
   let choose = Random.pick_list words in
-  choose Util.random_state
+  choose state
+(* choose Util.random_state *)

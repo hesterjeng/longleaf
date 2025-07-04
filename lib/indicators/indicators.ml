@@ -1,4 +1,5 @@
 module TA = Tacaml.F
+module Config = Config
 
 let get_ohclv (x : Data.t) : Tacaml.Ohlcv.t =
   {
@@ -13,7 +14,7 @@ let rsi_offset = 14
 let fso_offset = 17
 let sma_offset = 13
 
-let compute_all (config : Indicator_config.t) (bars : Bars.t) =
+let compute_all (config : Config.t) (bars : Bars.t) =
   match config.compute_live with
   | false ->
     Eio.traceln "Precomputing indicators because of Indicator_config.t";

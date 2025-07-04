@@ -1,4 +1,4 @@
-module Astar = Longleaf_lib.Astar
+module Astar = Longleaf_lib.Util.Astar
 module Error = Longleaf_lib.Error
 module EnumeratedSignal = Astar_search.EnumeratedSignal
 module A = EnumeratedSignal.Atom

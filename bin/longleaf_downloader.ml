@@ -69,7 +69,7 @@ module Downloader = struct
     Eio.Switch.run @@ fun switch ->
     let ( let* ) = Result.( let* ) in
     (* Util.yojson_safe true @@ fun () -> *)
-    let longleaf_env = Environment.make () in
+    let longleaf_env = Util.Environment.make () in
     let data_client = data_client switch eio_env in
     let module Conn : Util.CLIENT = struct
       let client = data_client

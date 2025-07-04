@@ -96,7 +96,7 @@ module Make (Backend : Backend_intf.S) = struct
       Eio.traceln "[error] %a" Error.pp e;
       0.0
 
-  let get_filename () = Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
+  let get_filename () = Util.random_filename ()
 
   let output_data (state : _ State.t) filename =
     let ( let* ) = Result.( let* ) in

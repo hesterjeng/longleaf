@@ -190,7 +190,7 @@ let print_to_file ?(filename : string option) bars prefix =
   let tail =
     match filename with
     | Some n -> n
-    | None -> Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
+    | None -> Util.random_filename ()
   in
   let filename = Format.sprintf "data/%s_%s.json" prefix tail in
   print_to_file_direct bars filename
