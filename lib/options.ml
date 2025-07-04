@@ -200,6 +200,6 @@ type t = {
   switch : Eio.Switch.t; [@opaque]
   target : Target.t; [@opaque]
   flags : CLI.t;
-  mutices : Longleaf_mutex.t;
+  mutices : Server.Longleaf_mutex.t;
 }
 [@@deriving show]

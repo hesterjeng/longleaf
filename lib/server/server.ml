@@ -1,4 +1,5 @@
 module Longleaf_error = Error
+module Longleaf_mutex = Longleaf_mutex
 open Piaf
 module Promise = Eio.Std.Promise
 
