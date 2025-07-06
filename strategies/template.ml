@@ -122,7 +122,9 @@ module Make
       State.replace_stats state
       @@ Stats.add_possible_positions state.stats potential_buys
     in
-    let num_held_currently = List.length @@ state.order_history.active in
+    let num_held_currently =
+      Order.History.Ptime_map.cardinal @@ state.order_history.active
+    in
     (* Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp) *)
     (*   state.order_history.active; *)
     assert (Buy.num_positions >= 0);
@@ -180,7 +182,8 @@ module Make
     | Ordering ->
       let held_symbols = Portfolio.symbols state.positions in
       let* sold_state =
-        List.fold_left sell_fold (Ok state) state.order_history.active
+        List.fold_left sell_fold (Ok state)
+        @@ Order.History.active state.order_history
       in
       let* complete = buy ~held_symbols sold_state in
       Result.return complete

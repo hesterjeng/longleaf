@@ -46,9 +46,7 @@ let record_order state order =
   Result.return @@ { state with order_history = new_h }
 
 let activate_order state order =
-  let new_h =
-    { state.order_history with active = order :: state.order_history.active }
-  in
+  let new_h = Order.History.add_active state.order_history order in
   { state with order_history = new_h }
 
 let place_order (state : 'a t) (order : Order.t) =
@@ -59,15 +57,7 @@ let place_order (state : 'a t) (order : Order.t) =
   Result.return { state with positions = new_positions }
 
 let deactivate_order state order =
-  let new_h =
-    {
-      state.order_history with
-      active =
-        List.filter
-          (fun x -> not @@ Order.equal x order)
-          state.order_history.active;
-    }
-  in
+  let new_h = Order.History.remove_active state.order_history order in
   { state with order_history = new_h }
 
 let replace_stats x stats = { x with stats }
