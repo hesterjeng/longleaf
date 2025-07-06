@@ -19,22 +19,22 @@ let compute_all (config : Config.t) (bars : Bars.t) =
   match config.compute_live with
   | false ->
     Eio.traceln "Precomputing indicators because of Indicator_config.t";
-    (* let ( let* ) = Result.( let* ) in *)
-    (* let* length = Bars.length bars in *)
-    (* Bars.fold bars (Ok ()) @@ fun _ data acc -> *)
-    (* let* _ = acc in *)
-    (* let close = Data.get_row data Close in *)
-    (* let ohclv = get_ohclv data in *)
-    (* let rsi = Data.get_row data RSI |> Data.Row.slice 14 (length - 14) in *)
-    (* let slow_k = Data.get_row data FSO_K |> Data.Row.slice 17 (length - 17) in *)
-    (* let slow_d = Data.get_row data FSO_D |> Data.Row.slice 17 (length - 17) in *)
-    (* let sma = Data.get_row data SMA |> Data.Row.slice 14 (length - 14) in *)
-    (* let* outbeg, _ = TA.ta_rsi (0, length - 1) close 14 rsi in *)
-    (* assert (outbeg = rsi_offset); *)
-    (* let* outbeg, _ = TA.ta_stoch (0, length - 1) ohclv 14 3 3 slow_k slow_d in *)
-    (* assert (outbeg = fso_offset); *)
-    (* let* outbeg, _ = TA.ta_sma (0, length - 1) close 14 sma in *)
-    (* assert (outbeg = sma_offset); *)
+    let ( let* ) = Result.( let* ) in
+    let* length = Bars.length bars in
+    Bars.fold bars (Ok ()) @@ fun _ data acc ->
+    let* _ = acc in
+    let close = Data.get_row data Close in
+    let ohclv = get_ohclv data in
+    let rsi = Data.get_row data RSI |> Data.Row.slice 14 (length - 14) in
+    let slow_k = Data.get_row data FSO_K |> Data.Row.slice 17 (length - 17) in
+    let slow_d = Data.get_row data FSO_D |> Data.Row.slice 17 (length - 17) in
+    let sma = Data.get_row data SMA |> Data.Row.slice 14 (length - 14) in
+    let* outbeg, _ = TA.ta_rsi (0, length - 1) close 14 rsi in
+    assert (outbeg = rsi_offset);
+    let* outbeg, _ = TA.ta_stoch (0, length - 1) ohclv 14 3 3 slow_k slow_d in
+    assert (outbeg = fso_offset);
+    let* outbeg, _ = TA.ta_sma (0, length - 1) close 14 sma in
+    assert (outbeg = sma_offset);
     Result.return ()
   | true ->
     Eio.traceln "Not precomputing indicators because of Indicator_config.t";

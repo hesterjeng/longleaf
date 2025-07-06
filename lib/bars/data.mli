@@ -118,9 +118,9 @@ module Row : sig
   type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
   (** The type for a row of the data matrix. *)
 
-  val slice : t -> int -> int -> t
-  (** [slice x y a] returns a slice of the row [x] from index [y] with length
-      [a]. *)
+  val slice : int -> int -> t -> t
+  (** [slice x y a] returns a slice of the row [a] from index [x] with length
+      [y]. *)
 end
 
 val get_row : t -> Type.t -> Row.t

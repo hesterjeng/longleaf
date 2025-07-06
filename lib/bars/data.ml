@@ -147,7 +147,7 @@ end
 module Row = struct
   type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Array1.t
 
-  let slice x y a : t = Array1.sub x y a
+  let slice start length array : t = Array1.sub array start length
 end
 
 let get_row (data : t) (x : Type.t) : Row.t =
