@@ -10,7 +10,6 @@ module Array2 = Bigarray.Array2
 
 type data_matrix = (float, Bigarray.float64_elt, Bigarray.c_layout) Array2.t
 type int_matrix = (int, Bigarray.int_elt, Bigarray.c_layout) Array2.t
-type source = F of data_matrix | I of int_matrix
 
 type t = {
   data : data_matrix;
@@ -148,13 +147,11 @@ module Column = struct
     in
     Format.fprintf fmt "@[{ %a }@]@." pp l
 
-  let set_exn (col : t) (ty : Type.t) value =
-    set col.data ty col.index value
+  let set_exn (col : t) (ty : Type.t) value = set col.data ty col.index value
 
   let set (col : t) (ty : Type.t) value =
     let err = Error.fatal "Data.LogicalColumn.set" in
-    Error.guard err @@ fun () ->
-    set_exn col ty value
+    Error.guard err @@ fun () -> set_exn col ty value
 
   let timestamp (x : t) =
     let ( let* ) = Result.( let* ) in
@@ -184,13 +181,30 @@ end
 
 module Row = struct
   type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Array1.t
+  type introw = (int, Bigarray.int_elt, Bigarray.c_layout) Array1.t
 
   let slice start length array : t = Array1.sub array start length
 end
 
-let get_row (data : t) (x : Type.t) : Row.t =
-  let source = Type.source data x in
-  Array2.slice_left source @@ Type.to_int x
+let get_row (data : t) (x : Type.t) =
+  let ( let* ) = Result.( let* ) in
+  let* source =
+    match x with
+    | Tacaml (F _) -> Ok data.talib_indicators
+    | Other _ -> Ok data.other_indicators
+    | Tacaml (I _) -> Error.fatal "Data.get_row: not a float row"
+    | _ -> Ok data.data
+  in
+  Result.return @@ Array2.slice_left source @@ Type.to_int x
+
+let get_int_row (data : t) (x : Type.t) =
+  let ( let* ) = Result.( let* ) in
+  let* source =
+    match x with
+    | Tacaml (I _) -> Result.return data.int_indicators
+    | _ -> Error.fatal "Data.get_int_row: not an int row"
+  in
+  Result.return @@ Array2.slice_left source @@ Type.to_int x
 
 let pp : t Format.printer =
  fun fmt (x : t) ->
@@ -206,13 +220,6 @@ let pp_row (ty : Type.t) : t Format.printer =
 
 let length x = Array2.dim2 x.data
 let current x = x.current
-
-let set (res : t) (x : Type.t) i value =
-  let source = Type.source res x in
-  try Array2.set source (Type.to_int x) i @@ value with
-  | e ->
-    Eio.traceln "data.ml.set: Index (%d) out of bounds: len %d" i res.size;
-    raise e
 
 let get_top (res : t) (x : Type.t) =
   let res = get res x @@ res.current in

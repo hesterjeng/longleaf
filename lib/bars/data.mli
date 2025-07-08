@@ -121,12 +121,18 @@ module Row : sig
   type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
   (** The type for a row of the data matrix. *)
 
+  type introw = (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array1.t
+
   val slice : int -> int -> t -> t
   (** [slice x y a] returns a slice of the row [a] from index [x] with length
       [y]. *)
 end
 
-val get_row : t -> Type.t -> Row.t
+val get_row : t -> Type.t -> (Row.t, Error.t) result
+(** [get_row data x] returns the row of the data matrix corresponding to the
+    data field [x]. *)
+
+val get_int_row : t -> Type.t -> (Row.introw, Error.t) result
 (** [get_row data x] returns the row of the data matrix corresponding to the
     data field [x]. *)
 
