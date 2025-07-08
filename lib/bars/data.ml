@@ -29,10 +29,10 @@ module Type = struct
     | Low
     | Close
     | Volume
-    | SMA
-    | FSO_K
-    | FSO_D
-    | RSI
+    | Sma
+    | Fso_k
+    | Fso_d
+    | Rsi
   [@@deriving variants, show { with_path = false }]
 
   let count = List.length Variants.descriptions
@@ -46,10 +46,10 @@ module Type = struct
     | Low -> 5
     | Close -> 6
     | Volume -> 7
-    | SMA -> 8
-    | FSO_K -> 9
-    | FSO_D -> 10
-    | RSI -> 11
+    | Sma -> 8
+    | Fso_k -> 9
+    | Fso_d -> 10
+    | Rsi -> 11
 
   let of_int = function
     | 0 -> Index
@@ -60,10 +60,10 @@ module Type = struct
     | 5 -> Low
     | 6 -> Close
     | 7 -> Volume
-    | 8 -> SMA
-    | 9 -> FSO_K
-    | 10 -> FSO_D
-    | 11 -> RSI
+    | 8 -> Sma
+    | 9 -> Fso_k
+    | 10 -> Fso_d
+    | 11 -> Rsi
     | _ -> invalid_arg "Invalid Data.Type.of_int"
 end
 

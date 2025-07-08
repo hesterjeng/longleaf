@@ -37,10 +37,10 @@ module Type : sig
     | Low
     | Close
     | Volume
-    | SMA
-    | FSO_K
-    | FSO_D
-    | RSI
+    | Sma
+    | Fso_k
+    | Fso_d
+    | Rsi
   [@@deriving variants, show { with_path = false }]
 
   val count : int
