@@ -36,24 +36,31 @@ let initialize () =
     invalid_arg e
 
 let compute_all ?i ?eio_env (config : Config.t) (bars : Bars.t) =
+  let start_total = Unix.gettimeofday () in
+  Eio.traceln "Starting indicator computation...";
+  
   (* Check if we should use parallel computation *)
-  match (eio_env, config.compute_live) with
+  let result = match (eio_env, config.compute_live) with
   | Some env, false ->
-    (* Parallel computation for precomputed indicators *)
-    let compute_for_indicator indicator =
+    (* Pre-extract all symbol-data pairs to avoid hashtable operations in domains *)
+    let symbol_data_pairs = Bars.fold bars [] (fun symbol data acc -> (symbol, data) :: acc) in
+    
+    let compute_for_symbol_data (symbol, data) =
       let ( let* ) = Result.( let* ) in
-      Bars.fold bars (Ok ()) @@ fun _ data acc ->
-      let* _ = acc in
-      match indicator with
-      | Tacaml ind ->
-        let* () = Talib_binding.calculate ?i ind data in
-        Result.return ()
+      (* Compute all indicators for this symbol using pre-extracted data *)
+      Result.fold_l
+        (fun _ indicator ->
+          match indicator with
+          | Tacaml ind ->
+            let* () = Talib_binding.calculate ?i ind data in
+            Result.return ())
+        () ta_lib_all
     in
 
-    (* Use Work_pool for parallel processing *)
+    (* Use Work_pool for parallel processing with pre-extracted data *)
     let results =
       Util.Work_pool.Work_pool.parallel_map_result ~eio_env:env
-        ~log_performance:true ~f:compute_for_indicator ta_lib_all
+        ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
     in
 
     (* Check if any computation failed *)
@@ -68,3 +75,7 @@ let compute_all ?i ?eio_env (config : Config.t) (bars : Bars.t) =
   | _, _ ->
     (* Sequential computation (original behavior) *)
     compute ?i ta_lib_all config bars
+  in
+  let end_total = Unix.gettimeofday () in
+  Eio.traceln "Total indicator computation took %.3fs" (end_total -. start_total);
+  result
