@@ -1,4 +1,7 @@
-module Portfolio = struct
+module Data = Bars.Data
+module Column = Data.Column
+
+module Positions_held = struct
   type t = (Instrument.t * int) list [@@deriving show]
 
   let qty p symbol =
@@ -15,7 +18,7 @@ end
 (* Maybe a warning if the position the brokerage thinks we have and this diverges is a good idea. *)
 
 type t = {
-  portfolio : Portfolio.t;
+  portfolio : Positions_held.t;
   cash : float;
   live_orders : Order.t list; (* contracts : Contract.Position.t list; *)
 }
@@ -50,7 +53,7 @@ let symbols pos =
       | _ -> Some sym)
     pos.portfolio
 
-let value pos (latest : Bars.Latest.t) =
+let value pos (bars : Bars.t) =
   let ( let* ) = Result.( let* ) in
   (fun f -> List.fold_left f (Ok pos.cash) pos.portfolio)
   @@ fun previous_value (instrument, qty) ->
@@ -58,8 +61,8 @@ let value pos (latest : Bars.Latest.t) =
   | 0 -> previous_value
   | n ->
     let* previous_value = previous_value in
-    let* item = Bars.Latest.get latest instrument in
-    let symbol_price = Item.last item in
+    let* data = Bars.get bars instrument in
+    let symbol_price = Data.get_top data Last in
     let symbol_value = Float.of_int n *. symbol_price in
     Result.return @@ (symbol_value +. previous_value)
 
@@ -69,18 +72,18 @@ let is_empty (x : t) =
 let execute_order (pos : t) (order : Order.t) : (t, Error.t) result =
   let symbol = order.symbol in
   let price = order.price in
-  let current_amt = Portfolio.qty pos.portfolio symbol in
+  let current_amt = Positions_held.qty pos.portfolio symbol in
   let order_qty = order.qty in
   match (order.side, order.order_type) with
   | Buy, Market ->
     let portfolio =
-      Portfolio.set_qty pos.portfolio symbol (current_amt + order_qty)
+      Positions_held.set_qty pos.portfolio symbol (current_amt + order_qty)
     in
     let res = set_cash pos @@ (pos.cash -. (price *. Float.of_int order_qty)) in
     Ok { res with portfolio }
   | Sell, Market ->
     let portfolio =
-      Portfolio.set_qty pos.portfolio symbol (current_amt - order_qty)
+      Positions_held.set_qty pos.portfolio symbol (current_amt - order_qty)
     in
     let res = set_cash pos @@ (pos.cash +. (price *. Float.of_int order_qty)) in
     Ok { res with portfolio }
@@ -90,7 +93,7 @@ let execute_order (pos : t) (order : Order.t) : (t, Error.t) result =
   | _ -> Result.fail @@ `UnsupportedOrder (Order.show order)
 
 (* Execute Stop/Limit orders in the live field.  Market orders should not be in the live field. *)
-let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
+let update (x : t) (bars : Bars.t) (tick : int) =
   let ( let* ) = Result.( let* ) in
   let ( let@ ) = Fun.( let@ ) in
   (* Fold with an empty list of live orders as the accumulator. *)
@@ -100,14 +103,10 @@ let update (x : t) ~(previous : Bars.Latest.t) (latest : Bars.Latest.t) =
   fun order ->
     assert (not @@ Trading_types.OrderType.equal order.order_type Market);
     let* positions = positions in
+    let* data = Bars.get bars order.symbol in
     let order_price = order.price in
-    let symbol = order.symbol in
-    let* current_price =
-      Bars.Latest.get latest symbol |> Result.map Item.last
-    in
-    let* previous_price =
-      Bars.Latest.get previous symbol |> Result.map Item.last
-    in
+    let current_price = Data.get data Last tick in
+    let previous_price = Data.get data Last (tick - 1) in
     let crossing x0 x1 =
       (x0 <=. order_price && x1 >=. order_price)
       || (x0 >=. order_price && x1 <=. order_price)
@@ -137,14 +136,15 @@ let liquidate pos (bars : Bars.Latest.t) =
     | qty ->
       let side = if qty >= 0 then Side.Sell else Side.Buy in
       let* latest = Bars.Latest.get bars instrument in
-      let order : Order.t =
+      let* order =
         let tif = TimeInForce.GoodTillCanceled in
         let order_type = OrderType.Market in
         let qty = Int.abs qty in
-        let price = Item.last latest in
-        let timestamp = Item.timestamp latest in
-        Order.make ~tick:(-1) ~symbol:instrument ~side ~tif ~order_type ~qty
-          ~price ~timestamp ~profit:None ~reason:[ "Liquidating" ]
+        let* price = Column.last latest in
+        let* timestamp = Column.timestamp latest in
+        Result.return
+        @@ Order.make ~tick:(-1) ~symbol:instrument ~side ~tif ~order_type ~qty
+             ~price ~timestamp ~profit:None ~reason:[ "Liquidating" ]
       in
       Eio.traceln "Liquidation @[%a@]@." Order.pp order;
       let* res = execute_order pos order in

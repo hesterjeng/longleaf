@@ -1,8 +1,8 @@
 module S = Signal
 
 (* module SI = S.Indicator *)
-module I = Indicators
-module P = I.Point
+
+(* module P = I.Point *)
 (* module F = S.Flag *)
 
 (* We need a module to see what symbols pass our buy filter, and a way to score the passes *)

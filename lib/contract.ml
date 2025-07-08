@@ -155,7 +155,8 @@ let response_of_yojson_res x =
 (*  The important thing is the symbol of the contract you want. *)
 (*   You can then buy/sell this option normally, like other securities.  *)
 (* i/e using a function of type Backend_intf.place_order *)
-let rec get_all (longleaf_env : Environment.t) client (request : Request.t) =
+let rec get_all (longleaf_env : Util.Environment.t) client (request : Request.t)
+    =
   let ( let* ) = Result.( let* ) in
   let headers =
     Piaf.Headers.of_list

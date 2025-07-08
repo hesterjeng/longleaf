@@ -1,3 +1,5 @@
+module Longleaf_error = Error
+module Longleaf_mutex = Longleaf_mutex
 open Piaf
 module Promise = Eio.Std.Promise
 
@@ -13,7 +15,8 @@ let serve_favicon () =
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let bars = Pmutex.get mutices.data_mutex in
   let indicators =
-    Pmutex.get mutices.indicators_mutex |> Indicators.to_vector_table
+    invalid_arg "NYI Server.plotly_response_of_symbol"
+    (* Pmutex.get mutices.indicators_mutex |> Indicators.to_vector_table *)
   in
   let bars_json_opt = Plotly.of_bars bars indicators target in
   match bars_json_opt with
@@ -80,7 +83,13 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
     let bars = Pmutex.get mutices.data_mutex in
-    let body = Bars.yojson_of_t bars |> Yojson.Safe.to_string in
+    let body =
+      match Bars.yojson_of_t bars with
+      | Ok x -> Yojson.Safe.to_string x
+      | Error e ->
+        Eio.traceln "%a" Longleaf_error.pp e;
+        invalid_arg "Error while converting bars to json"
+    in
     Response.of_string ~body `OK
   | { Request.meth = `GET; target; _ } when data_prefix target -> (
     let target =

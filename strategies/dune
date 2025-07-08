@@ -30,7 +30,7 @@
    -w
    -32
    -warn-error
-   -a+8
+   -a+8+49+33
    -open
    Containers
    -open

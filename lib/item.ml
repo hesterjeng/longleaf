@@ -3,10 +3,9 @@ type t = {
   open_ : float; [@key "o"]
   high : float; [@key "h"]
   low : float; [@key "l"]
-  close : float; [@key "c"] (* We are using this as the latest price... *)
-  last : float; [@yojson.default Float.max_finite_value]
-  volume : int; [@key "v"]
-  order : Order.t option; [@default None]
+  close : float; [@key "c"]
+  last : float; [@yojson.default Float.nan]
+  volume : int; [@key "v"] (* order : Order.t option; [@default None] *)
 }
 [@@deriving show { with_path = false }, yojson, make]
 [@@yojson.allow_extra_fields]
@@ -29,16 +28,16 @@ let t_of_yojson x =
 (*     exit 1 *)
 
 let open_ x = x.open_
-let order x = x.order
+(* let order x = x.order *)
 
-let add_order (order : Order.t) (x : t) =
-  match x.order with
-  | None -> Result.return @@ { x with order = Some order }
-  | Some prev_order ->
-    let msg = "[error: item.ml] Trying to replace order..." in
-    Eio.traceln "[error: item.ml]: trying to replace@. @[%a@]@. with@. @[%a@]"
-      Order.pp prev_order Order.pp order;
-    Result.fail @@ `FatalError msg
+(* let add_order (order : Order.t) (x : t) = *)
+(*   match x.order with *)
+(*   | None -> Result.return @@ { x with order = Some order } *)
+(*   | Some prev_order -> *)
+(*     let msg = "[error: item.ml] Trying to replace order..." in *)
+(*     Eio.traceln "[error: item.ml]: trying to replace@. @[%a@]@. with@. @[%a@]" *)
+(*       Order.pp prev_order Order.pp order; *)
+(*     Result.fail @@ `FatalError msg *)
 
 let timestamp (x : t) = x.timestamp
 let close x = x.close

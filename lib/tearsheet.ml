@@ -1,4 +1,5 @@
 type t = {
+  cash : float;
   position_taken_ratio : float;
   num_orders : int;
   sharpe_ratio : float;
@@ -49,11 +50,10 @@ let sharpe_ratio (stats : Stats.t) =
 let average_trade_net (h : Order.History.t) =
   let ( let+ ) = Option.( let+ ) in
   let nets =
-    List.filter_map
-      (fun (x : Order.t) ->
-        let+ profit = x.profit in
-        profit)
-      h.all
+    Order.History.inactive h
+    |> List.filter_map (fun (x : Order.t) ->
+           let+ profit = x.profit in
+           profit)
     |> Array.of_list
   in
   Owl_stats.mean nets
@@ -61,13 +61,12 @@ let average_trade_net (h : Order.History.t) =
 let average_profit (h : Order.History.t) =
   let ( let* ) = Option.( let* ) in
   let nets =
-    List.filter_map
-      (fun (x : Order.t) ->
-        let* profit = x.profit in
-        match profit >=. 0.0 with
-        | true -> Some profit
-        | false -> None)
-      h.all
+    Order.History.inactive h
+    |> List.filter_map (fun (x : Order.t) ->
+           let* profit = x.profit in
+           match profit >=. 0.0 with
+           | true -> Some profit
+           | false -> None)
     |> Array.of_list
   in
   Owl_stats.mean nets
@@ -75,13 +74,12 @@ let average_profit (h : Order.History.t) =
 let average_loss (h : Order.History.t) =
   let ( let* ) = Option.( let* ) in
   let nets =
-    List.filter_map
-      (fun (x : Order.t) ->
-        let* profit = x.profit in
-        match profit <=. 0.0 with
-        | true -> Some profit
-        | false -> None)
-      h.all
+    Order.History.inactive h
+    |> List.filter_map (fun (x : Order.t) ->
+           let* profit = x.profit in
+           match profit <=. 0.0 with
+           | true -> Some profit
+           | false -> None)
     |> Array.of_list
   in
   Owl_stats.mean nets
@@ -94,28 +92,30 @@ let stddev_returns (stats : Stats.t) =
 
 let profit_factor (h : Order.History.t) =
   let profits =
-    List.fold_left
-      (fun acc (x : Order.t) ->
-        match x.profit with
-        | None -> acc
-        | Some f when f >=. 0.0 -> acc +. f
-        | _ -> acc)
-      0.0 h.all
+    Order.History.inactive h
+    |> List.fold_left
+         (fun acc (x : Order.t) ->
+           match x.profit with
+           | None -> acc
+           | Some f when f >=. 0.0 -> acc +. f
+           | _ -> acc)
+         0.0
   in
   let losses =
-    List.fold_left
-      (fun acc (x : Order.t) ->
-        match x.profit with
-        | None -> acc
-        | Some f when f <=. 0.0 -> acc +. f
-        | _ -> acc)
-      0.0 h.all
+    Order.History.inactive h
+    |> List.fold_left
+         (fun acc (x : Order.t) ->
+           match x.profit with
+           | None -> acc
+           | Some f when f <=. 0.0 -> acc +. f
+           | _ -> acc)
+         0.0
   in
   profits /. (-1.0 *. losses)
 
 let biggest (h : Order.History.t) =
   let sorted =
-    h.all
+    Order.History.inactive h
     |> List.filter_map (fun (o : Order.t) ->
            match o.profit with
            | Some _ -> Some o
@@ -140,18 +140,18 @@ let compound_growth_rate (state : 'a State.t) =
   (* 23400 seconds per trading day *)
   (* 251 trading days per year *)
   (* ~ 5873400 trading seconds per year *)
-  assert (Backend_position.is_empty state.positions);
+  assert (Portfolio.is_empty state.positions);
   let ( ^ ) = Owl_maths.pow in
   let ticks_per_year = 5873400.0 /. state.tick_length in
   let exponent = ticks_per_year /. Float.of_int state.tick in
-  let ratio = Backend_position.get_cash state.positions /. 100000.0 in
+  let ratio = Portfolio.get_cash state.positions /. 100000.0 in
   let cagr = (ratio ^ exponent) -. 1.0 in
   cagr
 
 (* let annualized_value (state : 'a State.t) = *)
 (*   let ticks_per_year = 5873400.0 /. state.tick_length in *)
 (*   let tick = state.tick |> Float.of_int in *)
-(*   let ending_cash = Backend_position.get_cash state.positions in *)
+(*   let ending_cash = Portfolio.get_cash state.positions in *)
 (*   let starting_cash = 100000.0 in *)
 (*   0.0 *)
 
@@ -167,7 +167,9 @@ let make (state : 'a State.t) : t =
     /. Float.of_int state.stats.position_ratio.positions_possible
   in
   let biggest_winner, biggest_loser = biggest h in
+  let cash = Portfolio.get_cash state.positions in
   {
+    cash;
     num_orders = Order.History.length h;
     sharpe_ratio = sharpe_ratio stats;
     win_percentage = win_percentage h;

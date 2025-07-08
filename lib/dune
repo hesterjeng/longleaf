@@ -1,3 +1,5 @@
+(include_subdirs qualified)
+
 (library
  (name longleaf_lib)
  (modules :standard)
@@ -14,7 +16,9 @@
   cmdliner
   landmarks
   owl
-  piaf)
+  tacaml
+  piaf
+  yojson)
  (preprocess
   (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
 
@@ -28,7 +32,7 @@
    -w
    -32
    -warn-error
-   -a+8
+   -a+8+49+33
    -open
    Containers
    -open

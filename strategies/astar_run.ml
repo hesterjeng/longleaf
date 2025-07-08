@@ -1,5 +1,4 @@
-module Astar = Longleaf_lib.Astar
-module Context = Options.Context
+module Astar = Longleaf_lib.Util.Astar
 module Error = Longleaf_lib.Error
 module EnumeratedSignal = Astar_search.EnumeratedSignal
 module A = EnumeratedSignal.Atom
@@ -13,7 +12,7 @@ type results = {
 and node_ = {
   buy : EnumeratedSignal.t;
   sell : EnumeratedSignal.t;
-  context : Context.t; [@opaque]
+  context : Options.t; [@opaque]
   res : results option Pmutex.t;
 }
 [@@deriving show]
@@ -29,17 +28,15 @@ let example_node context : node_ =
   }
 
 let run (x : node_) =
+  let ( let* ) = Result.( let* ) in
   Eio.traceln "Running enumerated strategy %a" pp_node_ x;
-  let res =
+  let* res =
     if EnumeratedSignal.is_empty x.buy || EnumeratedSignal.is_empty x.sell then
-      0.0
-    else
-      Template.Run.run_generic
-        (EnumeratedSignal.to_strategy x.buy x.sell)
-        x.context
+      Result.return 0.0
+    else Astar_search.run_astar x.context ~buy:x.buy ~sell:x.sell
   in
   Eio.traceln "Ending value: %f" res;
-  res
+  Result.return res
 
 module Node : Astar.INPUT with type node = node_ = struct
   type node = node_ [@@deriving show]
@@ -65,7 +62,11 @@ module Node : Astar.INPUT with type node = node_ = struct
   let winner : winner option ref = ref None
 
   let compute_results x =
-    let res = run x in
+    let res =
+      run x |> function
+      | Ok x -> x
+      | Error e -> Error.raise e
+    in
     let goal = res >=. 400000.0 in
     let winner_val =
       match !winner with

@@ -1,5 +1,6 @@
-module Search = Longleaf_lib.Astar
+module Search = Longleaf_lib.Util.Astar
 module Error = Longleaf_lib.Error
+module Data = Bars.Data
 
 module EnumeratedValue = struct
   type t =
@@ -42,6 +43,10 @@ module EnumeratedSignal = struct
       | RSI_lt of EnumeratedValue.t
     [@@deriving yojson, eq, show, variants, ord]
 
+    let fso_k = Data.Type.(Tacaml (F StochF_FastK))
+    let fso_d = Data.Type.(Tacaml (F StochF_FastD))
+    let rsi = Data.Type.(Tacaml (F Rsi))
+
     let all : t list =
       let add acc var = var.Variantslib.Variant.constructor :: acc in
       let constructors =
@@ -50,19 +55,20 @@ module EnumeratedSignal = struct
       in
       List.flat_map (fun f -> List.map f EnumeratedValue.all) constructors
 
-    let to_boolean_func (x : t) =
-     fun (indicators : Indicators.t) (instrument : Instrument.t)
-         (time : Time.t) ->
-      let ( let+ ) = Result.( let+ ) in
-      let+ i = Indicators.get_top ~time indicators instrument in
-      assert (Time.equal time i.timestamp);
-      match x with
-      | FSO_k_gt v -> i.fso.k >. EnumeratedValue.to_float v
-      | FSO_k_lt v -> i.fso.k <. EnumeratedValue.to_float v
-      | FSO_d_gt v -> i.fso.d >. EnumeratedValue.to_float v
-      | FSO_d_lt v -> i.fso.d <. EnumeratedValue.to_float v
-      | RSI_gt v -> i.relative_strength_index >. EnumeratedValue.to_float v
-      | RSI_lt v -> i.relative_strength_index <. EnumeratedValue.to_float v
+    let to_boolean_func (x : t) (state : 'a State.t) (instrument : Instrument.t)
+        =
+      let ( let* ) = Result.( let* ) in
+      let* data = Bars.get state.bars instrument in
+      let res =
+        match x with
+        | FSO_k_gt v -> Data.get_top data fso_k >. EnumeratedValue.to_float v
+        | FSO_k_lt v -> Data.get_top data fso_k <. EnumeratedValue.to_float v
+        | FSO_d_gt v -> Data.get_top data fso_d >. EnumeratedValue.to_float v
+        | FSO_d_lt v -> Data.get_top data fso_d <. EnumeratedValue.to_float v
+        | RSI_gt v -> Data.get_top data rsi >. EnumeratedValue.to_float v
+        | RSI_lt v -> Data.get_top data rsi <. EnumeratedValue.to_float v
+      in
+      Result.return res
 
     (* let all = *)
   end
@@ -117,14 +123,14 @@ module EnumeratedSignal = struct
     let ( let* ) = Result.( let* ) in
     fun (state : 'a State.t) (instrument : Instrument.t) :
         (Signal.t, Error.t) result ->
-      let time = state.time in
+      (* let time = state.time in *)
       let and_ atom acc =
         let* acc = acc in
         match acc with
         | false -> Result.return false
         | true ->
           let boolean_func = Atom.to_boolean_func atom in
-          let* res = boolean_func state.indicators instrument time in
+          let* res = boolean_func state instrument in
           Result.return res
       in
       let or_ atom acc =
@@ -133,7 +139,7 @@ module EnumeratedSignal = struct
         | true -> Result.return true
         | false ->
           let boolean_func = Atom.to_boolean_func atom in
-          let* res = boolean_func state.indicators instrument time in
+          let* res = boolean_func state instrument in
           Result.return res
       in
       match x with
@@ -173,3 +179,8 @@ module EnumeratedSignal = struct
 end
 
 (* type strategy = { buy : EnumeratedSignal.t; sell : EnumeratedSignal.t } *)
+
+let run_astar (context : Options.t) ~(buy : EnumeratedSignal.t)
+    ~(sell : EnumeratedSignal.t) =
+  let x = EnumeratedSignal.to_strategy buy sell in
+  Strategy.run x context

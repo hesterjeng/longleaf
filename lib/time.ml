@@ -66,6 +66,11 @@ let get_todays_date () =
   Eio.traceln "%s" (to_ymd res);
   res
 
+let of_float_res x =
+  Ptime.of_float_s x |> function
+  | None -> Error.fatal "Bad time in Time.of_float_res"
+  | Some x -> Result.return x
+
 let subtract_30_days (ptime_value : Ptime.t) =
   let thirty_days_in_seconds = -1 * (30 * 86400) in
   (* 30 days * 86400 seconds/day *)

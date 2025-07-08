@@ -1,10 +1,10 @@
-module Make (Backend : Backend_intf.S) = struct
+module Make (Backend : Backend.S) = struct
   module Input = Backend.Input
 
   let ( let* ) = Result.( let* )
-  let context = Input.options.context
-  let mutices : Longleaf_mutex.t = context.mutices
-  let runtype = context.runtype
+  let options = Input.options
+  let mutices : Server.Longleaf_mutex.t = options.mutices
+  let runtype = options.flags.runtype
 
   let listen_tick () : (State.state, Error.t) result =
     Eio.Fiber.any
@@ -54,19 +54,20 @@ module Make (Backend : Backend_intf.S) = struct
            let time_until_close =
              Ptime.diff close_time now |> Ptime.Span.to_float_s
            in
-           while Backend.overnight || time_until_close >=. 600.0 do
+           while time_until_close >=. 600.0 do
              Eio.Fiber.yield ()
            done;
            Eio.traceln
              "@[Liquidating because we are within 10 minutes to market \
               close.@]@.";
-           match Input.options.resume_after_liquidate with
-           | false -> Result.return @@ State.BeginShutdown
-           | true ->
-             Eio.traceln
-               "Liquidating and then continuing because we are approaching \
-                market close.";
-             Result.return @@ State.LiquidateContinue);
+           Result.return State.BeginShutdown);
+         (* match context.flags.resume_after_liquidate with *)
+         (* | false -> Result.return @@ State.BeginShutdown *)
+         (* | true -> *)
+         (*   Eio.traceln *)
+         (*     "Liquidating and then continuing because we are approaching \ *)
+           (*      market close."; *)
+         (*   Result.return @@ State.LiquidateContinue); *)
        ]
 
   let run ~init_state step =
@@ -86,7 +87,7 @@ module Make (Backend : Backend_intf.S) = struct
         | Liquidate
         | Finished _ ->
           Eio.traceln "@[Exiting run.@]@.";
-          Backend_position.get_cash prev.positions
+          Portfolio.get_cash prev.positions
         | _ -> try_liquidating ())
     in
     match init_state with
@@ -95,22 +96,27 @@ module Make (Backend : Backend_intf.S) = struct
       Eio.traceln "[error] %a" Error.pp e;
       0.0
 
-  let get_filename () = Lots_of_words.select () ^ "_" ^ Lots_of_words.select ()
+  let get_filename () = Util.random_filename ()
 
   let output_data (state : _ State.t) filename =
-    if context.save_to_file then (
+    let ( let* ) = Result.( let* ) in
+    match options.flags.save_to_file with
+    | true ->
       let prefix =
         match Backend.is_backtest with
         | true -> "backtest"
         | false -> "live"
       in
       Eio.traceln "Saving all bars...";
-      Bars.print_to_file ~filename state.bars prefix;
-      Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received"))
-    else ()
+      let* () = Bars.print_to_file ~filename state.bars prefix in
+      let* () =
+        Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received")
+      in
+      Result.return ()
+    | false -> Result.return ()
 
   let output_order_history (state : _ State.t) filename =
-    if context.save_to_file then (
+    if options.flags.save_to_file then (
       let json_str =
         Order.History.yojson_of_t state.order_history |> Yojson.Safe.to_string
       in
@@ -121,18 +127,22 @@ module Make (Backend : Backend_intf.S) = struct
     else ()
 
   let update_continue (state : 'a State.t) =
+    (* Eio.traceln "%a" State.pp_simple state; *)
     let ( let* ) = Result.( let* ) in
-    let previous = state.latest in
-    let* latest = Backend.latest_bars Backend.symbols in
-    let* positions = Backend_position.update state.positions ~previous latest in
-    let* time = Bars.Latest.timestamp latest in
-    assert (Ptime.compare time state.time = 1);
-    Bars.append latest state.bars;
-    let* indicators =
-      Indicators.compute_latest context.compare_preloaded
-        Input.options.indicators_config state.bars state.indicators
-    in
-    let* value = Backend_position.value positions latest in
+    (* let previous = state.latest in *)
+    let* () = Backend.update_bars Backend.symbols state.bars state.tick in
+    (* We have the index, we have state.bars, we have the newest info *)
+    (* Here we can update indicators, BEFORE appending to bars *)
+    let* positions = Portfolio.update state.positions state.bars state.tick in
+    let* time = Bars.timestamp state.bars in
+    (* let* time = Bars.Latest.timestamp latest in *)
+    (* assert (Ptime.compare time state.time = 1); *)
+    (* let* () = Bars.append latest state.bars in *)
+    (* let* indicators = *)
+    (*   Indicators.compute_latest context.compare_preloaded *)
+    (*     Input.options.indicators_config state.bars state.indicators *)
+    (* in *)
+    let* value = Portfolio.value positions state.bars in
     let risk_free_value =
       Stats.risk_free_value state.stats Input.options.tick
     in
@@ -143,12 +153,14 @@ module Make (Backend : Backend_intf.S) = struct
            value;
            orders = [];
            risk_free_value;
-           cash = Backend_position.get_cash state.positions;
+           cash = Portfolio.get_cash state.positions;
          }
     in
-    if context.print_tick_arg then
-      Eio.traceln "[ %a ] CASH %f" Time.pp time value;
-    Result.return @@ { state with latest; stats; positions; time; indicators }
+    (* if options.flags.print_tick_arg then *)
+    (*   Eio.traceln "[ %a ] CASH %f" Time.pp time value; *)
+    let res = { state with stats; positions; time; tick = state.tick + 1 } in
+    Bars.set_current state.bars res.tick;
+    Result.return res
 
   let start_time = ref 0.0
 
@@ -162,19 +174,27 @@ module Make (Backend : Backend_intf.S) = struct
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
+      let* () =
+        Indicators.compute_all ~eio_env:Backend.env
+          Input.options.indicators_config state.bars
+      in
+      Bars.set_current state.bars state.tick;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       start_time := Eio.Time.now Backend.env#clock;
       Eio.traceln "Running...";
       Result.return @@ { state with current = Listening }
     | Listening -> (
-      if not Backend.Input.options.context.no_gui then (
+      if not options.flags.no_gui then (
         Pmutex.set mutices.data_mutex state.bars;
         Pmutex.set mutices.orders_mutex state.order_history;
-        Pmutex.set mutices.stats_mutex state.stats;
-        Pmutex.set mutices.indicators_mutex state.indicators);
+        Pmutex.set mutices.stats_mutex state.stats
+        (* Pmutex.set mutices.indicators_mutex state.indicators *));
       (* Eio.traceln "tick"; *)
       let* listened = listen_tick () in
+      let* length = Bars.length state.bars in
       match listened with
+      | Continue when state.tick >= length - 1 ->
+        Result.return @@ { state with current = Liquidate }
       | Continue ->
         let* state = update_continue state in
         Result.return @@ { state with current = Ordering }
@@ -196,21 +216,24 @@ module Make (Backend : Backend_intf.S) = struct
       Ticker.tick ~runtype Backend.env 600.0;
       Result.return { state with current = Listening }
     | Finished code ->
-      Eio.traceln "@[Reached finished state.@]@.";
-      if not Backend.Input.options.context.no_gui then (
+      Eio.traceln "@[Reached finished state. %f@]@."
+        (Portfolio.get_cash state.positions);
+      Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
+      if not options.flags.no_gui then (
         let stats_with_orders =
           Stats.add_orders state.order_history state.stats
         in
         Pmutex.set mutices.data_mutex state.bars;
-        Pmutex.set mutices.stats_mutex stats_with_orders;
-        Pmutex.set mutices.indicators_mutex state.indicators);
+        Pmutex.set mutices.stats_mutex stats_with_orders
+        (* Pmutex.set mutices.indicators_mutex state.indicators *));
       let filename = get_filename () in
-      output_data state filename;
+      let* () = output_data state filename in
       output_order_history state filename;
-      let tearsheet = Tearsheet.make state in
-      Eio.traceln "%a" Tearsheet.pp tearsheet;
-      assert (Backend_position.is_empty state.positions);
-      Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
+      (* let tearsheet = Tearsheet.make state in *)
+      (* Eio.traceln "%a" Tearsheet.pp tearsheet; *)
+      assert (Portfolio.is_empty state.positions);
+      Eio.traceln "Finished cleanup... %fs"
+        (Eio.Time.now Backend.env#clock -. !start_time);
       Result.fail @@ `Finished code
     | Ordering
     | Continue

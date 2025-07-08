@@ -1,5 +1,6 @@
-module IP = Indicators.Point
-open Option.Infix
+(* module IP = Indicators.Point *)
+
+module Data = Bars.Data
 
 let layout title =
   let ( = ) = fun x y -> (x, y) in
@@ -28,30 +29,24 @@ let layout title =
       (*     ]; *)
     ]
 
-let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") indicators_tbl
-    indicator_name indicator_get (symbol : Instrument.t) : Yojson.Safe.t option
-    =
-  (* let* indicators = Option.return @@ Indicators.of_timestampedtbl () *)
-  (* in *)
-  let ( let* ) = Option.( let* ) in
-  let* indicators_vec = Hashtbl.get indicators_tbl symbol in
-  assert (not @@ Vector.is_empty indicators_vec);
-  let time (p : Indicators.Point.t) : Yojson.Safe.t =
-    let timestamp = Ptime.to_rfc3339 p.timestamp in
+let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") bars
+    (indicator : Data.Type.t) (symbol : Instrument.t) =
+  let ( let* ) = Result.( let* ) in
+  let* data = Bars.get bars symbol in
+  let indicator_name = Data.Type.show indicator in
+  let time i : Yojson.Safe.t =
+    let timestamp =
+      Data.get data Time i |> Ptime.of_float_s
+      |> Option.map Ptime.to_rfc3339
+      |> Option.get_exn_or "Illegal time stored in data table (plotly.ml)"
+    in
     `String timestamp
   in
-  let value (p : Indicators.Point.t) : Yojson.Safe.t =
-    `Float
-      (let res = indicator_get p in
-       if Float.is_nan res then
-         Eio.traceln "ERROR: NaN in data for indicator %s!" indicator_name;
-       res)
-  in
+  let value i : Yojson.Safe.t = `Float (Data.get data indicator i) in
   let x, y =
-    Vector.map
-      (fun (p : Indicators.Point.t) -> Pair.make (time p) (value p))
-      indicators_vec
-    |> Vector.to_list |> List.drop drop |> List.split
+    let l = Data.length data in
+    List.map (fun i -> Pair.make (time i) (value i)) (List.range' 0 l)
+    |> List.drop drop |> List.split
   in
   if List.length x <> List.length y then (
     Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
@@ -60,7 +55,8 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") indicators_tbl
   let visible = if show then "true" else "legendonly" in
   (* if String.equal "SMA 5" indicator_name && String.equal symbol "NVDA" then *)
   (*   Eio.traceln "@[%a@]@." (List.pp ~pp_sep:Format.newline Yojson.Safe.pp) y; *)
-  Option.return
+  (* Option.return *)
+  Result.return
   @@ `Assoc
        [
          ("x", `List x);
@@ -130,135 +126,143 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
       ("name", `String (Trading_types.Side.to_string side));
     ]
 
-let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
-  let find_side (x : Order.t) =
-    let order_side = x.side in
-    if Trading_types.Side.equal side order_side then Some x else None
-  in
-  let orders =
-    List.filter_map
-      (fun (item : Item.t) ->
-        let* order = Item.order item in
-        find_side order)
-      data
-  in
-  order_trace side orders
+[@@@warning "-27"]
 
-let of_bars bars indicators symbol : Yojson.Safe.t option =
-  let* data_vec = Bars.get bars symbol in
-  let data = Vector.to_list data_vec in
-  let* ema_12_trace =
-    indicator_trace ~drop:12 indicators "EMA(12)" IP.ema_12 symbol
-  in
-  let* ema_26_trace =
-    indicator_trace ~drop:26 indicators "EMA(26)" IP.ema_26 symbol
-  in
-  let* macd_trace =
-    indicator_trace ~show:false ~drop:26 indicators "MACD" IP.macd symbol
-  in
-  let* sma_5_trace =
-    indicator_trace ~drop:5 indicators "SMA(5)" IP.sma_5 symbol
-  in
-  let* sma_34_trace =
-    indicator_trace ~drop:34 indicators "SMA(34)" IP.sma_34 symbol
-  in
-  let* sma_75_trace =
-    indicator_trace ~drop:34 indicators "SMA(75)" IP.sma_75 symbol
-  in
-  let* sma_233_trace =
-    indicator_trace ~drop:233 ~show:false indicators "SMA(233)" IP.sma_233
-      symbol
-  in
-  let* awesome_slow =
-    indicator_trace ~drop:233 ~show:false indicators "Awesome Slow"
-      IP.awesome_slow symbol
-  in
-  let* upper_bollinger =
-    indicator_trace indicators "Upper BB(34)" IP.upper_bollinger symbol
-  in
-  let* lower_bollinger =
-    indicator_trace indicators "Lower BB(34)" IP.lower_bollinger symbol
-  in
-  let* rsi =
-    indicator_trace ~show:false indicators "Relative Strength Index"
-      IP.relative_strength_index symbol
-  in
-  let* adx = indicator_trace ~show:false indicators "ADX" IP.adx symbol in
-  let* cci = indicator_trace ~show:false indicators "CCI" IP.cci symbol in
-  let* ema_cci =
-    indicator_trace ~show:true indicators "EMA CCI" IP.ema_cci symbol
-  in
-  let* ema_adx =
-    indicator_trace ~show:true indicators "EMA ADX" IP.ema_adx symbol
-  in
-  let* awesome =
-    indicator_trace ~show:false indicators "Awesome Oscillator"
-      IP.awesome_oscillator symbol
-  in
-  let* fso_pk =
-    indicator_trace ~show:false indicators "FSO %K" IP.fso_k symbol
-  in
-  let* fso_pd =
-    indicator_trace ~show:false indicators "FSO %D" IP.fso_d symbol
-  in
-  let* fso_pd_slow =
-    indicator_trace ~show:false indicators "FSO %D-slow" IP.fso_d_slow symbol
-  in
-  let* fft_thing =
-    indicator_trace ~show:false indicators
-      "Fourier Transform Normalized Magnitude" IP.ft_normalized_magnitude symbol
-  in
-  let* fft_mse =
-    indicator_trace ~show:false indicators
-      "Fourier Transform Mean Squared Error" IP.fft_mean_squared_error symbol
-  in
-  let* u3b =
-    indicator_trace ~show:false indicators "Upper 3 Bollinger"
-      IP.upper_bollinger_100_3 symbol
-  in
-  let* l1b =
-    indicator_trace ~show:false indicators "Lower 1 Bollinger"
-      IP.lower_bollinger_100_1 symbol
-  in
-  let buy_trace = order_trace_side Buy data in
-  let sell_trace = order_trace_side Sell data in
-  let price_trace = price_trace data symbol in
-  let ( = ) = fun x y -> (x, y) in
-  Option.return
-  @@ `Assoc
-       [
-         "traces"
-         = `List
-             [
-               price_trace;
-               buy_trace;
-               sell_trace;
-               adx;
-               cci;
-               ema_cci;
-               ema_adx;
-               ema_12_trace;
-               ema_26_trace;
-               macd_trace;
-               sma_5_trace;
-               sma_34_trace;
-               sma_75_trace;
-               sma_233_trace;
-               upper_bollinger;
-               lower_bollinger;
-               awesome;
-               awesome_slow;
-               rsi;
-               fso_pk;
-               fso_pd;
-               fso_pd_slow;
-               fft_thing;
-               fft_mse;
-               u3b;
-               l1b;
-             ];
-         "layout" = layout @@ Instrument.symbol symbol;
-       ]
+let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
+  invalid_arg
+    "plotly.ml: order_trace_side: FIXME items no longer have order field"
+(* let find_side (x : Order.t) = *)
+(*   let order_side = x.side in *)
+(*   if Trading_types.Side.equal side order_side then Some x else None *)
+(* in *)
+(* let orders = *)
+(*   List.filter_map *)
+(*     (fun (item : Item.t) -> *)
+(*       let* order = Item.order item in *)
+(*       find_side order) *)
+(*     data *)
+(* in *)
+(* order_trace side orders *)
+
+let of_bars (bars : Bars.t) indicators symbol : Yojson.Safe.t option =
+  Eio.traceln "Plots.of_bars NYI";
+  None
+(* let* data_vec = Bars.get bars symbol in *)
+(* let data = Vector.to_list data_vec in *)
+(* let* ema_12_trace = *)
+(*   indicator_trace ~drop:12 indicators "EMA(12)" IP.ema_12 symbol *)
+(* in *)
+(* let* ema_26_trace = *)
+(*   indicator_trace ~drop:26 indicators "EMA(26)" IP.ema_26 symbol *)
+(* in *)
+(* let* macd_trace = *)
+(*   indicator_trace ~show:false ~drop:26 indicators "MACD" IP.macd symbol *)
+(* in *)
+(* let* sma_5_trace = *)
+(*   indicator_trace ~drop:5 indicators "SMA(5)" IP.sma_5 symbol *)
+(* in *)
+(* let* sma_34_trace = *)
+(*   indicator_trace ~drop:34 indicators "SMA(34)" IP.sma_34 symbol *)
+(* in *)
+(* let* sma_75_trace = *)
+(*   indicator_trace ~drop:34 indicators "SMA(75)" IP.sma_75 symbol *)
+(* in *)
+(* let* sma_233_trace = *)
+(*   indicator_trace ~drop:233 ~show:false indicators "SMA(233)" IP.sma_233 *)
+(*     symbol *)
+(* in *)
+(* let* awesome_slow = *)
+(*   indicator_trace ~drop:233 ~show:false indicators "Awesome Slow" *)
+(*     IP.awesome_slow symbol *)
+(* in *)
+(* let* upper_bollinger = *)
+(*   indicator_trace indicators "Upper BB(34)" IP.upper_bollinger symbol *)
+(* in *)
+(* let* lower_bollinger = *)
+(*   indicator_trace indicators "Lower BB(34)" IP.lower_bollinger symbol *)
+(* in *)
+(* let* rsi = *)
+(*   indicator_trace ~show:false indicators "Relative Strength Index" *)
+(*     IP.relative_strength_index symbol *)
+(* in *)
+(* let* adx = indicator_trace ~show:false indicators "ADX" IP.adx symbol in *)
+(* let* cci = indicator_trace ~show:false indicators "CCI" IP.cci symbol in *)
+(* let* ema_cci = *)
+(*   indicator_trace ~show:true indicators "EMA CCI" IP.ema_cci symbol *)
+(* in *)
+(* let* ema_adx = *)
+(*   indicator_trace ~show:true indicators "EMA ADX" IP.ema_adx symbol *)
+(* in *)
+(* let* awesome = *)
+(*   indicator_trace ~show:false indicators "Awesome Oscillator" *)
+(*     IP.awesome_oscillator symbol *)
+(* in *)
+(* let* fso_pk = *)
+(*   indicator_trace ~show:false indicators "FSO %K" IP.fso_k symbol *)
+(* in *)
+(* let* fso_pd = *)
+(*   indicator_trace ~show:false indicators "FSO %D" IP.fso_d symbol *)
+(* in *)
+(* let* fso_pd_slow = *)
+(*   indicator_trace ~show:false indicators "FSO %D-slow" IP.fso_d_slow symbol *)
+(* in *)
+(* let* fft_thing = *)
+(*   indicator_trace ~show:false indicators *)
+(*     "Fourier Transform Normalized Magnitude" IP.ft_normalized_magnitude symbol *)
+(* in *)
+(* let* fft_mse = *)
+(*   indicator_trace ~show:false indicators *)
+(*     "Fourier Transform Mean Squared Error" IP.fft_mean_squared_error symbol *)
+(* in *)
+(* let* u3b = *)
+(*   indicator_trace ~show:false indicators "Upper 3 Bollinger" *)
+(*     IP.upper_bollinger_100_3 symbol *)
+(* in *)
+(* let* l1b = *)
+(*   indicator_trace ~show:false indicators "Lower 1 Bollinger" *)
+(*     IP.lower_bollinger_100_1 symbol *)
+(* in *)
+(* let buy_trace = order_trace_side Buy data in *)
+(* let sell_trace = order_trace_side Sell data in *)
+(* let price_trace = price_trace data symbol in *)
+(* let ( = ) = fun x y -> (x, y) in *)
+(* Option.return *)
+(* @@ `Assoc *)
+(*      [ *)
+(*        "traces" *)
+(*        = `List *)
+(*            [ *)
+(*              price_trace; *)
+(*              buy_trace; *)
+(*              sell_trace; *)
+(*              adx; *)
+(*              cci; *)
+(*              ema_cci; *)
+(*              ema_adx; *)
+(*              ema_12_trace; *)
+(*              ema_26_trace; *)
+(*              macd_trace; *)
+(*              sma_5_trace; *)
+(*              sma_34_trace; *)
+(*              sma_75_trace; *)
+(*              sma_233_trace; *)
+(*              upper_bollinger; *)
+(*              lower_bollinger; *)
+(*              awesome; *)
+(*              awesome_slow; *)
+(*              rsi; *)
+(*              fso_pk; *)
+(*              fso_pd; *)
+(*              fso_pd_slow; *)
+(*              fft_thing; *)
+(*              fft_mse; *)
+(*              u3b; *)
+(*              l1b; *)
+(*            ]; *)
+(*        "layout" = layout @@ Instrument.symbol symbol; *)
+(*      ] *)
+
+[@@@warning "+27"]
 
 module Stats = struct
   module Side = Trading_types.Side

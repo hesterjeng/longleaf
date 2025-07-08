@@ -1,3 +1,4 @@
+module Data = Bars.Data
 module Headers = Piaf.Headers
 (* module Hashtbl = Bars.Hashtbl *)
 
@@ -14,6 +15,8 @@ type item = {
   volume : int;
 }
 [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
+
+let compare_item x y = Ptime.compare x.timestamp y.timestamp
 
 let item_of_yojson x =
   match x with
@@ -43,15 +46,19 @@ let item_to_bar_item (x : item) : Item.t =
   let close = x.prevClose in
   let last = x.last in
   let volume = x.volume in
-  let order = None in
-  Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume ~order ()
+  (* let order = None in *)
+  Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume
 
-let to_latest (l : t) : Bars.Latest.t =
-  let res =
-    List.map (fun (x : item) -> (x.ticker, item_to_bar_item x)) l
-    |> Seq.of_list |> Bars.Latest.of_seq
-  in
-  res
+let add_items (bars : Bars.t) (l : t) =
+  let ( let* ) = Result.( let* ) in
+  List.foldi
+    (fun acc i item ->
+      let* () = acc in
+      let* data = Bars.get bars item.ticker in
+      let item = item_to_bar_item item in
+      let* () = Data.add_item data item i in
+      Result.return ())
+    (Ok ()) l
 
 let tiingo_client eio_env sw =
   let res =
@@ -85,8 +92,7 @@ module Make (Tiingo : Util.CLIENT) = struct
     let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
     get ~headers ~endpoint
 
-  let latest tickers =
-    let ( let+ ) = Result.( let+ ) in
+  let latest bars tickers =
     let ( let* ) = Result.( let* ) in
     let symbols = List.map Instrument.symbol tickers |> String.concat "," in
     let endpoint =
@@ -96,8 +102,10 @@ module Make (Tiingo : Util.CLIENT) = struct
     (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
     let* resp = get ~headers ~endpoint in
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
-    let+ tiingo = t_of_yojson resp in
-    to_latest tiingo
+    let* tiingo = t_of_yojson resp in
+    assert (List.is_sorted ~cmp:compare_item tiingo);
+    let* () = add_items bars tiingo in
+    Result.return ()
 
   module Data = struct
     module Request = Market_data_api.Request
@@ -120,9 +128,11 @@ module Make (Tiingo : Util.CLIENT) = struct
     let item_of (x : t) : Item.t =
       let { date; open_; high; low; close; volume } = x in
       Item.make ~timestamp:date ~open_ ~high ~low ~close
-        ~volume:(Int.of_float volume) ~last:close ~order:None ()
+        ~volume:(Int.of_float volume) ~last:close
 
+    (* Function for downloading preload bars data on the fly *)
     let top ?(afterhours = false) (starting_request : Request.t) =
+      let ( let* ) = Result.( let* ) in
       let split_requests = Request.split starting_request in
       let get_data (request : Request.t) instrument =
         let symbol = Instrument.symbol instrument in
@@ -165,29 +175,19 @@ module Make (Tiingo : Util.CLIENT) = struct
           |> Uri.to_string
         in
         Eio.traceln "%s" endpoint;
-        let resp =
-          get ~headers ~endpoint |> function
-          | Ok x -> x
-          | Error e ->
-            Eio.traceln
-              "tiingo_api.ml: Error while getting historical Tiingo data: %a"
-              Error.pp e;
-            invalid_arg "Bad data when getting Tiingo historical bars"
-        in
-        (* Eio.traceln "keys: %a" Yojson.Safe.pp resp; *)
-        resp |> resp_of_yojson |> List.map item_of |> fun l ->
-        (instrument, Vector.of_list l)
+        let* json = get ~headers ~endpoint in
+        let resp = resp_of_yojson json in
+        let* data = List.map item_of resp |> Data.of_items in
+        Result.return @@ (instrument, data)
       in
-      let r : Bars.t list =
+      let* r =
         let request_symbols =
           List.map Instrument.of_string starting_request.symbols
         in
-        List.map
+        Result.map_l
           (fun request ->
-            let res =
-              List.map (get_data request) request_symbols |> Seq.of_list
-            in
-            Bars.of_seq res)
+            let* res = Result.map_l (get_data request) request_symbols in
+            Result.return @@ Bars.of_list res)
           split_requests
       in
       let final = Bars.combine r in

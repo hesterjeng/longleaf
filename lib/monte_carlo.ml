@@ -122,7 +122,7 @@ module Item = struct
         in
         Item.make ~timestamp ~open_:(get open_arr i) ~high:(get high_arr i)
           ~low:(get low_arr i) ~close:(get close_arr i) ~last:(get last_arr i)
-          ~volume:(get volume_arr i) ())
+          ~volume:(get volume_arr i))
       target_times
 
   let of_item_vector ~print ~preload ~target =
@@ -130,14 +130,16 @@ module Item = struct
     |> Vector.of_array
 end
 
-module Bars = struct
-  let of_bars ~preload ~(target : Bars.t) : Bars.t =
-    Bars.map
-      (fun (symbol, target) ->
-        let preload =
-          Bars.get preload symbol
-          |> Option.get_exn_or "Must have preload in monte carlo"
-        in
-        (symbol, Item.of_item_vector ~print:false ~preload ~target))
-      target
-end
+(* Disabled for V2 bars *)
+
+(* module Bars = struct *)
+(*   let of_bars ~preload ~(target : Bars.t) : Bars.t = *)
+(*     Bars.map *)
+(*       (fun (symbol, target) -> *)
+(*         let preload = *)
+(*           Bars.get preload symbol *)
+(*           |> Option.get_exn_or "Must have preload in monte carlo" *)
+(*         in *)
+(*         (symbol, Item.of_item_vector ~print:false ~preload ~target)) *)
+(*       target *)
+(* end *)

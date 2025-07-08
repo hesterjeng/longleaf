@@ -80,12 +80,12 @@ module Make
     Eio.traceln "Shutdown command NYI";
     ()
 
-  let init_state () = Backend.init_state Backend.Input.options.context
+  let init_state () = Backend.init_state ()
 
   let buy_ (state : 'a State.t) selected =
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
-    let current_cash = Backend_position.get_cash state.positions in
+    let current_cash = Portfolio.get_cash state.positions in
     let pct = 1.0 /. Float.of_int (List.length selected) in
     assert (pct >=. 0.0 && pct <=. 1.0);
     let@ state f = List.fold_left f (Ok state) selected in
@@ -122,7 +122,9 @@ module Make
       State.replace_stats state
       @@ Stats.add_possible_positions state.stats potential_buys
     in
-    let num_held_currently = List.length @@ state.order_history.active in
+    let num_held_currently =
+      Order.History.Ptime_map.cardinal @@ state.order_history.active
+    in
     (* Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp) *)
     (*   state.order_history.active; *)
     assert (Buy.num_positions >= 0);
@@ -178,12 +180,14 @@ module Make
     let ( let* ) = Result.( let* ) in
     match state.current with
     | Ordering ->
-      let held_symbols = Backend_position.symbols state.positions in
+      let held_symbols = Portfolio.symbols state.positions in
       let* sold_state =
-        List.fold_left sell_fold (Ok state) state.order_history.active
+        List.fold_left sell_fold (Ok state)
+        @@ Order.History.active state.order_history
       in
       let* complete = buy ~held_symbols sold_state in
-      Result.return { complete with tick = complete.tick + 1 }
+      Result.return complete
+      (* { complete with tick = complete.tick + 1 } *)
     | _ -> SU.handle_nonlogical_state state
 
   exception E
@@ -196,52 +200,4 @@ module Make
   let run () =
     let init_state = init_state () in
     SU.run ~init_state step
-end
-
-module Run = struct
-  module Context = Options.Context
-  module Collections = Ticker_collections
-
-  (** Function for creating the options given a context, it has some sensible
-      defaults. If you want to use other options, you may need to create your
-      own Options.t value. *)
-  let run_options (context : Context.t) : Options.t =
-    let symbols =
-      match context.runtype with
-      | RandomTickerBacktest
-      | MultiRandomTickerBacktest ->
-        let arr = Array.of_list Collections.sp100 in
-        let eighty_percent =
-          (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
-        in
-        Owl_stats.choose arr eighty_percent |> Array.to_list
-      | _ -> Collections.sp100
-    in
-    {
-      symbols;
-      tick = 600.0;
-      overnight = true;
-      resume_after_liquidate = true;
-      indicators_config : Indicator_config.t =
-        { fft = false; compare_preloaded = true };
-      dropout = false;
-      randomized_backtest_length = 1000;
-      context;
-    }
-
-  (** Helper function to reduce code duplication. *)
-  let run_generic ?(run_options = run_options) ?bars ?target
-      (module Strat : Strategy.BUILDER) context =
-    let options = run_options context in
-    (* let () = check_bars options in *)
-    let module Backend =
-      (val Backend.make options bars target |> function
-           | Ok x -> x
-           | Error _ -> invalid_arg "Error while creating backend")
-    in
-    let module S = Strat (Backend) in
-    Eio.traceln "Applied strategy functor to backend, running.";
-    let res = S.run () in
-    Backend.shutdown ();
-    res
 end

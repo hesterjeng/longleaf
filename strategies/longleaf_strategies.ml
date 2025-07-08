@@ -1,48 +1,4 @@
-module Context = Options.Context
 module Collections = Ticker_collections
-
-(** Function for creating the options given a context, it has some sensible
-    defaults. If you want to use other options, you may need to create your own
-    Options.t value. *)
-let run_options (context : Context.t) : Options.t =
-  let symbols =
-    match context.runtype with
-    | RandomTickerBacktest
-    | MultiRandomTickerBacktest ->
-      let arr = Array.of_list Collections.sp100 in
-      let eighty_percent =
-        (Array.length arr |> Float.of_int) *. 0.8 |> Int.of_float
-      in
-      Owl_stats.choose arr eighty_percent |> Array.to_list
-    | _ -> Collections.sp100
-  in
-  {
-    symbols;
-    tick = 600.0;
-    overnight = true;
-    resume_after_liquidate = true;
-    indicators_config : Indicator_config.t =
-      { fft = false; compare_preloaded = context.compare_preloaded };
-    dropout = false;
-    randomized_backtest_length = 1000;
-    context;
-  }
-
-(** Helper function to reduce code duplication. *)
-let run_generic ?(run_options = run_options) ?bars ?target
-    (module Strat : Strategy.BUILDER) context =
-  let options = run_options context in
-  (* let () = check_bars options in *)
-  let module Backend =
-    (val Backend.make options bars target |> function
-         | Ok x -> x
-         | Error _ -> invalid_arg "Error while creating backend")
-  in
-  let module S = Strat (Backend) in
-  Eio.traceln "Applied strategy functor to backend, running.";
-  let res = S.run () in
-  Backend.shutdown ();
-  res
 
 (** Type of strategies that have been defined. To add a new strategy, you must
     first add a corresponding variant to this type. Afterwards, you must add a
@@ -66,17 +22,18 @@ type t =
   | Monaspa
   | Channel
   | Astar
+  | Astarexample
 [@@deriving show, eq, yojson, variants]
 
 let all = List.map fst Variants.descriptions
 
 (** Add a handler for your strategy here, imitating the styles of the others.
     There must be a handler or your strategy will not work. *)
-let strats =
-  let ( --> ) x y = (x, run_generic y) in
+let strats : (t * (Options.t -> (_, _) result)) list =
+  let ( --> ) x y = (x, Strategy.run y) in
   [
-    BuyAndHold --> (module Buy_and_hold.Make);
-    Listener --> (module Listener.Make);
+    (* BuyAndHold --> (module Buy_and_hold.Make); *)
+    (* Listener --> (module Listener.Make); *)
     (* Monaspa --> (module Monaspa.Make); *)
     (* DoubleTop --> (module Double_top.DoubleTop); *)
     (* LowBoll --> (module Buy_low_bollinger.BuyLowBollinger); *)
@@ -88,21 +45,12 @@ let strats =
     (* Crossover --> (module Crossover.Make); *)
     (* SlowCrossover --> (module Slow_crossover.Make); *)
     (* ConfirmedCrossover --> (module Confirmed_crossover.Make); *)
-    ThrowingCrossover --> (module Throwing_crossover.Make);
+    (* ThrowingCrossover --> (module Throwing_crossover.Make); *)
     (* LiberatedCrossover --> (module Liberated_crossover.Make); *)
     (* Channel --> (module Channel.Make); *)
     (* SpyTrader --> (module Spytrader.Make); *)
+    Astarexample --> (module Astar_example.Make) (* (val Astar_example.m) *);
   ]
-
-(** Based on the context, select and run the strategy. *)
-let run_strat (context : Context.t) strategy =
-  let f = List.Assoc.get ~eq:equal strategy strats in
-  match f with
-  | Some f -> f context
-  | None ->
-    invalid_arg
-    @@ Format.asprintf "Did not find a strategy implementation for %a" pp
-         strategy
 
 (** Function for Cmdliner use. *)
 let of_string_res x =
@@ -115,6 +63,24 @@ let of_string_res x =
             "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@." x
             (List.pp String.pp) all)
 
+(** Based on the context, select and run the strategy. *)
+let run_strat_ (context : Options.t) strategy =
+  let ( let* ) = Result.( let* ) in
+  let* strategy = of_string_res strategy in
+  let f = List.Assoc.get ~eq:equal strategy strats in
+  let* strat =
+    match f with
+    | None -> Error.fatal "Unable to find strategy implementation"
+    | Some f -> Result.return f
+  in
+  let* res = strat context in
+  Result.return res
+
+let run_strat context =
+  match run_strat_ context context.flags.strategy_arg with
+  | Ok x -> x
+  | Error e -> Error.raise e
+
 (** Function for Cmdliner use. *)
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
 
@@ -122,14 +88,10 @@ type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 (** Track some statistics if we are doing multiple backtests. *)
 
-let run_astar (context : Context.t) ~(buy : Astar_search.EnumeratedSignal.t)
-    ~(sell : Astar_search.EnumeratedSignal.t) =
-  let x = Astar_search.EnumeratedSignal.to_strategy buy sell in
-  run_generic x context
-
 (** Top level function for running strategies based on a context.*)
-let run (context : Context.t) strategy =
-  match context.runtype with
+let run (context : Options.t) =
+  (* let strategy = of_string_res context.flags.strategy_arg in *)
+  match context.flags.runtype with
   | AstarSearch ->
     (* Eio.traceln "Loading context..."; *)
     (* let context = Options.Context.load context in *)
@@ -142,6 +104,7 @@ let run (context : Context.t) strategy =
     Eio.traceln "Running A*...";
     (* let context = { context with indicator_type = Precomputed } in *)
     let res = Astar_run.top context in
+    Eio.traceln "A* completed: %a" (Option.pp Astar_run.StrategySearch.pp) res;
     0.0
   | Live
   | Paper
@@ -150,13 +113,13 @@ let run (context : Context.t) strategy =
   | Montecarlo
   | RandomSliceBacktest
   | RandomTickerBacktest ->
-    run_strat context strategy
+    run_strat context
   | Multitest
   | MultiMontecarlo
   | MultiRandomSliceBacktest
   | MultiRandomTickerBacktest ->
     let init = Array.make 30 () in
-    let res = Array.map (fun _ -> run_strat context strategy) init in
+    let res = Array.map (fun _ -> run_strat context) init in
     Array.sort Float.compare res;
     let mean = Owl_stats.mean res in
     let std = Owl_stats.std res in
@@ -178,3 +141,56 @@ let run (context : Context.t) strategy =
     Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
     Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
     0.0
+
+module Run = struct
+  open Longleaf_lib
+
+  let mk_options switch eio_env flags target : Options.t =
+    let longleaf_env = Util.Environment.make () in
+    let mutices = Server.Longleaf_mutex.create () in
+    {
+      symbols = Collections.sp100;
+      eio_env;
+      longleaf_env;
+      switch;
+      flags;
+      tick = 600.0;
+      indicators_config = Indicators.Config.default;
+      target;
+      mutices;
+    }
+
+  let run_server eio_env (flags : Options.CLI.t) mutices () =
+    let domain_manager = Eio.Stdenv.domain_mgr eio_env in
+    match flags.no_gui with
+    | true -> ()
+    | false ->
+      Eio.Domain_manager.run domain_manager @@ fun () ->
+      Server.top ~mutices eio_env
+
+  let run_strategy eio_env flags target () =
+    let domain_manager = Eio.Stdenv.domain_mgr eio_env in
+    Eio.Domain_manager.run domain_manager @@ fun () ->
+    Eio.Switch.run @@ fun switch ->
+    (* Load target bars with eio_env if needed *)
+    let loaded_target =
+      match target with
+      | Target.File _ ->
+        let bars = Target.load_bars ~eio_env target in
+        Target.Loaded bars
+      | Target.Download
+      | Target.Loaded _ ->
+        target
+    in
+    let options = mk_options switch eio_env flags loaded_target in
+    let _res = run options in
+    ()
+
+  let top (flags : Options.CLI.t) target =
+    Eio_main.run @@ fun eio_env ->
+    let mutices = Server.Longleaf_mutex.create () in
+    let run_strategy = run_strategy eio_env flags target in
+    let run_data_server = run_server eio_env flags mutices in
+    let _ = Eio.Fiber.both run_strategy run_data_server in
+    ()
+end

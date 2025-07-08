@@ -1,6 +1,6 @@
 open Trading_types
 
-type t = {
+type order = {
   symbol : Instrument.t;
   side : Side.t;
   tif : TimeInForce.t;
@@ -17,6 +17,8 @@ type t = {
   status : Status.t Pmutex.t;
 }
 [@@deriving show, yojson]
+
+type t = order [@@deriving show, yojson]
 
 let timestamp x = x.timestamp
 
@@ -52,17 +54,28 @@ let cmp_profit x y =
 let cmp_timestamp x y = Ptime.compare x.timestamp y.timestamp
 
 module History = struct
-  type nonrec t = { all : t list; active : t list }
+  module Ptime_map = Map.Make (Ptime)
 
-  let sort h = List.sort cmp_timestamp h
-  let inactive h = h.all
-  let active h = h.active
+  type nonrec t = { all : order Ptime_map.t; active : order Ptime_map.t }
 
   let yojson_of_t (h : t) : Yojson.Safe.t =
-    let l = h.all in
-    `List (List.map yojson_of_t l)
+    let l = Ptime_map.bindings h.all |> List.map snd in
+    `List (List.map yojson_of_order l)
 
-  let add x order = { x with all = order :: x.all }
-  let empty = { all = []; active = [] }
-  let length h = List.length h.all
+  let add (h : t) (order_item : order) =
+    let key = timestamp order_item in
+    { all = Ptime_map.add key order_item h.all; active = h.active }
+
+  let add_active (h : t) (order_item : order) =
+    let key = timestamp order_item in
+    { h with active = Ptime_map.add key order_item h.active }
+
+  let remove_active (h : t) (order_item : order) =
+    let key = timestamp order_item in
+    { h with active = Ptime_map.remove key h.active }
+
+  let empty = { all = Ptime_map.empty; active = Ptime_map.empty }
+  let length h = Ptime_map.cardinal h.all
+  let inactive h = Ptime_map.bindings h.all |> List.map snd
+  let active h = Ptime_map.bindings h.active |> List.map snd
 end

@@ -23,8 +23,10 @@ depends: [
   "ocamlgraph"
   "eio_main"
   "piaf"
+  "tacaml"
   "fileutils"
   "ocamlformat"
+  "yojson"
   "alcotest" {with-test}
   "odoc" {with-doc}
 ]

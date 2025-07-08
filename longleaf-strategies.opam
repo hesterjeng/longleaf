@@ -10,21 +10,7 @@ bug-reports: "Github Issue"
 depends: [
   "dune" {>= "3.17"}
   "ocaml"
-  "ptime"
-  "ppx_yojson_conv"
-  "ppx_deriving"
-  "ppx_variants_conv"
-  "ppx_fields_conv"
-  "cmdliner"
-  "landmarks"
-  "iter"
-  "owl"
-  "containers-data"
-  "ocamlgraph"
-  "eio_main"
-  "piaf"
-  "fileutils"
-  "ocamlformat"
+  "longleaf-lib"
   "alcotest" {with-test}
   "odoc" {with-doc}
 ]

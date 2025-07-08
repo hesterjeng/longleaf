@@ -5,6 +5,10 @@
 (*   let _ = p [| x |] in *)
 (*   () *)
 
+module Environment = Environment
+module Lots_of_words = Lots_of_words
+module Astar = Astar
+module Work_pool = Work_pool
 include Ppx_yojson_conv_lib.Yojson_conv
 module Headers = Piaf.Headers
 module Response = Piaf.Response
@@ -159,3 +163,13 @@ let qty ~current_cash ~pct ~price =
     let max_amt = tenp /. price in
     if max_amt >=. 1.0 then floor max_amt |> Float.to_int else 0
   | false -> 0
+
+let random_filename () =
+  Lots_of_words.select random_state ^ "_" ^ Lots_of_words.select random_state
+
+let apca_api_base_url ty =
+  match ty with
+  | `Live -> Uri.of_string "https://api.alpaca.markets/v2"
+  | `Paper -> Uri.of_string "https://paper-api.alpaca.markets/v2"
+
+let apca_api_data_url = Uri.of_string "https://data.alpaca.markets/v2"

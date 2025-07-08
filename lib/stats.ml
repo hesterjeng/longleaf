@@ -46,7 +46,7 @@ let increment_position_ratio (x : t) =
 (* FIXME: This seems strange, why are we converting to an array and then unconverting? *)
 (* BUG: very high computational complexity *)
 let add_orders (h : Order.History.t) (x : t) : t =
-  let orders = h.all in
+  let orders = Order.History.inactive h in
   let stats_array = Array.of_list x.history in
   let stats_times = Array.map (fun x -> x.time) stats_array |> Array.to_list in
   let () =

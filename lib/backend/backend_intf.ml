@@ -1,12 +1,11 @@
 module type BACKEND_INPUT = sig
   val options : Options.t
 
-  val bars : Bars.t
-  (** Historical information, ordered with in time order *)
+  (* val bars : Bars.t *)
+  (* (\** Historical information, ordered with in time order *\) *)
 
   val target : Bars.t option
-  (** The target is the bars that will be iterated over in a backtest Ordered in
-      reverse time order, so that we can pop off next values easily *)
+  (** The data to be iterated over *)
 end
 
 module type S = sig
@@ -17,7 +16,7 @@ module type S = sig
   val is_backtest : bool
 
   (* TODO: Do something with this? *)
-  val overnight : bool
+  (* val overnight : bool *)
 
   (* Save data that is received in a live/paper run *)
   (* val save_received : bool *)
@@ -33,7 +32,7 @@ module type S = sig
   val next_market_open : unit -> (Time.t option, Error.t) result
   val next_market_close : unit -> (Time.t, Error.t) result
   val place_order : 'a State.t -> Order.t -> ('a State.t, Error.t) result
-  val latest_bars : Instrument.t list -> (Bars.Latest.t, Error.t) result
+  val update_bars : Instrument.t list -> Bars.t -> int -> (unit, Error.t) result
   val last_data_bar : (Bars.Latest.t, Error.t) result
   val liquidate : 'a State.t -> ('a State.t, Error.t) Result.t
 end
