@@ -30,9 +30,6 @@ module Output = struct
   open Tacaml.Output
   open Data.Type
 
-  let float_ba data output =
-    Result.map (fun x -> FloatBA x) @@ Data.get_row data output
-
   let of_data (x : Tacaml.t) (data : Data.t) =
     let ( let* ) = Result.( let* ) in
     let output = Tacaml.output x in

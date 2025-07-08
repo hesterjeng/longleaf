@@ -5,6 +5,7 @@ module Data = Bars.Data
 type t = Tacaml of Tacaml.t
 
 let ta_lib_common = List.map (fun x -> Tacaml x) Talib_binding.common
+let ta_lib_all = List.map (fun x -> Tacaml x) Tacaml.Defaults.all
 
 let compute ?i (indicators : t list) (config : Config.t) (bars : Bars.t) =
   match config.compute_live with
@@ -35,4 +36,4 @@ let initialize () =
     invalid_arg e
 
 let compute_all ?i (config : Config.t) (bars : Bars.t) =
-  compute ?i ta_lib_common config bars
+  compute ?i ta_lib_all config bars

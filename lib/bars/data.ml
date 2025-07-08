@@ -33,7 +33,7 @@ module Type = struct
     | Low
     | Close
     | Volume
-    | Tacaml of (Tacaml.Indicator.t[@opaque])
+    | Tacaml of Tacaml.Indicator.t
     | Other of string
   [@@deriving variants, show { with_path = false }]
 
@@ -192,7 +192,9 @@ let get_row (data : t) (x : Type.t) =
     match x with
     | Tacaml (F _) -> Ok data.talib_indicators
     | Other _ -> Ok data.other_indicators
-    | Tacaml (I _) -> Error.fatal "Data.get_row: not a float row"
+    | Tacaml (I _) ->
+      Eio.traceln "%a" Type.pp x;
+      Error.fatal "Data.get_row: not a float row"
     | _ -> Ok data.data
   in
   Result.return @@ Array2.slice_left source @@ Type.to_int x
