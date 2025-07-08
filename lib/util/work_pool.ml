@@ -38,11 +38,10 @@ module Work_pool = struct
       let chunks = chunks_of ~len:chunk_size items in
 
       (* Spawn all domains simultaneously *)
-      let domains = List.map
-        (fun chunk -> Domain.spawn (fun () -> List.map f chunk))
-        chunks
+      let domains =
+        List.map (fun chunk -> Domain.spawn (fun () -> List.map f chunk)) chunks
       in
-      
+
       (* Wait for all domains to complete *)
       let results = List.map Domain.join domains in
 
@@ -76,11 +75,12 @@ module Work_pool = struct
       let chunks = chunks_of ~len:chunk_size items in
 
       (* Spawn all domains simultaneously *)
-      let domains = List.map
-        (fun chunk -> Domain.spawn (fun () -> List.filter_map f chunk))
-        chunks
+      let domains =
+        List.map
+          (fun chunk -> Domain.spawn (fun () -> List.filter_map f chunk))
+          chunks
       in
-      
+
       (* Wait for all domains to complete *)
       let results = List.map Domain.join domains in
 
@@ -119,16 +119,18 @@ module Work_pool = struct
       let chunks = chunks_of ~len:chunk_size items in
 
       (* Spawn all domains simultaneously *)
-      let domains = List.map
-        (fun chunk -> Domain.spawn (fun () ->
-          List.map
-            (fun item ->
-              try Ok (f item) with
-              | exn -> Error exn)
-            chunk))
-        chunks
+      let domains =
+        List.map
+          (fun chunk ->
+            Domain.spawn (fun () ->
+                List.map
+                  (fun item ->
+                    try Ok (f item) with
+                    | exn -> Error exn)
+                  chunk))
+          chunks
       in
-      
+
       (* Wait for all domains to complete *)
       let results = List.map Domain.join domains in
 

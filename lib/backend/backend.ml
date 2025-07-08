@@ -38,6 +38,10 @@ let make_bars (options : Options.t) =
     (*   let* res = Yojson.Safe.from_file file |> Bars.t_of_yojson in *)
     (*   (\* Bars.sort Item.compare res; *\) *)
     (*   Result.return res *)
+    | File file_path ->
+      Eio.traceln "Loading bars from %s with parallel deserialization" file_path;
+      let bars = Target.load_bars ~eio_env:options.eio_env target in
+      Result.return bars
     | Loaded b -> Result.return b
     (* let res = Bars.copy b in *)
     (* Bars.sort Item.compare res; *)
@@ -46,6 +50,7 @@ let make_bars (options : Options.t) =
   let* target =
     match target with
     (* | None -> Ok None *)
+    | File _ -> Error.missing_data "NYI File target - should be loaded by now"
     | Download -> Error.missing_data "NYI Download target"
     | Loaded bars -> Result.return @@ Option.return @@ Bars.copy bars
     (* | File t -> ( *)
@@ -84,7 +89,8 @@ let make_backend_input (options : Options.t) =
   let ( let* ) = Result.( let* ) in
   let* target =
     match options.target with
-    (* | File _ *)
+    | File _ ->
+      Error.fatal "Expected to have loaded target when creating backend"
     | Download ->
       Error.fatal "Expected to have loaded target when creating backend"
     (* | None -> Result.return None *)

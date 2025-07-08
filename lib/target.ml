@@ -1,22 +1,18 @@
 (* Start with empty bars, load bars from a file, or download data *)
 type t =
   | Download
-  | Loaded of Bars.t (* None | File of string | Download | Loaded of Bars.t *)
+  | File of string (* Store file path for deferred loading *)
+  | Loaded of Bars.t (* For already loaded bars *)
 [@@deriving show, variants]
 
 let of_string_res x =
   match x with
-  (* | "None" *)
-  (* | "none" -> *)
-  (*   Ok None *)
   | "Download"
   | "download" ->
     Ok Download
   | s when Sys.file_exists s ->
-    Eio.traceln "Loading bars from %s" s;
-    let res = Bars.of_file s in
-    Eio.traceln "Done loading bars";
-    Result.return @@ Loaded res
+    (* Store file path for deferred loading *)
+    Result.return @@ File s
   | _ ->
     Error (`Msg "Expected a valid preload selection, or file doesn't exist")
 
@@ -39,6 +35,19 @@ let conv = Cmdliner.Arg.conv (of_string_res, pp)
 (*   | Download -> invalid_arg "Cannot load download in Options.Preload.load" *)
 (*   | Loaded b -> Loaded b *)
 
+(* Load bars with eio_env for parallel processing *)
+let load_bars ~eio_env = function
+  | Download -> invalid_arg "Target.load_bars: Download not yet implemented"
+  | File file_path ->
+    Eio.traceln "Loading bars from %s (with parallel deserialization)" file_path;
+    let bars = Bars.of_file ~eio_env file_path in
+    Eio.traceln "Done loading bars";
+    bars
+  | Loaded bars -> bars
+
+(* Legacy function for backwards compatibility *)
 let bars = function
   | Loaded b -> b
-  | _ -> invalid_arg "Preload.bars: bars not loaded"
+  | File _ ->
+    invalid_arg "Target.bars: bars not loaded - use load_bars with eio_env"
+  | Download -> invalid_arg "Target.bars: Download not supported"

@@ -38,43 +38,46 @@ let initialize () =
 let compute_all ?i ?eio_env (config : Config.t) (bars : Bars.t) =
   let start_total = Unix.gettimeofday () in
   Eio.traceln "Starting indicator computation...";
-  
+
   (* Check if we should use parallel computation *)
-  let result = match (eio_env, config.compute_live) with
-  | Some env, false ->
-    (* Pre-extract all symbol-data pairs to avoid hashtable operations in domains *)
-    let symbol_data_pairs = Bars.fold bars [] (fun symbol data acc -> (symbol, data) :: acc) in
-    
-    let compute_for_symbol_data (symbol, data) =
-      let ( let* ) = Result.( let* ) in
-      (* Compute all indicators for this symbol using pre-extracted data *)
-      Result.fold_l
-        (fun _ indicator ->
-          match indicator with
-          | Tacaml ind ->
-            let* () = Talib_binding.calculate ?i ind data in
-            Result.return ())
-        () ta_lib_all
-    in
+  let result =
+    match (eio_env, config.compute_live) with
+    | Some env, false ->
+      (* Pre-extract all symbol-data pairs to avoid hashtable operations in domains *)
+      let symbol_data_pairs =
+        Bars.fold bars [] (fun symbol data acc -> (symbol, data) :: acc)
+      in
 
-    (* Use Work_pool for parallel processing with pre-extracted data *)
-    let results =
-      Util.Work_pool.Work_pool.parallel_map_result ~eio_env:env
-        ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
-    in
+      let compute_for_symbol_data (symbol, data) =
+        let ( let* ) = Result.( let* ) in
+        (* Compute all indicators for this symbol using pre-extracted data *)
+        Result.fold_l
+          (fun _ indicator ->
+            match indicator with
+            | Tacaml ind ->
+              let* () = Talib_binding.calculate ?i ind data in
+              Result.return ())
+          () ta_lib_all
+      in
 
-    (* Check if any computation failed *)
-    List.fold_left
-      (fun acc result ->
-        match (acc, result) with
-        | Ok (), Ok (Ok ()) -> Ok ()
-        | Ok (), Ok (Error e) -> Error e
-        | Error e, _ -> Error e
-        | _, Error exn -> Error (`FatalError (Printexc.to_string exn)))
-      (Ok ()) results
-  | _, _ ->
-    (* Sequential computation (original behavior) *)
-    compute ?i ta_lib_all config bars
+      (* Use Work_pool for parallel processing with pre-extracted data *)
+      let results =
+        Util.Work_pool.Work_pool.parallel_map_result ~eio_env:env
+          ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
+      in
+
+      (* Check if any computation failed *)
+      List.fold_left
+        (fun acc result ->
+          match (acc, result) with
+          | Ok (), Ok (Ok ()) -> Ok ()
+          | Ok (), Ok (Error e) -> Error e
+          | Error e, _ -> Error e
+          | _, Error exn -> Error (`FatalError (Printexc.to_string exn)))
+        (Ok ()) results
+    | _, _ ->
+      (* Sequential computation (original behavior) *)
+      compute ?i ta_lib_all config bars
   in
   let end_total = Unix.gettimeofday () in
   Eio.traceln "Total indicator computation took %.3fs" (end_total -. start_total);

@@ -13,18 +13,42 @@ let copy x =
   Hashtbl.iter (fun s ph -> Hashtbl.replace copied s @@ Data.copy ph) x;
   copied
 
-let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
+(* Helper function to deserialize a single symbol *)
+let deserialize_symbol (symbol_string, symbol_json) =
+  let ( let* ) = Result.( let* ) in
+  let* instrument = Instrument.of_string_res symbol_string in
+  let* ph = Data.t_of_yojson symbol_json in
+  Result.return @@ (instrument, ph)
+
+let t_of_yojson ?eio_env (json : Yojson.Safe.t) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
   let bars = Yojson.Safe.Util.member "bars" json in
   let assoc = Yojson.Safe.Util.to_assoc bars in
+
   let* mapped =
-    Result.map_l
-      (fun (symbol, json) ->
-        let* instrument = Instrument.of_string_res symbol in
-        let* ph = Data.t_of_yojson json in
-        Result.return @@ (instrument, ph))
-      assoc
+    match eio_env with
+    | Some env ->
+      (* Parallel deserialization using Work_pool *)
+      let results =
+        Util.Work_pool.Work_pool.parallel_map_result ~eio_env:env
+          ~log_performance:true ~f:deserialize_symbol assoc
+      in
+
+      (* Convert Work_pool results to Result.map_l format *)
+      List.fold_left
+        (fun acc result ->
+          match (acc, result) with
+          | Ok acc_list, Ok (Ok symbol_data) -> Ok (symbol_data :: acc_list)
+          | Ok _, Ok (Error e) -> Error e
+          | Error e, _ -> Error e
+          | _, Error exn -> Error (`FatalError (Printexc.to_string exn)))
+        (Ok []) results
+      |> Result.map List.rev
+    | None ->
+      (* Sequential deserialization (original behavior) *)
+      Result.map_l deserialize_symbol assoc
   in
+
   let seq = Seq.of_list mapped in
   Result.return @@ Hashtbl.of_seq seq
 
@@ -74,12 +98,25 @@ let timestamp (x : t) =
     | None -> Error.fatal "Error converting timestamp in Bars.timestamp")
 (* Ptime.of_float_s res *)
 
-let of_file file =
-  Yojson.Safe.from_file file |> t_of_yojson |> function
-  | Ok x ->
-    Eio.traceln "Finished loading bars from %s" file;
-    x
-  | Error e -> invalid_arg @@ Error.show e
+let of_file ?eio_env file =
+  let start_time = Unix.gettimeofday () in
+  Eio.traceln "Starting JSON parsing from %s" file;
+  let json_result = Yojson.Safe.from_file file in
+  let json_time = Unix.gettimeofday () in
+  Eio.traceln "JSON file read took %.3fs" (json_time -. start_time);
+
+  Eio.traceln "Starting bars deserialization";
+  let result =
+    t_of_yojson ?eio_env json_result |> function
+    | Ok x ->
+      let end_time = Unix.gettimeofday () in
+      Eio.traceln "Bars deserialization took %.3fs" (end_time -. json_time);
+      Eio.traceln "Total bars loading took %.3fs" (end_time -. start_time);
+      Eio.traceln "Finished loading bars from %s" file;
+      x
+    | Error e -> invalid_arg @@ Error.show e
+  in
+  result
 
 (* let append (latest : Latest.t) (x : t) : (unit, Error.t) result = *)
 (*   let ( let* ) = Result.( let* ) in *)

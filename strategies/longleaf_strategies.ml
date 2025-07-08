@@ -172,7 +172,17 @@ module Run = struct
     let domain_manager = Eio.Stdenv.domain_mgr eio_env in
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
-    let options = mk_options switch eio_env flags target in
+    (* Load target bars with eio_env if needed *)
+    let loaded_target =
+      match target with
+      | Target.File _ ->
+        let bars = Target.load_bars ~eio_env target in
+        Target.Loaded bars
+      | Target.Download
+      | Target.Loaded _ ->
+        target
+    in
+    let options = mk_options switch eio_env flags loaded_target in
     let _res = run options in
     ()
 

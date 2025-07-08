@@ -15,11 +15,14 @@ type t
 
 val get : t -> Instrument.t -> (Data.t, Error.t) result
 val length : t -> (int, Error.t) result
-val of_file : string -> t
+val of_file : ?eio_env:Eio_unix.Stdenv.base -> string -> t
 val of_seq : (Instrument.t * Data.t) Seq.t -> t
 val of_list : (Instrument.t * Data.t) list -> t
 val yojson_of_t : t -> (Yojson.Safe.t, Error.t) result
-val t_of_yojson : Yojson.Safe.t -> (t, Error.t) result
+
+val t_of_yojson :
+  ?eio_env:Eio_unix.Stdenv.base -> Yojson.Safe.t -> (t, Error.t) result
+
 val empty : unit -> t
 val copy : t -> t
 val timestamp : t -> (Time.t, Error.t) result
