@@ -8,6 +8,7 @@
 module Environment = Environment
 module Lots_of_words = Lots_of_words
 module Astar = Astar
+module Work_pool = Work_pool
 include Ppx_yojson_conv_lib.Yojson_conv
 module Headers = Piaf.Headers
 module Response = Piaf.Response

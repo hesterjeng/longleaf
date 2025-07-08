@@ -35,5 +35,36 @@ let initialize () =
     Eio.traceln "Problem when initializing TA-Lib";
     invalid_arg e
 
-let compute_all ?i (config : Config.t) (bars : Bars.t) =
-  compute ?i ta_lib_all config bars
+let compute_all ?i ?eio_env (config : Config.t) (bars : Bars.t) =
+  (* Check if we should use parallel computation *)
+  match (eio_env, config.compute_live) with
+  | Some env, false ->
+    (* Parallel computation for precomputed indicators *)
+    let compute_for_indicator indicator =
+      let ( let* ) = Result.( let* ) in
+      Bars.fold bars (Ok ()) @@ fun _ data acc ->
+      let* _ = acc in
+      match indicator with
+      | Tacaml ind ->
+        let* () = Talib_binding.calculate ?i ind data in
+        Result.return ()
+    in
+
+    (* Use Work_pool for parallel processing *)
+    let results =
+      Util.Work_pool.Work_pool.parallel_map_result ~eio_env:env
+        ~log_performance:true ~f:compute_for_indicator ta_lib_all
+    in
+
+    (* Check if any computation failed *)
+    List.fold_left
+      (fun acc result ->
+        match (acc, result) with
+        | Ok (), Ok (Ok ()) -> Ok ()
+        | Ok (), Ok (Error e) -> Error e
+        | Error e, _ -> Error e
+        | _, Error exn -> Error (`FatalError (Printexc.to_string exn)))
+      (Ok ()) results
+  | _, _ ->
+    (* Sequential computation (original behavior) *)
+    compute ?i ta_lib_all config bars
