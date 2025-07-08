@@ -4,6 +4,8 @@ module Data = Bars.Data
 
 type t = Tacaml of Tacaml.t
 
+let ta_lib_common = List.map (fun x -> Tacaml x) Talib_binding.common
+
 let compute ?i (indicators : t list) (config : Config.t) (bars : Bars.t) =
   match config.compute_live with
   | false ->
@@ -31,3 +33,6 @@ let initialize () =
   | Error e ->
     Eio.traceln "Problem when initializing TA-Lib";
     invalid_arg e
+
+let compute_all ?i (config : Config.t) (bars : Bars.t) =
+  compute ?i ta_lib_common config bars
