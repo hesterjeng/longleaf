@@ -43,6 +43,10 @@ module EnumeratedSignal = struct
       | RSI_lt of EnumeratedValue.t
     [@@deriving yojson, eq, show, variants, ord]
 
+    let fso_k = Data.Type.(Tacaml (F StochF_FastK))
+    let fso_d = Data.Type.(Tacaml (F StochF_FastD))
+    let rsi = Data.Type.(Tacaml (F Rsi))
+
     let all : t list =
       let add acc var = var.Variantslib.Variant.constructor :: acc in
       let constructors =
@@ -57,12 +61,12 @@ module EnumeratedSignal = struct
       let* data = Bars.get state.bars instrument in
       let res =
         match x with
-        | FSO_k_gt v -> Data.get_top data Fso_k >. EnumeratedValue.to_float v
-        | FSO_k_lt v -> Data.get_top data Fso_k <. EnumeratedValue.to_float v
-        | FSO_d_gt v -> Data.get_top data Fso_d >. EnumeratedValue.to_float v
-        | FSO_d_lt v -> Data.get_top data Fso_d <. EnumeratedValue.to_float v
-        | RSI_gt v -> Data.get_top data Rsi >. EnumeratedValue.to_float v
-        | RSI_lt v -> Data.get_top data Rsi <. EnumeratedValue.to_float v
+        | FSO_k_gt v -> Data.get_top data fso_k >. EnumeratedValue.to_float v
+        | FSO_k_lt v -> Data.get_top data fso_k <. EnumeratedValue.to_float v
+        | FSO_d_gt v -> Data.get_top data fso_d >. EnumeratedValue.to_float v
+        | FSO_d_lt v -> Data.get_top data fso_d <. EnumeratedValue.to_float v
+        | RSI_gt v -> Data.get_top data rsi >. EnumeratedValue.to_float v
+        | RSI_lt v -> Data.get_top data rsi <. EnumeratedValue.to_float v
       in
       Result.return res
 

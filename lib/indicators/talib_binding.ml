@@ -1,3 +1,5 @@
+[@@@warning "-33"]
+
 module Data = Bars.Data
 
 let ohclv (x : Data.t) : Tacaml.Ohlcv.t =
@@ -10,27 +12,30 @@ let ohclv (x : Data.t) : Tacaml.Ohlcv.t =
   }
 
 module Input = struct
-  open Tacaml.Input_source
+  open Tacaml.Input
 
-  let of_data (Pack indicators : Tacaml.Pack.t) (data : Data.t) :
-      (Tacaml.Input_source.t, Error.t) result =
+  let of_data (Pack indicators : Tacaml.t) (data : Data.t) :
+      (Tacaml.Input.t, Error.t) result =
     match indicators with
     | Sma _ -> Result.return @@ Ohlcv (ohclv data)
     | _ -> Error.fatal "Input for indicator not yet implemented"
 end
 
 module Output = struct
-  open Tacaml.Output_destination
+  open Tacaml.Output
+  open Data.Type
 
-  let of_data (Pack indicators : Tacaml.Pack.t) (data : Data.t) =
+  let of_data (Pack indicators : Tacaml.t) (data : Data.t) =
     match indicators with
-    | Sma _ -> Result.return @@ FloatBA (Data.get_row data Sma)
+    | Sma _ ->
+      let output = Tacaml (F Sma) in
+      Result.return @@ FloatBA (Data.get_row data output)
     | _ -> Error.fatal "Output for indicator not yet implemented"
 end
 
-let calculate ?i (indicator : Tacaml.Pack.t) (data : Data.t) =
+let calculate ?i (indicator : Tacaml.t) (data : Data.t) =
   let ( let* ) = Result.( let* ) in
   let* input = Input.of_data indicator data in
   let* output = Output.of_data indicator data in
-  let* _ = Tacaml.Pack.calculate ?i indicator input output in
+  let* _ = Tacaml.calculate ?i indicator input output in
   Result.return ()

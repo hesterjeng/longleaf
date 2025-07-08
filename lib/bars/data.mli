@@ -9,8 +9,13 @@ type data_matrix =
 (** The underlying data structure for the time-series data, which is a 2D
     Bigarray of 64-bit floats. *)
 
+type int_matrix = (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array2.t
+
 type t = {
   data : data_matrix;
+  talib_indicators : data_matrix;
+  other_indicators : data_matrix;
+  int_indicators : int_matrix;
   current : int;
   size : int;
   indicators_computed : bool;
@@ -37,10 +42,8 @@ module Type : sig
     | Low
     | Close
     | Volume
-    | Sma
-    | Fso_k
-    | Fso_d
-    | Rsi
+    | Tacaml of (Tacaml.Indicator.t[@opaque])
+    | Other of string
   [@@deriving variants, show { with_path = false }]
 
   val count : int
@@ -64,7 +67,7 @@ module Column : sig
   (** This module provides functions for working with columns of the data
       matrix. *)
 
-  type t = { data : data_matrix; index : int }
+  type t = { data : data; index : int }
   (** The type for a column of the data matrix. *)
 
   val of_data : data -> int -> (t, Error.t) result

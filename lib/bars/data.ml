@@ -9,9 +9,14 @@ module Array2 = Bigarray.Array2
 (* let float64 = Bigarray.float64 *)
 
 type data_matrix = (float, Bigarray.float64_elt, Bigarray.c_layout) Array2.t
+type int_matrix = (int, Bigarray.int_elt, Bigarray.c_layout) Array2.t
+type source = F of data_matrix | I of int_matrix
 
 type t = {
   data : data_matrix;
+  talib_indicators : data_matrix;
+  other_indicators : data_matrix;
+  int_indicators : int_matrix;
   current : int;
   size : int;
   indicators_computed : bool;
@@ -29,13 +34,19 @@ module Type = struct
     | Low
     | Close
     | Volume
-    | Sma
-    | Fso_k
-    | Fso_d
-    | Rsi
+    | Tacaml of (Tacaml.Indicator.t[@opaque])
+    | Other of string
   [@@deriving variants, show { with_path = false }]
 
   let count = List.length Variants.descriptions
+
+  (* let source : type a b c. t -> data -> (a, b, c) Array2.t = *)
+  (*   fun (type a) data x -> *)
+  (*   match x with *)
+  (*   | Tacaml (F _) -> data.talib_indicators *)
+  (*   | Tacaml (I _) -> data.int_indicators *)
+  (*   | Other _ -> invalid_arg "Other indicators NYI" *)
+  (*   | _ -> data.data *)
 
   let to_int = function
     | Index -> 0
@@ -46,10 +57,9 @@ module Type = struct
     | Low -> 5
     | Close -> 6
     | Volume -> 7
-    | Sma -> 8
-    | Fso_k -> 9
-    | Fso_d -> 10
-    | Rsi -> 11
+    | Tacaml (F i) -> Tacaml.Indicator.Float.to_int i
+    | Tacaml (I i) -> Tacaml.Indicator.Int.to_int i
+    | Other _ -> invalid_arg "NYI"
 
   let of_int = function
     | 0 -> Index
@@ -60,26 +70,35 @@ module Type = struct
     | 5 -> Low
     | 6 -> Close
     | 7 -> Volume
-    | 8 -> Sma
-    | 9 -> Fso_k
-    | 10 -> Fso_d
-    | 11 -> Rsi
     | _ -> invalid_arg "Invalid Data.Type.of_int"
 end
 
-let get (data : t) (x : Type.t) i =
-  let res =
-    try Array2.get data.data (Type.to_int x) i with
-    | e ->
-      Eio.traceln "data.ml.get: Index (%d) out of bounds: len %d" i data.size;
-      raise e
-  in
+let get_ source ty i =
+  try Array2.get source (Type.to_int ty) i with
+  | e ->
+    Eio.traceln "data.ml.get_: Index out of bounds!";
+    raise e
+
+let set_ source ty i value =
+  try Array2.set source (Type.to_int ty) i value with
+  | e ->
+    Eio.traceln "data.ml.set_: Index out of bounds!";
+    raise e
+
+let get (data : t) (ty : Type.t) i =
   assert (i >= 0);
   assert (i < data.size);
+  let res =
+    match ty with
+    | Other _ -> get_ data.other_indicators ty i
+    | Tacaml (F _) -> get_ data.talib_indicators ty i
+    | Tacaml (I _) -> Float.of_int @@ get_ data.int_indicators ty i
+    | _ -> get_ data.data ty i
+  in
   assert (
     match not @@ Float.is_nan res with
     | false ->
-      Eio.traceln "%a index %d NaN" Type.pp x i;
+      Eio.traceln "%a index %d NaN" Type.pp ty i;
       (* Eio.traceln "%a" Data. *)
       false
       (* let col = Column.of_data data i in *)
@@ -87,18 +106,33 @@ let get (data : t) (x : Type.t) i =
     | true -> true);
   res
 
+let set (data : t) (ty : Type.t) i f =
+  assert (i >= 0);
+  assert (i < data.size);
+  let () =
+    match ty with
+    | Other _ -> set_ data.other_indicators ty i f
+    | Tacaml (F _) -> set_ data.talib_indicators ty i f
+    | Tacaml (I _) -> set_ data.int_indicators ty i (Int.of_float f)
+    | _ -> set_ data.data ty i f
+  in
+  ()
+
+let get_top = get
+let set_top = set
+
 module Column = struct
-  type t = { data : data_matrix; index : int }
+  type t = { data : data; index : int }
 
   let of_data (x : data) i : (t, Error.t) result =
-    if i >= 0 && i < x.size then Result.return { data = x.data; index = i }
+    if i >= 0 && i < x.size then Result.return { data = x; index = i }
     else
       Error.fatal
       @@ Format.sprintf "Data.LogicalColumn.of_data: index %d out of bounds" i
 
   let get (x : t) (ty : Type.t) =
     let err = Error.fatal "Data.LogicalColumn.get" in
-    Error.guard err @@ fun () -> Array2.get x.data (Type.to_int ty) x.index
+    Error.guard err @@ fun () -> get x.data ty x.index
 
   let pp : t Format.printer =
    fun fmt x ->
@@ -106,17 +140,21 @@ module Column = struct
     let pp_pair = Pair.pp ~pp_sep:(Format.return ": ") Type.pp Float.pp in
     let pp = Iter.pp_seq ~sep:"; " pp_pair in
     let l =
-      Iter.map (fun i -> (Type.of_int i, Array2.get x.data i x.index)) r
+      Iter.map
+        (fun i ->
+          let type_ = Type.of_int i in
+          (type_, get_top x.data type_ i))
+        r
     in
     Format.fprintf fmt "@[{ %a }@]@." pp l
+
+  let set_exn (col : t) (ty : Type.t) value =
+    set col.data ty col.index value
 
   let set (col : t) (ty : Type.t) value =
     let err = Error.fatal "Data.LogicalColumn.set" in
     Error.guard err @@ fun () ->
-    Array2.set col.data (Type.to_int ty) col.index value
-
-  let set_exn (col : t) (ty : Type.t) value =
-    Array2.set col.data (Type.to_int ty) col.index value
+    set_exn col ty value
 
   let timestamp (x : t) =
     let ( let* ) = Result.( let* ) in
@@ -151,7 +189,8 @@ module Row = struct
 end
 
 let get_row (data : t) (x : Type.t) : Row.t =
-  Array2.slice_left data.data @@ Type.to_int x
+  let source = Type.source data x in
+  Array2.slice_left source @@ Type.to_int x
 
 let pp : t Format.printer =
  fun fmt (x : t) ->
@@ -169,7 +208,8 @@ let length x = Array2.dim2 x.data
 let current x = x.current
 
 let set (res : t) (x : Type.t) i value =
-  try Array2.set res.data (Type.to_int x) i @@ value with
+  let source = Type.source res x in
+  try Array2.set source (Type.to_int x) i @@ value with
   | e ->
     Eio.traceln "data.ml.set: Index (%d) out of bounds: len %d" i res.size;
     raise e
@@ -208,6 +248,14 @@ let make size : t =
     data =
       Array2.init Bigarray.float64 Bigarray.c_layout Type.count size (fun _ _ ->
           Float.nan);
+    talib_indicators =
+      Array2.init Bigarray.float64 Bigarray.c_layout 110 size (fun _ _ ->
+          Float.nan);
+    other_indicators =
+      Array2.init Bigarray.float64 Bigarray.c_layout 10 size (fun _ _ ->
+          Float.nan);
+    int_indicators =
+      Array2.init Bigarray.int Bigarray.c_layout 70 size (fun _ _ -> 0);
     current = 0;
     size;
     indicators_computed = false;

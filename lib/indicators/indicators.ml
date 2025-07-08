@@ -2,7 +2,7 @@
 module Config = Config
 module Data = Bars.Data
 
-type t = Tacaml of Tacaml.Pack.t
+type t = Tacaml of Tacaml.t
 
 let compute ?i (indicators : t list) (config : Config.t) (bars : Bars.t) =
   match config.compute_live with
@@ -26,7 +26,7 @@ let compute ?i (indicators : t list) (config : Config.t) (bars : Bars.t) =
     Result.return ()
 
 let initialize () =
-  match Tacaml.Wrappers.ta_initialize () with
+  match Tacaml.initialize () with
   | Ok () -> ()
   | Error e ->
     Eio.traceln "Problem when initializing TA-Lib";
