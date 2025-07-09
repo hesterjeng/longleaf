@@ -164,8 +164,8 @@ val get_top : t -> Type.t -> float
     index. *)
 
 val get_top_int : t -> Type.t -> int
-(** [get_top_int res x] returns the integer value of the data field [x] at the current
-    index. Only works for integer indicators (Tacaml (I _)). *)
+(** [get_top_int res x] returns the integer value of the data field [x] at the
+    current index. Only works for integer indicators (Tacaml (I _)). *)
 
 (** {1 Conversions} *)
 

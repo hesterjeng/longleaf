@@ -23,6 +23,12 @@ type t =
   | Channel
   | Astar
   | Astarexample
+  | RsiMeanReversion
+  | MacdBollingerMomentum
+  | VolumeBreakout
+  | AdaptiveMomentumRegime
+  | SimpleAdaptiveRegime
+  | CandlestickPatterns
 [@@deriving show, eq, yojson, variants]
 
 let all = List.map fst Variants.descriptions
@@ -50,6 +56,12 @@ let strats : (t * (Options.t -> (_, _) result)) list =
     (* Channel --> (module Channel.Make); *)
     (* SpyTrader --> (module Spytrader.Make); *)
     Astarexample --> (module Astar_example.Make) (* (val Astar_example.m) *);
+    RsiMeanReversion --> (module Rsi_mean_reversion.Make);
+    MacdBollingerMomentum --> (module Macd_bollinger_momentum.Make);
+    VolumeBreakout --> (module Volume_breakout.Make);
+    AdaptiveMomentumRegime --> (module Adaptive_momentum_regime.Make);
+    SimpleAdaptiveRegime --> (module Simple_adaptive_regime.Make);
+    CandlestickPatterns --> (module Candlestick_patterns.Make);
   ]
 
 (** Function for Cmdliner use. *)
