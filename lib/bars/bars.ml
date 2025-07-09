@@ -29,9 +29,15 @@ let t_of_yojson ?eio_env (json : Yojson.Safe.t) : (t, Error.t) result =
     match eio_env with
     | Some env ->
       (* Parallel deserialization using Work_pool *)
+      let domain_mgr = Eio.Stdenv.domain_mgr env in
+      let clock = Eio.Stdenv.clock env in
+      let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
       let results =
-        Util.Work_pool.Work_pool.parallel_map_result ~eio_env:env
-          ~log_performance:true ~f:deserialize_symbol assoc
+        Eio.Switch.run (fun sw ->
+          let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
+          Util.Work_pool.Work_pool.parallel_map_result ~pool ~clock
+            ~log_performance:true ~f:deserialize_symbol assoc
+        )
       in
 
       (* Convert Work_pool results to Result.map_l format *)
