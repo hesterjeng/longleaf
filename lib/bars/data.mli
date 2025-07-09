@@ -163,6 +163,10 @@ val get_top : t -> Type.t -> float
 (** [get_top res x] returns the value of the data field [x] at the current
     index. *)
 
+val get_top_int : t -> Type.t -> int
+(** [get_top_int res x] returns the integer value of the data field [x] at the current
+    index. Only works for integer indicators (Tacaml (I _)). *)
+
 (** {1 Conversions} *)
 
 val item_of_column : t -> int -> Item.t
