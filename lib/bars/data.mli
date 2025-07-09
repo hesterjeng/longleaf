@@ -42,7 +42,7 @@ module Type : sig
     | Low
     | Close
     | Volume
-    | Tacaml of (Tacaml.Indicator.t[@opaque])
+    | Tacaml of Tacaml.Indicator.t
     | Other of string
   [@@deriving variants, show { with_path = false }]
 
