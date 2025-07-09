@@ -46,15 +46,12 @@ let yojson_of_t x = yojson_of_string @@ to_string x
 
 let find_closest (time : t) (l : t list) =
   let times_array = Array.of_list l in
-  let minimum_difference =
-    List.map
+  let a =
+    Array.map
       (fun x -> Ptime.diff time x |> Ptime.Span.to_float_s |> Float.abs)
-      l
-    |> Array.of_list |> Owl.Stats.min_i
+      times_array
   in
-  Array.get_safe times_array minimum_difference |> function
-  | Some res -> res
-  | None -> invalid_arg "Expected to find a closest time in Time.find_closest"
+  Array.min Float.compare a
 
 let get_todays_date () =
   let time = Unix.time () in

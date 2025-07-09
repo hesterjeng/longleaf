@@ -15,7 +15,7 @@
   iter
   cmdliner
   landmarks
-  owl
+  nx
   tacaml
   piaf
   yojson)

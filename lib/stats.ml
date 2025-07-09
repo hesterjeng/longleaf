@@ -53,7 +53,14 @@ let add_orders (h : Order.History.t) (x : t) : t =
     List.iter
       (fun order ->
         let closest_stat_time =
-          Time.find_closest (Order.timestamp order) stats_times
+          ( Time.find_closest (Order.timestamp order) stats_times
+          |> Option.map Time.of_float_res
+          |> function
+            | Some x -> x
+            | None -> Error.fatal "No time found in Stats.add_order" )
+          |> function
+          | Ok x -> x
+          | Error _ -> invalid_arg "No time found in Stats.add_order"
         in
         Array.map_inplace
           (fun (item : item) ->
