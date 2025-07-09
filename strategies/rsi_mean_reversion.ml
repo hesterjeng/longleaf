@@ -23,9 +23,9 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
     let sma_value = Bars.Data.get_top data sma_indicator in
     let current_price = Bars.Data.get_top data Bars.Data.Type.Close in
 
-    (* Buy conditions *)
-    let rsi_oversold = rsi_value <. 30.0 in
-    let above_sma = current_price >. sma_value in
+    (* Buy conditions - check for valid indicator values *)
+    let rsi_oversold = rsi_value <. 30.0 && not (Float.is_nan rsi_value) in
+    let above_sma = current_price >. sma_value && not (Float.is_nan sma_value) in
     let conditions_met = rsi_oversold && above_sma in
 
     let reason =
@@ -37,6 +37,11 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
       else []
     in
 
+    (* Log buy signals *)
+    if conditions_met then
+      Eio.traceln "BUY SIGNAL: %s - RSI: %.2f, SMA: %.2f, Price: %.2f, Score: %.2f"
+        (Instrument.symbol instrument) rsi_value sma_value current_price (30.0 -. rsi_value);
+
     Result.return { Signal.instrument; flag = conditions_met; reason }
 
   let score (state : _ State.t) instrument =
@@ -45,7 +50,10 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
     let rsi_value = Bars.Data.get_top data rsi_indicator in
 
     (* Lower RSI = higher score (more oversold = better buy opportunity) *)
-    let score = if rsi_value <. 30.0 then 30.0 -. rsi_value else 0.0 in
+    let score = 
+      if rsi_value <. 30.0 && not (Float.is_nan rsi_value) then 30.0 -. rsi_value 
+      else 0.0 
+    in
     Result.return score
 
   let num_positions = 3 (* Hold maximum 3 positions *)
@@ -88,6 +96,16 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
         ]
       else []
     in
+
+    (* Log sell signals *)
+    (if should_sell then
+      let sell_reason = 
+        if rsi_overbought then "RSI_OVERBOUGHT"
+        else if stop_loss then "STOP_LOSS"
+        else "PROFIT_TARGET"
+      in
+      Eio.traceln "SELL SIGNAL: %s - %s - RSI: %.2f, Entry: %.2f, Current: %.2f, P&L: %.2f%%"
+        (Instrument.symbol buying_order.symbol) sell_reason rsi_value entry_price current_price profit_pct);
 
     Result.return
       { Signal.instrument = buying_order.symbol; flag = should_sell; reason }
