@@ -15,8 +15,8 @@ let chunks_of ~len lst =
 
 (* Main work pool module *)
 module Work_pool = struct
-  let parallel_map ~pool ~clock ?(num_domains = None) ?(log_performance = false) ~f
-      items =
+  let parallel_map ~pool ~clock ?(num_domains = None) ?(log_performance = false)
+      ~f items =
     let num_cores =
       match num_domains with
       | Some n -> n
@@ -37,17 +37,21 @@ module Work_pool = struct
       let chunks = chunks_of ~len:chunk_size items in
 
       (* Process all chunks in parallel using Eio.Executor_pool *)
-      let results = 
+      let results =
         Eio.Switch.run (fun sw ->
-          let promises = List.map (fun chunk ->
-            Eio.Executor_pool.submit_fork ~sw pool ~weight:0.8 (fun () -> List.map f chunk)
-          ) chunks in
-          List.map (fun promise -> 
-            match Eio.Promise.await promise with
-            | Ok result -> result
-            | Error exn -> raise exn
-          ) promises
-        )
+            let promises =
+              List.map
+                (fun chunk ->
+                  Eio.Executor_pool.submit_fork ~sw pool ~weight:0.8 (fun () ->
+                      List.map f chunk))
+                chunks
+            in
+            List.map
+              (fun promise ->
+                match Eio.Promise.await promise with
+                | Ok result -> result
+                | Error exn -> raise exn)
+              promises)
       in
 
       let end_time = Eio.Time.now clock in
@@ -79,17 +83,21 @@ module Work_pool = struct
       let chunks = chunks_of ~len:chunk_size items in
 
       (* Process all chunks in parallel using Eio.Executor_pool *)
-      let results = 
+      let results =
         Eio.Switch.run (fun sw ->
-          let promises = List.map (fun chunk ->
-            Eio.Executor_pool.submit_fork ~sw pool ~weight:0.8 (fun () -> List.filter_map f chunk)
-          ) chunks in
-          List.map (fun promise -> 
-            match Eio.Promise.await promise with
-            | Ok result -> result
-            | Error exn -> raise exn
-          ) promises
-        )
+            let promises =
+              List.map
+                (fun chunk ->
+                  Eio.Executor_pool.submit_fork ~sw pool ~weight:0.8 (fun () ->
+                      List.filter_map f chunk))
+                chunks
+            in
+            List.map
+              (fun promise ->
+                match Eio.Promise.await promise with
+                | Ok result -> result
+                | Error exn -> raise exn)
+              promises)
       in
 
       let end_time = Eio.Time.now clock in
@@ -126,22 +134,25 @@ module Work_pool = struct
       let chunks = chunks_of ~len:chunk_size items in
 
       (* Process all chunks in parallel using Eio.Executor_pool *)
-      let results = 
+      let results =
         Eio.Switch.run (fun sw ->
-          let promises = List.map (fun chunk ->
-            Eio.Executor_pool.submit_fork ~sw pool ~weight:0.8 (fun () ->
+            let promises =
               List.map
-                (fun item ->
-                  try Ok (f item) with
-                  | exn -> Error exn)
-                chunk)
-          ) chunks in
-          List.map (fun promise -> 
-            match Eio.Promise.await promise with
-            | Ok result -> result
-            | Error exn -> raise exn
-          ) promises
-        )
+                (fun chunk ->
+                  Eio.Executor_pool.submit_fork ~sw pool ~weight:0.8 (fun () ->
+                      List.map
+                        (fun item ->
+                          try Ok (f item) with
+                          | exn -> Error exn)
+                        chunk))
+                chunks
+            in
+            List.map
+              (fun promise ->
+                match Eio.Promise.await promise with
+                | Ok result -> result
+                | Error exn -> raise exn)
+              promises)
       in
 
       let end_time = Eio.Time.now clock in

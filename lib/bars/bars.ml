@@ -34,10 +34,9 @@ let t_of_yojson ?eio_env (json : Yojson.Safe.t) : (t, Error.t) result =
       let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
       let results =
         Eio.Switch.run (fun sw ->
-          let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
-          Util.Work_pool.Work_pool.parallel_map_result ~pool ~clock
-            ~log_performance:true ~f:deserialize_symbol assoc
-        )
+            let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
+            Util.Work_pool.Work_pool.parallel_map_result ~pool ~clock
+              ~log_performance:true ~f:deserialize_symbol assoc)
       in
 
       (* Convert Work_pool results to Result.map_l format *)

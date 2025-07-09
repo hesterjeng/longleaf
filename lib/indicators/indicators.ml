@@ -65,22 +65,21 @@ let compute_all ?i ?eio_env (config : Config.t) (bars : Bars.t) =
       let clock = Eio.Stdenv.clock env in
       let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
       Eio.Switch.run (fun sw ->
-        let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
-        let results =
-          Util.Work_pool.Work_pool.parallel_map_result ~pool ~clock
-            ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
-        in
+          let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
+          let results =
+            Util.Work_pool.Work_pool.parallel_map_result ~pool ~clock
+              ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
+          in
 
-        (* Check if any computation failed *)
-        List.fold_left
-          (fun acc result ->
-            match (acc, result) with
-            | Ok (), Ok (Ok ()) -> Ok ()
-            | Ok (), Ok (Error e) -> Error e
-            | Error e, _ -> Error e
-            | _, Error exn -> Error (`FatalError (Printexc.to_string exn)))
-          (Ok ()) results
-      )
+          (* Check if any computation failed *)
+          List.fold_left
+            (fun acc result ->
+              match (acc, result) with
+              | Ok (), Ok (Ok ()) -> Ok ()
+              | Ok (), Ok (Error e) -> Error e
+              | Error e, _ -> Error e
+              | _, Error exn -> Error (`FatalError (Printexc.to_string exn)))
+            (Ok ()) results)
     | _, _ ->
       (* Sequential computation (original behavior) *)
       compute ?i ta_lib_all config bars
