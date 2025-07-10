@@ -273,3 +273,7 @@ let gadt_to_strategy_builder (strategy : strategy) =
     Template.Make ((val buy_trigger)) ((val sell_trigger))
   in
   (module StrategyBuilder : Strategy.BUILDER)
+
+let run strategy options =
+  let res = Strategy.run (gadt_to_strategy_builder strategy) options in
+  res

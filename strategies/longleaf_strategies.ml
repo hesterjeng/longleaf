@@ -157,21 +157,6 @@ let run (context : Options.t) =
 module Run = struct
   open Longleaf_lib
 
-  let mk_options switch eio_env flags target : Options.t =
-    let longleaf_env = Util.Environment.make () in
-    let mutices = Server.Longleaf_mutex.create () in
-    {
-      symbols = Collections.sp100;
-      eio_env;
-      longleaf_env;
-      switch;
-      flags;
-      tick = 600.0;
-      indicators_config = Indicators.Config.default;
-      target;
-      mutices;
-    }
-
   let run_server eio_env (flags : Options.CLI.t) mutices () =
     let domain_manager = Eio.Stdenv.domain_mgr eio_env in
     match flags.no_gui with
@@ -194,7 +179,7 @@ module Run = struct
       | Target.Loaded _ ->
         target
     in
-    let options = mk_options switch eio_env flags loaded_target in
+    let options = Strategy.mk_options switch eio_env flags loaded_target in
     let _res = run options in
     ()
 
