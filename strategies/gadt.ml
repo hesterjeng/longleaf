@@ -274,6 +274,9 @@ let gadt_to_strategy_builder (strategy : strategy) =
   in
   (module StrategyBuilder : Strategy.BUILDER)
 
-let run strategy options =
+let run (options : Options.t) strategy =
+  let options =
+    { options with flags = { options.flags with strategy_arg = strategy.name } }
+  in
   let res = Strategy.run (gadt_to_strategy_builder strategy) options in
   res

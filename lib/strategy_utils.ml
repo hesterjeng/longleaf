@@ -174,11 +174,12 @@ module Make (Backend : Backend.S) = struct
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
-      let* () =
-        Indicators.compute_all ~eio_env:Backend.env
-          Input.options.indicators_config state.bars
-      in
+      (* let* () = *)
+      (*   Indicators.compute_all ~eio_env:Backend.env *)
+      (*     Input.options.indicators_config state.bars *)
+      (* in *)
       Bars.set_current state.bars state.tick;
+      Eio.traceln "Bars initialize: %a" Bars.pp state.bars;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       start_time := Eio.Time.now Backend.env#clock;
       Eio.traceln "Running...";
@@ -216,8 +217,11 @@ module Make (Backend : Backend.S) = struct
       Ticker.tick ~runtype Backend.env 600.0;
       Result.return { state with current = Listening }
     | Finished code ->
-      Eio.traceln "@[Reached finished state. %f@]@."
-        (Portfolio.get_cash state.positions);
+      Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@."
+        state.tick
+        (Portfolio.get_cash state.positions)
+        (Order.History.length state.order_history);
+      Eio.traceln "state.bars at finish: %a" Bars.pp state.bars;
       Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
       if not options.flags.no_gui then (
         let stats_with_orders =

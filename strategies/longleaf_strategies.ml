@@ -174,16 +174,22 @@ module Run = struct
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
     (* Load target bars with eio_env if needed *)
-    let loaded_target =
+    let loaded_target, bars =
       match target with
       | Target.File _ ->
         let bars = Target.load_bars ~eio_env target in
-        Target.Loaded bars
-      | Target.Download
-      | Target.Loaded _ ->
-        target
+        (Target.Loaded bars, bars)
+      | Target.Download -> invalid_arg "Download bars NYI"
+      | Target.Loaded bars -> (target, bars)
     in
     let options = Strategy.mk_options switch eio_env flags loaded_target in
+    let () =
+      Indicators.compute_all ~eio_env options.indicators_config bars |> function
+      | Ok x -> x
+      | Error e ->
+        Eio.traceln "%a" Error.pp e;
+        invalid_arg "Indicators computation error"
+    in
     let _res = run options in
     ()
 

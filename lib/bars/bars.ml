@@ -85,6 +85,16 @@ let length (x : t) =
   | n when len = n -> Ok acc
   | _ -> Error.fatal "Mismatched price history v2 matrices in Bars v2"
 
+let current (x : t) =
+  let ( let* ) = Result.( let* ) in
+  fold x (Ok 0) @@ fun _ ph acc ->
+  let* acc = acc in
+  let cur = Data.current ph in
+  match acc with
+  | 0 -> Ok cur
+  | n when cur = n -> Ok acc
+  | _ -> Error.fatal "Mismatched price history current v2 matrices in Bars v2"
+
 let timestamp (x : t) =
   let res =
     fold x None @@ fun _symbol data acc ->
@@ -133,13 +143,24 @@ let of_file ?eio_env file =
 (*   Result.return acc *)
 
 let pp : t Format.printer =
- fun fmt _ -> Format.fprintf fmt "@[<Bars.pp opaque>@]@."
+ fun fmt x ->
+  let ok =
+    let ( let* ) = Result.( let* ) in
+    let* length = length x in
+    let* current = current x in
+    Result.return @@ (length, current)
+  in
+  match ok with
+  | Ok (len, cur) ->
+    Format.fprintf fmt " { Bars.length = %d; current = %d; _ }" len cur
+  | Error e -> Format.fprintf fmt "%a Illegal Bars!" Error.pp e
 
-let pp_stats : t Format.printer =
- fun fmt b ->
-  match length b with
-  | Ok len -> Format.fprintf fmt "@[bars length: %d@]@." len
-  | Error _ -> Format.fprintf fmt "@[Error when printing bars stats@]@."
+let pp_stats = pp
+(* let pp_stats : t Format.printer = *)
+(*  fun fmt b -> *)
+(*   match length b with *)
+(*   | Ok len -> Format.fprintf fmt "@[bars length: %d@]@." len *)
+(*   | Error _ -> Format.fprintf fmt "@[Error when printing bars stats@]@." *)
 
 (* let latest_i (x : t) i = *)
 (*   let ( let* ) = Result.( let* ) in *)

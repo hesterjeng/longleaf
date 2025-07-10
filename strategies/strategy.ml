@@ -37,7 +37,8 @@ let run (module Strat : BUILDER) options =
   let* backend = Backend.make options in
   let module Backend = (val backend) in
   let module S = Strat (Backend) in
-  Eio.traceln "Applied strategy functor to backend, running.";
+  Eio.traceln "Applied strategy functor to backend, running %s."
+    options.flags.strategy_arg;
   let res = S.run () in
   Backend.shutdown ();
   Result.return res
