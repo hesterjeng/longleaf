@@ -42,8 +42,12 @@ let sharpe_ratio (stats : Stats.t) =
       (fun (x : Stats.item) -> x.value -. x.risk_free_value)
       stats.history
     |> Array.of_list
+    (* |> Bigarray.ini *)
   in
-  let std = Owl_stats.std values in
+  let nx =
+    Nx.init Nx.float64 [| Array.length values |] @@ fun i -> values.(i.(0))
+  in
+  let std = Nx.std nx |> Nx.get_item [] in
   let sharpe = (final.value -. final.risk_free_value) /. std in
   sharpe
 
@@ -56,7 +60,14 @@ let average_trade_net (h : Order.History.t) =
            profit)
     |> Array.of_list
   in
-  Owl_stats.mean nets
+  let nx =
+    (Nx.init Nx.float64 [| Array.length nets |] @@ fun i -> nets.(i.(0)))
+    |> Nx.mean |> Nx.get_item []
+  in
+  nx
+
+(* Nx.me *)
+(* Owl_stats.mean nets *)
 
 let average_profit (h : Order.History.t) =
   let ( let* ) = Option.( let* ) in
@@ -69,7 +80,11 @@ let average_profit (h : Order.History.t) =
            | false -> None)
     |> Array.of_list
   in
-  Owl_stats.mean nets
+  let nx =
+    (Nx.init Nx.float64 [| Array.length nets |] @@ fun i -> nets.(i.(0)))
+    |> Nx.mean |> Nx.get_item []
+  in
+  nx
 
 let average_loss (h : Order.History.t) =
   let ( let* ) = Option.( let* ) in
@@ -82,13 +97,21 @@ let average_loss (h : Order.History.t) =
            | false -> None)
     |> Array.of_list
   in
-  Owl_stats.mean nets
+  let nx =
+    (Nx.init Nx.float64 [| Array.length nets |] @@ fun i -> nets.(i.(0)))
+    |> Nx.mean |> Nx.get_item []
+  in
+  nx
 
 let stddev_returns (stats : Stats.t) =
   let returns =
     List.map (fun (x : Stats.item) -> x.value) stats.history |> Array.of_list
   in
-  Owl_stats.std returns
+  let nx =
+    (Nx.init Nx.float64 [| Array.length returns |] @@ fun i -> returns.(i.(0)))
+    |> Nx.std |> Nx.get_item []
+  in
+  nx
 
 let profit_factor (h : Order.History.t) =
   let profits =
@@ -141,11 +164,16 @@ let compound_growth_rate (state : 'a State.t) =
   (* 251 trading days per year *)
   (* ~ 5873400 trading seconds per year *)
   assert (Portfolio.is_empty state.positions);
-  let ( ^ ) = Owl_maths.pow in
+  (* let ( ^ ) = Owl_maths.pow in *)
   let ticks_per_year = 5873400.0 /. state.tick_length in
-  let exponent = ticks_per_year /. Float.of_int state.tick in
-  let ratio = Portfolio.get_cash state.positions /. 100000.0 in
-  let cagr = (ratio ^ exponent) -. 1.0 in
+  let exponent =
+    Nx.scalar Nx.float64 @@ (ticks_per_year /. Float.of_int state.tick)
+  in
+  let ratio =
+    Nx.scalar Nx.float64 @@ (Portfolio.get_cash state.positions /. 100000.0)
+  in
+  let pow = Nx.pow ratio exponent |> Nx.get_item [] in
+  let cagr = pow -. 1.0 in
   cagr
 
 (* let annualized_value (state : 'a State.t) = *)
