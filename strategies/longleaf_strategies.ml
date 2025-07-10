@@ -133,25 +133,25 @@ let run (context : Options.t) =
     let init = Array.make 30 () in
     let res = Array.map (fun _ -> run_strat context) init in
     Array.sort Float.compare res;
-    let mean = Owl_stats.mean res in
-    let std = Owl_stats.std res in
-    let min, max = Owl_stats.minmax res in
-    let result = { mean; min; max; std } in
-    Eio.traceln "@[%a@]@.@[%a@]@." pp_multitest result (Array.pp Float.pp) res;
-    let histogram = Owl_stats.histogram (`N 10) res in
-    let percent_profitable =
-      Array.filter (fun x -> x >=. 100000.0) res |> Array.length |> Float.of_int
-      |> fun f -> f /. (Float.of_int @@ Array.length res)
-    in
-    let percent_great =
-      Array.filter (fun x -> x >=. 110000.0) res |> Array.length |> Float.of_int
-      |> fun f -> f /. (Float.of_int @@ Array.length res)
-    in
-    Eio.traceln "@[percent profitable: %f@]@." percent_profitable;
-    Eio.traceln "@[percent great: %f@]@." percent_great;
-    let normalised_histogram = Owl_stats.normalise histogram in
-    Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram;
-    Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram;
+    (* let mean = Owl_stats.mean res in *)
+    (* let std = Owl_stats.std res in *)
+    (* let min, max = Owl_stats.minmax res in *)
+    (* let result = { mean; min; max; std } in *)
+    (* Eio.traceln "@[%a@]@.@[%a@]@." pp_multitest result (Array.pp Float.pp) res; *)
+    (* let histogram = Owl_stats.histogram (`N 10) res in *)
+    (* let percent_profitable = *)
+    (*   Array.filter (fun x -> x >=. 100000.0) res |> Array.length |> Float.of_int *)
+    (*   |> fun f -> f /. (Float.of_int @@ Array.length res) *)
+    (* in *)
+    (* let percent_great = *)
+    (*   Array.filter (fun x -> x >=. 110000.0) res |> Array.length |> Float.of_int *)
+    (*   |> fun f -> f /. (Float.of_int @@ Array.length res) *)
+    (* in *)
+    (* Eio.traceln "@[percent profitable: %f@]@." percent_profitable; *)
+    (* Eio.traceln "@[percent great: %f@]@." percent_great; *)
+    (* let normalised_histogram = Owl_stats.normalise histogram in *)
+    (* Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram; *)
+    (* Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram; *)
     0.0
 
 module Run = struct
