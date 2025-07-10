@@ -186,6 +186,34 @@ let piercing =
 let dark_cloud =
   Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlDarkCloudCover)))
 
+(* Additional candlestick patterns for testing *)
+let inverted_hammer =
+  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlInvertedHammer)))
+
+let dragonfly_doji =
+  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlDragonflyDoji)))
+
+let gravestone_doji =
+  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlGravestoneDoji)))
+
+let three_white_soldiers =
+  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.Cdl3WhiteSoldiers)))
+
+let three_black_crows =
+  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.Cdl3BlackCrows)))
+
+let belt_hold =
+  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlBeltHold)))
+
+let abandoned_baby =
+  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlAbandonedBaby)))
+
+let harami =
+  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlHarami)))
+
+let harami_cross =
+  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlHaramiCross)))
+
 (* Convenience operators *)
 let ( >. ) e1 e2 = GT (e1, e2)
 let ( <. ) e1 e2 = LT (e1, e2)

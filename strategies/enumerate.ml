@@ -1,3 +1,5 @@
+module Work_pool = Longleaf_lib.Util.Work_pool
+
 let run_l options l =
   let ( let* ) = Result.( let* ) in
   Eio.traceln "Enumerate mode E1";
