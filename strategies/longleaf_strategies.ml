@@ -29,6 +29,7 @@ type t =
   | AdaptiveMomentumRegime
   | SimpleAdaptiveRegime
   | CandlestickPatterns
+  | ModeE
 [@@deriving show, eq, yojson, variants]
 
 let all = List.map fst Variants.descriptions
@@ -76,9 +77,9 @@ let of_string_res x =
             (List.pp String.pp) all)
 
 (** Based on the context, select and run the strategy. *)
-let run_strat_ (context : Options.t) strategy =
+let run_strat_ (context : Options.t) =
   let ( let* ) = Result.( let* ) in
-  let* strategy = of_string_res strategy in
+  let* strategy = of_string_res context.flags.strategy_arg in
   let f = List.Assoc.get ~eq:equal strategy strats in
   let* strat =
     match f with
@@ -88,10 +89,13 @@ let run_strat_ (context : Options.t) strategy =
   let* res = strat context in
   Result.return res
 
-let run_strat context =
-  match run_strat_ context context.flags.strategy_arg with
-  | Ok x -> x
-  | Error e -> Error.raise e
+let run_strat (context : Options.t) =
+  match context.flags.strategy_arg with
+  | "E0" -> Enumerate.top context
+  | _ -> (
+    match run_strat_ context with
+    | Ok x -> x
+    | Error e -> Error.raise e)
 
 (** Function for Cmdliner use. *)
 let conv = Cmdliner.Arg.conv (of_string_res, pp)

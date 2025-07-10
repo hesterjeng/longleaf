@@ -3,6 +3,16 @@ module type S = sig
   val shutdown : unit -> unit
 end
 
+let dummy f =
+  let module Dummy = struct
+    let run () =
+      let _ = f () in
+      0.0
+
+    let shutdown () = ()
+  end in
+  (module Dummy : S)
+
 module type BUILDER = functor (_ : Backend.S) -> S
 
 let mk_options switch eio_env flags target : Options.t =
