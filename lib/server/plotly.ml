@@ -21,30 +21,41 @@ let layout title =
             "dtick" = `Int 20;
             "showticklabels" = `Bool false;
           ];
-      "yaxis" = `Assoc [ "title" = `String "Value" ];
+      "yaxis" = `Assoc [ "title" = `String "Price" ];
+      "yaxis2"
+      = `Assoc
+          [
+            "title" = `String "Oscillators";
+            "overlaying" = `String "y";
+            "side" = `String "right";
+            "range" = `List [ `Int (-20); `Int 120 ];
+            "showgrid" = `Bool false;
+            "zeroline" = `Bool false;
+          ];
     ]
 
 (** {1 Core Trace Functions} *)
 
-let direct_price_trace ?(start = 0) ?end_ (data : Data.t) (symbol : Instrument.t) : Yojson.Safe.t =
+let direct_price_trace ?(start = 0) ?end_ (data : Data.t)
+    (symbol : Instrument.t) : Yojson.Safe.t =
   let length = Data.length data in
   let end_idx = Option.value end_ ~default:length in
   let end_idx = Int.min end_idx length in
   let symbol_str = Instrument.symbol symbol in
-  
-  let x = Array.init (end_idx - start) (fun i ->
-    let actual_i = start + i in
-    let timestamp = Data.get data Time actual_i |> Ptime.of_float_s 
-                   |> Option.map Ptime.to_rfc3339
-                   |> Option.get_exn_or "Invalid timestamp in direct_price_trace" in
-    `String timestamp
-  ) |> Array.to_list in
-  
-  let y = Array.init (end_idx - start) (fun i ->
-    let actual_i = start + i in
-    `Float (Data.get data Last actual_i)
-  ) |> Array.to_list in
-  
+
+  let rec build_lists i acc_x acc_y =
+    if i >= end_idx then (List.rev acc_x, List.rev acc_y)
+    else
+      let timestamp =
+        Data.get data Time i |> Ptime.of_float_s
+        |> Option.map Ptime.to_rfc3339
+        |> Option.get_exn_or "Invalid timestamp in direct_price_trace"
+      in
+      let price = Data.get data Last i in
+      build_lists (i + 1) (`String timestamp :: acc_x) (`Float price :: acc_y)
+  in
+  let x, y = build_lists start [] [] in
+
   `Assoc
     [
       ("x", `List x);
@@ -54,7 +65,8 @@ let direct_price_trace ?(start = 0) ?end_ (data : Data.t) (symbol : Instrument.t
       ("type", `String "scatter");
     ]
 
-let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") ?(start = 0) ?end_ bars
+let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
+    ?(color = "#1f77b4") ?(dash = "solid") ?(width = 1) ?(start = 0) ?end_ bars
     (indicator : Data.Type.t) (symbol : Instrument.t) =
   let ( let* ) = Result.( let* ) in
   let* data = Bars.get bars symbol in
@@ -63,32 +75,33 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") ?(start = 0) ?e
   let end_idx = Option.value end_ ~default:length in
   let end_idx = Int.min end_idx length in
   let effective_start = Int.max start drop in
-  
+
   if effective_start >= end_idx then
-    Result.return @@ `Assoc [
-      ("x", `List []);
-      ("y", `List []);
-      ("text", `String indicator_name);
-      ("name", `String indicator_name);
-      ("yaxis", `String yaxis);
-      ("type", `String "scatter");
-      ("visible", `String (if show then "true" else "legendonly"));
-    ]
+    Result.return
+    @@ `Assoc
+         [
+           ("x", `List []);
+           ("y", `List []);
+           ("text", `String indicator_name);
+           ("name", `String indicator_name);
+           ("yaxis", `String yaxis);
+           ("type", `String "scatter");
+           ("visible", `String (if show then "true" else "legendonly"));
+         ]
   else
-    let size = end_idx - effective_start in
-    let x = Array.init size (fun i ->
-      let actual_i = effective_start + i in
-      let timestamp = Data.get data Time actual_i |> Ptime.of_float_s
-                     |> Option.map Ptime.to_rfc3339
-                     |> Option.get_exn_or "Illegal time stored in data table (plotly.ml)" in
-      `String timestamp
-    ) |> Array.to_list in
-    
-    let y = Array.init size (fun i ->
-      let actual_i = effective_start + i in
-      `Float (Data.get data indicator actual_i)
-    ) |> Array.to_list in
-    
+    let rec build_lists i acc_x acc_y =
+      if i >= end_idx then (List.rev acc_x, List.rev acc_y)
+      else
+        let timestamp =
+          Data.get data Time i |> Ptime.of_float_s
+          |> Option.map Ptime.to_rfc3339
+          |> Option.get_exn_or "Illegal time stored in data table (plotly.ml)"
+        in
+        let value = Data.get data indicator i in
+        build_lists (i + 1) (`String timestamp :: acc_x) (`Float value :: acc_y)
+    in
+    let x, y = build_lists effective_start [] [] in
+
     let visible = if show then "true" else "legendonly" in
     Result.return
     @@ `Assoc
@@ -103,12 +116,14 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") ?(start = 0) ?e
            ( "line",
              `Assoc
                [
-                 ("dash", `String "dash");
-                 ("width", `Int 2);
+                 ("color", `String color);
+                 ("dash", `String dash);
+                 ("width", `Int width);
                ] );
          ]
 
-let order_trace (side : Trading_types.Side.t) (orders : Order.t list) : Yojson.Safe.t =
+let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
+    Yojson.Safe.t =
   let x =
     List.map
       (fun (x : Order.t) ->
@@ -145,17 +160,102 @@ let of_bars ?(start = 0) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
   let result =
     let* data = Bars.get bars symbol in
     let price_trace = direct_price_trace ~start ?end_ data symbol in
+
+    (* Create the 10 most common technical indicators *)
+
+    (* Price overlay indicators (main y-axis) *)
+    let* sma_20 =
+      indicator_trace ~show:true ~drop:20 ~color:"#ff7f0e" ~width:2 ~start ?end_
+        bars (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Sma))
+        symbol
+    in
+    let* ema_20 =
+      indicator_trace ~show:true ~drop:20 ~color:"#2ca02c" ~width:2 ~start ?end_
+        bars (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Ema))
+        symbol
+    in
+    let* bb_upper =
+      indicator_trace ~show:false ~drop:20 ~color:"#d62728" ~dash:"dot" ~start
+        ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.UpperBBand))
+        symbol
+    in
+    let* bb_lower =
+      indicator_trace ~show:false ~drop:20 ~color:"#d62728" ~dash:"dot" ~start
+        ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.LowerBBand))
+        symbol
+    in
+
+    (* Oscillators (secondary y-axis) *)
+    let* rsi_14 =
+      indicator_trace ~show:false ~drop:14 ~yaxis:"y2" ~color:"#9467bd" ~width:2
+        ~start ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Rsi))
+        symbol
+    in
+    let* stoch_k =
+      indicator_trace ~show:false ~drop:14 ~yaxis:"y2" ~color:"#8c564b"
+        ~dash:"dash" ~start ?end_ bars
+        (Data.Type.Tacaml
+           (Tacaml.Indicator.F Tacaml.Indicator.Float.Stoch_SlowK)) symbol
+    in
+    let* cci_14 =
+      indicator_trace ~show:false ~drop:14 ~yaxis:"y2" ~color:"#e377c2"
+        ~dash:"dashdot" ~start ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Cci))
+        symbol
+    in
+
+    (* MACD indicators (main y-axis but separate) *)
+    let* macd =
+      indicator_trace ~show:false ~drop:26 ~color:"#17becf" ~width:2 ~start
+        ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Macd_MACD))
+        symbol
+    in
+    let* macd_signal =
+      indicator_trace ~show:false ~drop:35 ~color:"#bcbd22" ~dash:"dash" ~start
+        ?end_ bars
+        (Data.Type.Tacaml
+           (Tacaml.Indicator.F Tacaml.Indicator.Float.Macd_MACDSignal)) symbol
+    in
+
+    (* Volatility indicator *)
+    let* atr_14 =
+      indicator_trace ~show:false ~drop:14 ~color:"#ff9896" ~width:2 ~start
+        ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Atr))
+        symbol
+    in
+
     let ( = ) = fun x y -> (x, y) in
     Result.return
     @@ `Assoc
          [
-           "traces" = `List [ price_trace ];
+           "traces"
+           = `List
+               [
+                 price_trace;
+                 sma_20;
+                 ema_20;
+                 rsi_14;
+                 macd;
+                 macd_signal;
+                 bb_upper;
+                 bb_lower;
+                 stoch_k;
+                 atr_14;
+                 cci_14;
+               ];
            "layout" = layout @@ Instrument.symbol symbol;
          ]
   in
   match result with
   | Ok json -> Some json
-  | Error _ -> None
+  | Error e ->
+    Eio.traceln "%a" Error.pp e;
+    None
 
 (** {1 Statistics Module} *)
 
@@ -275,7 +375,8 @@ end
 (** {1 Legacy Functions} *)
 
 module Legacy = struct
-  (** Legacy function that uses Item.t list - use direct_price_trace for better performance *)
+  (** Legacy function that uses Item.t list - use direct_price_trace for better
+      performance *)
   let price_trace (data : Item.t list) (symbol : Instrument.t) : Yojson.Safe.t =
     let x =
       let mk_plotly_x x =
