@@ -14,11 +14,6 @@ let serve_favicon () =
 
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let bars = Pmutex.get mutices.data_mutex in
-  Eio.traceln "plotly_response_of_symbol: Looking for symbol %a" Instrument.pp
-    target;
-  (* Debug: log available symbols *)
-  Bars.fold bars () (fun symbol _data () ->
-      Eio.traceln "Available symbol: %a" Instrument.pp symbol);
   let bars_json_opt = Plotly.of_bars bars target in
   match bars_json_opt with
   | Some bars -> Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
@@ -68,15 +63,12 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     let body = Plotly.Stats.make stats |> Yojson.Safe.to_string in
     Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/symbols"; _ } ->
-    Eio.traceln "symbols endpoint: Getting symbols directly from bars";
     let bars = Pmutex.get mutices.data_mutex in
     let symbols_list =
       Bars.fold bars [] (fun symbol _data acc ->
           Instrument.symbol symbol :: acc)
     in
     let symbols_str = String.concat "," symbols_list in
-    Eio.traceln "symbols endpoint: found %d symbols: %s"
-      (List.length symbols_list) symbols_str;
     let body =
       `Assoc [ ("symbols", `String symbols_str) ] |> Yojson.Safe.to_string
     in
@@ -106,15 +98,10 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       | Some s -> s
     in
     let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
-    Eio.traceln "data endpoint: raw target='%s'" target;
     let instrument = Instrument.of_string_res target in
     match instrument with
-    | Ok targ ->
-      Eio.traceln "data endpoint: parsed instrument=%a" Instrument.pp targ;
-      plotly_response_of_symbol ~mutices targ
-    | Error e ->
-      Eio.traceln "data endpoint: failed to parse instrument: %a"
-        Longleaf_error.pp e;
+    | Ok targ -> plotly_response_of_symbol ~mutices targ
+    | Error _ ->
       Response.of_string
         ~body:("Unable to create Instrument.t from " ^ target)
         `Internal_server_error)

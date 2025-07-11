@@ -146,18 +146,10 @@ let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
 
 let of_bars (bars : Bars.t) symbol : Yojson.Safe.t option =
   let ( let* ) = Result.( let* ) in
-  Eio.traceln "Plotly.of_bars: Starting for symbol %a" Instrument.pp symbol;
   let result =
     let* data = Bars.get bars symbol in
-    Eio.traceln "Plotly.of_bars: Got data for symbol, length=%d"
-      (Data.length data);
     let data_vec = Data.to_items data in
-    Eio.traceln "Plotly.of_bars: Converted to %d items" (List.length data_vec);
     let price_trace = price_trace data_vec symbol in
-    Eio.traceln "Plotly.of_bars: Created price trace";
-
-    (* Temporarily skip indicators to test basic functionality *)
-    Eio.traceln "Plotly.of_bars: Building JSON with price trace only";
     let ( = ) = fun x y -> (x, y) in
     Result.return
     @@ `Assoc
@@ -167,12 +159,8 @@ let of_bars (bars : Bars.t) symbol : Yojson.Safe.t option =
          ]
   in
   match result with
-  | Ok json ->
-    Eio.traceln "Plotly.of_bars: Success!";
-    Some json
-  | Error e ->
-    Eio.traceln "Error in Plotly.of_bars: %a" Error.pp e;
-    None
+  | Ok json -> Some json
+  | Error _ -> None
 (* let* data_vec = Bars.get bars symbol in *)
 (* let data = Vector.to_list data_vec in *)
 (* let* ema_12_trace = *)

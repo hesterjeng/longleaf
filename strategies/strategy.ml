@@ -15,9 +15,9 @@ let dummy f =
 
 module type BUILDER = functor (_ : Backend.S) -> S
 
-let mk_options switch eio_env flags target : Options.t =
+let mk_options switch eio_env flags target mutices : Options.t =
   let longleaf_env = Util.Environment.make () in
-  let mutices = Server.Longleaf_mutex.create () in
+  (* let mutices = Server.Longleaf_mutex.create () in *)
   {
     symbols = Ticker_collections.sp100;
     eio_env;
