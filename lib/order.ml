@@ -52,3 +52,6 @@ let cmp_profit x y =
   | _ -> 0
 
 let cmp_timestamp x y = Ptime.compare x.timestamp y.timestamp
+
+(* Status submodule for convenience - re-exports Trading_types.Status *)
+module Status = Trading_types.Status

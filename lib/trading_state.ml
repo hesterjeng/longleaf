@@ -1,41 +1,9 @@
-(* Order Status Module *)
-module Order_status = struct
-  (* Use Trading_types.Status as the comprehensive status type *)
-  type t = Trading_types.Status.t [@@deriving show]
-
-  let equal s1 s2 =
-    (* Compare by converting to strings since Trading_types.Status doesn't have equal *)
-    String.equal
-      (Trading_types.Status.yojson_of_t s1 |> Yojson.Safe.to_string)
-      (Trading_types.Status.yojson_of_t s2 |> Yojson.Safe.to_string)
-
-  let is_pending = function
-    | Trading_types.Status.Pending_new
-    | Trading_types.Status.New ->
-      true
-    | _ -> false
-
-  let is_active = function
-    | Trading_types.Status.Accepted
-    | Trading_types.Status.Partially_filled ->
-      true
-    | _ -> false
-
-  let is_filled = function
-    | Trading_types.Status.Filled -> true
-    | _ -> false
-
-  (* JSON serialization using Trading_types.Status *)
-  let yojson_of_t = Trading_types.Status.yojson_of_t
-  let t_of_yojson = Trading_types.Status.t_of_yojson
-end
-
 (* Order Record Module *)
 module Order_record = struct
   type t = {
     order : Order.t;
     id : Order_id.t;
-    status : Order_status.t;
+    status : Order.Status.t;
     filled_qty : int;
     remaining_qty : int;
   }
@@ -44,14 +12,14 @@ module Order_record = struct
     Format.fprintf fmt
       "{ order = %a; id = %a; status = %a; filled_qty = %d; remaining_qty = %d \
        }"
-      Order.pp record.order Order_id.pp record.id Order_status.pp record.status
+      Order.pp record.order Order_id.pp record.id Order.Status.pp record.status
       record.filled_qty record.remaining_qty
 
   let make order id =
     {
       order;
       id;
-      status = Trading_types.Status.New;
+      status = Order.Status.New;
       filled_qty = 0;
       remaining_qty = order.qty;
     }
@@ -62,8 +30,8 @@ module Order_record = struct
     let new_filled = record.filled_qty + qty in
     let new_remaining = record.remaining_qty - qty in
     let new_status =
-      if new_remaining <= 0 then Trading_types.Status.Filled
-      else Trading_types.Status.Partially_filled
+      if new_remaining <= 0 then Order.Status.Filled
+      else Order.Status.Partially_filled
     in
     {
       record with
@@ -200,9 +168,9 @@ module Trading_state = struct
 
   let activate_order state order_id =
     match IdMap.find_opt order_id state.orders with
-    | Some order_rec when Order_status.is_pending order_rec.status ->
+    | Some order_rec when Order.Status.is_pending order_rec.status ->
       let updated_record =
-        Order_record.update_status order_rec Trading_types.Status.Accepted
+        Order_record.update_status order_rec Order.Status.Accepted
       in
       let new_orders = IdMap.add order_id updated_record state.orders in
       let new_pending =
@@ -267,7 +235,7 @@ module Trading_state = struct
           match IdMap.find_opt id state.orders with
           | Some { order; status; _ } ->
             if
-              (Order_status.is_pending status || Order_status.is_active status)
+              (Order.Status.is_pending status || Order.Status.is_active status)
               && Trading_types.Side.equal order.side Buy
             then acc +. (order.price *. Float.of_int order.qty)
             else acc
@@ -364,7 +332,7 @@ module Trading_state = struct
       in
 
       let new_active =
-        if Order_status.is_filled updated_order_rec.status then
+        if Order.Status.is_filled updated_order_rec.status then
           List.filter
             (fun id -> not (Order_id.equal id order_id))
             state.active_orders
