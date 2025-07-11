@@ -120,6 +120,7 @@ module Position = struct
     let realized_pnl = Float.of_int pos.quantity *. (price -. pos.avg_price) in
     {
       pos with
+      quantity = 0; (* Set quantity to 0 when position is closed *)
       realized_pnl = pos.realized_pnl +. realized_pnl;
       closing_orders = order_id :: pos.closing_orders;
     }

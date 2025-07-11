@@ -1,5 +1,6 @@
 module Data = Bars.Data
 open Backend_intf
+open Trading_types
 
 module Make (Input : BACKEND_INPUT) : S = struct
   (* module Ticker = Ticker.Instant *)
@@ -123,7 +124,55 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (*     Error.fatal "No last data bar in Backtesting_backend.last_data_bar?" *)
 
   let liquidate (state : 'a State.t) =
-    (* TODO: Implement liquidation with new Trading_state *)
-    (* For now, return state unchanged to fix compilation *)
-    Result.return state
+    let ( let* ) = Result.( let* ) in
+    let symbols = State.get_symbols state in
+    Eio.traceln "@[Liquidating %d positions@]@." (List.length symbols);
+    
+    (* Create sell orders for all positions *)
+    let* liquidated_state =
+      List.fold_left
+        (fun prev symbol ->
+          let* prev = prev in
+          let qty = State.get_qty prev symbol in
+          if qty = 0 then (
+            Eio.traceln "@[Skipping %a: no position to liquidate@]@." 
+              Instrument.pp symbol;
+            Result.return prev
+          ) else (
+            let* data = Bars.get prev.bars symbol in
+            let last_price = Bars.Data.get_top data Last in
+            let* timestamp = 
+              let time_float = Bars.Data.get_top data Time in
+              Time.of_float_res time_float
+            in
+            let side = if qty > 0 then Side.Sell else Side.Buy in
+            let abs_qty = Int.abs qty in
+            let order : Order.t =
+              Order.make ~symbol ~tick:prev.tick ~side 
+                ~tif:TimeInForce.GoodTillCanceled 
+                ~order_type:OrderType.Market 
+                ~qty:abs_qty ~price:last_price ~timestamp 
+                ~profit:None ~reason:["Liquidate position"]
+            in
+            Eio.traceln "@[Liquidating %d shares of %a at %f@]@." 
+              abs_qty Instrument.pp symbol last_price;
+            State.place_order prev order
+          ))
+        (Ok state) symbols
+    in
+    
+    (* Verify all positions are closed *)
+    let remaining_symbols = State.get_symbols liquidated_state in
+    if List.length remaining_symbols > 0 then (
+      Eio.traceln "@[Warning: %d positions still remain after liquidation@]@." 
+        (List.length remaining_symbols);
+      List.iter (fun sym -> 
+        let qty = State.get_qty liquidated_state sym in
+        Eio.traceln "@[  %a: %d shares@]@." Instrument.pp sym qty
+      ) remaining_symbols
+    ) else (
+      Eio.traceln "@[All positions successfully liquidated@]@."
+    );
+    
+    Result.return liquidated_state
 end

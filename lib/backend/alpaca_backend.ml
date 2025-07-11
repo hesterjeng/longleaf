@@ -169,30 +169,53 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let symbols = State.get_symbols state in
-    (* let* () = latest_bars symbols state.tick in *)
+    Eio.traceln "@[Liquidating %d positions@]@." (List.length symbols);
+    
+    (* Create sell orders for all positions *)
     let* liquidated_state =
       List.fold_left
         (fun prev symbol ->
           let* prev = prev in
-          let qty = State.get_qty state symbol in
-          assert (qty <> 0);
-          let* data = Bars.get state.bars symbol in
-          let last_column = Bars.Data.get_top data in
-          (* let* latest_info = Bars.Latest.get last_data_bar symbol in *)
-          let* order : Order.t =
-            let side = if qty >= 0 then Side.Sell else Side.Buy in
-            let tif = TimeInForce.GoodTillCanceled in
-            let order_type = OrderType.Market in
-            let qty = Int.abs qty in
-            let price = last_column Last in
-            let* timestamp = last_column Time |> Time.of_float_res in
-            Result.return
-            @@ Order.make ~symbol ~tick:state.tick ~side ~tif ~order_type ~qty
-                 ~price ~timestamp ~profit:None ~reason:[ "Liquidate" ]
-          in
-          place_order prev order)
+          let qty = State.get_qty prev symbol in
+          if qty = 0 then (
+            Eio.traceln "@[Skipping %a: no position to liquidate@]@." 
+              Instrument.pp symbol;
+            Result.return prev
+          ) else (
+            let* data = Bars.get prev.bars symbol in
+            let last_column = Bars.Data.get_top data in
+            let abs_qty = Int.abs qty in
+            let* order : Order.t =
+              let side = if qty > 0 then Side.Sell else Side.Buy in
+              let tif = TimeInForce.GoodTillCanceled in
+              let order_type = OrderType.Market in
+              let price = last_column Last in
+              let* timestamp = last_column Time |> Time.of_float_res in
+              Result.return
+              @@ Order.make ~symbol ~tick:prev.tick ~side ~tif ~order_type 
+                   ~qty:abs_qty ~price ~timestamp ~profit:None 
+                   ~reason:["Liquidate position"]
+            in
+            Eio.traceln "@[Liquidating %d shares of %a at %f@]@." 
+              abs_qty Instrument.pp symbol (last_column Last);
+            place_order prev order
+          ))
         (Ok state) symbols
     in
+    
+    (* Verify all positions are closed *)
+    let remaining_symbols = State.get_symbols liquidated_state in
+    if List.length remaining_symbols > 0 then (
+      Eio.traceln "@[Warning: %d positions still remain after liquidation@]@." 
+        (List.length remaining_symbols);
+      List.iter (fun sym -> 
+        let qty = State.get_qty liquidated_state sym in
+        Eio.traceln "@[  %a: %d shares@]@." Instrument.pp sym qty
+      ) remaining_symbols
+    ) else (
+      Eio.traceln "@[All positions successfully liquidated@]@."
+    );
+    
     let* account_status = Trading_api.Accounts.get_account () in
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
