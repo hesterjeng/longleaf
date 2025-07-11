@@ -118,7 +118,8 @@ module Make (Backend : Backend.S) = struct
   let output_order_history (state : _ State.t) filename =
     if options.flags.save_to_file then (
       let json_str =
-        `List [] |> Yojson.Safe.to_string (* TODO: get order history from trading_state *)
+        `List [] |> Yojson.Safe.to_string
+        (* TODO: get order history from trading_state *)
       in
       let filename = Format.sprintf "data/order_history_%s.json" filename in
       let oc = open_out filename in
@@ -143,7 +144,8 @@ module Make (Backend : Backend.S) = struct
     (*     Input.options.indicators_config state.bars state.indicators *)
     (* in *)
     let* value = State.portfolio_value state in
-    let risk_free_value = 100000.0 in (* TODO: calculate risk_free_value *)
+    let risk_free_value = 100000.0 in
+    (* TODO: calculate risk_free_value *)
     (* TODO: Fix stats integration *)
     (* if options.flags.print_tick_arg then *)
     (*   Eio.traceln "[ %a ] CASH %f" Time.pp time value; *)
@@ -208,15 +210,13 @@ module Make (Backend : Backend.S) = struct
       Result.return { state with current = Listening }
     | Finished code ->
       Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@."
-        state.tick
-        (State.get_cash state)
-        0; (* TODO: get order history length from trading_state *)
+        state.tick (State.get_cash state) 0;
+      (* TODO: get order history length from trading_state *)
       Eio.traceln "state.bars at finish: %a" Bars.pp state.bars;
       Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
       if not options.flags.no_gui then (
         (* TODO: Fix stats integration with Trading_state *)
-        let stats_with_orders = Stats.empty ()
-        in
+        let stats_with_orders = Stats.empty () in
         Pmutex.set mutices.data_mutex state.bars;
         Pmutex.set mutices.stats_mutex stats_with_orders
         (* Pmutex.set mutices.indicators_mutex state.indicators *));

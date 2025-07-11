@@ -1,12 +1,6 @@
 (* Order Status Module *)
 module Order_status = struct
-  type t =
-    | Pending
-    | Active
-    | Filled
-    | PartialFill
-    | Cancelled
-    | Failed
+  type t = Pending | Active | Filled | PartialFill | Cancelled | Failed
   [@@deriving show, yojson]
 
   let equal s1 s2 =
@@ -45,29 +39,22 @@ module Order_record = struct
 
   let pp fmt record =
     Format.fprintf fmt
-      "{ order = %a; id = %a; status = %a; filled_qty = %d; remaining_qty = %d }"
-      Order.pp record.order 
-      Order_id.pp record.id 
-      Order_status.pp record.status
-      record.filled_qty 
-      record.remaining_qty
+      "{ order = %a; id = %a; status = %a; filled_qty = %d; remaining_qty = %d \
+       }"
+      Order.pp record.order Order_id.pp record.id Order_status.pp record.status
+      record.filled_qty record.remaining_qty
 
   let make order id =
-    {
-      order;
-      id;
-      status = Pending;
-      filled_qty = 0;
-      remaining_qty = order.qty;
-    }
+    { order; id; status = Pending; filled_qty = 0; remaining_qty = order.qty }
 
   let update_status record status = { record with status }
 
   let fill record qty =
     let new_filled = record.filled_qty + qty in
     let new_remaining = record.remaining_qty - qty in
-    let new_status = 
-      if new_remaining <= 0 then Order_status.Filled else Order_status.PartialFill
+    let new_status =
+      if new_remaining <= 0 then Order_status.Filled
+      else Order_status.PartialFill
     in
     {
       record with
@@ -92,17 +79,14 @@ module Position = struct
   let pp fmt pos =
     Format.fprintf fmt
       "{ symbol = %a; quantity = %d; avg_price = %.2f; realized_pnl = %.2f }"
-      Instrument.pp pos.symbol
-      pos.quantity
-      pos.avg_price
-      pos.realized_pnl
+      Instrument.pp pos.symbol pos.quantity pos.avg_price pos.realized_pnl
 
   let make_new symbol quantity avg_price order_id =
     {
       symbol;
       quantity;
       avg_price;
-      opening_orders = [order_id];
+      opening_orders = [ order_id ];
       closing_orders = [];
       unrealized_pnl = 0.0;
       realized_pnl = 0.0;
@@ -158,8 +142,8 @@ module Portfolio_snapshot = struct
 end
 
 (* Maps *)
-module IdMap = Map.Make(Order_id)
-module SymbolMap = Map.Make(Instrument)
+module IdMap = Map.Make (Order_id)
+module SymbolMap = Map.Make (Instrument)
 
 (* Main Trading State Module *)
 module Trading_state = struct
@@ -206,10 +190,14 @@ module Trading_state = struct
   let activate_order state order_id =
     match IdMap.find_opt order_id state.orders with
     | Some order_rec when Order_status.is_pending order_rec.status ->
-      let updated_record = Order_record.update_status order_rec Order_status.Active in
+      let updated_record =
+        Order_record.update_status order_rec Order_status.Active
+      in
       let new_orders = IdMap.add order_id updated_record state.orders in
       let new_pending =
-        List.filter (fun id -> not (Order_id.equal id order_id)) state.pending_orders
+        List.filter
+          (fun id -> not (Order_id.equal id order_id))
+          state.pending_orders
       in
       let new_active = order_id :: state.active_orders in
       {
@@ -221,17 +209,29 @@ module Trading_state = struct
     | _ -> state
 
   let get_pending_orders state =
-    List.filter_map (fun id -> IdMap.find_opt id state.orders) state.pending_orders
+    List.filter_map
+      (fun id -> IdMap.find_opt id state.orders)
+      state.pending_orders
 
   let get_active_orders state =
-    List.filter_map (fun id -> IdMap.find_opt id state.orders) state.active_orders
+    List.filter_map
+      (fun id -> IdMap.find_opt id state.orders)
+      state.active_orders
 
   (* Position Query Functions *)
   let get_position_orders state symbol =
     match SymbolMap.find_opt symbol state.positions with
     | Some pos ->
-      let opening = List.filter_map (fun id -> IdMap.find_opt id state.orders) pos.Position.opening_orders in
-      let closing = List.filter_map (fun id -> IdMap.find_opt id state.orders) pos.Position.closing_orders in
+      let opening =
+        List.filter_map
+          (fun id -> IdMap.find_opt id state.orders)
+          pos.Position.opening_orders
+      in
+      let closing =
+        List.filter_map
+          (fun id -> IdMap.find_opt id state.orders)
+          pos.Position.closing_orders
+      in
       (opening, closing)
     | None -> ([], [])
 
@@ -241,8 +241,10 @@ module Trading_state = struct
         match acc with
         | Some _ -> acc (* Already found *)
         | None ->
-          if List.mem order_id pos.Position.opening_orders || List.mem order_id pos.Position.closing_orders then
-            Some (symbol, pos)
+          if
+            List.mem order_id pos.Position.opening_orders
+            || List.mem order_id pos.Position.closing_orders
+          then Some (symbol, pos)
           else None)
       state.positions None
 
@@ -253,9 +255,10 @@ module Trading_state = struct
         (fun acc id ->
           match IdMap.find_opt id state.orders with
           | Some { order; status; _ } ->
-            if (Order_status.is_pending status || Order_status.is_active status)
-               && Trading_types.Side.equal order.side Buy then
-              acc +. (order.price *. Float.of_int order.qty)
+            if
+              (Order_status.is_pending status || Order_status.is_active status)
+              && Trading_types.Side.equal order.side Buy
+            then acc +. (order.price *. Float.of_int order.qty)
             else acc
           | None -> acc)
         0.0 state.pending_orders
@@ -269,7 +272,7 @@ module Trading_state = struct
 
   let symbols state =
     SymbolMap.fold
-      (fun symbol pos acc -> 
+      (fun symbol pos acc ->
         if not (Position.is_empty pos) then symbol :: acc else acc)
       state.positions []
 
@@ -285,7 +288,9 @@ module Trading_state = struct
         | Ok current_value ->
           let* data = Bars.get bars symbol in
           let symbol_price = Bars.Data.get_top data Last in
-          let symbol_value = Float.of_int pos.Position.quantity *. symbol_price in
+          let symbol_value =
+            Float.of_int pos.Position.quantity *. symbol_price
+          in
           Result.return (current_value +. symbol_value))
       state.positions (Ok state.cash)
 
@@ -301,32 +306,42 @@ module Trading_state = struct
 
       let* new_positions, new_closed_positions =
         match (SymbolMap.find_opt order.symbol state.positions, order.side) with
-        | (None, side) when Trading_types.Side.equal side Buy ->
+        | None, side when Trading_types.Side.equal side Buy ->
           (* Opening new position *)
-          let new_pos = Position.make_new order.symbol filled_qty current_price order_id in
-          Result.return (SymbolMap.add order.symbol new_pos state.positions, state.closed_positions)
-
-        | (Some pos, side) when Trading_types.Side.equal side Buy ->
+          let new_pos =
+            Position.make_new order.symbol filled_qty current_price order_id
+          in
+          Result.return
+            ( SymbolMap.add order.symbol new_pos state.positions,
+              state.closed_positions )
+        | Some pos, side when Trading_types.Side.equal side Buy ->
           (* Adding to existing position *)
-          let updated_pos = Position.add_to_position pos filled_qty current_price order_id in
-          Result.return (SymbolMap.add order.symbol updated_pos state.positions, state.closed_positions)
-
-        | (Some pos, side) when Trading_types.Side.equal side Sell ->
+          let updated_pos =
+            Position.add_to_position pos filled_qty current_price order_id
+          in
+          Result.return
+            ( SymbolMap.add order.symbol updated_pos state.positions,
+              state.closed_positions )
+        | Some pos, side when Trading_types.Side.equal side Sell ->
           (* Reducing/closing position *)
           let new_qty = pos.Position.quantity - filled_qty in
           if new_qty <= 0 then
             (* Position closed *)
-            let closed_pos = Position.close_position pos current_price order_id in
-            Result.return (
-              SymbolMap.remove order.symbol state.positions,
-              (closed_pos, order.timestamp) :: state.closed_positions
-            )
+            let closed_pos =
+              Position.close_position pos current_price order_id
+            in
+            Result.return
+              ( SymbolMap.remove order.symbol state.positions,
+                (closed_pos, order.timestamp) :: state.closed_positions )
           else
             (* Position reduced *)
-            let updated_pos = Position.reduce_position pos filled_qty current_price order_id in
-            Result.return (SymbolMap.add order.symbol updated_pos state.positions, state.closed_positions)
-
-        | (None, side) when Trading_types.Side.equal side Sell ->
+            let updated_pos =
+              Position.reduce_position pos filled_qty current_price order_id
+            in
+            Result.return
+              ( SymbolMap.add order.symbol updated_pos state.positions,
+                state.closed_positions )
+        | None, side when Trading_types.Side.equal side Sell ->
           Error.fatal "Cannot sell without existing position"
         | _ -> Error.fatal "Invalid order side"
       in
@@ -334,13 +349,14 @@ module Trading_state = struct
       let cash_change =
         if Trading_types.Side.equal order.side Buy then
           -.(current_price *. Float.of_int filled_qty)
-        else
-          current_price *. Float.of_int filled_qty
+        else current_price *. Float.of_int filled_qty
       in
 
       let new_active =
         if Order_status.is_filled updated_order_rec.status then
-          List.filter (fun id -> not (Order_id.equal id order_id)) state.active_orders
+          List.filter
+            (fun id -> not (Order_id.equal id order_id))
+            state.active_orders
         else state.active_orders
       in
 
@@ -355,7 +371,8 @@ module Trading_state = struct
         }
 
   (* Statistics Functions *)
-  let record_portfolio_snapshot state time current_portfolio_value risk_free_value =
+  let record_portfolio_snapshot state time current_portfolio_value
+      risk_free_value =
     let orders =
       List.filter_map
         (fun id ->
@@ -364,7 +381,10 @@ module Trading_state = struct
           | None -> None)
         state.active_orders
     in
-    let snapshot = Portfolio_snapshot.make time state.cash current_portfolio_value risk_free_value orders in
+    let snapshot =
+      Portfolio_snapshot.make time state.cash current_portfolio_value
+        risk_free_value orders
+    in
     { state with portfolio_history = snapshot :: state.portfolio_history }
 
   let add_possible_positions state count =
@@ -376,23 +396,25 @@ end
 
 (* Re-export main types and functions for backwards compatibility *)
 type order_id = Order_id.t [@@deriving show]
+
 let order_id_of_yojson = Order_id.of_yojson
 let yojson_of_order_id = Order_id.to_yojson
 
 type order_status = Order_status.t [@@deriving show, yojson]
+
 let order_status_equal = Order_status.equal
 let is_pending = Order_status.is_pending
 let is_active = Order_status.is_active
 let is_filled = Order_status.is_filled
 
 type order_record = Order_record.t
+
 let pp_order_record = Order_record.pp
 
 type position = Position.t
-
 type portfolio_snapshot = Portfolio_snapshot.t
-
 type t = Trading_state.t
+
 let pp = Trading_state.pp
 let empty = Trading_state.empty
 
@@ -408,7 +430,10 @@ let qty = Trading_state.qty
 let symbols = Trading_state.symbols
 let is_empty = Trading_state.is_empty
 let value = Trading_state.value
-let execute_order_against_position = Trading_state.execute_order_against_position
+
+let execute_order_against_position =
+  Trading_state.execute_order_against_position
+
 let record_portfolio_snapshot = Trading_state.record_portfolio_snapshot
 let add_possible_positions = Trading_state.add_possible_positions
 let increment_positions_taken = Trading_state.increment_positions_taken
