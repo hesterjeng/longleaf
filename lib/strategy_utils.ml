@@ -130,25 +130,9 @@ module Make (Backend : Backend.S) = struct
   let update_continue (state : 'a State.t) =
     (* Eio.traceln "%a" State.pp_simple state; *)
     let ( let* ) = Result.( let* ) in
-    (* let previous = state.latest in *)
     let* () = Backend.update_bars Backend.symbols state.bars state.tick in
-    (* We have the index, we have state.bars, we have the newest info *)
-    (* Here we can update indicators, BEFORE appending to bars *)
-    (* TODO: Portfolio update is now handled in Trading_state *)
     let* time = Bars.timestamp state.bars in
-    (* let* time = Bars.Latest.timestamp latest in *)
-    (* assert (Ptime.compare time state.time = 1); *)
-    (* let* () = Bars.append latest state.bars in *)
-    (* let* indicators = *)
-    (*   Indicators.compute_latest context.compare_preloaded *)
-    (*     Input.options.indicators_config state.bars state.indicators *)
-    (* in *)
     let* _value = State.portfolio_value state in
-    let _risk_free_value = 100000.0 in
-    (* TODO: calculate risk_free_value *)
-    (* TODO: Fix stats integration *)
-    (* if options.flags.print_tick_arg then *)
-    (*   Eio.traceln "[ %a ] CASH %f" Time.pp time value; *)
     let res = { state with time; tick = state.tick + 1 } in
     Bars.set_current state.bars res.tick;
     Result.return res
