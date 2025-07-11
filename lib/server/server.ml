@@ -55,12 +55,42 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     in
     Response.of_string ~headers ~body `OK
   | { Request.meth = `GET; target = "/orders"; _ } ->
-    let orders = Pmutex.get mutices.orders_mutex in
-    let body = Order.History.yojson_of_t orders |> Yojson.Safe.to_string in
+    let trading_state = Pmutex.get mutices.trading_state_mutex in
+    let active_orders =
+      Trading_state.Trading_state.get_active_orders trading_state
+    in
+    let pending_orders =
+      Trading_state.Trading_state.get_pending_orders trading_state
+    in
+    let format_order r =
+      Format.asprintf "%a" Order.pp r.Trading_state.Order_record.order
+    in
+    let body =
+      `Assoc
+        [
+          ( "active",
+            `List (List.map (fun r -> `String (format_order r)) active_orders)
+          );
+          ( "pending",
+            `List (List.map (fun r -> `String (format_order r)) pending_orders)
+          );
+        ]
+      |> Yojson.Safe.to_string
+    in
     Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/stats"; _ } ->
-    let stats = Pmutex.get mutices.stats_mutex |> Stats.sort in
-    let body = Plotly.Stats.make stats |> Yojson.Safe.to_string in
+    let trading_state = Pmutex.get mutices.trading_state_mutex in
+    let body =
+      `Assoc
+        [
+          ("cash", `Float trading_state.cash);
+          ("positions_taken", `Int trading_state.positions_taken);
+          ("positions_possible", `Int trading_state.positions_possible);
+          ( "active_positions",
+            `Int (Trading_state.SymbolMap.cardinal trading_state.positions) );
+        ]
+      |> Yojson.Safe.to_string
+    in
     Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/symbols"; _ } ->
     let bars = Pmutex.get mutices.data_mutex in
