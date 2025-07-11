@@ -255,7 +255,7 @@ let to_items (x : t) =
     | true -> acc
     | false ->
       let item = item_of_column x i in
-      aux (i + i) @@ (item :: acc)
+      aux (i + 1) @@ (item :: acc)
   in
   aux 0 []
 
