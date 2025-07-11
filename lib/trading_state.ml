@@ -146,19 +146,19 @@ module IdMap = Map.Make (Order_id)
 module SymbolMap = Map.Make (Instrument)
 
 (* Main Trading State Module *)
-module Trading_state = struct
-  type t = {
-    orders : Order_record.t IdMap.t;
-    pending_orders : Order_id.t list;
-    active_orders : Order_id.t list;
-    positions : Position.t SymbolMap.t;
-    closed_positions : (Position.t * Time.t) list;
-    cash : float;
-    portfolio_history : Portfolio_snapshot.t list;
-    positions_taken : int;
-    positions_possible : int;
-  }
+type t = {
+  orders : Order_record.t IdMap.t;
+  pending_orders : Order_id.t list;
+  active_orders : Order_id.t list;
+  positions : Position.t SymbolMap.t;
+  closed_positions : (Position.t * Time.t) list;
+  cash : float;
+  portfolio_history : Portfolio_snapshot.t list;
+  positions_taken : int;
+  positions_possible : int;
+}
 
+module Trading_state = struct
   let pp fmt state =
     Format.fprintf fmt
       "{ orders = <map>; pending_orders = [%d items]; active_orders = [%d \
@@ -394,48 +394,3 @@ module Trading_state = struct
     { state with positions_taken = state.positions_taken + 1 }
 end
 
-(* Re-export main types and functions for backwards compatibility *)
-type order_id = Order_id.t [@@deriving show]
-
-let order_id_of_yojson = Order_id.of_yojson
-let yojson_of_order_id = Order_id.to_yojson
-
-type order_status = Order_status.t [@@deriving show, yojson]
-
-let order_status_equal = Order_status.equal
-let is_pending = Order_status.is_pending
-let is_active = Order_status.is_active
-let is_filled = Order_status.is_filled
-
-type order_record = Order_record.t
-
-let pp_order_record = Order_record.pp
-
-type position = Position.t
-type portfolio_snapshot = Portfolio_snapshot.t
-type t = Trading_state.t
-
-let pp = Trading_state.pp
-let empty = Trading_state.empty
-
-(* Re-export all functions *)
-let add_order = Trading_state.add_order
-let activate_order = Trading_state.activate_order
-let get_pending_orders = Trading_state.get_pending_orders
-let get_active_orders = Trading_state.get_active_orders
-let get_position_orders = Trading_state.get_position_orders
-let get_order_position = Trading_state.get_order_position
-let get_cash = Trading_state.get_cash
-let qty = Trading_state.qty
-let symbols = Trading_state.symbols
-let is_empty = Trading_state.is_empty
-let value = Trading_state.value
-
-let execute_order_against_position =
-  Trading_state.execute_order_against_position
-
-let record_portfolio_snapshot = Trading_state.record_portfolio_snapshot
-let add_possible_positions = Trading_state.add_possible_positions
-let increment_positions_taken = Trading_state.increment_positions_taken
-
-(* Maps are already defined above and available *)

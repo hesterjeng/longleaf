@@ -25,7 +25,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          content;
          tick = Input.options.flags.start;
          tick_length = Input.options.tick;
-         trading_state = Trading_state.empty ();
+         trading_state = Trading_state.Trading_state.empty ();
          time = Ptime.min;
        }
 

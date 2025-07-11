@@ -85,7 +85,7 @@ module Make
   let buy_ (state : 'a State.t) selected =
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
-    let current_cash = Portfolio.get_cash state.positions in
+    let current_cash = State.get_cash state in
     let pct = 1.0 /. Float.of_int (List.length selected) in
     assert (pct >=. 0.0 && pct <=. 1.0);
     let@ state f = List.fold_left f (Ok state) selected in
@@ -104,12 +104,7 @@ module Make
           Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled ~tick:state.tick
             ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
         in
-        let state =
-          State.replace_stats state
-          @@ Stats.increment_position_ratio state.stats
-        in
         let* state = Backend.place_order state order in
-        let state = State.activate_order state order in
         Result.return state
 
   let buy ~held_symbols (state : 'a State.t) =
@@ -118,12 +113,8 @@ module Make
       List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
       |> Buy.make state
     in
-    let state =
-      State.replace_stats state
-      @@ Stats.add_possible_positions state.stats potential_buys
-    in
     let num_held_currently =
-      Order.History.Ptime_map.cardinal @@ state.order_history.active
+      List.length state.trading_state.active_orders
     in
     (* Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp) *)
     (*   state.order_history.active; *)
@@ -180,10 +171,10 @@ module Make
     let ( let* ) = Result.( let* ) in
     match state.current with
     | Ordering ->
-      let held_symbols = Portfolio.symbols state.positions in
+      let held_symbols = State.get_symbols state in
       let* sold_state =
         List.fold_left sell_fold (Ok state)
-        @@ Order.History.active state.order_history
+        @@ (Trading_state.Trading_state.get_active_orders state.trading_state |> List.map (fun r -> r.Trading_state.Order_record.order))
       in
       let* complete = buy ~held_symbols sold_state in
       Result.return complete

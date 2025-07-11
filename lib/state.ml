@@ -38,7 +38,7 @@ let generate_order_id () = Order_id.generate ()
 let record_order state order =
   let order_id = generate_order_id () in
   let new_trading_state =
-    Trading_state.add_order state.trading_state order_id order
+    Trading_state.Trading_state.add_order state.trading_state order_id order
   in
   Result.return ({ state with trading_state = new_trading_state }, order_id)
 
@@ -51,7 +51,7 @@ let price (state : 'a t) symbol =
 
 let activate_order state order_id =
   let new_trading_state =
-    Trading_state.activate_order state.trading_state order_id
+    Trading_state.Trading_state.activate_order state.trading_state order_id
   in
   { state with trading_state = new_trading_state }
 
@@ -61,7 +61,7 @@ let place_order (state : 'a t) (order : Order.t) =
   let* new_state, order_id = record_order state order in
   let* current_price = price new_state order.symbol in
   let* new_trading_state =
-    Trading_state.execute_order_against_position new_state.trading_state
+    Trading_state.Trading_state.execute_order_against_position new_state.trading_state
       order_id order.qty current_price
   in
   Result.return { new_state with trading_state = new_trading_state }
@@ -74,16 +74,16 @@ let deactivate_order state order_id =
 let replace_stats x stats = x
 
 (* Helper functions to access trading state data *)
-let get_cash state = Trading_state.get_cash state.trading_state
+let get_cash state = Trading_state.Trading_state.get_cash state.trading_state
 let get_positions state = state.trading_state.positions
 
 let get_position state symbol =
   Trading_state.SymbolMap.find_opt symbol state.trading_state.positions
 
-let get_qty state symbol = Trading_state.qty state.trading_state symbol
-let get_symbols state = Trading_state.symbols state.trading_state
-let is_portfolio_empty state = Trading_state.is_empty state.trading_state
-let portfolio_value state = Trading_state.value state.trading_state state.bars
+let get_qty state symbol = Trading_state.Trading_state.qty state.trading_state symbol
+let get_symbols state = Trading_state.Trading_state.symbols state.trading_state
+let is_portfolio_empty state = Trading_state.Trading_state.is_empty state.trading_state
+let portfolio_value state = Trading_state.Trading_state.value state.trading_state state.bars
 let map (f : 'a -> 'b) (x : 'a t) = { x with content = f x.content }
 let ( >|= ) x f = map f x
 let ( let+ ) = ( >|= )
