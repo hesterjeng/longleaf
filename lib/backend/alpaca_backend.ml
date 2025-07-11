@@ -82,10 +82,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
          bars;
          tick = 0;
          tick_length = Input.options.tick;
-         positions;
+         trading_state = Trading_state.empty ();
          content;
-         stats = Stats.empty ();
-         order_history = Order.History.empty;
          (* indicators = Indicators.empty Live; *)
          time = Ptime.min;
        }
@@ -173,13 +171,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    let symbols = Portfolio.symbols state.positions in
+    let symbols = State.get_symbols state in
     (* let* () = latest_bars symbols state.tick in *)
     let* liquidated_state =
       List.fold_left
         (fun prev symbol ->
           let* prev = prev in
-          let qty = Portfolio.qty state.positions symbol in
+          let qty = State.get_qty state symbol in
           assert (qty <> 0);
           let* data = Bars.get state.bars symbol in
           let last_column = Bars.Data.get_top data in

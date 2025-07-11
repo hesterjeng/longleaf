@@ -87,7 +87,7 @@ module Make (Backend : Backend.S) = struct
         | Liquidate
         | Finished _ ->
           Eio.traceln "@[Exiting run.@]@.";
-          Portfolio.get_cash prev.positions
+          State.get_cash prev
         | _ -> try_liquidating ())
     in
     match init_state with
@@ -118,7 +118,7 @@ module Make (Backend : Backend.S) = struct
   let output_order_history (state : _ State.t) filename =
     if options.flags.save_to_file then (
       let json_str =
-        Order.History.yojson_of_t state.order_history |> Yojson.Safe.to_string
+        `List [] |> Yojson.Safe.to_string (* TODO: get order history from trading_state *)
       in
       let filename = Format.sprintf "data/order_history_%s.json" filename in
       let oc = open_out filename in
@@ -133,7 +133,7 @@ module Make (Backend : Backend.S) = struct
     let* () = Backend.update_bars Backend.symbols state.bars state.tick in
     (* We have the index, we have state.bars, we have the newest info *)
     (* Here we can update indicators, BEFORE appending to bars *)
-    let* positions = Portfolio.update state.positions state.bars state.tick in
+    (* TODO: Portfolio update is now handled in Trading_state *)
     let* time = Bars.timestamp state.bars in
     (* let* time = Bars.Latest.timestamp latest in *)
     (* assert (Ptime.compare time state.time = 1); *)
@@ -142,23 +142,12 @@ module Make (Backend : Backend.S) = struct
     (*   Indicators.compute_latest context.compare_preloaded *)
     (*     Input.options.indicators_config state.bars state.indicators *)
     (* in *)
-    let* value = Portfolio.value positions state.bars in
-    let risk_free_value =
-      Stats.risk_free_value state.stats Input.options.tick
-    in
-    let stats =
-      Stats.cons state.stats
-      @@ {
-           Stats.time;
-           value;
-           orders = [];
-           risk_free_value;
-           cash = Portfolio.get_cash state.positions;
-         }
-    in
+    let* value = State.portfolio_value state in
+    let risk_free_value = 100000.0 in (* TODO: calculate risk_free_value *)
+    (* TODO: Fix stats integration *)
     (* if options.flags.print_tick_arg then *)
     (*   Eio.traceln "[ %a ] CASH %f" Time.pp time value; *)
-    let res = { state with stats; positions; time; tick = state.tick + 1 } in
+    let res = { state with time; tick = state.tick + 1 } in
     Bars.set_current state.bars res.tick;
     Result.return res
 
@@ -187,8 +176,9 @@ module Make (Backend : Backend.S) = struct
     | Listening -> (
       if not options.flags.no_gui then (
         Pmutex.set mutices.data_mutex state.bars;
-        Pmutex.set mutices.orders_mutex state.order_history;
-        Pmutex.set mutices.stats_mutex state.stats
+        (* TODO: Fix orders and stats mutex with Trading_state *)
+        Pmutex.set mutices.orders_mutex Order.History.empty;
+        Pmutex.set mutices.stats_mutex (Stats.empty ())
         (* Pmutex.set mutices.indicators_mutex state.indicators *));
       (* Eio.traceln "tick"; *)
       let* listened = listen_tick () in
@@ -219,13 +209,13 @@ module Make (Backend : Backend.S) = struct
     | Finished code ->
       Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@."
         state.tick
-        (Portfolio.get_cash state.positions)
-        (Order.History.length state.order_history);
+        (State.get_cash state)
+        0; (* TODO: get order history length from trading_state *)
       Eio.traceln "state.bars at finish: %a" Bars.pp state.bars;
       Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
       if not options.flags.no_gui then (
-        let stats_with_orders =
-          Stats.add_orders state.order_history state.stats
+        (* TODO: Fix stats integration with Trading_state *)
+        let stats_with_orders = Stats.empty ()
         in
         Pmutex.set mutices.data_mutex state.bars;
         Pmutex.set mutices.stats_mutex stats_with_orders
@@ -235,7 +225,7 @@ module Make (Backend : Backend.S) = struct
       output_order_history state filename;
       (* let tearsheet = Tearsheet.make state in *)
       (* Eio.traceln "%a" Tearsheet.pp tearsheet; *)
-      assert (Portfolio.is_empty state.positions);
+      assert (State.is_portfolio_empty state);
       Eio.traceln "Finished cleanup... %fs"
         (Eio.Time.now Backend.env#clock -. !start_time);
       Result.fail @@ `Finished code

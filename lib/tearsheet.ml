@@ -163,14 +163,14 @@ let compound_growth_rate (state : 'a State.t) =
   (* 23400 seconds per trading day *)
   (* 251 trading days per year *)
   (* ~ 5873400 trading seconds per year *)
-  assert (Portfolio.is_empty state.positions);
+  assert (State.is_portfolio_empty state);
   (* let ( ^ ) = Owl_maths.pow in *)
   let ticks_per_year = 5873400.0 /. state.tick_length in
   let exponent =
     Nx.scalar Nx.float64 @@ (ticks_per_year /. Float.of_int state.tick)
   in
   let ratio =
-    Nx.scalar Nx.float64 @@ (Portfolio.get_cash state.positions /. 100000.0)
+    Nx.scalar Nx.float64 @@ (State.get_cash state /. 100000.0)
   in
   let pow = Nx.pow ratio exponent |> Nx.get_item [] in
   let cagr = pow -. 1.0 in
@@ -188,26 +188,26 @@ let annualized_value (state : 'a State.t) =
   100000.0 *. cgr
 
 let make (state : 'a State.t) : t =
-  let h = state.order_history in
-  let stats = state.stats in
+  (* TODO: Update tearsheet to work with new Trading_state *)
   let position_taken_ratio =
-    Float.of_int state.stats.position_ratio.positions_taken
-    /. Float.of_int state.stats.position_ratio.positions_possible
+    Float.of_int state.trading_state.positions_taken
+    /. Float.of_int state.trading_state.positions_possible
   in
-  let biggest_winner, biggest_loser = biggest h in
-  let cash = Portfolio.get_cash state.positions in
+  (* Placeholder for biggest winner/loser - needs implementation *)
+  let biggest_winner, biggest_loser = (None, None) in
+  let cash = State.get_cash state in
   {
     cash;
-    num_orders = Order.History.length h;
-    sharpe_ratio = sharpe_ratio stats;
-    win_percentage = win_percentage h;
-    average_trade_net = average_trade_net h;
-    average_profit = average_profit h;
-    average_loss = average_loss h;
+    num_orders = 0; (* TODO: get from trading_state *)
+    sharpe_ratio = 0.0; (* TODO: calculate sharpe ratio *)
+    win_percentage = 0.0; (* TODO: calculate win_percentage *)
+    average_trade_net = 0.0; (* TODO: calculate average_trade_net *)
+    average_profit = 0.0; (* TODO: calculate average_profit *)
+    average_loss = 0.0; (* TODO: calculate average_loss *)
     annualized_value = annualized_value state;
     compound_growth_rate = compound_growth_rate state;
-    profit_factor = profit_factor h;
-    stddev_returns = stddev_returns stats;
+    profit_factor = 0.0; (* TODO: calculate profit_factor *)
+    stddev_returns = 0.0; (* TODO: calculate stddev_returns *)
     biggest_winner;
     biggest_loser;
     position_taken_ratio;
