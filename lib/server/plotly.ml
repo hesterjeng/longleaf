@@ -155,7 +155,7 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
 
 (** {1 Main API} *)
 
-let of_bars ?(start = 0) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
+let of_bars ?(start = 100) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
   let ( let* ) = Result.( let* ) in
   let result =
     let* data = Bars.get bars symbol in
