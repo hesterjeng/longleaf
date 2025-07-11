@@ -393,4 +393,3 @@ module Trading_state = struct
   let increment_positions_taken state =
     { state with positions_taken = state.positions_taken + 1 }
 end
-

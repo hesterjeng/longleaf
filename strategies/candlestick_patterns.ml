@@ -254,7 +254,6 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
     (* Traditional indicators *)
     let rsi_val = Bars.Data.get_top data rsi in
     let upper_band = Bars.Data.get_top data upper_bb in
-    let lower_band = Bars.Data.get_top data lower_bb in
     let current_price = Bars.Data.get_top data Bars.Data.Type.Close in
     let entry_price = buying_order.price in
 

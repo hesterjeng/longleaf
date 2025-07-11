@@ -113,9 +113,7 @@ module Make
       List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
       |> Buy.make state
     in
-    let num_held_currently =
-      List.length state.trading_state.active_orders
-    in
+    let num_held_currently = List.length state.trading_state.active_orders in
     (* Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp) *)
     (*   state.order_history.active; *)
     assert (Buy.num_positions >= 0);
@@ -174,7 +172,8 @@ module Make
       let held_symbols = State.get_symbols state in
       let* sold_state =
         List.fold_left sell_fold (Ok state)
-        @@ (Trading_state.Trading_state.get_active_orders state.trading_state |> List.map (fun r -> r.Trading_state.Order_record.order))
+        @@ (Trading_state.Trading_state.get_active_orders state.trading_state
+           |> List.map (fun r -> r.Trading_state.Order_record.order))
       in
       let* complete = buy ~held_symbols sold_state in
       Result.return complete

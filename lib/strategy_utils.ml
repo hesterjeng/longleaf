@@ -115,7 +115,7 @@ module Make (Backend : Backend.S) = struct
       Result.return ()
     | false -> Result.return ()
 
-  let output_order_history (state : _ State.t) filename =
+  let output_order_history (_state : _ State.t) filename =
     if options.flags.save_to_file then (
       let json_str =
         `List [] |> Yojson.Safe.to_string
@@ -143,8 +143,8 @@ module Make (Backend : Backend.S) = struct
     (*   Indicators.compute_latest context.compare_preloaded *)
     (*     Input.options.indicators_config state.bars state.indicators *)
     (* in *)
-    let* value = State.portfolio_value state in
-    let risk_free_value = 100000.0 in
+    let* _value = State.portfolio_value state in
+    let _risk_free_value = 100000.0 in
     (* TODO: calculate risk_free_value *)
     (* TODO: Fix stats integration *)
     (* if options.flags.print_tick_arg then *)

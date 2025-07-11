@@ -61,17 +61,17 @@ let place_order (state : 'a t) (order : Order.t) =
   let* new_state, order_id = record_order state order in
   let* current_price = price new_state order.symbol in
   let* new_trading_state =
-    Trading_state.Trading_state.execute_order_against_position new_state.trading_state
-      order_id order.qty current_price
+    Trading_state.Trading_state.execute_order_against_position
+      new_state.trading_state order_id order.qty current_price
   in
   Result.return { new_state with trading_state = new_trading_state }
 
-let deactivate_order state order_id =
+let deactivate_order state _order_id =
   (* Order deactivation is now handled automatically in execute_order_against_position *)
   state
 
 (* Stats are now integrated into trading_state *)
-let replace_stats x stats = x
+let replace_stats x _stats = x
 
 (* Helper functions to access trading state data *)
 let get_cash state = Trading_state.Trading_state.get_cash state.trading_state
@@ -80,10 +80,17 @@ let get_positions state = state.trading_state.positions
 let get_position state symbol =
   Trading_state.SymbolMap.find_opt symbol state.trading_state.positions
 
-let get_qty state symbol = Trading_state.Trading_state.qty state.trading_state symbol
+let get_qty state symbol =
+  Trading_state.Trading_state.qty state.trading_state symbol
+
 let get_symbols state = Trading_state.Trading_state.symbols state.trading_state
-let is_portfolio_empty state = Trading_state.Trading_state.is_empty state.trading_state
-let portfolio_value state = Trading_state.Trading_state.value state.trading_state state.bars
+
+let is_portfolio_empty state =
+  Trading_state.Trading_state.is_empty state.trading_state
+
+let portfolio_value state =
+  Trading_state.Trading_state.value state.trading_state state.bars
+
 let map (f : 'a -> 'b) (x : 'a t) = { x with content = f x.content }
 let ( >|= ) x f = map f x
 let ( let+ ) = ( >|= )
