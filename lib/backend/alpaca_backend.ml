@@ -79,7 +79,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
          bars;
          tick = 0;
          tick_length = Input.options.tick;
-         trading_state = Trading_state.Trading_state.empty ();
+         trading_state = State.Core.empty ();
          content;
          (* indicators = Indicators.empty Live; *)
          time = Ptime.min;

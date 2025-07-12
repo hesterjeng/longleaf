@@ -172,8 +172,8 @@ module Make
       let held_symbols = State.get_symbols state in
       let* sold_state =
         List.fold_left sell_fold (Ok state)
-        @@ (Trading_state.Trading_state.get_active_orders state.trading_state
-           |> List.map (fun r -> r.Trading_state.Order_record.order))
+        @@ (State.Core.get_active_orders state.trading_state
+           |> List.map (fun (r : State.Core.Order_record.t) -> r.order))
       in
       let* complete = buy ~held_symbols sold_state in
       Result.return complete

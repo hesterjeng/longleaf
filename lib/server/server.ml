@@ -56,14 +56,10 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     Response.of_string ~headers ~body `OK
   | { Request.meth = `GET; target = "/orders"; _ } ->
     let trading_state = Pmutex.get mutices.trading_state_mutex in
-    let active_orders =
-      Trading_state.Trading_state.get_active_orders trading_state
-    in
-    let pending_orders =
-      Trading_state.Trading_state.get_pending_orders trading_state
-    in
-    let format_order r =
-      Format.asprintf "%a" Order.pp r.Trading_state.Order_record.order
+    let active_orders = State.Core.get_active_orders trading_state in
+    let pending_orders = State.Core.get_pending_orders trading_state in
+    let format_order (r : State.Core.Order_record.t) =
+      Format.asprintf "%a" Order.pp r.order
     in
     let body =
       `Assoc
@@ -87,7 +83,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
           ("positions_taken", `Int trading_state.positions_taken);
           ("positions_possible", `Int trading_state.positions_possible);
           ( "active_positions",
-            `Int (Trading_state.SymbolMap.cardinal trading_state.positions) );
+            `Int (State.Core.SymbolMap.cardinal trading_state.positions) );
         ]
       |> Yojson.Safe.to_string
     in
