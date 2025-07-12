@@ -1,5 +1,6 @@
 module Data = Bars.Data
-module Core = Core
+module Order_record = Order_record
+(* module Core = Core *)
 
 type state =
   | Initialize
@@ -95,3 +96,6 @@ let timestamp (state : 'a t) symbol =
   match Ptime.of_float_s time with
   | Some t -> Result.return t
   | None -> Error.fatal "Illegal timestamp (State.timestamp)"
+
+let get_active_orders x = Core.get_active_orders x.trading_state
+let get_pending_orders x = Core.get_pending_orders x.trading_state

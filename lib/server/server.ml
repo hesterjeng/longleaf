@@ -12,7 +12,7 @@ let serve_favicon () =
   let headers = Headers.of_list [ ("Content-Type", "image/x-icon") ] in
   Response.of_string ~headers ~body `OK
 
-let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
+let plotly_response_of_symbol ~(mutices : 'a Longleaf_mutex.t) target =
   let bars = Pmutex.get mutices.data_mutex in
   let bars_json_opt = Plotly.of_bars bars target in
   match bars_json_opt with
@@ -26,7 +26,7 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
 
 let data_prefix = String.prefix ~pre:"/data/"
 
-let connection_handler ~(mutices : Longleaf_mutex.t)
+let connection_handler ~(mutices : 'a Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
   (* Eio.traceln "gui.ml: connection handler"; *)
   match params.request with
@@ -55,12 +55,15 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     in
     Response.of_string ~headers ~body `OK
   | { Request.meth = `GET; target = "/orders"; _ } ->
-    let trading_state = Pmutex.get mutices.trading_state_mutex in
-    let active_orders = State.Core.get_active_orders trading_state in
-    let pending_orders = State.Core.get_pending_orders trading_state in
-    let format_order (r : State.Core.Order_record.t) =
-      Format.asprintf "%a" Order.pp r.order
+    let trading_state =
+      Pmutex.get mutices.trading_state_mutex
+      |> Option.get_exn_or "server.ml: trading state not set in mutex"
     in
+    let active_orders = State.get_active_orders trading_state in
+    let pending_orders = State.get_pending_orders trading_state in
+    (* let format_order (r : State.Core.Order_record.t) = *)
+    (*   Format.asprintf "%a" Order.pp r.order *)
+    (* in *)
     let body =
       `Assoc
         [
@@ -149,7 +152,7 @@ let run ~sw ~host ~port env handler =
   (* Server.Command.shutdown command *)
   command
 
-let start ~sw ~(mutices : Longleaf_mutex.t) env =
+let start ~sw ~(mutices : 'a Longleaf_mutex.t) env =
   let host = Eio.Net.Ipaddr.V4.loopback in
   Eio.traceln "Server listening on port 8080";
   run ~sw ~host ~port:8080 env @@ connection_handler ~mutices
@@ -160,7 +163,7 @@ let start ~sw ~(mutices : Longleaf_mutex.t) env =
 (*   Logs.set_level ~all:true level; *)
 (*   Logs.set_reporter (Logs_fmt.reporter ()) *)
 
-let top ~(mutices : Longleaf_mutex.t) env =
+let top ~(mutices : 'a Longleaf_mutex.t) env =
   (* setup_log (Some Info); *)
   Eio.Std.Switch.run (fun sw ->
       (* let openai_response = *)
