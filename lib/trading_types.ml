@@ -46,11 +46,13 @@ module OrderId : sig
 
   val of_string : string -> t
   val to_string : t -> string
+  val pp : t Format.printer
 end = struct
   type t = string
 
   let of_string x = x
   let to_string x = x
+  let pp = String.pp
 end
 
 module Timeframe : sig

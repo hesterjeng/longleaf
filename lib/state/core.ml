@@ -41,7 +41,18 @@ let add_order state order_id order =
   let order_record = Order_record.make order order_id in
   let new_orders = IdMap.add order_id order_record state.orders in
   let new_pending = order_id :: state.pending_orders in
-  { state with orders = new_orders; pending_orders = new_pending }
+  (* Allocate cash immediately for buy orders *)
+  let new_cash =
+    if Trading_types.Side.equal order.side Buy then
+      state.cash -. (order.price *. Float.of_int order.qty)
+    else state.cash
+  in
+  {
+    state with
+    orders = new_orders;
+    pending_orders = new_pending;
+    cash = new_cash;
+  }
 
 let activate_order state order_id =
   match IdMap.find_opt order_id state.orders with
@@ -71,6 +82,41 @@ let get_pending_orders state =
 
 let get_active_orders state =
   List.filter_map (fun id -> IdMap.find_opt id state.orders) state.active_orders
+
+let cancel_order state order_id =
+  match IdMap.find_opt order_id state.orders with
+  | Some order_rec
+    when Order.Status.is_pending order_rec.status
+         || Order.Status.is_active order_rec.status ->
+    let order = order_rec.order in
+    let updated_record =
+      Order_record.update_status order_rec Order.Status.Canceled
+    in
+    let new_orders = IdMap.add order_id updated_record state.orders in
+    let new_pending =
+      List.filter
+        (fun id -> not (Order_id.equal id order_id))
+        state.pending_orders
+    in
+    let new_active =
+      List.filter
+        (fun id -> not (Order_id.equal id order_id))
+        state.active_orders
+    in
+    (* Return allocated cash for buy orders *)
+    let returned_cash =
+      if Trading_types.Side.equal order.side Buy then
+        order.price *. Float.of_int order.qty
+      else 0.0
+    in
+    {
+      state with
+      orders = new_orders;
+      pending_orders = new_pending;
+      active_orders = new_active;
+      cash = state.cash +. returned_cash;
+    }
+  | _ -> state
 
 (* Position Query Functions *)
 let get_position_orders state symbol =
@@ -103,21 +149,7 @@ let get_order_position state order_id =
     state.positions None
 
 (* Portfolio Functions *)
-let get_cash state =
-  let pending_buy_value =
-    List.fold_left
-      (fun acc id ->
-        match IdMap.find_opt id state.orders with
-        | Some { order; status; _ } ->
-          if
-            (Order.Status.is_pending status || Order.Status.is_active status)
-            && Trading_types.Side.equal order.side Buy
-          then acc +. (order.price *. Float.of_int order.qty)
-          else acc
-        | None -> acc)
-      0.0 state.pending_orders
-  in
-  state.cash -. pending_buy_value
+let get_cash state = state.cash
 
 let qty state symbol =
   match SymbolMap.find_opt symbol state.positions with
@@ -177,7 +209,7 @@ let execute_order_against_position state order_id filled_qty current_price =
       | Some pos, side when Trading_types.Side.equal side Sell ->
         (* Reducing/closing position *)
         let new_qty = pos.Position.quantity - filled_qty in
-        if new_qty <= 0 then
+        if new_qty = 0 then
           (* Position closed *)
           let closed_pos = Position.close_position pos current_price order_id in
           Result.return
@@ -198,8 +230,13 @@ let execute_order_against_position state order_id filled_qty current_price =
 
     let cash_change =
       if Trading_types.Side.equal order.side Buy then
-        -.(current_price *. Float.of_int filled_qty)
-      else current_price *. Float.of_int filled_qty
+        (* For buy orders: return the difference between allocated and actual cost *)
+        (* We already allocated order.price * order.qty, so return the difference *)
+        (order.price *. Float.of_int filled_qty)
+        -. (current_price *. Float.of_int filled_qty)
+      else
+        (* For sell orders: add the proceeds *)
+        current_price *. Float.of_int filled_qty
     in
 
     let new_active =

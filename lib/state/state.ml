@@ -1,5 +1,8 @@
 module Data = Bars.Data
 module Order_record = Order_record
+module IdMap = Core.IdMap
+module SymbolMap = Core.SymbolMap
+module Core = Core
 (* module Core = Core *)
 
 type state =
@@ -26,6 +29,17 @@ type 'a t = {
   (* Wildcard content for individual strategies to use *)
   content : 'a;
 }
+
+let empty () : unit t =
+  {
+    current = Initialize;
+    trading_state = Core.empty ();
+    bars = Bars.empty ();
+    time = Time.get_todays_date ();
+    tick = 0;
+    tick_length = 0.0;
+    content = ();
+  }
 
 let pp_simple : 'a t Format.printer =
  fun fmt x ->

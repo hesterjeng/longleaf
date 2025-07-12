@@ -162,7 +162,7 @@ module Make (Backend : Backend.S) = struct
     | Listening -> (
       if not options.flags.no_gui then (
         Pmutex.set mutices.data_mutex state.bars;
-        Pmutex.set mutices.trading_state_mutex state.trading_state
+        Pmutex.set mutices.state_mutex state
         (* Pmutex.set mutices.indicators_mutex state.indicators *));
       (* Eio.traceln "tick"; *)
       let* listened = listen_tick () in
@@ -198,7 +198,7 @@ module Make (Backend : Backend.S) = struct
       Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
       if not options.flags.no_gui then (
         Pmutex.set mutices.data_mutex state.bars;
-        Pmutex.set mutices.trading_state_mutex state.trading_state
+        Pmutex.set mutices.state_mutex state
         (* Pmutex.set mutices.indicators_mutex state.indicators *));
       let filename = get_filename () in
       let* () = output_data state filename in
