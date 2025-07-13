@@ -78,10 +78,6 @@ let place_order (state : 'a t) (order : Order.t) =
   in
   Result.return { new_state with trading_state = new_trading_state }
 
-let deactivate_order state _order_id =
-  (* Order deactivation is now handled automatically in execute_order_against_position *)
-  state
-
 (* Stats are now integrated into trading_state *)
 let replace_stats x _stats = x
 

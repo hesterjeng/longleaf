@@ -154,7 +154,6 @@ module Make
               )
         in
         let* state = Backend.place_order state order in
-        let state = State.deactivate_order state buying_order in
         Result.return state
     in
     Result.return @@ State.listen state
