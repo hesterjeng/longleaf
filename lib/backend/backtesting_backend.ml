@@ -19,16 +19,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
         Bars.set_current b Input.options.flags.start;
         Result.return b
     in
-    Result.return
-    @@ {
-         State.current = Initialize;
-         bars;
-         content;
-         tick = Input.options.flags.start;
-         tick_length = Input.options.tick;
-         trading_state = State.Core.empty ();
-         time = Ptime.min;
-       }
+    State.make Input.options.flags.start bars content
 
   let opts = Input.options
 
@@ -125,7 +116,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    let symbols = State.get_symbols state in
+    let symbols = State.symbols state in
     Eio.traceln "@[Liquidating %d positions@]@." (List.length symbols);
 
     (* Create sell orders for all positions *)
@@ -133,13 +124,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
       List.fold_left
         (fun prev symbol ->
           let* prev = prev in
-          let qty = State.get_qty prev symbol in
+          let qty = State.qty prev symbol in
           if qty = 0 then (
             Eio.traceln "@[Skipping %a: no position to liquidate@]@."
               Instrument.pp symbol;
             Result.return prev)
           else
-            let* data = Bars.get prev.bars symbol in
+            let* data = State.data prev symbol in
             let last_price = Bars.Data.get_top data Last in
             let* timestamp =
               let time_float = Bars.Data.get_top data Time in
@@ -147,11 +138,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
             in
             let side = if qty > 0 then Side.Sell else Side.Buy in
             let abs_qty = Int.abs qty in
+            let tick = State.tick prev in
             let order : Order.t =
-              Order.make ~symbol ~tick:prev.tick ~side
-                ~tif:TimeInForce.GoodTillCanceled ~order_type:OrderType.Market
-                ~qty:abs_qty ~price:last_price ~timestamp ~profit:None
-                ~reason:[ "Liquidate position" ]
+              Order.make ~symbol ~tick ~side ~tif:TimeInForce.GoodTillCanceled
+                ~order_type:OrderType.Market ~qty:abs_qty ~price:last_price
+                ~timestamp ~profit:None ~reason:[ "Liquidate position" ]
             in
             Eio.traceln "@[Liquidating %d shares of %a at %f@]@." abs_qty
               Instrument.pp symbol last_price;
@@ -160,13 +151,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
     in
 
     (* Verify all positions are closed *)
-    let remaining_symbols = State.get_symbols liquidated_state in
+    let remaining_symbols = State.symbols liquidated_state in
     if List.length remaining_symbols > 0 then (
       Eio.traceln "@[Warning: %d positions still remain after liquidation@]@."
         (List.length remaining_symbols);
       List.iter
         (fun sym ->
-          let qty = State.get_qty liquidated_state sym in
+          let qty = State.qty liquidated_state sym in
           Eio.traceln "@[  %a: %d shares@]@." Instrument.pp sym qty)
         remaining_symbols)
     else Eio.traceln "@[All positions successfully liquidated@]@.";

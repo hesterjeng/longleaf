@@ -85,7 +85,7 @@ module Make
   let buy_ (state : 'a State.t) selected =
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
-    let current_cash = State.get_cash state in
+    let current_cash = State.cash state in
     let pct = 1.0 /. Float.of_int (List.length selected) in
     assert (pct >=. 0.0 && pct <=. 1.0);
     let@ state f = List.fold_left f (Ok state) selected in
@@ -93,15 +93,18 @@ module Make
       let* state = state in
       let symbol = signal.instrument in
       let reason = signal.reason in
-      let* price = State.price state symbol in
-      let* timestamp = State.timestamp state symbol in
+      let tick = State.tick state in
+      let* data = State.data state symbol in
+      let* col = Bars.Data.Column.of_data data tick in
+      let* timestamp = Bars.Data.Column.timestamp col in
+      let* price = Bars.Data.Column.get col Last in
       let qty = Util.qty ~current_cash ~price ~pct in
       (* assert (qty <> 0); *)
       match qty with
       | 0 -> Result.return state
       | qty ->
         let order : Order.t =
-          Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled ~tick:state.tick
+          Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled ~tick
             ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
         in
         let* state = Backend.place_order state order in
@@ -114,7 +117,8 @@ module Make
       |> Buy.make state
     in
     let num_held_currently =
-      State.Core.count_active_orders state.trading_state
+      List.length @@ State.active state
+      (* State.Core.count_active_orders state.trading_state *)
     in
     (* Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp) *)
     (*   state.order_history.active; *)
@@ -140,14 +144,17 @@ module Make
       | false -> Result.return state
       | true ->
         let reason = signal.reason in
-        let* price = State.price state buying_order.symbol in
-        let* timestamp = State.timestamp state buying_order.symbol in
+        let tick = State.tick state in
+        let* data = State.data state buying_order.symbol in
+        let* col = Bars.Data.Column.of_data data tick in
+        let* timestamp = Bars.Data.Column.timestamp col in
+        let* price = Bars.Data.Column.get col Last in
         assert (buying_order.qty <> 0);
         let reason =
           ("Sell reason:" :: reason) @ ("Buy reason:" :: buying_order.reason)
         in
         let order : Order.t =
-          Order.make ~tick:state.tick ~symbol:buying_order.symbol ~side:Sell
+          Order.make ~tick ~symbol:buying_order.symbol ~side:Sell
             ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
             ~price ~reason ~timestamp
             ~profit:
@@ -168,13 +175,13 @@ module Make
 
   let step (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    match state.current with
+    match State.current state with
     | Ordering ->
-      let held_symbols = State.get_symbols state in
+      let held_symbols = State.symbols state in
       let* sold_state =
-        List.fold_left sell_fold (Ok state)
-        @@ (State.Core.get_active_orders state.trading_state
-           |> List.map (fun (r : State.Order_record.t) -> r.order))
+        List.fold_left sell_fold (Ok state) @@ State.active state
+        (* @@ (State.Core.get_active_orders state.trading_state *)
+        (*    |> List.map (fun (r : State.Order_record.t) -> r.order)) *)
       in
       let* complete = buy ~held_symbols sold_state in
       Result.return complete

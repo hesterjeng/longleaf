@@ -55,43 +55,45 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     in
     Response.of_string ~headers ~body `OK
   | { Request.meth = `GET; target = "/orders"; _ } ->
-    let trading_state = Pmutex.get mutices.state_mutex in
-    let active_orders = State.get_active_orders trading_state in
-    let pending_orders = State.get_pending_orders trading_state in
-    let body =
-      `Assoc
-        [
-          ( "active",
-            `List
-              (List.map
-                 (fun r -> `String (State.Order_record.show r))
-                 active_orders) );
-          ( "pending",
-            `List
-              (List.map
-                 (fun r -> `String (State.Order_record.show r))
-                 pending_orders) );
-        ]
-      |> Yojson.Safe.to_string
-    in
-    Response.of_string ~body `OK
+    invalid_arg "Endpoint orders NYI"
+    (* let trading_state = Pmutex.get mutices.state_mutex in *)
+    (* let active_orders = State.get_active_orders trading_state in *)
+    (* let pending_orders = State.get_pending_orders trading_state in *)
+    (* let body = *)
+    (*   `Assoc *)
+    (*     [ *)
+    (*       ( "active", *)
+    (*         `List *)
+    (*           (List.map *)
+    (*              (fun r -> `String (State.Order_record.show r)) *)
+    (*              active_orders) ); *)
+    (*       ( "pending", *)
+    (*         `List *)
+    (*           (List.map *)
+    (*              (fun r -> `String (State.Order_record.show r)) *)
+    (*              pending_orders) ); *)
+    (*     ] *)
+    (*   |> Yojson.Safe.to_string *)
+    (* in *)
+    (* Response.of_string ~body `OK *)
   | { Request.meth = `GET; target = "/stats"; _ } ->
-    let trading_state = Pmutex.get mutices.state_mutex in
-    let body =
-      `Assoc
-        [
-          ("cash", `Float (State.get_cash trading_state));
-          ("positions_taken", `Int trading_state.trading_state.positions_taken);
-          ( "positions_possible",
-            `Int trading_state.trading_state.positions_possible );
-          ( "active_positions",
-            `Int
-              (State.SymbolMap.cardinal trading_state.trading_state.positions)
-          );
-        ]
-      |> Yojson.Safe.to_string
-    in
-    Response.of_string ~body `OK
+    invalid_arg "stats endpoint NYI"
+    (* let trading_state = Pmutex.get mutices.state_mutex in *)
+    (* let body = *)
+    (*   `Assoc *)
+    (*     [ *)
+    (*       ("cash", `Float (State.get_cash trading_state)); *)
+    (*       ("positions_taken", `Int trading_state.trading_state.positions_taken); *)
+    (*       ( "positions_possible", *)
+    (*         `Int trading_state.trading_state.positions_possible ); *)
+    (*       ( "active_positions", *)
+    (*         `Int *)
+    (*           (State.SymbolMap.cardinal trading_state.trading_state.positions) *)
+    (*       ); *)
+    (*     ] *)
+    (*   |> Yojson.Safe.to_string *)
+    (* in *)
+    (* Response.of_string ~body `OK *)
   | { Request.meth = `GET; target = "/symbols"; _ } ->
     let bars = Pmutex.get mutices.data_mutex in
     let symbols_list =

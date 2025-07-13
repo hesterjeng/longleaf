@@ -22,7 +22,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars instrument in
+    let* data = State.data state instrument in
 
     (* Get current values *)
     let sma_val = Bars.Data.get_top data sma_20 in
@@ -32,14 +32,16 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
     let current_volume = Bars.Data.get_top data Bars.Data.Type.Volume in
 
     (* Get previous values *)
-    let prev_price = Bars.Data.get data Bars.Data.Type.Close (state.tick - 1) in
-    let prev_atr = Bars.Data.get data atr (state.tick - 1) in
+    let prev_price =
+      Bars.Data.get data Bars.Data.Type.Close (State.tick state - 1)
+    in
+    let prev_atr = Bars.Data.get data atr (State.tick state - 1) in
 
     (* Calculate average volume (approximate using recent volume) *)
     let avg_volume =
       let recent_volumes =
         List.init 10 (fun i ->
-            Bars.Data.get data Bars.Data.Type.Volume (state.tick - i - 1))
+            Bars.Data.get data Bars.Data.Type.Volume (State.tick state - i - 1))
       in
       List.fold_left ( +. ) 0.0 recent_volumes /. 10.0
     in
@@ -86,7 +88,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 
   let score (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars instrument in
+    let* data = State.data state instrument in
     let current_price = Bars.Data.get_top data Bars.Data.Type.Close in
     let sma_val = Bars.Data.get_top data sma_20 in
     let current_volume = Bars.Data.get_top data Bars.Data.Type.Volume in
@@ -96,7 +98,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
     let avg_volume =
       let recent_volumes =
         List.init 10 (fun i ->
-            Bars.Data.get data Bars.Data.Type.Volume (state.tick - i - 1))
+            Bars.Data.get data Bars.Data.Type.Volume (State.tick state - i - 1))
       in
       List.fold_left ( +. ) 0.0 recent_volumes /. 10.0
     in
@@ -126,7 +128,7 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
 
   let make (state : 'a State.t) ~(buying_order : Order.t) =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars buying_order.symbol in
+    let* data = State.data state buying_order.symbol in
 
     (* Get current values *)
     let ema_val = Bars.Data.get_top data ema_10 in

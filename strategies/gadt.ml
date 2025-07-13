@@ -268,10 +268,10 @@ let eval_strategy_signal (strategy_expr : bool expr) (state : _ State.t) symbol
     =
   let ( let* ) = Result.( let* ) in
   let* data =
-    Bars.get state.bars symbol
+    State.data state symbol
     (* State.get_bars state symbol *)
   in
-  let current_index = state.tick in
+  let current_index = State.tick state in
   match eval strategy_expr data current_index with
   | Ok should_signal -> Result.return @@ Signal.make symbol should_signal
   | Error e -> Error e

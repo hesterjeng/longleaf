@@ -16,7 +16,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars instrument in
+    let* data = State.data state instrument in
 
     (* Get current RSI and SMA values *)
     let rsi_value = Bars.Data.get_top data rsi_indicator in
@@ -50,7 +50,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 
   let score (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars instrument in
+    let* data = State.data state instrument in
     let rsi_value = Bars.Data.get_top data rsi_indicator in
 
     (* Lower RSI = higher score (more oversold = better buy opportunity) *)
@@ -69,7 +69,7 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
 
   let make (state : 'a State.t) ~(buying_order : Order.t) =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars buying_order.symbol in
+    let* data = State.data state buying_order.symbol in
 
     (* Get current values *)
     let rsi_value = Bars.Data.get_top data rsi_indicator in

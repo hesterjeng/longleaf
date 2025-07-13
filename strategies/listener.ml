@@ -8,7 +8,7 @@ module Make (Backend : Backend.S) : Strategy.S = struct
     ()
 
   let step (state : _ State.t) =
-    match state.current with
+    match State.current state with
     | Ordering -> Result.return @@ State.listen state
     | _ -> SU.handle_nonlogical_state state
 

@@ -22,7 +22,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars instrument in
+    let* data = State.data state instrument in
 
     (* Get current values *)
     let macd_val = Bars.Data.get_top data macd_line in
@@ -34,8 +34,8 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
     let current_price = Bars.Data.get_top data Bars.Data.Type.Close in
 
     (* Get previous values for crossover detection *)
-    let prev_macd = Bars.Data.get data macd_line (state.tick - 1) in
-    let prev_macd_sig = Bars.Data.get data macd_signal (state.tick - 1) in
+    let prev_macd = Bars.Data.get data macd_line (State.tick state - 1) in
+    let prev_macd_sig = Bars.Data.get data macd_signal (State.tick state - 1) in
 
     (* Buy conditions *)
     let macd_bullish_cross =
@@ -77,7 +77,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 
   let score (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars instrument in
+    let* data = State.data state instrument in
     let macd_hist = Bars.Data.get_top data macd_histogram in
     let adx_val = Bars.Data.get_top data adx in
 
@@ -99,7 +99,7 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
 
   let make (state : 'a State.t) ~(buying_order : Order.t) =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars buying_order.symbol in
+    let* data = State.data state buying_order.symbol in
 
     (* Get current values *)
     let macd_val = Bars.Data.get_top data macd_line in
@@ -109,8 +109,8 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
     let entry_price = buying_order.price in
 
     (* Get previous values for crossover detection *)
-    let prev_macd = Bars.Data.get data macd_line (state.tick - 1) in
-    let prev_macd_sig = Bars.Data.get data macd_signal (state.tick - 1) in
+    let prev_macd = Bars.Data.get data macd_line (State.tick state - 1) in
+    let prev_macd_sig = Bars.Data.get data macd_signal (State.tick state - 1) in
 
     (* Calculate profit/loss percentage *)
     let profit_pct = (current_price -. entry_price) /. entry_price *. 100.0 in

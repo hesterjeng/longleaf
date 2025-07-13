@@ -12,10 +12,10 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars instrument in
+    let* data = State.data state instrument in
 
     (* Avoid early ticks where indicators aren't stable *)
-    if state.tick < 50 then
+    if State.tick state < 50 then
       Result.return { Signal.instrument; flag = false; reason = [] }
     else
       (* Get current values *)
@@ -30,7 +30,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
       let avg_volume =
         let volumes =
           List.init 20 (fun i ->
-              Bars.Data.get data Bars.Data.Type.Volume (state.tick - i - 1))
+              Bars.Data.get data Bars.Data.Type.Volume (State.tick state - i - 1))
         in
         List.fold_left ( +. ) 0.0 volumes /. 20.0
       in
@@ -91,9 +91,9 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 
   let score (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars instrument in
+    let* data = State.data state instrument in
 
-    if state.tick < 50 then Result.return 0.0
+    if State.tick state < 50 then Result.return 0.0
     else
       let adx_val = Bars.Data.get_top data adx in
       let rsi_val = Bars.Data.get_top data rsi in
@@ -103,7 +103,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
       let avg_volume =
         let volumes =
           List.init 20 (fun i ->
-              Bars.Data.get data Bars.Data.Type.Volume (state.tick - i - 1))
+              Bars.Data.get data Bars.Data.Type.Volume (State.tick state - i - 1))
         in
         List.fold_left ( +. ) 0.0 volumes /. 20.0
       in
@@ -128,7 +128,7 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
 
   let make (state : 'a State.t) ~(buying_order : Order.t) =
     let ( let* ) = Result.( let* ) in
-    let* data = Bars.get state.bars buying_order.symbol in
+    let* data = State.data state buying_order.symbol in
 
     (* Get current values *)
     let adx_val = Bars.Data.get_top data adx in
@@ -138,7 +138,7 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
     let entry_price = buying_order.price in
 
     (* Calculate holding period *)
-    let holding_period = state.tick - buying_order.tick in
+    let holding_period = State.tick state - buying_order.tick in
 
     (* Calculate profit/loss percentage *)
     let profit_pct = (current_price -. entry_price) /. entry_price *. 100.0 in
