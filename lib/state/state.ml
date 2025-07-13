@@ -30,6 +30,8 @@ type 'a t = {
   content : 'a;
 }
 
+let init_core = Core.empty
+
 let empty () : unit t =
   {
     current = Initialize;
