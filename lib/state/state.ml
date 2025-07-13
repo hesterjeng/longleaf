@@ -1,5 +1,6 @@
 module Mode = Mode
 module Config = Config
+module Stats = Stats
 
 type 'a t = {
   current_state : Mode.t;
@@ -113,3 +114,7 @@ let place_order t (order : Order.t) =
 
 let tick t = t.current_tick
 let options t = t.config
+
+let stats x =
+  let bars = bars x in
+  Stats.make x.history bars

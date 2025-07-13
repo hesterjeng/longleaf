@@ -1,5 +1,6 @@
 module Mode = Mode
 module Config = Config
+module Stats = Stats
 
 type 'a t
 type 'a res = ('a, Error.t) result
@@ -60,3 +61,4 @@ val set : 'a t -> Mode.t -> 'a t
 (* Return the options record *)
 val options : 'a t -> Config.t
 val empty : unit -> unit t
+val stats : 'a t -> Stats.t
