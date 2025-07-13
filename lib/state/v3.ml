@@ -210,13 +210,14 @@ module V3_impl : S = struct
 
     let _ = Pmutex.set order.status Order.Status.Filled in
     let positions = t.positions in
+    let positions = Positions.update positions order in
     match order.side with
     | Buy ->
       if t.cash >=. order_value then (
         let new_cash = t.cash -. order_value in
         let current_tick_orders = order :: Vector.get t.history tick in
         Vector.set t.history tick current_tick_orders;
-        Result.return { t with cash = new_cash })
+        Result.return { t with cash = new_cash; positions })
       else Error.fatal "Insufficient cash for buy order"
     | Sell ->
       let qty_held = qty t order.symbol in
@@ -224,7 +225,7 @@ module V3_impl : S = struct
         let new_cash = t.cash +. order_value in
         let current_tick_orders = order :: Vector.get t.history tick in
         Vector.set t.history tick current_tick_orders;
-        Result.return { t with cash = new_cash })
+        Result.return { t with cash = new_cash; positions })
       else Error.fatal "Insufficient shares for sell order"
 
   let tick t = t.current_tick
