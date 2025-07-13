@@ -125,10 +125,10 @@ module Make (Input : BACKEND_INPUT) : S = struct
         (fun prev symbol ->
           let* prev = prev in
           let qty = State.qty prev symbol in
-          if qty = 0 then (
-            Eio.traceln "@[Skipping %a: no position to liquidate@]@."
-              Instrument.pp symbol;
-            Result.return prev)
+          if qty = 0 then
+            (* Eio.traceln "@[Skipping %a: no position to liquidate@]@." *)
+            (*   Instrument.pp symbol; *)
+            Result.return prev
           else
             let* data = State.data prev symbol in
             let last_price = Bars.Data.get_top data Last in

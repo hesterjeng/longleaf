@@ -20,12 +20,15 @@ module Positions = struct
 
   let qty (t : t) instrument =
     let pos = get t instrument in
-    List.fold_left
-      (fun acc (order : Order.t) ->
-        match order.side with
-        | Buy -> acc + order.qty
-        | Sell -> acc - order.qty)
-      0 pos
+    let res =
+      List.fold_left
+        (fun acc (order : Order.t) ->
+          match order.side with
+          | Buy -> acc + order.qty
+          | Sell -> acc - order.qty)
+        0 pos
+    in
+    res
 
   let update (pos : t) (order : Order.t) =
     let symbol = order.symbol in
@@ -38,11 +41,7 @@ module Positions = struct
     in
     let qty = qty new_pos symbol in
     match qty with
-    | 0 ->
-      PosMap.update symbol
-        (function
-          | _ -> Some [])
-        new_pos
+    | 0 -> PosMap.remove symbol new_pos
     | _ -> new_pos
 
   let cost_basis (pos : t) symbol =
