@@ -163,10 +163,7 @@ module Make (Backend : Backend.S) = struct
       Eio.traceln "Running...";
       Result.return @@ State.set state Listening
     | Listening -> (
-      if not options.flags.no_gui then (
-        Pmutex.set mutices.data_mutex bars;
-        Pmutex.set mutices.state_mutex state
-        (* Pmutex.set mutices.indicators_mutex state.indicators *));
+      if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
       (* Eio.traceln "tick"; *)
       let* listened = listen_tick () in
       let* length = Bars.length bars in
@@ -199,10 +196,7 @@ module Make (Backend : Backend.S) = struct
       (* TODO: get order history length from trading_state *)
       Eio.traceln "state.bars at finish: %a" Bars.pp bars;
       Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
-      if not options.flags.no_gui then (
-        Pmutex.set mutices.data_mutex bars;
-        Pmutex.set mutices.state_mutex state
-        (* Pmutex.set mutices.indicators_mutex state.indicators *));
+      if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
       let filename = get_filename () in
       let* () = output_data state filename in
       output_order_history state filename;

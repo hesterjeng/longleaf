@@ -1,6 +1,5 @@
 type t = {
   shutdown_mutex : bool Pmutex.t;
-  data_mutex : Bars.t Pmutex.t;
   state_mutex : unit State.t Pmutex.t;
   symbols_mutex : string option Pmutex.t;
   target_symbol : string option Pmutex.t;
@@ -8,14 +7,12 @@ type t = {
 
 let create () =
   let shutdown_mutex = Pmutex.make false in
-  let data_mutex = Pmutex.make @@ Bars.empty () in
   let state_mutex = Pmutex.make @@ State.empty () in
   let symbols_mutex = Pmutex.make None in
   (* let indicators_mutex = Pmutex.make @@ Indicators.empty Precomputed in *)
   let target_symbol = Pmutex.make None in
   {
     shutdown_mutex;
-    data_mutex;
     state_mutex;
     symbols_mutex;
     (* indicators_mutex; *)

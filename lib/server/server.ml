@@ -13,7 +13,8 @@ let serve_favicon () =
   Response.of_string ~headers ~body `OK
 
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
-  let bars = Pmutex.get mutices.data_mutex in
+  let state = Pmutex.get mutices.state_mutex in
+  let bars = State.bars state in
   let bars_json_opt = Plotly.of_bars bars target in
   match bars_json_opt with
   | Some bars -> Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
@@ -95,7 +96,8 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     (* in *)
     (* Response.of_string ~body `OK *)
   | { Request.meth = `GET; target = "/symbols"; _ } ->
-    let bars = Pmutex.get mutices.data_mutex in
+    let state = Pmutex.get mutices.state_mutex in
+    let bars = State.bars state in
     let symbols_list =
       Bars.fold bars [] (fun symbol _data acc ->
           Instrument.symbol symbol :: acc)
@@ -114,7 +116,8 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     in
     Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
-    let bars = Pmutex.get mutices.data_mutex in
+    let state = Pmutex.get mutices.state_mutex in
+    let bars = State.bars state in
     let body =
       match Bars.yojson_of_t bars with
       | Ok x -> Yojson.Safe.to_string x
