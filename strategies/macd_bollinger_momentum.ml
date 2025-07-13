@@ -107,9 +107,9 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
     let upper_band = Bars.Data.get_top data upper_bb in
     let current_price = Bars.Data.get_top data Bars.Data.Type.Close in
     let qty_held = State.qty state symbol in
-    let entry_price = 
-      if qty_held > 0 then 
-        (-.State.cost_basis state symbol) /. (float_of_int qty_held)
+    let entry_price =
+      if qty_held > 0 then
+        -.State.cost_basis state symbol /. float_of_int qty_held
       else 0.0
     in
 
@@ -165,11 +165,10 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
        Eio.traceln
          "SELL SIGNAL: %s - %s - MACD: %.4f<%.4f, Price: %.2f, Upper BB: %.2f, \
           P&L: %.2f%%"
-         (Instrument.symbol symbol)
-         sell_reason macd_val macd_sig current_price upper_band profit_pct);
+         (Instrument.symbol symbol) sell_reason macd_val macd_sig current_price
+         upper_band profit_pct);
 
-    Result.return
-      { Signal.instrument = symbol; flag = should_sell; reason }
+    Result.return { Signal.instrument = symbol; flag = should_sell; reason }
 end
 
 module Buy_trigger = Template.Buy_trigger.Make (Buy_trigger_input)

@@ -288,8 +288,7 @@ let gadt_to_buy_trigger (buy_expr : bool expr) =
 
 let gadt_to_sell_trigger (sell_expr : bool expr) =
   let module Sell_impl : Template.Sell_trigger.S = struct
-    let make state symbol =
-      eval_strategy_signal sell_expr state symbol
+    let make state symbol = eval_strategy_signal sell_expr state symbol
   end in
   (module Sell_impl : Template.Sell_trigger.S)
 
