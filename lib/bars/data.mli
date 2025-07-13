@@ -42,7 +42,7 @@ module Type : sig
     | Low
     | Close
     | Volume
-    | Tacaml of (Tacaml.Indicator.t[@opaque])
+    | Tacaml of Tacaml.Indicator.t
     | Other of string
   [@@deriving variants, show { with_path = false }]
 
@@ -162,6 +162,10 @@ val set : t -> Type.t -> int -> float -> unit
 val get_top : t -> Type.t -> float
 (** [get_top res x] returns the value of the data field [x] at the current
     index. *)
+
+val get_top_int : t -> Type.t -> int
+(** [get_top_int res x] returns the integer value of the data field [x] at the
+    current index. Only works for integer indicators (Tacaml (I _)). *)
 
 (** {1 Conversions} *)
 

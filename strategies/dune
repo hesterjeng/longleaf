@@ -13,7 +13,8 @@
   iter
   cmdliner
   landmarks
-  owl
+  nx
+  tacaml
   longleaf-lib
   piaf)
  (preprocess

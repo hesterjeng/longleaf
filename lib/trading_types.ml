@@ -46,11 +46,13 @@ module OrderId : sig
 
   val of_string : string -> t
   val to_string : t -> string
+  val pp : t Format.printer
 end = struct
   type t = string
 
   let of_string x = x
   let to_string x = x
+  let pp = String.pp
 end
 
 module Timeframe : sig
@@ -198,4 +200,51 @@ module Status = struct
     | `String s ->
       invalid_arg @@ Format.asprintf "Unknown Status.t constructor %s" s
     | _ -> invalid_arg "Expected a string inside json for Status.t"
+
+  (* Status classification functions *)
+  let equal s1 s2 =
+    (* Compare by converting to strings since we don't have built-in equal *)
+    String.equal
+      (yojson_of_t s1 |> Yojson.Safe.to_string)
+      (yojson_of_t s2 |> Yojson.Safe.to_string)
+
+  let is_pending = function
+    | Pending_new
+    | New ->
+      true
+    | _ -> false
+
+  let is_active = function
+    | Accepted
+    | Partially_filled ->
+      true
+    | _ -> false
+
+  let is_filled = function
+    | Filled -> true
+    | _ -> false
+
+  let is_cancelled = function
+    | Canceled
+    | Expired
+    | Rejected ->
+      true
+    | _ -> false
+
+  let is_terminal = function
+    | Filled
+    | Canceled
+    | Expired
+    | Rejected
+    | Done_for_day ->
+      true
+    | _ -> false
+
+  let is_open = function
+    | New
+    | Pending_new
+    | Accepted
+    | Partially_filled ->
+      true
+    | _ -> false
 end

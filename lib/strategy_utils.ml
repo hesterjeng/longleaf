@@ -1,3 +1,5 @@
+module Mode = State.Mode
+
 module Make (Backend : Backend.S) = struct
   module Input = Backend.Input
 
@@ -6,7 +8,7 @@ module Make (Backend : Backend.S) = struct
   let mutices : Server.Longleaf_mutex.t = options.mutices
   let runtype = options.flags.runtype
 
-  let listen_tick () : (State.state, Error.t) result =
+  let listen_tick () : (State.Mode.t, Error.t) result =
     Eio.Fiber.any
     @@ [
          (fun () ->
@@ -14,7 +16,7 @@ module Make (Backend : Backend.S) = struct
            match nmo with
            | None ->
              Ticker.tick ~runtype Backend.env Input.options.tick;
-             Result.return State.Continue
+             Result.return Mode.Continue
            | Some open_time -> (
              Eio.traceln "@[Current time: %a@]@." (Option.pp Time.pp)
                (Eio.Time.now Backend.env#clock |> Ptime.of_float_s);
@@ -28,10 +30,10 @@ module Make (Backend : Backend.S) = struct
                Eio.traceln "@[Current time: %a@]@." Time.pp t;
                Ticker.tick ~runtype Backend.env 5.0;
                Eio.traceln "@[Waited five seconds.@]@.";
-               Result.return @@ State.Continue
+               Result.return @@ Mode.Continue
              | None ->
                Eio.traceln "@[Detected an illegal time!  Shutting down.@]@.";
-               Result.return @@ State.BeginShutdown));
+               Result.return @@ Mode.BeginShutdown));
          (fun () ->
            while
              let shutdown = Pmutex.get mutices.shutdown_mutex in
@@ -41,7 +43,7 @@ module Make (Backend : Backend.S) = struct
              Ticker.tick ~runtype Backend.env 1.0
            done;
            Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
-           Result.return @@ State.BeginShutdown);
+           Result.return @@ Mode.BeginShutdown);
          (fun () ->
            let* close_time = Backend.next_market_close () in
            let* now =
@@ -60,7 +62,7 @@ module Make (Backend : Backend.S) = struct
            Eio.traceln
              "@[Liquidating because we are within 10 minutes to market \
               close.@]@.";
-           Result.return State.BeginShutdown);
+           Result.return Mode.BeginShutdown);
          (* match context.flags.resume_after_liquidate with *)
          (* | false -> Result.return @@ State.BeginShutdown *)
          (* | true -> *)
@@ -80,14 +82,13 @@ module Make (Backend : Backend.S) = struct
           Eio.traceln
             "@[Trying to liquidate because of a signal or error: %a@]@."
             Error.pp e;
-          let liquidate = { prev with State.current = Liquidate } in
-          go liquidate
+          go @@ State.liquidate prev
         in
-        match prev.current with
+        match State.current prev with
         | Liquidate
         | Finished _ ->
           Eio.traceln "@[Exiting run.@]@.";
-          Portfolio.get_cash prev.positions
+          State.cash prev (* 0.0 *)
         | _ -> try_liquidating ())
     in
     match init_state with
@@ -108,17 +109,19 @@ module Make (Backend : Backend.S) = struct
         | false -> "live"
       in
       Eio.traceln "Saving all bars...";
-      let* () = Bars.print_to_file ~filename state.bars prefix in
+      let bars = State.bars state in
+      let* () = Bars.print_to_file ~filename bars prefix in
       let* () =
         Bars.print_to_file ~filename Backend.received_data (prefix ^ "_received")
       in
       Result.return ()
     | false -> Result.return ()
 
-  let output_order_history (state : _ State.t) filename =
+  let output_order_history (_state : _ State.t) filename =
     if options.flags.save_to_file then (
       let json_str =
-        Order.History.yojson_of_t state.order_history |> Yojson.Safe.to_string
+        `List [] |> Yojson.Safe.to_string
+        (* TODO: get order history from trading_state *)
       in
       let filename = Format.sprintf "data/order_history_%s.json" filename in
       let oc = open_out filename in
@@ -127,39 +130,12 @@ module Make (Backend : Backend.S) = struct
     else ()
 
   let update_continue (state : 'a State.t) =
-    (* Eio.traceln "%a" State.pp_simple state; *)
     let ( let* ) = Result.( let* ) in
-    (* let previous = state.latest in *)
-    let* () = Backend.update_bars Backend.symbols state.bars state.tick in
-    (* We have the index, we have state.bars, we have the newest info *)
-    (* Here we can update indicators, BEFORE appending to bars *)
-    let* positions = Portfolio.update state.positions state.bars state.tick in
-    let* time = Bars.timestamp state.bars in
-    (* let* time = Bars.Latest.timestamp latest in *)
-    (* assert (Ptime.compare time state.time = 1); *)
-    (* let* () = Bars.append latest state.bars in *)
-    (* let* indicators = *)
-    (*   Indicators.compute_latest context.compare_preloaded *)
-    (*     Input.options.indicators_config state.bars state.indicators *)
-    (* in *)
-    let* value = Portfolio.value positions state.bars in
-    let risk_free_value =
-      Stats.risk_free_value state.stats Input.options.tick
-    in
-    let stats =
-      Stats.cons state.stats
-      @@ {
-           Stats.time;
-           value;
-           orders = [];
-           risk_free_value;
-           cash = Portfolio.get_cash state.positions;
-         }
-    in
-    (* if options.flags.print_tick_arg then *)
-    (*   Eio.traceln "[ %a ] CASH %f" Time.pp time value; *)
-    let res = { state with stats; positions; time; tick = state.tick + 1 } in
-    Bars.set_current state.bars res.tick;
+    let bars = State.bars state in
+    let* () = Backend.update_bars Backend.symbols bars @@ State.tick state in
+    let* _value = State.value state in
+    let res = State.increment_tick state in
+    Bars.set_current bars @@ State.tick res;
     Result.return res
 
   let start_time = ref 0.0
@@ -168,70 +144,65 @@ module Make (Backend : Backend.S) = struct
     let ( let* ) = Result.( let* ) in
     (* Eio.traceln "There are %d bindings in state.bars" *)
     (*   (Bars.Hashtbl.length state.bars); *)
-    match state.current with
+    let bars = State.bars state in
+    let tick = State.tick state in
+    match State.current state with
     | Initialize ->
       Eio.traceln "Initialize state...";
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
-      let* () =
-        Indicators.compute_all ~eio_env:Backend.env
-          Input.options.indicators_config state.bars
-      in
-      Bars.set_current state.bars state.tick;
+      (* let* () = *)
+      (*   Indicators.compute_all ~eio_env:Backend.env *)
+      (*     Input.options.indicators_config state.bars *)
+      (* in *)
+      Bars.set_current bars tick;
+      Eio.traceln "Bars initialize: %a" Bars.pp bars;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       start_time := Eio.Time.now Backend.env#clock;
       Eio.traceln "Running...";
-      Result.return @@ { state with current = Listening }
+      Result.return @@ State.set state Listening
     | Listening -> (
-      if not options.flags.no_gui then (
-        Pmutex.set mutices.data_mutex state.bars;
-        Pmutex.set mutices.orders_mutex state.order_history;
-        Pmutex.set mutices.stats_mutex state.stats
-        (* Pmutex.set mutices.indicators_mutex state.indicators *));
+      if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
       (* Eio.traceln "tick"; *)
       let* listened = listen_tick () in
-      let* length = Bars.length state.bars in
+      let* length = Bars.length bars in
       match listened with
-      | Continue when state.tick >= length - 1 ->
-        Result.return @@ { state with current = Liquidate }
+      | Continue when tick >= length - 1 ->
+        Result.return @@ State.set state Liquidate
       | Continue ->
         let* state = update_continue state in
-        Result.return @@ { state with current = Ordering }
+        Result.return @@ State.set state Ordering
       | BeginShutdown ->
         Eio.traceln "Attempting to liquidate positions before shutting down";
-        Result.return { state with current = Liquidate }
+        Result.return @@ State.set state Liquidate
       | LiquidateContinue ->
         Eio.traceln "Strategies.listen_tick resturned LiquidateContinue";
-        Result.return { state with current = LiquidateContinue }
+        Result.return @@ State.set state LiquidateContinue
       | _ ->
         Error.fatal
           "Strategies.handle_nonlogical_state: unhandled return value from \
            listen_tick")
     | Liquidate ->
       let* state = Backend.liquidate state in
-      Result.return @@ { state with current = Finished "Liquidation finished" }
+      Result.return @@ State.set state (Finished "Liquidation finished")
     | LiquidateContinue ->
       let* state = Backend.liquidate state in
       Ticker.tick ~runtype Backend.env 600.0;
-      Result.return { state with current = Listening }
+      Result.return @@ State.set state Listening
     | Finished code ->
-      Eio.traceln "@[Reached finished state. %f@]@."
-        (Portfolio.get_cash state.positions);
+      Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@."
+        tick (State.cash state) 0;
+      (* TODO: get order history length from trading_state *)
+      Eio.traceln "state.bars at finish: %a" Bars.pp bars;
       Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);
-      if not options.flags.no_gui then (
-        let stats_with_orders =
-          Stats.add_orders state.order_history state.stats
-        in
-        Pmutex.set mutices.data_mutex state.bars;
-        Pmutex.set mutices.stats_mutex stats_with_orders
-        (* Pmutex.set mutices.indicators_mutex state.indicators *));
+      if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
       let filename = get_filename () in
       let* () = output_data state filename in
       output_order_history state filename;
       (* let tearsheet = Tearsheet.make state in *)
       (* Eio.traceln "%a" Tearsheet.pp tearsheet; *)
-      assert (Portfolio.is_empty state.positions);
+      (* assert (State.is_portfolio_empty state); *)
       Eio.traceln "Finished cleanup... %fs"
         (Eio.Time.now Backend.env#clock -. !start_time);
       Result.fail @@ `Finished code

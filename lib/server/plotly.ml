@@ -1,6 +1,8 @@
-(* module IP = Indicators.Point *)
+(** Plotly.js JSON generation for trading data visualization *)
 
 module Data = Bars.Data
+
+(** {1 Layout Configuration} *)
 
 let layout title =
   let ( = ) = fun x y -> (x, y) in
@@ -19,73 +21,41 @@ let layout title =
             "dtick" = `Int 20;
             "showticklabels" = `Bool false;
           ];
-      "yaxis" = `Assoc [ "title" = `String "Value" ];
-      (* "yaxis2" *)
-      (* = `Assoc *)
-      (*     [ *)
-      (*       "title" = `String "Value2"; *)
-      (*       "overlaying" = `String "y"; *)
-      (*       "side" = `String "right"; *)
-      (*     ]; *)
+      "yaxis" = `Assoc [ "title" = `String "Price" ];
+      "yaxis2"
+      = `Assoc
+          [
+            "title" = `String "Oscillators";
+            "overlaying" = `String "y";
+            "side" = `String "right";
+            "range" = `List [ `Int (-20); `Int 120 ];
+            "showgrid" = `Bool false;
+            "zeroline" = `Bool false;
+          ];
     ]
 
-let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1") bars
-    (indicator : Data.Type.t) (symbol : Instrument.t) =
-  let ( let* ) = Result.( let* ) in
-  let* data = Bars.get bars symbol in
-  let indicator_name = Data.Type.show indicator in
-  let time i : Yojson.Safe.t =
-    let timestamp =
-      Data.get data Time i |> Ptime.of_float_s
-      |> Option.map Ptime.to_rfc3339
-      |> Option.get_exn_or "Illegal time stored in data table (plotly.ml)"
-    in
-    `String timestamp
-  in
-  let value i : Yojson.Safe.t = `Float (Data.get data indicator i) in
-  let x, y =
-    let l = Data.length data in
-    List.map (fun i -> Pair.make (time i) (value i)) (List.range' 0 l)
-    |> List.drop drop |> List.split
-  in
-  if List.length x <> List.length y then (
-    Eio.traceln "ERROR: Indicator length mismatch! x:%d y:%d" (List.length x)
-      (List.length y);
-    ());
-  let visible = if show then "true" else "legendonly" in
-  (* if String.equal "SMA 5" indicator_name && String.equal symbol "NVDA" then *)
-  (*   Eio.traceln "@[%a@]@." (List.pp ~pp_sep:Format.newline Yojson.Safe.pp) y; *)
-  (* Option.return *)
-  Result.return
-  @@ `Assoc
-       [
-         ("x", `List x);
-         ("y", `List y);
-         ("text", `String indicator_name);
-         ("name", `String indicator_name);
-         ("yaxis", `String yaxis);
-         ("type", `String "scatter");
-         ("visible", `String visible);
-         ( "line",
-           `Assoc
-             [
-               (* ("color", `String "red"); *)
-               ("dash", `String "dash");
-               ("width", `Int 2);
-             ] );
-       ]
+(** {1 Core Trace Functions} *)
 
-let price_trace (data : Item.t list) (symbol : Instrument.t) : Yojson.Safe.t =
-  let x =
-    let mk_plotly_x x =
-      let time = Item.timestamp x in
-      let res = Ptime.to_rfc3339 time in
-      `String res
-    in
-    List.map mk_plotly_x data
-  in
+let direct_price_trace ?(start = 0) ?end_ (data : Data.t)
+    (symbol : Instrument.t) : Yojson.Safe.t =
+  let length = Data.length data in
+  let end_idx = Option.value end_ ~default:length in
+  let end_idx = Int.min end_idx length in
   let symbol_str = Instrument.symbol symbol in
-  let y = List.map (fun x -> `Float (Item.last x)) data in
+
+  let rec build_lists i acc_x acc_y =
+    if i >= end_idx then (List.rev acc_x, List.rev acc_y)
+    else
+      let timestamp =
+        Data.get data Time i |> Ptime.of_float_s
+        |> Option.map Ptime.to_rfc3339
+        |> Option.get_exn_or "Invalid timestamp in direct_price_trace"
+      in
+      let price = Data.get data Last i in
+      build_lists (i + 1) (`String timestamp :: acc_x) (`Float price :: acc_y)
+  in
+  let x, y = build_lists start [] [] in
+
   `Assoc
     [
       ("x", `List x);
@@ -94,6 +64,63 @@ let price_trace (data : Item.t list) (symbol : Instrument.t) : Yojson.Safe.t =
       ("name", `String symbol_str);
       ("type", `String "scatter");
     ]
+
+let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
+    ?(color = "#1f77b4") ?(dash = "solid") ?(width = 1) ?(start = 0) ?end_ bars
+    (indicator : Data.Type.t) (symbol : Instrument.t) =
+  let ( let* ) = Result.( let* ) in
+  let* data = Bars.get bars symbol in
+  let indicator_name = Data.Type.show indicator in
+  let length = Data.length data in
+  let end_idx = Option.value end_ ~default:length in
+  let end_idx = Int.min end_idx length in
+  let effective_start = Int.max start drop in
+
+  if effective_start >= end_idx then
+    Result.return
+    @@ `Assoc
+         [
+           ("x", `List []);
+           ("y", `List []);
+           ("text", `String indicator_name);
+           ("name", `String indicator_name);
+           ("yaxis", `String yaxis);
+           ("type", `String "scatter");
+           ("visible", `String (if show then "true" else "legendonly"));
+         ]
+  else
+    let rec build_lists i acc_x acc_y =
+      if i >= end_idx then (List.rev acc_x, List.rev acc_y)
+      else
+        let timestamp =
+          Data.get data Time i |> Ptime.of_float_s
+          |> Option.map Ptime.to_rfc3339
+          |> Option.get_exn_or "Illegal time stored in data table (plotly.ml)"
+        in
+        let value = Data.get data indicator i in
+        build_lists (i + 1) (`String timestamp :: acc_x) (`Float value :: acc_y)
+    in
+    let x, y = build_lists effective_start [] [] in
+
+    let visible = if show then "true" else "legendonly" in
+    Result.return
+    @@ `Assoc
+         [
+           ("x", `List x);
+           ("y", `List y);
+           ("text", `String indicator_name);
+           ("name", `String indicator_name);
+           ("yaxis", `String yaxis);
+           ("type", `String "scatter");
+           ("visible", `String visible);
+           ( "line",
+             `Assoc
+               [
+                 ("color", `String color);
+                 ("dash", `String dash);
+                 ("width", `Int width);
+               ] );
+         ]
 
 let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
     Yojson.Safe.t =
@@ -126,253 +153,140 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
       ("name", `String (Trading_types.Side.to_string side));
     ]
 
-[@@@warning "-27"]
+(** {1 Main API} *)
 
-let order_trace_side (side : Trading_types.Side.t) (data : Item.t list) =
-  invalid_arg
-    "plotly.ml: order_trace_side: FIXME items no longer have order field"
-(* let find_side (x : Order.t) = *)
-(*   let order_side = x.side in *)
-(*   if Trading_types.Side.equal side order_side then Some x else None *)
-(* in *)
-(* let orders = *)
-(*   List.filter_map *)
-(*     (fun (item : Item.t) -> *)
-(*       let* order = Item.order item in *)
-(*       find_side order) *)
-(*     data *)
-(* in *)
-(* order_trace side orders *)
+let of_bars ?(start = 100) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
+  let ( let* ) = Result.( let* ) in
+  let result =
+    let* data = Bars.get bars symbol in
+    let price_trace = direct_price_trace ~start ?end_ data symbol in
 
-let of_bars (bars : Bars.t) indicators symbol : Yojson.Safe.t option =
-  Eio.traceln "Plots.of_bars NYI";
-  None
-(* let* data_vec = Bars.get bars symbol in *)
-(* let data = Vector.to_list data_vec in *)
-(* let* ema_12_trace = *)
-(*   indicator_trace ~drop:12 indicators "EMA(12)" IP.ema_12 symbol *)
-(* in *)
-(* let* ema_26_trace = *)
-(*   indicator_trace ~drop:26 indicators "EMA(26)" IP.ema_26 symbol *)
-(* in *)
-(* let* macd_trace = *)
-(*   indicator_trace ~show:false ~drop:26 indicators "MACD" IP.macd symbol *)
-(* in *)
-(* let* sma_5_trace = *)
-(*   indicator_trace ~drop:5 indicators "SMA(5)" IP.sma_5 symbol *)
-(* in *)
-(* let* sma_34_trace = *)
-(*   indicator_trace ~drop:34 indicators "SMA(34)" IP.sma_34 symbol *)
-(* in *)
-(* let* sma_75_trace = *)
-(*   indicator_trace ~drop:34 indicators "SMA(75)" IP.sma_75 symbol *)
-(* in *)
-(* let* sma_233_trace = *)
-(*   indicator_trace ~drop:233 ~show:false indicators "SMA(233)" IP.sma_233 *)
-(*     symbol *)
-(* in *)
-(* let* awesome_slow = *)
-(*   indicator_trace ~drop:233 ~show:false indicators "Awesome Slow" *)
-(*     IP.awesome_slow symbol *)
-(* in *)
-(* let* upper_bollinger = *)
-(*   indicator_trace indicators "Upper BB(34)" IP.upper_bollinger symbol *)
-(* in *)
-(* let* lower_bollinger = *)
-(*   indicator_trace indicators "Lower BB(34)" IP.lower_bollinger symbol *)
-(* in *)
-(* let* rsi = *)
-(*   indicator_trace ~show:false indicators "Relative Strength Index" *)
-(*     IP.relative_strength_index symbol *)
-(* in *)
-(* let* adx = indicator_trace ~show:false indicators "ADX" IP.adx symbol in *)
-(* let* cci = indicator_trace ~show:false indicators "CCI" IP.cci symbol in *)
-(* let* ema_cci = *)
-(*   indicator_trace ~show:true indicators "EMA CCI" IP.ema_cci symbol *)
-(* in *)
-(* let* ema_adx = *)
-(*   indicator_trace ~show:true indicators "EMA ADX" IP.ema_adx symbol *)
-(* in *)
-(* let* awesome = *)
-(*   indicator_trace ~show:false indicators "Awesome Oscillator" *)
-(*     IP.awesome_oscillator symbol *)
-(* in *)
-(* let* fso_pk = *)
-(*   indicator_trace ~show:false indicators "FSO %K" IP.fso_k symbol *)
-(* in *)
-(* let* fso_pd = *)
-(*   indicator_trace ~show:false indicators "FSO %D" IP.fso_d symbol *)
-(* in *)
-(* let* fso_pd_slow = *)
-(*   indicator_trace ~show:false indicators "FSO %D-slow" IP.fso_d_slow symbol *)
-(* in *)
-(* let* fft_thing = *)
-(*   indicator_trace ~show:false indicators *)
-(*     "Fourier Transform Normalized Magnitude" IP.ft_normalized_magnitude symbol *)
-(* in *)
-(* let* fft_mse = *)
-(*   indicator_trace ~show:false indicators *)
-(*     "Fourier Transform Mean Squared Error" IP.fft_mean_squared_error symbol *)
-(* in *)
-(* let* u3b = *)
-(*   indicator_trace ~show:false indicators "Upper 3 Bollinger" *)
-(*     IP.upper_bollinger_100_3 symbol *)
-(* in *)
-(* let* l1b = *)
-(*   indicator_trace ~show:false indicators "Lower 1 Bollinger" *)
-(*     IP.lower_bollinger_100_1 symbol *)
-(* in *)
-(* let buy_trace = order_trace_side Buy data in *)
-(* let sell_trace = order_trace_side Sell data in *)
-(* let price_trace = price_trace data symbol in *)
-(* let ( = ) = fun x y -> (x, y) in *)
-(* Option.return *)
-(* @@ `Assoc *)
-(*      [ *)
-(*        "traces" *)
-(*        = `List *)
-(*            [ *)
-(*              price_trace; *)
-(*              buy_trace; *)
-(*              sell_trace; *)
-(*              adx; *)
-(*              cci; *)
-(*              ema_cci; *)
-(*              ema_adx; *)
-(*              ema_12_trace; *)
-(*              ema_26_trace; *)
-(*              macd_trace; *)
-(*              sma_5_trace; *)
-(*              sma_34_trace; *)
-(*              sma_75_trace; *)
-(*              sma_233_trace; *)
-(*              upper_bollinger; *)
-(*              lower_bollinger; *)
-(*              awesome; *)
-(*              awesome_slow; *)
-(*              rsi; *)
-(*              fso_pk; *)
-(*              fso_pd; *)
-(*              fso_pd_slow; *)
-(*              fft_thing; *)
-(*              fft_mse; *)
-(*              u3b; *)
-(*              l1b; *)
-(*            ]; *)
-(*        "layout" = layout @@ Instrument.symbol symbol; *)
-(*      ] *)
+    (* Create the 10 most common technical indicators *)
 
-[@@@warning "+27"]
+    (* Price overlay indicators (main y-axis) *)
+    let* sma_20 =
+      indicator_trace ~show:true ~drop:20 ~color:"#ff7f0e" ~width:2 ~start ?end_
+        bars (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Sma))
+        symbol
+    in
+    let* ema_20 =
+      indicator_trace ~show:true ~drop:20 ~color:"#2ca02c" ~width:2 ~start ?end_
+        bars (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Ema))
+        symbol
+    in
+    let* bb_upper =
+      indicator_trace ~show:false ~drop:20 ~color:"#d62728" ~dash:"dot" ~start
+        ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.UpperBBand))
+        symbol
+    in
+    let* bb_lower =
+      indicator_trace ~show:false ~drop:20 ~color:"#d62728" ~dash:"dot" ~start
+        ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.LowerBBand))
+        symbol
+    in
 
-module Stats = struct
-  module Side = Trading_types.Side
+    (* Oscillators (secondary y-axis) *)
+    let* rsi_14 =
+      indicator_trace ~show:false ~drop:14 ~yaxis:"y2" ~color:"#9467bd" ~width:2
+        ~start ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Rsi))
+        symbol
+    in
+    let* stoch_k =
+      indicator_trace ~show:false ~drop:14 ~yaxis:"y2" ~color:"#8c564b"
+        ~dash:"dash" ~start ?end_ bars
+        (Data.Type.Tacaml
+           (Tacaml.Indicator.F Tacaml.Indicator.Float.Stoch_SlowK)) symbol
+    in
+    let* cci_14 =
+      indicator_trace ~show:false ~drop:14 ~yaxis:"y2" ~color:"#e377c2"
+        ~dash:"dashdot" ~start ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Cci))
+        symbol
+    in
 
-  type t = {
-    x : string;
-    y : float;
-    cash : float;
-    buy_hovertext : string option;
-    sell_hovertext : string option;
-  }
-  [@@deriving show, yojson]
+    (* MACD indicators (main y-axis but separate) *)
+    let* macd =
+      indicator_trace ~show:false ~drop:26 ~color:"#17becf" ~width:2 ~start
+        ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Macd_MACD))
+        symbol
+    in
+    let* macd_signal =
+      indicator_trace ~show:false ~drop:35 ~color:"#bcbd22" ~dash:"dash" ~start
+        ?end_ bars
+        (Data.Type.Tacaml
+           (Tacaml.Indicator.F Tacaml.Indicator.Float.Macd_MACDSignal)) symbol
+    in
 
-  let of_item (item : Stats.item) =
-    let filter (x : Order.t) =
-      let hovertext =
-        Format.asprintf "* %s<br>%s"
-          (Instrument.symbol x.symbol)
-          (String.concat "<br>" x.reason)
+    (* Volatility indicator *)
+    let* atr_14 =
+      indicator_trace ~show:false ~drop:14 ~color:"#ff9896" ~width:2 ~start
+        ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Atr))
+        symbol
+    in
+
+    let ( = ) = fun x y -> (x, y) in
+    Result.return
+    @@ `Assoc
+         [
+           "traces"
+           = `List
+               [
+                 price_trace;
+                 sma_20;
+                 ema_20;
+                 rsi_14;
+                 macd;
+                 macd_signal;
+                 bb_upper;
+                 bb_lower;
+                 stoch_k;
+                 atr_14;
+                 cci_14;
+               ];
+           "layout" = layout @@ Instrument.symbol symbol;
+         ]
+  in
+  match result with
+  | Ok json -> Some json
+  | Error e ->
+    Eio.traceln "%a" Error.pp e;
+    None
+
+(** {1 Statistics Module} *)
+(* TODO: Reimplement stats visualization using Trading_state *)
+
+(* module Stats = struct
+   This module has been removed as Stats.t is no longer available.
+   Future implementation should use Trading_state for portfolio visualization.
+end *)
+
+(** {1 Legacy Functions} *)
+
+module Legacy = struct
+  (** Legacy function that uses Item.t list - use direct_price_trace for better
+      performance *)
+  let price_trace (data : Item.t list) (symbol : Instrument.t) : Yojson.Safe.t =
+    let x =
+      let mk_plotly_x x =
+        let time = Item.timestamp x in
+        let res = Ptime.to_rfc3339 time in
+        `String res
       in
-      match x.side with
-      | Buy -> `Left hovertext
-      | Sell -> `Right hovertext
+      List.map mk_plotly_x data
     in
-    let pair = List.partition_filter_map filter item.orders in
-    let buy_hovertext, sell_hovertext =
-      Pair.map_same
-        (fun ht ->
-          match ht with
-          | [] -> None
-          | l -> Option.return @@ String.concat "<br>" l)
-        pair
-    in
-    {
-      x = Ptime.to_rfc3339 item.time;
-      y = item.value;
-      cash = item.cash;
-      buy_hovertext;
-      sell_hovertext;
-    }
-
-  let order_trace (side : Side.t) (items : t list) =
-    let ( = ) = fun x y -> (x, y) in
-    let filtered =
-      List.filter
-        (fun (x : t) ->
-          match side with
-          | Buy -> Option.is_some x.buy_hovertext
-          | Sell -> Option.is_some x.sell_hovertext)
-        items
-    in
-    let x = List.map (fun (x : t) -> `String x.x) filtered in
-    let y = List.map (fun (x : t) -> `Float x.y) filtered in
-    let hovertext =
-      List.map
-        (fun (x : t) ->
-          `String
-            (Option.get_exn_or
-               "plotly.ml: impossible, already filtered for side"
-               (match side with
-               | Buy -> x.buy_hovertext
-               | Sell -> x.sell_hovertext)))
-        filtered
-    in
-    let name = Trading_types.Side.to_string side in
-    let color = Trading_types.Side.to_color side in
+    let symbol_str = Instrument.symbol symbol in
+    let y = List.map (fun x -> `Float (Item.last x)) data in
     `Assoc
       [
-        "x" = `List x;
-        "y" = `List y;
-        "hovertext" = `List hovertext;
-        "hoverinfo" = `String "text";
-        "mode" = `String "markers";
-        "type" = `String "scatter";
-        "name" = `String name;
-        "marker" = `Assoc [ "color" = `String color; "size" = `Int 10 ];
-      ]
-
-  let make (stats : Stats.t) : Yojson.Safe.t =
-    let ( = ) = fun x y -> (x, y) in
-    let l = List.map of_item stats.history in
-    let x = List.map (fun x -> `String x.x) l in
-    let y = List.map (fun x -> `Float x.y) l in
-    let cash = List.map (fun x -> `Float x.cash) l in
-    let value_trace : Yojson.Safe.t =
-      `Assoc
-        [
-          "x" = `List x;
-          "y" = `List y;
-          "text" = `String "Statistics";
-          "name" = `String "Statistics";
-          "type" = `String "scatter";
-        ]
-    in
-    let cash_trace : Yojson.Safe.t =
-      `Assoc
-        [
-          "x" = `List x;
-          "y" = `List cash;
-          "text" = `String "Cash";
-          "name" = `String "Cash";
-          "type" = `String "scatter";
-          "visible" = `String "legendonly";
-        ]
-    in
-    let buy_trace : Yojson.Safe.t = order_trace Buy l in
-    let sell_trace : Yojson.Safe.t = order_trace Sell l in
-    `Assoc
-      [
-        "traces" = `List [ value_trace; buy_trace; sell_trace; cash_trace ];
-        "layout" = layout "Statistics";
+        ("x", `List x);
+        ("y", `List y);
+        ("text", `String symbol_str);
+        ("name", `String symbol_str);
+        ("type", `String "scatter");
       ]
 end

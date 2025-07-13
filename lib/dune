@@ -13,9 +13,10 @@
   ptime
   eio_main
   iter
+  uuidm
   cmdliner
   landmarks
-  owl
+  nx
   tacaml
   piaf
   yojson)

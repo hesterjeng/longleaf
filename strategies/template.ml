@@ -60,7 +60,7 @@ module Sell_trigger = struct
   (** The user provides a module of this type to determine when to exit a
       position *)
   module type S = sig
-    val make : 'a State.t -> buying_order:Order.t -> (Signal.t, Error.t) result
+    val make : 'a State.t -> Instrument.t -> (Signal.t, Error.t) result
     (** Return Pass if we want to exit the position corresponding to
         buying_order. If we return Fail, do nothing.*)
   end
@@ -85,7 +85,7 @@ module Make
   let buy_ (state : 'a State.t) selected =
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
-    let current_cash = Portfolio.get_cash state.positions in
+    let current_cash = State.cash state in
     let pct = 1.0 /. Float.of_int (List.length selected) in
     assert (pct >=. 0.0 && pct <=. 1.0);
     let@ state f = List.fold_left f (Ok state) selected in
@@ -93,23 +93,21 @@ module Make
       let* state = state in
       let symbol = signal.instrument in
       let reason = signal.reason in
-      let* price = State.price state symbol in
-      let* timestamp = State.timestamp state symbol in
+      let tick = State.tick state in
+      let* data = State.data state symbol in
+      let* col = Bars.Data.Column.of_data data tick in
+      let* timestamp = Bars.Data.Column.timestamp col in
+      let* price = Bars.Data.Column.get col Last in
       let qty = Util.qty ~current_cash ~price ~pct in
       (* assert (qty <> 0); *)
       match qty with
       | 0 -> Result.return state
       | qty ->
         let order : Order.t =
-          Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled ~tick:state.tick
+          Order.make ~symbol ~side:Buy ~tif:GoodTillCanceled ~tick
             ~order_type:Market ~qty ~price ~reason ~timestamp ~profit:None
         in
-        let state =
-          State.replace_stats state
-          @@ Stats.increment_position_ratio state.stats
-        in
         let* state = Backend.place_order state order in
-        let state = State.activate_order state order in
         Result.return state
 
   let buy ~held_symbols (state : 'a State.t) =
@@ -118,12 +116,9 @@ module Make
       List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
       |> Buy.make state
     in
-    let state =
-      State.replace_stats state
-      @@ Stats.add_possible_positions state.stats potential_buys
-    in
     let num_held_currently =
-      Order.History.Ptime_map.cardinal @@ state.order_history.active
+      List.length @@ State.held_symbols state
+      (* State.Core.count_active_orders state.trading_state *)
     in
     (* Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp) *)
     (*   state.order_history.active; *)
@@ -141,49 +136,47 @@ module Make
     in
     Result.return @@ State.listen res
 
-  let sell (state : 'a State.t) ~(buying_order : Order.t) =
+  let sell (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in
-    let* signal = Sell.make state ~buying_order in
+    let qty = State.qty state symbol in
+    let cost_basis = State.cost_basis state symbol in
+    let* signal = Sell.make state symbol in
     let* state =
       match signal.flag with
       | false -> Result.return state
       | true ->
-        let reason = signal.reason in
-        let* price = State.price state buying_order.symbol in
-        let* timestamp = State.timestamp state buying_order.symbol in
-        assert (buying_order.qty <> 0);
-        let reason =
-          ("Sell reason:" :: reason) @ ("Buy reason:" :: buying_order.reason)
-        in
+        let tick = State.tick state in
+        let* data = State.data state symbol in
+        let* col = Bars.Data.Column.of_data data tick in
+        let* timestamp = Bars.Data.Column.timestamp col in
+        let* price = Bars.Data.Column.get col Last in
+        let reason = [ "Selling in template.ml" ] in
         let order : Order.t =
-          Order.make ~tick:state.tick ~symbol:buying_order.symbol ~side:Sell
-            ~tif:GoodTillCanceled ~order_type:Market ~qty:buying_order.qty
-            ~price ~reason ~timestamp
+          Order.make ~tick ~symbol ~side:Sell ~tif:GoodTillCanceled
+            ~order_type:Market ~qty ~price ~reason ~timestamp
             ~profit:
-              (Option.return
-              @@ (Float.of_int buying_order.qty *. (price -. buying_order.price))
-              )
+              (Option.return @@ ((Float.of_int qty *. price) +. cost_basis))
         in
         let* state = Backend.place_order state order in
-        let state = State.deactivate_order state buying_order in
         Result.return state
     in
     Result.return @@ State.listen state
 
-  let sell_fold state buying_order =
+  let sell_fold state symbol =
     let ( let* ) = Result.( let* ) in
     let* state = state in
-    let* res = sell state ~buying_order in
+    let* res = sell state symbol in
     Result.return res
 
   let step (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    match state.current with
+    match State.current state with
     | Ordering ->
-      let held_symbols = Portfolio.symbols state.positions in
+      let held_symbols = State.held_symbols state in
       let* sold_state =
-        List.fold_left sell_fold (Ok state)
-        @@ Order.History.active state.order_history
+        List.fold_left sell_fold (Ok state) @@ State.held_symbols state
+        (* @@ (State.Core.get_active_orders state.trading_state *)
+        (*    |> List.map (fun (r : State.Order_record.t) -> r.order)) *)
       in
       let* complete = buy ~held_symbols sold_state in
       Result.return complete

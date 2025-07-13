@@ -13,12 +13,9 @@ let serve_favicon () =
   Response.of_string ~headers ~body `OK
 
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
-  let bars = Pmutex.get mutices.data_mutex in
-  let indicators =
-    invalid_arg "NYI Server.plotly_response_of_symbol"
-    (* Pmutex.get mutices.indicators_mutex |> Indicators.to_vector_table *)
-  in
-  let bars_json_opt = Plotly.of_bars bars indicators target in
+  let state = Pmutex.get mutices.state_mutex in
+  let bars = State.bars state in
+  let bars_json_opt = Plotly.of_bars bars target in
   match bars_json_opt with
   | Some bars -> Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
   | None ->
@@ -59,18 +56,55 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     in
     Response.of_string ~headers ~body `OK
   | { Request.meth = `GET; target = "/orders"; _ } ->
-    let orders = Pmutex.get mutices.orders_mutex in
-    let body = Order.History.yojson_of_t orders |> Yojson.Safe.to_string in
-    Response.of_string ~body `OK
+    invalid_arg "Endpoint orders NYI"
+    (* let trading_state = Pmutex.get mutices.state_mutex in *)
+    (* let active_orders = State.get_active_orders trading_state in *)
+    (* let pending_orders = State.get_pending_orders trading_state in *)
+    (* let body = *)
+    (*   `Assoc *)
+    (*     [ *)
+    (*       ( "active", *)
+    (*         `List *)
+    (*           (List.map *)
+    (*              (fun r -> `String (State.Order_record.show r)) *)
+    (*              active_orders) ); *)
+    (*       ( "pending", *)
+    (*         `List *)
+    (*           (List.map *)
+    (*              (fun r -> `String (State.Order_record.show r)) *)
+    (*              pending_orders) ); *)
+    (*     ] *)
+    (*   |> Yojson.Safe.to_string *)
+    (* in *)
+    (* Response.of_string ~body `OK *)
   | { Request.meth = `GET; target = "/stats"; _ } ->
-    let stats = Pmutex.get mutices.stats_mutex |> Stats.sort in
-    let body = Plotly.Stats.make stats |> Yojson.Safe.to_string in
-    Response.of_string ~body `OK
+    invalid_arg "stats endpoint NYI"
+    (* let trading_state = Pmutex.get mutices.state_mutex in *)
+    (* let body = *)
+    (*   `Assoc *)
+    (*     [ *)
+    (*       ("cash", `Float (State.get_cash trading_state)); *)
+    (*       ("positions_taken", `Int trading_state.trading_state.positions_taken); *)
+    (*       ( "positions_possible", *)
+    (*         `Int trading_state.trading_state.positions_possible ); *)
+    (*       ( "active_positions", *)
+    (*         `Int *)
+    (*           (State.SymbolMap.cardinal trading_state.trading_state.positions) *)
+    (*       ); *)
+    (*     ] *)
+    (*   |> Yojson.Safe.to_string *)
+    (* in *)
+    (* Response.of_string ~body `OK *)
   | { Request.meth = `GET; target = "/symbols"; _ } ->
+    let state = Pmutex.get mutices.state_mutex in
+    let bars = State.bars state in
+    let symbols_list =
+      Bars.fold bars [] (fun symbol _data acc ->
+          Instrument.symbol symbol :: acc)
+    in
+    let symbols_str = String.concat "," symbols_list in
     let body =
-      Pmutex.get mutices.symbols_mutex
-      |> Option.get_exn_or "gui: Must have symbols to display information..."
-      |> fun s -> `Assoc [ ("symbols", `String s) ] |> Yojson.Safe.to_string
+      `Assoc [ ("symbols", `String symbols_str) ] |> Yojson.Safe.to_string
     in
     Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/target_symbol"; _ } ->
@@ -82,7 +116,8 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     in
     Response.of_string ~body `OK
   | { Request.meth = `GET; target = "/graphs_json"; _ } ->
-    let bars = Pmutex.get mutices.data_mutex in
+    let state = Pmutex.get mutices.state_mutex in
+    let bars = State.bars state in
     let body =
       match Bars.yojson_of_t bars with
       | Ok x -> Yojson.Safe.to_string x

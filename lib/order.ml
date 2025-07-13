@@ -53,29 +53,5 @@ let cmp_profit x y =
 
 let cmp_timestamp x y = Ptime.compare x.timestamp y.timestamp
 
-module History = struct
-  module Ptime_map = Map.Make (Ptime)
-
-  type nonrec t = { all : order Ptime_map.t; active : order Ptime_map.t }
-
-  let yojson_of_t (h : t) : Yojson.Safe.t =
-    let l = Ptime_map.bindings h.all |> List.map snd in
-    `List (List.map yojson_of_order l)
-
-  let add (h : t) (order_item : order) =
-    let key = timestamp order_item in
-    { all = Ptime_map.add key order_item h.all; active = h.active }
-
-  let add_active (h : t) (order_item : order) =
-    let key = timestamp order_item in
-    { h with active = Ptime_map.add key order_item h.active }
-
-  let remove_active (h : t) (order_item : order) =
-    let key = timestamp order_item in
-    { h with active = Ptime_map.remove key h.active }
-
-  let empty = { all = Ptime_map.empty; active = Ptime_map.empty }
-  let length h = Ptime_map.cardinal h.all
-  let inactive h = Ptime_map.bindings h.all |> List.map snd
-  let active h = Ptime_map.bindings h.active |> List.map snd
-end
+(* Status submodule for convenience - re-exports Trading_types.Status *)
+module Status = Trading_types.Status

@@ -58,7 +58,7 @@ module EnumeratedSignal = struct
     let to_boolean_func (x : t) (state : 'a State.t) (instrument : Instrument.t)
         =
       let ( let* ) = Result.( let* ) in
-      let* data = Bars.get state.bars instrument in
+      let* data = State.data state instrument in
       let res =
         match x with
         | FSO_k_gt v -> Data.get_top data fso_k >. EnumeratedValue.to_float v
@@ -163,8 +163,8 @@ module EnumeratedSignal = struct
 
   let to_sell_trigger (x : t) =
     let module X : Template.Sell_trigger.S = struct
-      let make (state : 'a State.t) ~(buying_order : Order.t) =
-        let signal = to_signal_function x state buying_order.symbol in
+      let make (state : 'a State.t) (symbol : Instrument.t) =
+        let signal = to_signal_function x state symbol in
         signal
     end in
     (module X : Template.Sell_trigger.S)
