@@ -63,9 +63,9 @@ let price (state : 'a t) symbol =
   let price = Data.get data Last state.tick in
   Result.return price
 
-let activate_order state order_id =
-  let new_trading_state = Core.activate_order state.trading_state order_id in
-  { state with trading_state = new_trading_state }
+(* let activate_order state order_id = *)
+(*   let new_trading_state = Core.activate_order state.trading_state order_id in *)
+(*   { state with trading_state = new_trading_state } *)
 
 let place_order (state : 'a t) (order : Order.t) =
   let ( let* ) = Result.( let* ) in

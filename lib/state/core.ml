@@ -5,8 +5,7 @@ module SymbolMap = Map.Make (Instrument)
 (* Main Trading State Module *)
 type t = {
   orders : Order_record.t IdMap.t;
-  pending_orders : Order_id.t list;
-  active_orders : Order_id.t list;
+  order_timeline : Order_id.t list;
   positions : Position.t SymbolMap.t;
   closed_positions : (Position.t * Time.t) list;
   cash : float;
@@ -15,19 +14,54 @@ type t = {
   positions_possible : int;
 }
 
+(* Pure Functional Query Functions *)
+let get_orders_by_status state status =
+  IdMap.fold
+    (fun _id (order_rec : Order_record.t) acc ->
+      if Order.Status.equal order_rec.status status then order_rec :: acc
+      else acc)
+    state.orders []
+
+let get_pending_orders state = get_orders_by_status state Order.Status.New
+
+let get_active_orders state =
+  IdMap.fold
+    (fun _id (order_rec : Order_record.t) acc ->
+      if
+        Order.Status.is_pending order_rec.status
+        || Order.Status.is_active order_rec.status
+      then
+        if not (Order.Status.equal order_rec.status Order.Status.New) then
+          order_rec :: acc
+        else acc
+      else acc)
+    state.orders []
+
+let count_pending_orders state =
+  IdMap.fold
+    (fun _id (order_rec : Order_record.t) acc ->
+      if Order.Status.equal order_rec.status Order.Status.New then acc + 1
+      else acc)
+    state.orders 0
+
+let count_active_orders state =
+  IdMap.fold
+    (fun _id (order_rec : Order_record.t) acc ->
+      if Order.Status.is_active order_rec.status then acc + 1 else acc)
+    state.orders 0
+
 let pp fmt state =
+  let pending_count = count_pending_orders state in
+  let active_count = count_active_orders state in
   Format.fprintf fmt
     "{ orders = <map>; pending_orders = [%d items]; active_orders = [%d \
      items]; positions = <map>; cash = %.2f; ... }"
-    (List.length state.pending_orders)
-    (List.length state.active_orders)
-    state.cash
+    pending_count active_count state.cash
 
 let empty () : t =
   {
     orders = IdMap.empty;
-    pending_orders = [];
-    active_orders = [];
+    order_timeline = [];
     positions = SymbolMap.empty;
     closed_positions = [];
     cash = 100000.0;
@@ -40,7 +74,7 @@ let empty () : t =
 let add_order state order_id order =
   let order_record = Order_record.make order order_id in
   let new_orders = IdMap.add order_id order_record state.orders in
-  let new_pending = order_id :: state.pending_orders in
+  let new_timeline = order_id :: state.order_timeline in
   (* Allocate cash immediately for buy orders *)
   let new_cash =
     if Trading_types.Side.equal order.side Buy then
@@ -50,7 +84,7 @@ let add_order state order_id order =
   {
     state with
     orders = new_orders;
-    pending_orders = new_pending;
+    order_timeline = new_timeline;
     cash = new_cash;
   }
 
@@ -61,27 +95,8 @@ let activate_order state order_id =
       Order_record.update_status order_rec Order.Status.Accepted
     in
     let new_orders = IdMap.add order_id updated_record state.orders in
-    let new_pending =
-      List.filter
-        (fun id -> not (Order_id.equal id order_id))
-        state.pending_orders
-    in
-    let new_active = order_id :: state.active_orders in
-    {
-      state with
-      orders = new_orders;
-      pending_orders = new_pending;
-      active_orders = new_active;
-    }
+    { state with orders = new_orders }
   | _ -> state
-
-let get_pending_orders state =
-  List.filter_map
-    (fun id -> IdMap.find_opt id state.orders)
-    state.pending_orders
-
-let get_active_orders state =
-  List.filter_map (fun id -> IdMap.find_opt id state.orders) state.active_orders
 
 let cancel_order state order_id =
   match IdMap.find_opt order_id state.orders with
@@ -93,29 +108,13 @@ let cancel_order state order_id =
       Order_record.update_status order_rec Order.Status.Canceled
     in
     let new_orders = IdMap.add order_id updated_record state.orders in
-    let new_pending =
-      List.filter
-        (fun id -> not (Order_id.equal id order_id))
-        state.pending_orders
-    in
-    let new_active =
-      List.filter
-        (fun id -> not (Order_id.equal id order_id))
-        state.active_orders
-    in
     (* Return allocated cash for buy orders *)
     let returned_cash =
       if Trading_types.Side.equal order.side Buy then
         order.price *. Float.of_int order.qty
       else 0.0
     in
-    {
-      state with
-      orders = new_orders;
-      pending_orders = new_pending;
-      active_orders = new_active;
-      cash = state.cash +. returned_cash;
-    }
+    { state with orders = new_orders; cash = state.cash +. returned_cash }
   | _ -> state
 
 (* Position Query Functions *)
@@ -239,14 +238,6 @@ let execute_order_against_position state order_id filled_qty current_price =
         current_price *. Float.of_int filled_qty
     in
 
-    let new_active =
-      if Order.Status.is_filled updated_order_rec.status then
-        List.filter
-          (fun id -> not (Order_id.equal id order_id))
-          state.active_orders
-      else state.active_orders
-    in
-
     Result.return
       {
         state with
@@ -254,19 +245,15 @@ let execute_order_against_position state order_id filled_qty current_price =
         positions = new_positions;
         closed_positions = new_closed_positions;
         cash = state.cash +. cash_change;
-        active_orders = new_active;
       }
 
 (* Statistics Functions *)
 let record_portfolio_snapshot state time current_portfolio_value risk_free_value
     =
   let orders =
-    List.filter_map
-      (fun id ->
-        match IdMap.find_opt id state.orders with
-        | Some order_rec -> Some order_rec.order
-        | None -> None)
-      state.active_orders
+    List.map
+      (fun (order_rec : Order_record.t) -> order_rec.order)
+      (get_active_orders state)
   in
   let snapshot =
     Portfolio_snapshot.make time state.cash current_portfolio_value

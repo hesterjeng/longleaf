@@ -113,7 +113,9 @@ module Make
       List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
       |> Buy.make state
     in
-    let num_held_currently = List.length state.trading_state.active_orders in
+    let num_held_currently =
+      State.Core.count_active_orders state.trading_state
+    in
     (* Eio.traceln "%d %a" Buy.num_positions (List.pp Order.pp) *)
     (*   state.order_history.active; *)
     assert (Buy.num_positions >= 0);
