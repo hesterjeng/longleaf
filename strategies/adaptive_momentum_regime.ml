@@ -252,9 +252,9 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
   let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
   let ema_10 = Bars.Data.Type.(Tacaml (F Ema))
 
-  let make (state : 'a State.t) ~(buying_order : Order.t) =
+  let make (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in
-    let* data = State.data state buying_order.symbol in
+    let* data = State.data state symbol in
 
     (* Get current values *)
     let adx_val = Bars.Data.get_top data adx in
@@ -264,7 +264,12 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
     let upper_band = Bars.Data.get_top data upper_bb in
     let ema_10_val = Bars.Data.get_top data ema_10 in
     let current_price = Bars.Data.get_top data Bars.Data.Type.Close in
-    let entry_price = buying_order.price in
+    let qty_held = State.qty state symbol in
+    let entry_price = 
+      if qty_held > 0 then 
+        (-.State.cost_basis state symbol) /. (float_of_int qty_held)
+      else 0.0
+    in
 
     (* Get historical MACD histogram for momentum analysis *)
     let macd_hist_1 =
@@ -275,7 +280,7 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
     in
 
     (* Calculate holding period *)
-    let holding_period = State.tick state - buying_order.tick in
+    let holding_period = 1 in (* placeholder - holding period needs order history *)
 
     (* Calculate profit/loss percentage *)
     let profit_pct = (current_price -. entry_price) /. entry_price *. 100.0 in
@@ -362,11 +367,11 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
        Eio.traceln
          "SELL SIGNAL: %s - %s - %s regime - ADX: %.2f, Price: %.2f, P&L: \
           %.2f%%, Hold: %dd"
-         (Instrument.symbol buying_order.symbol)
+         (Instrument.symbol symbol)
          sell_reason regime adx_val current_price profit_pct holding_period);
 
     Result.return
-      { Signal.instrument = buying_order.symbol; flag = should_sell; reason }
+      { Signal.instrument = symbol; flag = should_sell; reason }
 end
 
 module Buy_trigger = Template.Buy_trigger.Make (Buy_trigger_input)

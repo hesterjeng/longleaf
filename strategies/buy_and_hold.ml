@@ -33,8 +33,8 @@ module Buy = Template.Buy_trigger.Make (Buy_inp)
 
 (* We will sell any symbol that meets the requirement *)
 module Sell : Template.Sell_trigger.S = struct
-  let make (_state : 'a State.t) ~(buying_order : Order.t) =
-    Result.return @@ Signal.make buying_order.symbol false
+  let make (_state : 'a State.t) symbol =
+    Result.return @@ Signal.make symbol false
 end
 
 (* Create a strategy with our parameters *)

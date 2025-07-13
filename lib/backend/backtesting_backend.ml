@@ -116,7 +116,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let liquidate (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
-    let symbols = State.symbols state in
+    let symbols = State.held_symbols state in
     Eio.traceln "@[Liquidating %d positions@]@." (List.length symbols);
 
     (* Create sell orders for all positions *)
@@ -151,7 +151,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     in
 
     (* Verify all positions are closed *)
-    let remaining_symbols = State.symbols liquidated_state in
+    let remaining_symbols = State.held_symbols liquidated_state in
     if List.length remaining_symbols > 0 then (
       Eio.traceln "@[Warning: %d positions still remain after liquidation@]@."
         (List.length remaining_symbols);

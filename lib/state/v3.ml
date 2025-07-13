@@ -2,6 +2,59 @@ module State_config = struct
   type t = { placeholder : bool }
 end
 
+(* type position = (int * Order.t list) *)
+
+module PosMap = Map.Make (Instrument)
+
+module Positions = struct
+  type t = Order.t list PosMap.t
+
+  let get (pos : t) symbol = PosMap.get symbol pos |> Option.get_or ~default:[]
+  (* Result.o *)
+  (* |> Result.map_err (fun e -> `FatalError e) *)
+
+  let symbols x = PosMap.keys x |> Iter.to_list
+
+  let fold (pos : t) acc (f : Instrument.t -> Order.t list -> 'a -> 'a) =
+    PosMap.fold f pos acc
+
+  let qty (t : t) instrument =
+    let pos = get t instrument in
+    List.fold_left
+      (fun acc (order : Order.t) ->
+        match order.side with
+        | Buy -> acc + order.qty
+        | Sell -> acc - order.qty)
+      0 pos
+
+  let update (pos : t) (order : Order.t) =
+    let symbol = order.symbol in
+    let new_pos =
+      PosMap.update symbol
+        (function
+          | Some l -> Some (order :: l)
+          | None -> Some [ order ])
+        pos
+    in
+    let qty = qty new_pos symbol in
+    match qty with
+    | 0 ->
+      PosMap.update symbol
+        (function
+          | _ -> Some [])
+        new_pos
+    | _ -> new_pos
+
+  let cost_basis (pos : t) symbol =
+    let pos = get pos symbol in
+    List.fold_left
+      (fun acc (order : Order.t) ->
+        match order.side with
+        | Buy -> acc -. (order.price *. float_of_int order.qty)
+        | Sell -> acc +. (order.price *. float_of_int order.qty))
+      0.0 pos
+end
+
 module type S = sig
   type 'a t
   type 'a res = ('a, Error.t) result
@@ -25,13 +78,13 @@ module type S = sig
   val time : 'a t -> Time.t res
 
   (* Get list of active orders *)
-  val orders : 'a t -> Order.t list Vector.ro_vector
+  val history : 'a t -> Order.t list Vector.ro_vector
 
-  (* Get list of orders currently active *)
-  val active : 'a t -> Order.t list
+  (* Cost basis to enter the corresponding position *)
+  val cost_basis : 'a t -> Instrument.t -> float
 
   (* Get list of active symbols *)
-  val symbols : 'a t -> Instrument.t list
+  val held_symbols : 'a t -> Instrument.t list
 
   (* Get qty of instrument in current position *)
   val qty : 'a t -> Instrument.t -> int
@@ -72,8 +125,8 @@ module V3_impl : S = struct
     content : 'a;
     config : State_config.t;
     cash : float;
-    orders : Order.t list Vector.vector;
-    active : Order.t list;
+    history : Order.t list Vector.vector;
+    positions : Positions.t;
   }
   [@@warning "-69"]
 
@@ -84,14 +137,15 @@ module V3_impl : S = struct
       current_tick = 0;
       config = { placeholder = false };
       cash = 0.0;
-      orders = Vector.create ();
+      history = Vector.create ();
+      positions = PosMap.empty;
       content = ();
-      active = [];
     }
 
   let set x mode = { x with current_state = mode }
   let increment_tick x = { x with current_tick = x.current_tick + 1 }
   let bars x = x.bars
+  let cost_basis x = Positions.cost_basis x.positions
 
   type 'a res = ('a, Error.t) result
 
@@ -109,8 +163,8 @@ module V3_impl : S = struct
         content;
         config;
         cash = 100000.0;
-        orders = Vector.init length (fun _ -> []);
-        active = [];
+        history = Vector.init length (fun _ -> []);
+        positions = PosMap.empty;
       }
 
   let pp fmt t =
@@ -120,39 +174,32 @@ module V3_impl : S = struct
   let show t = Format.asprintf "%a" pp t
   let cash t = t.cash
   let time t = Bars.timestamp t.bars
-  let orders t = Vector.freeze t.orders
-  let active t = t.active
-  let symbols x = List.map (fun (x : Order.t) -> x.symbol) @@ active x
+  let history t = Vector.freeze t.history
+  let positions x = x.positions
+
+  (* let symbols x = List.map (fun (x : Order.t) -> x.symbol) @@ positions x *)
+  let held_symbols x = Positions.symbols @@ positions x
   let data t instrument = Bars.get t.bars instrument
 
   let value t =
     let ( let* ) = Result.( let* ) in
     let* portfolio_value =
-      List.fold_left
-        (fun acc (order : Order.t) ->
-          let* acc = acc in
-          let* data = data t order.symbol in
-          let current_price = Bars.Data.get data Last t.current_tick in
-          let order_value = float_of_int order.qty *. current_price in
-          Result.return
-          @@
-          match order.side with
-          | Buy -> acc +. order_value
-          | Sell -> acc -. order_value)
-        (Ok 0.0) t.active
+      Positions.fold (positions t) (Ok 0.0) @@ fun instrument orders acc ->
+      let* _ = acc in
+      let* data = data t instrument in
+      let current_price = Bars.Data.get data Last t.current_tick in
+      Result.return
+      @@ List.fold_left
+           (fun acc (order : Order.t) ->
+             let order_value = float_of_int order.qty *. current_price in
+             order_value +. acc)
+           0.0 orders
     in
     Result.return (t.cash +. portfolio_value)
 
   let listen t = { t with current_state = Listening }
   let liquidate t = { t with current_state = Liquidate }
-
-  let qty t instrument =
-    List.fold_left
-      (fun acc (x : Order.t) ->
-        match Instrument.equal instrument x.symbol with
-        | true -> x.qty + acc
-        | false -> acc)
-      0 t.active
+  let qty (t : 'a t) instrument = Positions.qty t.positions instrument
 
   let place_order t (order : Order.t) =
     let ( let* ) = Result.( let* ) in
@@ -162,22 +209,21 @@ module V3_impl : S = struct
     let tick = t.current_tick in
 
     let _ = Pmutex.set order.status Order.Status.Filled in
-    let orders_v = t.orders in
-
+    let positions = t.positions in
     match order.side with
     | Buy ->
       if t.cash >=. order_value then (
         let new_cash = t.cash -. order_value in
-        let current_tick_orders = order :: Vector.get orders_v tick in
-        Vector.set orders_v tick current_tick_orders;
+        let current_tick_orders = order :: Vector.get t.history tick in
+        Vector.set t.history tick current_tick_orders;
         Result.return { t with cash = new_cash })
       else Error.fatal "Insufficient cash for buy order"
     | Sell ->
       let qty_held = qty t order.symbol in
       if qty_held >= order.qty then (
         let new_cash = t.cash +. order_value in
-        let current_tick_orders = order :: Vector.get orders_v tick in
-        Vector.set orders_v tick current_tick_orders;
+        let current_tick_orders = order :: Vector.get t.history tick in
+        Vector.set t.history tick current_tick_orders;
         Result.return { t with cash = new_cash })
       else Error.fatal "Insufficient shares for sell order"
 

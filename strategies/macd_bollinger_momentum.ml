@@ -97,16 +97,21 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
   let macd_signal = Bars.Data.Type.(Tacaml (F Macd_MACDSignal))
   let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
 
-  let make (state : 'a State.t) ~(buying_order : Order.t) =
+  let make (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in
-    let* data = State.data state buying_order.symbol in
+    let* data = State.data state symbol in
 
     (* Get current values *)
     let macd_val = Bars.Data.get_top data macd_line in
     let macd_sig = Bars.Data.get_top data macd_signal in
     let upper_band = Bars.Data.get_top data upper_bb in
     let current_price = Bars.Data.get_top data Bars.Data.Type.Close in
-    let entry_price = buying_order.price in
+    let qty_held = State.qty state symbol in
+    let entry_price = 
+      if qty_held > 0 then 
+        (-.State.cost_basis state symbol) /. (float_of_int qty_held)
+      else 0.0
+    in
 
     (* Get previous values for crossover detection *)
     let prev_macd = Bars.Data.get data macd_line (State.tick state - 1) in
@@ -160,11 +165,11 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
        Eio.traceln
          "SELL SIGNAL: %s - %s - MACD: %.4f<%.4f, Price: %.2f, Upper BB: %.2f, \
           P&L: %.2f%%"
-         (Instrument.symbol buying_order.symbol)
+         (Instrument.symbol symbol)
          sell_reason macd_val macd_sig current_price upper_band profit_pct);
 
     Result.return
-      { Signal.instrument = buying_order.symbol; flag = should_sell; reason }
+      { Signal.instrument = symbol; flag = should_sell; reason }
 end
 
 module Buy_trigger = Template.Buy_trigger.Make (Buy_trigger_input)

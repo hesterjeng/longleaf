@@ -163,8 +163,8 @@ module EnumeratedSignal = struct
 
   let to_sell_trigger (x : t) =
     let module X : Template.Sell_trigger.S = struct
-      let make (state : 'a State.t) ~(buying_order : Order.t) =
-        let signal = to_signal_function x state buying_order.symbol in
+      let make (state : 'a State.t) (symbol : Instrument.t) =
+        let signal = to_signal_function x state symbol in
         signal
     end in
     (module X : Template.Sell_trigger.S)

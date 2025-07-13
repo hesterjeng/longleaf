@@ -126,15 +126,20 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
   let ema_10 = Bars.Data.Type.(Tacaml (F Ema))
   let williams_r = Bars.Data.Type.(Tacaml (F Willr))
 
-  let make (state : 'a State.t) ~(buying_order : Order.t) =
+  let make (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in
-    let* data = State.data state buying_order.symbol in
+    let* data = State.data state symbol in
 
     (* Get current values *)
     let ema_val = Bars.Data.get_top data ema_10 in
     let williams_val = Bars.Data.get_top data williams_r in
     let current_price = Bars.Data.get_top data Bars.Data.Type.Close in
-    let entry_price = buying_order.price in
+    let qty_held = State.qty state symbol in
+    let entry_price = 
+      if qty_held > 0 then 
+        (-.State.cost_basis state symbol) /. (float_of_int qty_held)
+      else 0.0
+    in
 
     (* Calculate profit/loss percentage *)
     let profit_pct = (current_price -. entry_price) /. entry_price *. 100.0 in
@@ -179,11 +184,11 @@ module Sell_trigger_impl : Template.Sell_trigger.S = struct
        Eio.traceln
          "SELL SIGNAL: %s - %s - Price: %.2f, EMA: %.2f, Williams: %.2f, P&L: \
           %.2f%%"
-         (Instrument.symbol buying_order.symbol)
+         (Instrument.symbol symbol)
          sell_reason current_price ema_val williams_val profit_pct);
 
     Result.return
-      { Signal.instrument = buying_order.symbol; flag = should_sell; reason }
+      { Signal.instrument = symbol; flag = should_sell; reason }
 end
 
 module Buy_trigger = Template.Buy_trigger.Make (Buy_trigger_input)
