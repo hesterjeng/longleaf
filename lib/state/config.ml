@@ -1,0 +1,1 @@
+type t = { placeholder : bool }
