@@ -5,6 +5,8 @@ import hashlib
 import os
 import json
 
+st.set_page_config(layout="wide")
+
 # Authentication
 def check_password():
     # Auto-login if environment variable is set
@@ -27,7 +29,7 @@ if not check_password():
     st.stop()
 
 # Main app
-st.title("Longleaf Trading Dashboard")
+st.markdown("<h1 style='text-align: center;'>Longleaf Trading Dashboard</h1>", unsafe_allow_html=True)
 
 # Sidebar controls
 st.sidebar.header("Controls")
