@@ -172,6 +172,7 @@ module Run = struct
       Server.top ~mutices eio_env
 
   let run_strategy eio_env flags target mutices () =
+    let promise, resolver = Eio.Promise.create () in
     let domain_manager = Eio.Stdenv.domain_mgr eio_env in
     Eio.Domain_manager.run domain_manager @@ fun () ->
     Eio.Switch.run @@ fun switch ->
@@ -194,8 +195,9 @@ module Run = struct
         Eio.traceln "%a" Error.pp e;
         invalid_arg "Indicators computation error"
     in
-    let _res = run options in
-    ()
+    let res = run options in
+    Eio.Promise.resolve resolver res;
+    promise
 
   let top (flags : Options.CLI.t) target =
     Eio_main.run @@ fun eio_env ->
