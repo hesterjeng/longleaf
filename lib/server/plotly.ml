@@ -86,7 +86,7 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
            ("name", `String indicator_name);
            ("yaxis", `String yaxis);
            ("type", `String "scatter");
-           ("visible", `String (if show then "true" else "legendonly"));
+           ("visible", if show then `Bool true else `String "legendonly");
          ]
   else
     let rec build_lists i acc_x acc_y =
