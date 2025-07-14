@@ -1,72 +1,168 @@
 ![Longleaf](static/screenshot.png)
 
-# Summary
+# Longleaf
 
-This is an algorithmic trading platform written in OCaml.  At the moment, it only supports the Alpaca brokerage.  Both Alpaca and Tiingo can be used for market data.  Strategies are functors with a backend parameter, which in principle will allow other brokerages and market data sources to be used without changing the strategy itself.  Care is taken so that the same strategy can be used for backtesting as live execution, simple by changing the backend.
+An algorithmic trading platform written in OCaml that supports live trading, paper trading, and backtesting. The platform uses a functional, modular architecture with strategies implemented as functors for maximum code reuse and type safety.
 
-All executable have extra information about options that you can examine using the `--help` argument.
+## Features
 
-# Example usage
+- **Multiple execution modes**: Backtesting, paper trading, and live trading
+- **Brokerage support**: Alpaca (with extensible backend system)
+- **Market data sources**: Alpaca and Tiingo
+- **Technical indicators**: Integration with TA-lib via tacaml
+- **Web dashboard**: Real-time visualization using Streamlit
+- **Strategy templates**: Functional approach with reusable components
 
-* Set up your `.envrc` in the root directory of the project.  To follow this example, you will need a Tiingo account to download data.  For a minimal example, save this as your `.envrc`.  Of course, you will need to populate your own keys.  I recommend using `direnv` to load this `.envrc` when you enter the `longleaf` directory.
+## Installation
 
+You'll need to install the following dependencies:
+- **tacaml**: OCaml bindings for TA-lib technical analysis
+- **TA-lib**: Technical analysis library (system dependency)
+- **streamlit**: For the web dashboard (Python)
+
+## Setup
+
+1. **Environment variables**: Create a `.envrc` file in the project root with your API keys:
+
+```bash
+export APCA_API_KEY_ID=your_alpaca_key_id
+export APCA_API_SECRET_KEY=your_alpaca_secret_key
+export TIINGO_KEY=your_tiingo_key
+export DASHBOARD_PASSWORD_HASH=your_hashed_password  # Optional: for dashboard auth
 ```
-export APCA_API_KEY_ID=myapcakeyid
-export APCA_API_SECRET_KEY=myapcasecret
-export TIINGO_KEY=mytiingokey
+
+2. **Build the project**:
+```bash
+dune clean && dune build && dune install
 ```
 
-* Compile and install the program:
-`dune clean; dune build; dune install`
+## Example Usage
 
-* Download market data to populate the indicators for the backtest.  This is important, because otherwise when the backtest begins indicators like simple moving averages and stochastic oscillators would have no information.  This downloads market data for all of the symbols in the SP100 at the time of writing.  The target collection can be modified in `longleaf_downloader.ml`, in the `Cmd.run` function at the moment.  Market data can also be downloaded from Alpaca by replacing `tiingo` with `alpaca`.
+### Download Market Data
 
-`longleaf_downloader tiingo --begin=2023-12-01 --end=2023-12-31 --interval=10 --timeframe=minute data/dec23.json`
+Download historical data to populate indicators (preload data):
+```bash
+longleaf_downloader tiingo --begin=2023-12-01 --end=2023-12-31 --interval=10 --timeframe=minute data/dec23.json
+```
 
-* Download some market data to run a backtest on.  This command downloads market data for all of the symbols in the SP100.
-`longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 --interval=10 --timeframe=minute data/24.json`
+Download target data for backtesting:
+```bash
+longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 --interval=10 --timeframe=minute data/24.json
+```
 
-* Backtest the strategy.
-`longleaf Backtest ThrowingCrossover --preload data/dec23.json --target data/24.json`
+### Backtesting
 
-* Paper trade the configured strategy on Alpaca.  The `--preload download` argument will download recent market data to populate the indicators.
-`./main.exe Paper --preload download -o papertrading.log`
+Run a backtest with different strategies:
+```bash
+# Basic backtest starting from index 100
+longleaf Backtest AStarExample data/24.json -i 100
 
-# Make your own strategy
+# With preloaded indicator data
+longleaf Backtest ThrowingCrossover --preload data/dec23.json --target data/24.json
 
-Take a look at `strategies/template_example.ml`.  The easiest way to write a `longleaf` strategy is to use the strategy templates.  At the time of writing, this is limited to strategies that will only buy and sell stocks, meaning that there is no support for options, futures, etc. yet.  It is possible to directly write strategies that do more complicated things, but there isn't any documentation for this yet.
+# Other strategy examples
+longleaf Backtest RsiMeanReversion data/24.json -i 100
+longleaf Backtest MacdBollingerMomentum --preload data/dec23.json --target data/24.json
+longleaf Backtest VolumeBreakout data/24.json -i 50
+```
 
-There are three components to a strategy, modules of type `Buy_trigger.S`, `Sell_trigger.S`, and `Strategy.BUILDER`. To make a `Buy_trigger.S`, we need a `Buy_trigger.INPUT` that contains functions for determining whether or not to buy a particular symbol and a function for ranking these symbols that pass the filter.  In addition, there is a `num_positions` value that limits the amount of positions the program will hold.  If there are more symbols that pass the filter than positions allowed, the `score` function will be used to select those with the highest value.
+### Paper Trading
 
-The `pass` function in a `Buy_trigger.INPUT` module will return a `Signal.Flag.t`.  If it is `Pass`, the symbol will be bought (if doing so doens't exceed the number of allowed positions), otherwise nothing happens.  Your module of type `Buy_trigger.INPUT` is then passed to the `Template.Buy_trigger.Make` functor to get a `Template.Buy_trigger.S`.
+Run paper trading with live market data:
+```bash
+longleaf Paper --preload download -o papertrading.log
+```
 
-Now that the information for buying is there, we need to set up the information for selling.  We can directly write a `Template.Sell_trigger.S`, which has a single function, `make`.  This function takes in an `'a State.t'` and the buying order, and returns pass if we would like to close the position by selling.  Finally, we need to have a functor of type `Strategy.BUILDER`.  This functor will take in the backend to create an instatiated strategy.  We create it buy partially applying the `Template.Make` functor to our `Buy_trigger.S` and `Sell_trigger.S` functors.
+### Live Trading
 
-Finally, we need to add a hook to call our strategy when we run the `longleaf` program.  Add a constructor for your strategy to the varaint type `Longleaf_strategies.t`, and add an element to `Longleaf_strategies.strats` like `MyStrategy --> (module My_strategy.Make)` if your strategy is locacted in `strategies/my_strategy.ml`, your constructor is `MyStrategy`, and the partially instantiated `Strategy.BUILDER` is `My_strategy.Make`.
+**⚠️ Use with extreme caution - this trades real money!**
+```bash
+longleaf Live --preload download -o live_trading.log
+```
 
-# View data
+## Web Dashboard
 
-Go to `http://localhost:8080/` to see some visualizations, statistics, and indicators about the behavior of your strategy when you have run the program.
+The platform includes a real-time web dashboard for visualization:
 
-# Stop the program
+1. **Start your strategy** (backtest, paper, or live):
+```bash
+longleaf Backtest AStarExample data/24.json -i 100
+```
 
-Execute `longleaf_shotdown`.  This will cause the program to gracefully exit and save any relevant data if options were specified to do so.
+2. **Launch the dashboard**:
+```bash
+cd streamlit
+streamlit run dashboard.py
+```
 
-# Emacs usage
+3. **Access the dashboard**: Open `http://localhost:8501` in your browser
 
-This is a small thing that probably won't be improved any further, and I probably won't update it as the program changes.
+The dashboard provides:
+- Real-time portfolio visualization
+- Technical indicator charts with 30+ traces
+- Strategy statistics and performance metrics
+- Interactive symbol selection and data exploration
 
-In the `elisp` directory, there is an Emacs Lisp file that allows you to select a preload and/or a target file and run backtests quickly.  To use use this, open the file and then load the buffer. In Doom Emacs:
+### Dashboard Authentication
 
-* `SPC l p` - specify the preloaded data file
-* `SPC l t` - specify the target data file for the algorithm to run on
-* `SPC l r` - run the program as a backtest on these file
+Set a password hash to secure your dashboard:
+```bash
+# Generate password hash
+python3 -c "import hashlib; print(hashlib.sha256('your_secure_password'.encode()).hexdigest())"
 
-# Technical Details
+# Set environment variable
+export DASHBOARD_PASSWORD_HASH="your_generated_hash"
+```
 
-Strategies are located in the `strategies` directory.  You can write your own by copying one of the small ones, like the listener or lowball, and then adding a hook into it in `strategies/longleaf_strategies.ml`.  This project uses `eio` to handle multiple domains, one for the strategy, and one for an http server that can receive commands like a graceful shutdown and deliver json for graph rendering in your browser.  The overarching flow looks like this:
+## Available Strategies
 
-Parse your options -> Your options are used to create a backend -> The strategy is instantiated with the backend -> The strategy runs
+The platform includes numerous built-in strategies:
 
-# Help
-If you found this and want to try it, make an issue and I will help you out.  This is still a work in progress that's changing rapidly.
+- **AStarExample**: A* search-based strategy example
+- **ThrowingCrossover**: Moving average crossover with momentum
+- **RsiMeanReversion**: RSI-based mean reversion strategy
+- **MacdBollingerMomentum**: MACD and Bollinger Band momentum strategy
+- **VolumeBreakout**: Volume-based breakout detection
+- **AdaptiveMomentumRegime**: Regime-aware momentum strategy
+- **BuyAndHold**: Simple buy and hold benchmark
+- And many more in the `strategies/` directory
+
+## Creating Custom Strategies
+
+Strategies are built using OCaml functors with the template system. See existing strategies in `strategies/` for examples. The basic pattern:
+
+1. Define buy trigger logic (entry conditions)
+2. Define sell trigger logic (exit conditions)  
+3. Register strategy in `strategies/longleaf_strategies.ml`
+
+All strategies work seamlessly across backtesting, paper trading, and live trading modes.
+
+## Graceful Shutdown
+
+Stop the program safely:
+```bash
+longleaf_shutdown
+```
+
+This ensures proper cleanup and data saving.
+
+## Technical Details
+
+Strategies are located in the `strategies/` directory. The platform uses `eio` for concurrent execution with separate domains for strategy execution and the HTTP server. The architecture follows:
+
+**Parse options → Create backend → Instantiate strategy → Execute strategy**
+
+The backend abstraction allows the same strategy code to work across different execution environments (backtesting vs. live trading) and different brokerages, simply by changing the backend implementation.
+
+## Command Line Options
+
+All executables provide detailed help information:
+```bash
+longleaf --help
+longleaf_downloader --help
+longleaf_shutdown --help
+```
+
+## Help
+
+This is an active project under development. If you encounter issues or want to contribute, please create an issue on the repository.
