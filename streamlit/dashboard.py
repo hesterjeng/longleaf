@@ -96,6 +96,18 @@ try:
 except:
     st.sidebar.error("Server Offline")
 
+# Shutdown button with styling
+st.sidebar.markdown("---")
+if st.sidebar.button("Shutdown Server", type="primary", use_container_width=True):
+    try:
+        response = requests.get(f"{server_url}/shutdown")
+        if response.status_code == 200:
+            st.sidebar.success("Server shutdown initiated")
+        else:
+            st.sidebar.error(f"Shutdown failed: {response.status_code}")
+    except Exception as e:
+        st.sidebar.error(f"Error: {e}")
+
 # Instructions
 st.sidebar.markdown("---")
 st.sidebar.subheader("Instructions")
