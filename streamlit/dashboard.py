@@ -5,6 +5,8 @@ import hashlib
 import os
 import json
 
+st.set_page_config(layout="wide")
+
 # Authentication
 def check_password():
     # Auto-login if environment variable is set
@@ -27,7 +29,7 @@ if not check_password():
     st.stop()
 
 # Main app
-st.title("Longleaf Trading Dashboard")
+st.markdown("<h1 style='text-align: center;'>Longleaf Trading Dashboard</h1>", unsafe_allow_html=True)
 
 # Sidebar controls
 st.sidebar.header("Controls")
@@ -93,6 +95,18 @@ try:
         st.sidebar.error(f"Server Error: {health_response.status_code}")
 except:
     st.sidebar.error("Server Offline")
+
+# Shutdown button with styling
+st.sidebar.markdown("---")
+if st.sidebar.button("Shutdown Server", type="primary", use_container_width=True):
+    try:
+        response = requests.get(f"{server_url}/shutdown")
+        if response.status_code == 200:
+            st.sidebar.success("Server shutdown initiated")
+        else:
+            st.sidebar.error(f"Shutdown failed: {response.status_code}")
+    except Exception as e:
+        st.sidebar.error(f"Error: {e}")
 
 # Instructions
 st.sidebar.markdown("---")
