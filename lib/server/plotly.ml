@@ -8,8 +8,6 @@ let layout title =
   let ( = ) = fun x y -> (x, y) in
   `Assoc
     [
-      "width" = `Int 1400;
-      "height" = `Int 900;
       "title" = `String title;
       "hovermode" = `String "x";
       "xaxis"
@@ -86,7 +84,7 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
            ("name", `String indicator_name);
            ("yaxis", `String yaxis);
            ("type", `String "scatter");
-           ("visible", `String (if show then "true" else "legendonly"));
+           ("visible", if show then `Bool true else `String "legendonly");
          ]
   else
     let rec build_lists i acc_x acc_y =
@@ -102,7 +100,7 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
     in
     let x, y = build_lists effective_start [] [] in
 
-    let visible = if show then "true" else "legendonly" in
+    let visible = if show then `Bool true else `String "legendonly" in
     Result.return
     @@ `Assoc
          [
@@ -112,7 +110,7 @@ let indicator_trace ?(show = false) ?(drop = 34) ?(yaxis = "y1")
            ("name", `String indicator_name);
            ("yaxis", `String yaxis);
            ("type", `String "scatter");
-           ("visible", `String visible);
+           ("visible", visible);
            ( "line",
              `Assoc
                [
