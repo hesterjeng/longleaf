@@ -164,19 +164,13 @@ module Run = struct
   open Longleaf_lib
 
   let run_server eio_env (flags : Options.CLI.t) mutices () =
-    let domain_manager = Eio.Stdenv.domain_mgr eio_env in
     match flags.no_gui with
     | true -> ()
-    | false ->
-      Eio.Domain_manager.run domain_manager @@ fun () ->
-      Server.top ~mutices eio_env
+    | false -> Server.top ~mutices eio_env
 
   let run_strategy eio_env flags target mutices () =
-    let promise, resolver = Eio.Promise.create () in
-    let domain_manager = Eio.Stdenv.domain_mgr eio_env in
-    Eio.Domain_manager.run domain_manager @@ fun () ->
-    Eio.Switch.run @@ fun switch ->
     (* Load target bars with eio_env if needed *)
+    Eio.Switch.run @@ fun sw ->
     let loaded_target, bars =
       match target with
       | Target.File _ ->
@@ -185,9 +179,7 @@ module Run = struct
       | Target.Download -> invalid_arg "Download bars NYI"
       | Target.Loaded bars -> (target, bars)
     in
-    let options =
-      Strategy.mk_options switch eio_env flags loaded_target mutices
-    in
+    let options = Strategy.mk_options sw eio_env flags loaded_target mutices in
     let () =
       Indicators.compute_all ~eio_env options.indicators_config bars |> function
       | Ok x -> x
@@ -195,15 +187,27 @@ module Run = struct
         Eio.traceln "%a" Error.pp e;
         invalid_arg "Indicators computation error"
     in
-    let res = run options in
-    Eio.Promise.resolve resolver res;
-    promise
+    run options
+
+  let server env flags target mutices =
+    let domain_mgr = Eio.Stdenv.domain_mgr env in
+    let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
+    Eio.Switch.run @@ fun sw ->
+    let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
+    let strat_result =
+      Eio.Executor_pool.submit_fork ~sw ~weight:1.0 pool
+      @@ run_strategy env flags target mutices
+    in
+    run_server env flags mutices ();
+    match Eio.Promise.await strat_result with
+    | Ok x -> x
+    | Error e ->
+      Eio.traceln "longleaf_strategies: strategy did not return before server";
+      raise e
 
   let top (flags : Options.CLI.t) target =
     Eio_main.run @@ fun eio_env ->
     let mutices = Server.Longleaf_mutex.create () in
-    let run_strategy = run_strategy eio_env flags target mutices in
-    let run_data_server = run_server eio_env flags mutices in
-    let _ = Eio.Fiber.both run_strategy run_data_server in
-    ()
+    let res = server eio_env flags target mutices in
+    res
 end
