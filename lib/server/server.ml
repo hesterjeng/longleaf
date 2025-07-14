@@ -31,9 +31,9 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
   (* Eio.traceln "gui.ml: connection handler"; *)
   match params.request with
-  | { Request.meth = `GET; target = "/"; _ } ->
-    let body = Util.read_file_as_string "./static/index.html" in
-    Response.of_string ~body `OK
+  (* | { Request.meth = `GET; target = "/"; _ } -> *)
+  (*   let body = Util.read_file_as_string "./static/index.html" in *)
+  (*   Response.of_string ~body `OK *)
   | { Request.meth = `GET; target = "/favicon.ico"; _ } ->
     Eio.traceln "@[Serving favicon.@]@.";
     serve_favicon ()
@@ -140,10 +140,8 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       Response.of_string
         ~body:("Unable to create Instrument.t from " ^ target)
         `Internal_server_error)
-  | { Request.meth = `GET; target; _ } ->
-    Pmutex.set mutices.target_symbol (Some target);
-    let body = Util.read_file_as_string "./static/single.html" in
-    Response.of_string ~body `OK
+  | { Request.meth = `GET; target = "/health"; _ } ->
+    Response.of_string ~body:"Longleaf is OK" `OK
   | r ->
     Eio.traceln "@[Unknown request: %a@]@." Request.pp_hum r;
     let headers = Headers.of_list [ ("connection", "close") ] in
