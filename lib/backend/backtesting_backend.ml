@@ -144,8 +144,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
                 ~order_type:OrderType.Market ~qty:abs_qty ~price:last_price
                 ~timestamp ~profit:None ~reason:[ "Liquidate position" ]
             in
-            Eio.traceln "@[Liquidating %d shares of %a at %f@]@." abs_qty
-              Instrument.pp symbol last_price;
+            (* Eio.traceln "@[Liquidating %d shares of %a at %f@]@." abs_qty *)
+            (*   Instrument.pp symbol last_price; *)
             State.place_order prev order)
         (Ok state) symbols
     in

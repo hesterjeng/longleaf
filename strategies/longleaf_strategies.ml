@@ -95,7 +95,9 @@ let run_strat (context : Options.t) =
   | _ -> (
     match run_strat_ context with
     | Ok x -> x
-    | Error e -> Error.raise e)
+    | Error e ->
+      Eio.traceln "longleaf_strateies.ml: %a" Error.pp e;
+      Error.raise e)
 
 (** Function for Cmdliner use. *)
 let conv = Cmdliner.Arg.conv (of_string_res, pp)
