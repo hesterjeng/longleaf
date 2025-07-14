@@ -8,8 +8,6 @@ let layout title =
   let ( = ) = fun x y -> (x, y) in
   `Assoc
     [
-      "width" = `Int 1400;
-      "height" = `Int 900;
       "title" = `String title;
       "hovermode" = `String "x";
       "xaxis"
