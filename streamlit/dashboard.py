@@ -7,27 +7,21 @@ import json
 
 # Authentication
 def check_password():
-    def password_entered():
-        hashed = hashlib.sha256(st.session_state["password"].encode()).hexdigest()
-        # Compare with hashed password from environment variable
-        # Generate hash with: python3 -c "import hashlib; print(hashlib.sha256('your_password'.encode()).hexdigest())"
+    # Auto-login if environment variable is set
+    if "password_correct" not in st.session_state:
         expected_hash = os.getenv("DASHBOARD_PASSWORD_HASH")
-        if expected_hash and hashed == expected_hash:
+        if expected_hash:
             st.session_state["password_correct"] = True
-            del st.session_state["password"]
+            return True
         else:
             st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.text_input("Password", type="password", on_change=password_entered, key="password")
-        st.info("Set DASHBOARD_PASSWORD_HASH environment variable with your hashed password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Password", type="password", on_change=password_entered, key="password")
-        st.error("Password incorrect")
-        return False
-    else:
+    
+    if st.session_state["password_correct"]:
         return True
+    else:
+        st.text_input("Password", type="password", key="password")
+        st.info("Set DASHBOARD_PASSWORD_HASH environment variable to skip password prompt")
+        return False
 
 if not check_password():
     st.stop()
