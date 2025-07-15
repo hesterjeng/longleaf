@@ -14,6 +14,7 @@ let compute ?i (indicators : t list) (config : Config.t) (bars : Bars.t) =
     let ( let* ) = Result.( let* ) in
     Bars.fold bars (Ok ()) @@ fun _ data acc ->
     let* _ = acc in
+    (* Compute standard indicators *)
     let* () =
       Result.fold_l
         (fun _ indicator ->
@@ -22,6 +23,19 @@ let compute ?i (indicators : t list) (config : Config.t) (bars : Bars.t) =
             let* () = Talib_binding.calculate ?i ind data in
             Result.return ())
         () indicators
+    in
+    (* Compute custom indicators from config *)
+    let* () =
+      Result.fold_l
+        (fun _ custom_indicator ->
+          (* Register custom indicator in data *)
+          let* _slot =
+            Bars.Data.register_custom_indicator data custom_indicator
+          in
+          (* Compute the custom indicator *)
+          let* () = Talib_binding.calculate ?i custom_indicator data in
+          Result.return ())
+        () config.custom_indicators
     in
     Result.return ()
   | true ->

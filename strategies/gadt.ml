@@ -344,9 +344,52 @@ let gadt_to_strategy_builder (strategy : strategy) =
   in
   (module StrategyBuilder : Strategy.BUILDER)
 
+(* Collect all custom Tacaml.t indicators from GADT expressions *)
+let rec collect_custom_indicators : type a. a expr -> Tacaml.t list = function
+  | Float _
+  | Int _
+  | Bool _ ->
+    []
+  | Data _ -> []
+  | GT (e1, e2)
+  | LT (e1, e2)
+  | GTE (e1, e2)
+  | LTE (e1, e2)
+  | EQ (e1, e2) ->
+    collect_custom_indicators e1 @ collect_custom_indicators e2
+  | IntGT (e1, e2)
+  | IntLT (e1, e2)
+  | IntEQ (e1, e2) ->
+    collect_custom_indicators e1 @ collect_custom_indicators e2
+  | And (e1, e2)
+  | Or (e1, e2) ->
+    collect_custom_indicators e1 @ collect_custom_indicators e2
+  | Not e -> collect_custom_indicators e
+  | Add (e1, e2)
+  | Sub (e1, e2)
+  | Mul (e1, e2)
+  | Div (e1, e2) ->
+    collect_custom_indicators e1 @ collect_custom_indicators e2
+  | Moneyness (_, _) -> [] (* Options don't use custom indicators directly *)
+  | Days_to_expiry _ -> [] (* Options don't use custom indicators directly *)
+  | CustomIndicator indicator -> [ indicator ]
+
+let collect_strategy_custom_indicators (strategy : strategy) : Tacaml.t list =
+  let buy_indicators = collect_custom_indicators strategy.buy_trigger in
+  let sell_indicators = collect_custom_indicators strategy.sell_trigger in
+  (* Remove duplicates using sort_uniq with polymorphic compare *)
+  let all_indicators = buy_indicators @ sell_indicators in
+  List.sort_uniq ~cmp:Stdlib.compare all_indicators
+
 let run (options : Options.t) strategy =
+  let custom_indicators = collect_strategy_custom_indicators strategy in
   let options =
-    { options with flags = { options.flags with strategy_arg = strategy.name } }
+    {
+      options with
+      flags = { options.flags with strategy_arg = strategy.name };
+      custom_indicators;
+    }
   in
+  (* Collect custom indicators from the strategy *)
   let res = Strategy.run (gadt_to_strategy_builder strategy) options in
   res
