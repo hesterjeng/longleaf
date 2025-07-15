@@ -43,6 +43,7 @@ module Type : sig
     | Close
     | Volume
     | Tacaml of Tacaml.Indicator.t
+    | CustomTacaml of Tacaml.t
     | Other of string
   [@@deriving variants, show { with_path = false }]
 

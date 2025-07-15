@@ -34,6 +34,7 @@ module Type = struct
     | Close
     | Volume
     | Tacaml of Tacaml.Indicator.t
+    | CustomTacaml of Tacaml.t
     | Other of string
   [@@deriving variants, show { with_path = false }]
 
@@ -58,6 +59,7 @@ module Type = struct
     | Volume -> 7
     | Tacaml (F i) -> Tacaml.Indicator.Float.to_int i
     | Tacaml (I i) -> Tacaml.Indicator.Int.to_int i
+    | CustomTacaml _ -> invalid_arg "NYI CustomTacaml to_int"
     | Other _ -> invalid_arg "NYI"
 
   let of_int = function
