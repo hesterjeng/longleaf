@@ -32,6 +32,9 @@ type _ expr =
   | Sub : float expr * float expr -> float expr
   | Mul : float expr * float expr -> float expr
   | Div : float expr * float expr -> float expr
+  (* Options-specific expressions *)
+  | Moneyness : Instrument.t * Instrument.t -> float expr  (* underlying * option *)
+  | Days_to_expiry : Instrument.t -> int expr  (* option *)
 
 (* Strategy structure *)
 type strategy = {
@@ -116,6 +119,28 @@ let rec eval : type a. a expr -> Data.t -> int -> (a, Error.t) result =
     let* v2 = eval e2 data index in
     if Float.equal v2 0.0 then Error.fatal "Division by zero in GADT.eval"
     else Result.return (v1 /. v2)
+  | Moneyness (underlying, option) ->
+    Error.guard (Error.fatal "GADT.eval moneyness") @@ fun () ->
+    (match underlying, option with
+    | Instrument.Security _, Instrument.Contract contract ->
+      (* Get underlying price from current data *)
+      let underlying_price = Data.get data Data.Type.Close index in
+      (* Use contract strike price *)
+      let strike_price = contract.strike_price in
+      underlying_price /. strike_price
+    | _ -> failwith "Moneyness requires Security and Contract instruments")
+  | Days_to_expiry option ->
+    Error.guard (Error.fatal "GADT.eval days_to_expiry") @@ fun () ->
+    (match option with
+    | Instrument.Contract contract ->
+      (* Parse expiration date and get current time from data *)
+      let expiration_date = Time.of_ymd contract.expiration_date in
+      let current_time_float = Data.get data Data.Type.Time index in
+      let current_date = Ptime.of_float_s current_time_float |> Option.get_exn_or "Invalid timestamp in days_to_expiry" in
+      let diff_seconds = Ptime.diff expiration_date current_date |> Ptime.Span.to_float_s in
+      let diff_days = diff_seconds /. 86400.0 |> Float.to_int in
+      max 0 diff_days  (* Ensure non-negative *)
+    | _ -> failwith "Days_to_expiry requires Contract instrument")
 
 (* Smart constructors for OHLCV data - these are always floats *)
 let close = Data (Float_type Data.Type.Close)
@@ -213,6 +238,10 @@ let harami =
 
 let harami_cross =
   Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlHaramiCross)))
+
+(* Options smart constructors *)
+let moneyness underlying option = Moneyness (underlying, option)
+let days_to_expiry option = Days_to_expiry option
 
 (* Convenience operators *)
 let ( >. ) e1 e2 = GT (e1, e2)
