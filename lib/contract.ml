@@ -382,8 +382,8 @@ module Chain = struct
   end
 
   module Export = struct
-    let top ~underlying ~current_price ~current_date ?(range_pct = 0.25)
-        ?(num_monthly = 3) ?(num_weekly = 2) () : t list =
+    let top ?(range_pct = 0.25) ?(num_monthly = 3) ?(num_weekly = 2) underlying
+        current_price current_date : t list =
       Internal.generate_option_chain ~underlying ~current_price ~current_date
         ~range_pct ~num_monthly ~num_weekly ()
   end
