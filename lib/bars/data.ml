@@ -1,13 +1,6 @@
 module Array1 = Bigarray.Array1
 module Array2 = Bigarray.Array2
 
-(* type float64_elt = Bigarray.float64_elt *)
-(* type c_layout = Bigarray.c_layout *)
-
-(* let c_layout = Bigarray.c_layout *)
-(* let fortran_layout = Bigarray.fortran_layout *)
-(* let float64 = Bigarray.float64 *)
-
 type data_matrix = (float, Bigarray.float64_elt, Bigarray.c_layout) Array2.t
 type int_matrix = (int, Bigarray.int_elt, Bigarray.c_layout) Array2.t
 
@@ -16,6 +9,7 @@ type t = {
   talib_indicators : data_matrix;
   other_indicators : data_matrix;
   int_indicators : int_matrix;
+  custom : Custom.t;
   current : int;
   size : int;
   indicators_computed : bool;
@@ -59,8 +53,16 @@ module Type = struct
     | Volume -> 7
     | Tacaml (F i) -> Tacaml.Indicator.Float.to_int i
     | Tacaml (I i) -> Tacaml.Indicator.Int.to_int i
-    | CustomTacaml _ -> invalid_arg "NYI CustomTacaml to_int"
+    | CustomTacaml _ ->
+      invalid_arg "CustomTacaml to_int requires data parameter"
     | Other _ -> invalid_arg "NYI"
+
+  let to_int_with_data data = function
+    | CustomTacaml indicator -> (
+      match Hashtbl.find_opt data.custom.indicator_map indicator with
+      | Some slot -> slot
+      | None -> invalid_arg "CustomTacaml indicator not registered")
+    | other -> to_int other
 
   let of_int = function
     | 0 -> Index
@@ -94,6 +96,7 @@ let get (data : t) (ty : Type.t) i =
     | Other _ -> get_ data.other_indicators ty i
     | Tacaml (F _) -> get_ data.talib_indicators ty i
     | Tacaml (I _) -> Float.of_int @@ get_ data.int_indicators ty i
+    | CustomTacaml indicator -> Custom.get data.custom indicator i
     | _ -> get_ data.data ty i
   in
   assert (
@@ -115,6 +118,7 @@ let set (data : t) (ty : Type.t) i f =
     | Other _ -> set_ data.other_indicators ty i f
     | Tacaml (F _) -> set_ data.talib_indicators ty i f
     | Tacaml (I _) -> set_ data.int_indicators ty i (Int.of_float f)
+    | CustomTacaml indicator -> Custom.set data.custom indicator i f
     | _ -> set_ data.data ty i f
   in
   ()
@@ -274,6 +278,7 @@ let make size : t =
           Float.nan);
     int_indicators =
       Array2.init Bigarray.int Bigarray.c_layout 70 size (fun _ _ -> 0);
+    custom = Custom.make size;
     current = 0;
     size;
     indicators_computed = false;
@@ -282,7 +287,12 @@ let make size : t =
 let copy (x : t) =
   let r = make x.size in
   Array2.blit x.data r.data;
-  { r with current = x.current; indicators_computed = x.indicators_computed }
+  {
+    r with
+    current = x.current;
+    indicators_computed = x.indicators_computed;
+    custom = Custom.copy x.custom;
+  }
 
 let set_item (x : t) (i : int) (item : Item.t) =
   try
@@ -384,3 +394,12 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
 
 let yojson_of_t (x : t) : Yojson.Safe.t =
   to_items x |> List.map Item.yojson_of_t |> fun l -> `List l
+
+(* Custom indicator registration *)
+let register_custom_indicator (data : t) (indicator : Tacaml.t) :
+    (int, Error.t) result =
+  Custom.register_indicator data.custom indicator
+
+let get_custom_indicator_slot (data : t) (indicator : Tacaml.t) :
+    (int, Error.t) result =
+  Custom.get_slot data.custom indicator

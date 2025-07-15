@@ -37,6 +37,8 @@ type _ expr =
       Instrument.t * Instrument.t
       -> float expr (* underlying * option *)
   | Days_to_expiry : Instrument.t -> int expr (* option *)
+  (* Custom indicator expressions *)
+  | CustomIndicator : Tacaml.t -> float expr (* custom tacaml indicator *)
 
 (* Strategy structure *)
 type strategy = {
@@ -148,6 +150,9 @@ let rec eval : type a. a expr -> Data.t -> int -> (a, Error.t) result =
       let diff_days = diff_seconds /. 86400.0 |> Float.to_int in
       max 0 diff_days (* Ensure non-negative *)
     | _ -> failwith "Days_to_expiry requires Contract instrument")
+  | CustomIndicator indicator ->
+    Error.guard (Error.fatal "GADT.eval custom_indicator") @@ fun () ->
+    Data.get data (Data.Type.CustomTacaml indicator) index
 
 (* Smart constructors for OHLCV data - these are always floats *)
 let close = Data (Float_type Data.Type.Close)
@@ -249,6 +254,9 @@ let harami_cross =
 (* Options smart constructors *)
 let moneyness underlying option = Moneyness (underlying, option)
 let days_to_expiry option = Days_to_expiry option
+
+(* Custom indicator smart constructor *)
+let custom_indicator indicator = CustomIndicator indicator
 
 (* Convenience operators *)
 let ( >. ) e1 e2 = GT (e1, e2)

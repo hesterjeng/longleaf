@@ -16,6 +16,7 @@ type t = {
   talib_indicators : data_matrix;
   other_indicators : data_matrix;
   int_indicators : int_matrix;
+  custom : Custom.t;
   current : int;
   size : int;
   indicators_computed : bool;
@@ -211,3 +212,13 @@ val t_of_yojson : Yojson.Safe.t -> (t, Error.t) result
 
 val yojson_of_t : t -> Yojson.Safe.t
 (** [yojson_of_t x] returns a JSON representation of the data matrix [x]. *)
+
+(** {1 Custom Indicator Registration} *)
+
+val register_custom_indicator : t -> Tacaml.t -> (int, Error.t) result
+(** [register_custom_indicator data indicator] registers a custom indicator and
+    returns its slot number. If already registered, returns existing slot. *)
+
+val get_custom_indicator_slot : t -> Tacaml.t -> (int, Error.t) result
+(** [get_custom_indicator_slot data indicator] returns the slot number for a
+    previously registered custom indicator. *)
