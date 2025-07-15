@@ -246,14 +246,20 @@ module Conv = struct
   let generate_monthly_expirations ~current_date ~num_months =
     let year, month, _ = Ptime.to_date current_date in
     let rec generate_months acc remaining_months current_year current_month =
-      if remaining_months <= 0 then List.rev acc
+      if remaining_months <= 0 then 
+        let result = List.rev acc in
+        List.iter (fun expiry -> 
+          assert (Ptime.compare expiry current_date > 0)
+        ) result;
+        result
       else
         let adj_month = if current_month > 12 then 1 else current_month in
         let adj_year =
           if current_month > 12 then current_year + 1 else current_year
         in
         let expiry = next_third_friday adj_year adj_month in
-        if Ptime.is_later expiry ~than:current_date then
+        assert (Ptime.compare expiry current_date > 0 || remaining_months < num_months);
+        if Ptime.compare expiry current_date > 0 then
           generate_months (expiry :: acc) (remaining_months - 1) adj_year
             (adj_month + 1)
         else generate_months acc remaining_months adj_year (adj_month + 1)
@@ -262,7 +268,12 @@ module Conv = struct
 
   let generate_weekly_expirations ~current_date ~num_weeks =
     let rec generate_weeks acc remaining_weeks current_date =
-      if remaining_weeks <= 0 then List.rev acc
+      if remaining_weeks <= 0 then 
+        let result = List.rev acc in
+        List.iter (fun expiry -> 
+          assert (Ptime.compare expiry current_date > 0)
+        ) result;
+        result
       else
         let next_friday =
           let weekday = Ptime.weekday current_date in
@@ -281,6 +292,7 @@ module Conv = struct
             (Ptime.Span.of_int_s (days_to_add * 86400))
           |> Option.get_exn_or "contract.ml:  Error while generating span"
         in
+        assert (Ptime.compare next_friday current_date > 0);
         generate_weeks (next_friday :: acc) (remaining_weeks - 1)
           (Ptime.add_span next_friday (Ptime.Span.of_int_s (7 * 86400))
           |> Option.get_exn_or
@@ -359,11 +371,8 @@ module Conv = struct
 
     List.rev contracts
 
-  let make_contract ~underlying ~expiry ~option_type ~strike : t =
-    create_contract ~underlying ~expiry ~option_type ~strike
-
-  let top ~underlying ~current_price ~current_date
-      ?(range_pct = 0.25) ?(num_monthly = 3) ?(num_weekly = 2) () : t list =
-    generate_option_chain ~underlying ~current_price ~current_date
-      ~range_pct ~num_monthly ~num_weekly ()
+  let top ~underlying ~current_price ~current_date ?(range_pct = 0.25)
+      ?(num_monthly = 3) ?(num_weekly = 2) () : t list =
+    generate_option_chain ~underlying ~current_price ~current_date ~range_pct
+      ~num_monthly ~num_weekly ()
 end
