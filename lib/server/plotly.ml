@@ -255,6 +255,47 @@ let of_bars ?(start = 100) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
     Eio.traceln "%a" Error.pp e;
     None
 
+let of_bars_with_custom_indicator ?(start = 100) ?end_ (bars : Bars.t) symbol
+    custom_indicator color yaxis : Yojson.Safe.t option =
+  let ( let* ) = Result.( let* ) in
+  let result =
+    let* data = Bars.get bars symbol in
+    let price_trace = direct_price_trace ~start ?end_ data symbol in
+
+    (* Create custom indicator trace *)
+    let* custom_trace =
+      indicator_trace ~show:true ~drop:34 ~yaxis ~color ~width:2 ~start ?end_
+        bars (Data.Type.CustomTacaml custom_indicator) symbol
+    in
+
+    (* Create some basic indicators for context *)
+    let* sma_20 =
+      indicator_trace ~show:true ~drop:20 ~color:"#ff7f0e" ~width:2 ~start ?end_
+        bars (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Sma))
+        symbol
+    in
+    let* ema_20 =
+      indicator_trace ~show:false ~drop:20 ~color:"#2ca02c" ~width:2 ~start
+        ?end_ bars
+        (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Ema))
+        symbol
+    in
+
+    let ( = ) = fun x y -> (x, y) in
+    Result.return
+    @@ `Assoc
+         [
+           "traces" = `List [ price_trace; custom_trace; sma_20; ema_20 ];
+           "layout"
+           = layout @@ Instrument.symbol symbol ^ " with Custom Indicator";
+         ]
+  in
+  match result with
+  | Ok json -> Some json
+  | Error e ->
+    Eio.traceln "%a" Error.pp e;
+    None
+
 (** {1 Statistics Module} *)
 (* TODO: Reimplement stats visualization using Trading_state *)
 

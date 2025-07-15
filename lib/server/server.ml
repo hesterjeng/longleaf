@@ -26,6 +26,54 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
            target)
 
 let data_prefix = String.prefix ~pre:"/data/"
+let custom_indicator_prefix = String.prefix ~pre:"/custom-indicator/"
+
+let parse_tacaml_string (tacaml_str : string) : (Tacaml.t, string) result =
+  Indicators.Tacaml_conv.of_string tacaml_str
+
+let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
+    color yaxis =
+  let ( let* ) = Result.( let* ) in
+  let state = Pmutex.get mutices.state_mutex in
+  let bars = State.bars state in
+
+  let* data =
+    match Bars.get bars target with
+    | Ok data -> Ok data
+    | Error e ->
+      Error (Format.asprintf "Could not find data for symbol: %a" Error.pp e)
+  in
+
+  let* tacaml = parse_tacaml_string tacaml_str in
+
+  (* Register the custom indicator *)
+  let* _slot =
+    match Bars.Data.register_custom_indicator data tacaml with
+    | Ok slot -> Ok slot
+    | Error e ->
+      Error
+        (Format.asprintf "Failed to register custom indicator: %a" Error.pp e)
+  in
+
+  (* Compute the custom indicator *)
+  let* () =
+    match Talib_binding.calculate tacaml data with
+    | Ok () -> Ok ()
+    | Error e ->
+      Error
+        (Format.asprintf "Failed to compute custom indicator: %a" Error.pp e)
+  in
+
+  (* Generate plotly visualization with the custom indicator *)
+  let* plotly_json =
+    match
+      Plotly.of_bars_with_custom_indicator bars target tacaml color yaxis
+    with
+    | Some json -> Ok json
+    | None -> Error "Failed to generate plotly visualization"
+  in
+
+  Ok (Response.of_string ~body:(Yojson.Safe.to_string plotly_json) `OK)
 
 let connection_handler ~(mutices : Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
@@ -136,6 +184,43 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     let instrument = Instrument.of_string_res target in
     match instrument with
     | Ok targ -> plotly_response_of_symbol ~mutices targ
+    | Error _ ->
+      Response.of_string
+        ~body:("Unable to create Instrument.t from " ^ target)
+        `Internal_server_error)
+  | { Request.meth = `POST; target; _ } when custom_indicator_prefix target -> (
+    let target =
+      String.chop_prefix ~pre:"/custom-indicator" target |> function
+      | None -> invalid_arg "Unable to get custom indicator target (server.ml)"
+      | Some s -> s
+    in
+    let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
+    let instrument = Instrument.of_string_res target in
+    match instrument with
+    | Ok targ -> (
+      try
+        (* Read JSON body from request *)
+        let body = Body.to_string params.request.body in
+        let json = Yojson.Safe.from_string body in
+        let tacaml_str =
+          Yojson.Safe.Util.(json |> member "tacaml" |> to_string)
+        in
+        let color = Yojson.Safe.Util.(json |> member "color" |> to_string) in
+        let yaxis = Yojson.Safe.Util.(json |> member "yaxis" |> to_string) in
+
+        match
+          custom_indicator_response ~mutices targ tacaml_str color yaxis
+        with
+        | Ok response -> response
+        | Error err_msg ->
+          Response.of_string ~body:err_msg `Internal_server_error
+      with
+      | e ->
+        Response.of_string
+          ~body:
+            ("Error processing custom indicator request: "
+           ^ Printexc.to_string e)
+          `Internal_server_error)
     | Error _ ->
       Response.of_string
         ~body:("Unable to create Instrument.t from " ^ target)

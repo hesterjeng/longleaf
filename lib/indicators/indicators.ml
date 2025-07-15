@@ -1,6 +1,7 @@
 (* module TA = Tacaml.F *)
 module Config = Config
 module Data = Bars.Data
+module Tacaml_conv = Tacaml_conv
 
 type t = Tacaml of Tacaml.t
 

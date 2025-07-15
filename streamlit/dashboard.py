@@ -36,11 +36,62 @@ st.sidebar.header("Controls")
 symbol = st.sidebar.text_input("Symbol", value="AAPL", help="Enter stock symbol (e.g., AAPL, TSLA)")
 server_url = st.sidebar.text_input("Server URL", value="http://localhost:8080", help="OCaml server URL")
 
+# Custom indicator section
+st.sidebar.markdown("---")
+st.sidebar.subheader("Custom Indicator")
+custom_indicator_enabled = st.sidebar.checkbox("Enable Custom Indicator")
+
+if custom_indicator_enabled:
+    # Dropdown for indicator type
+    indicator_type = st.sidebar.selectbox(
+        "Indicator Type",
+        ["SMA", "EMA", "RSI", "MACD", "ATR", "CCI", "Stoch", "Willr", "ADX"],
+        help="Select the type of technical indicator"
+    )
+    
+    # Parameters based on indicator type
+    if indicator_type in ["SMA", "EMA", "RSI", "ATR", "CCI", "Willr", "ADX"]:
+        period = st.sidebar.number_input("Period", min_value=1, max_value=200, value=14, help="Number of periods for calculation")
+        custom_tacaml = f"({indicator_type} {period})"
+    elif indicator_type == "MACD":
+        fast = st.sidebar.number_input("Fast Period", min_value=1, max_value=50, value=12)
+        slow = st.sidebar.number_input("Slow Period", min_value=1, max_value=50, value=26)
+        signal = st.sidebar.number_input("Signal Period", min_value=1, max_value=20, value=9)
+        custom_tacaml = f"(MACD {fast} {slow} {signal})"
+    elif indicator_type == "Stoch":
+        k_period = st.sidebar.number_input("K Period", min_value=1, max_value=50, value=14)
+        d_period = st.sidebar.number_input("D Period", min_value=1, max_value=20, value=3)
+        custom_tacaml = f"(Stoch {k_period} {d_period})"
+    
+    # Display the generated Tacaml expression
+    st.sidebar.text_area("Generated Tacaml Expression", value=custom_tacaml, height=60, help="This is the Tacaml expression that will be sent to the server")
+    
+    # Custom indicator visualization options
+    st.sidebar.subheader("Visualization Options")
+    indicator_color = st.sidebar.color_picker("Indicator Color", value="#FF6B6B")
+    indicator_yaxis = st.sidebar.selectbox("Y-Axis", ["y1 (Main)", "y2 (Secondary)"], help="Which y-axis to plot the indicator on")
+else:
+    custom_tacaml = None
+
 if st.sidebar.button("Fetch Data") or symbol:
     if symbol:
         try:
             with st.spinner(f"Fetching data for {symbol}..."):
-                response = requests.get(f"{server_url}/data/{symbol.upper()}")
+                # Choose endpoint based on whether custom indicator is enabled
+                if custom_indicator_enabled and custom_tacaml:
+                    # POST request to custom indicator endpoint
+                    payload = {
+                        "tacaml": custom_tacaml,
+                        "color": indicator_color,
+                        "yaxis": "y2" if indicator_yaxis == "y2 (Secondary)" else "y1"
+                    }
+                    response = requests.post(f"{server_url}/custom-indicator/{symbol.upper()}", 
+                                           json=payload,
+                                           headers={"Content-Type": "application/json"})
+                else:
+                    # Regular GET request to data endpoint
+                    response = requests.get(f"{server_url}/data/{symbol.upper()}")
+                
                 response.raise_for_status()
                 
                 # Parse JSON response containing plotly layout and traces
