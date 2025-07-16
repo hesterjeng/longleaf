@@ -201,7 +201,8 @@ let get_row (data : t) (x : Type.t) =
     | Tacaml (I _) ->
       Eio.traceln "%a" Type.pp x;
       Error.fatal "Data.get_row: not a float row"
-    | CustomTacaml _ -> Ok data.custom.float_indicators
+    | CustomTacaml _ ->
+      Ok data.custom.float_indicators
       (* Custom.get_slot data.custom x *)
       (* let* row = Custom.get_slot data.custom x in *)
       (* let row =  *)
@@ -214,6 +215,7 @@ let get_int_row (data : t) (x : Type.t) =
   let* source =
     match x with
     | Tacaml (I _) -> Result.return data.int_indicators
+    | CustomTacaml _ -> Ok data.custom.int_indicators
     | _ -> Error.fatal "Data.get_int_row: not an int row"
   in
   Result.return @@ Array2.slice_left source @@ Type.to_int x

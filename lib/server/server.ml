@@ -91,7 +91,8 @@ let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
   let* () =
     match Talib_binding.calculate tacaml data with
     | Ok () ->
-      Eio.traceln "@[Successfully computed custom indicator %a@]@." Tacaml.pp tacaml;
+      Eio.traceln "@[Successfully computed custom indicator %a@]@." Tacaml.pp
+        tacaml;
       Ok ()
     | Error e ->
       let err_msg =
