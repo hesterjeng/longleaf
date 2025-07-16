@@ -39,28 +39,35 @@ let custom_indicator_prefix = String.prefix ~pre:"/custom-indicator/"
 let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
     color yaxis =
   let ( let* ) = Result.( let* ) in
-  Eio.traceln "@[Custom indicator request: target=%a, tacaml=%s, color=%s, yaxis=%s@]@." Instrument.pp target tacaml_str color yaxis;
+  Eio.traceln
+    "@[Custom indicator request: target=%a, tacaml=%s, color=%s, yaxis=%s@]@."
+    Instrument.pp target tacaml_str color yaxis;
   let state = Pmutex.get mutices.state_mutex in
   let bars = State.bars state in
 
   let* data =
     match Bars.get bars target with
-    | Ok data -> 
-      Eio.traceln "@[Successfully retrieved data for symbol: %a@]@." Instrument.pp target;
+    | Ok data ->
+      Eio.traceln "@[Successfully retrieved data for symbol: %a@]@."
+        Instrument.pp target;
       Ok data
     | Error e ->
-      let err_msg = Format.asprintf "Could not find data for symbol: %a" Error.pp e in
+      let err_msg =
+        Format.asprintf "Could not find data for symbol: %a" Error.pp e
+      in
       Eio.traceln "@[ERROR: %s@]@." err_msg;
       Error err_msg
   in
 
-  let* tacaml = 
+  let* tacaml =
     match Tacaml.of_string tacaml_str with
-    | Ok tacaml -> 
+    | Ok tacaml ->
       Eio.traceln "@[Successfully parsed tacaml: %s@]@." tacaml_str;
       Ok tacaml
     | Error e ->
-      let err_msg = Format.asprintf "Failed to parse tacaml '%s': %s" tacaml_str e in
+      let err_msg =
+        Format.asprintf "Failed to parse tacaml '%s': %s" tacaml_str e
+      in
       Eio.traceln "@[ERROR: %s@]@." err_msg;
       Error err_msg
   in
@@ -68,11 +75,14 @@ let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
   (* Register the custom indicator *)
   let* _slot =
     match Bars.Data.register_custom_indicator data tacaml with
-    | Ok slot -> 
-      Eio.traceln "@[Successfully registered custom indicator, slot: %d@]@." slot;
+    | Ok slot ->
+      Eio.traceln "@[Successfully registered custom indicator, slot: %d@]@."
+        slot;
       Ok slot
     | Error e ->
-      let err_msg = Format.asprintf "Failed to register custom indicator: %a" Error.pp e in
+      let err_msg =
+        Format.asprintf "Failed to register custom indicator: %a" Error.pp e
+      in
       Eio.traceln "@[ERROR: %s@]@." err_msg;
       Error err_msg
   in
@@ -80,11 +90,13 @@ let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
   (* Compute the custom indicator *)
   let* () =
     match Talib_binding.calculate tacaml data with
-    | Ok () -> 
-      Eio.traceln "@[Successfully computed custom indicator@]@.";
+    | Ok () ->
+      Eio.traceln "@[Successfully computed custom indicator %a@]@." Tacaml.pp tacaml;
       Ok ()
     | Error e ->
-      let err_msg = Format.asprintf "Failed to compute custom indicator: %a" Error.pp e in
+      let err_msg =
+        Format.asprintf "Failed to compute custom indicator: %a" Error.pp e
+      in
       Eio.traceln "@[ERROR: %s@]@." err_msg;
       Error err_msg
   in
@@ -94,10 +106,10 @@ let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
     match
       Plotly.of_bars_with_custom_indicator bars target tacaml color yaxis
     with
-    | Some json -> 
+    | Some json ->
       Eio.traceln "@[Successfully generated plotly visualization@]@.";
       Ok json
-    | None -> 
+    | None ->
       let err_msg = "Failed to generate plotly visualization" in
       Eio.traceln "@[ERROR: %s@]@." err_msg;
       Error err_msg
@@ -230,15 +242,17 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     match instrument with
     | Ok targ -> (
       try
-        Eio.traceln "@[Processing custom indicator request for target: %a@]@." Instrument.pp targ;
+        Eio.traceln "@[Processing custom indicator request for target: %a@]@."
+          Instrument.pp targ;
         (* Read JSON body from request *)
         let body =
           Body.to_string params.request.body |> function
-          | Ok x -> 
+          | Ok x ->
             Eio.traceln "@[Successfully read request body: %s@]@." x;
             x
           | Error e ->
-            Eio.traceln "@[ERROR reading request body: %a@]@." Piaf.Error.pp_hum e;
+            Eio.traceln "@[ERROR reading request body: %a@]@." Piaf.Error.pp_hum
+              e;
             "server.ml: Unable to convert body to string in \
              custom_indicator_prefix endpoint"
         in
@@ -249,12 +263,13 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
         in
         let color = Yojson.Safe.Util.(json |> member "color" |> to_string) in
         let yaxis = Yojson.Safe.Util.(json |> member "yaxis" |> to_string) in
-        Eio.traceln "@[Extracted parameters: tacaml=%s, color=%s, yaxis=%s@]@." tacaml_str color yaxis;
+        Eio.traceln "@[Extracted parameters: tacaml=%s, color=%s, yaxis=%s@]@."
+          tacaml_str color yaxis;
 
         match
           custom_indicator_response ~mutices targ tacaml_str color yaxis
         with
-        | Ok response -> 
+        | Ok response ->
           Eio.traceln "@[Custom indicator request completed successfully@]@.";
           response
         | Error err_msg ->
@@ -262,7 +277,9 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
           Response.of_string ~body:err_msg `Internal_server_error
       with
       | e ->
-        let err_msg = "Error processing custom indicator request: " ^ Printexc.to_string e in
+        let err_msg =
+          "Error processing custom indicator request: " ^ Printexc.to_string e
+        in
         Eio.traceln "@[EXCEPTION in custom indicator handler: %s@]@." err_msg;
         Response.of_string ~body:err_msg `Internal_server_error)
     | Error _ ->
