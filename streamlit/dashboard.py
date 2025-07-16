@@ -52,19 +52,19 @@ if custom_indicator_enabled:
     # Parameters based on indicator type
     if indicator_type in ["SMA", "EMA", "RSI", "ATR", "CCI", "Willr", "ADX"]:
         period = st.sidebar.number_input("Period", min_value=1, max_value=200, value=14, help="Number of periods for calculation")
-        custom_tacaml = f"({indicator_type} {period})"
+        custom_tacaml = f"{indicator_type} {period}"
     elif indicator_type == "MACD":
         fast = st.sidebar.number_input("Fast Period", min_value=1, max_value=50, value=12)
         slow = st.sidebar.number_input("Slow Period", min_value=1, max_value=50, value=26)
         signal = st.sidebar.number_input("Signal Period", min_value=1, max_value=20, value=9)
-        custom_tacaml = f"(MACD {fast} {slow} {signal})"
+        custom_tacaml = f"MACD {fast} {slow} {signal}"
     elif indicator_type == "Stoch":
         k_period = st.sidebar.number_input("K Period", min_value=1, max_value=50, value=14)
         d_period = st.sidebar.number_input("D Period", min_value=1, max_value=20, value=3)
-        custom_tacaml = f"(Stoch {k_period} {d_period})"
+        custom_tacaml = f"Stoch {k_period} {d_period}"
     
     # Display the generated Tacaml expression
-    st.sidebar.text_area("Generated Tacaml Expression", value=custom_tacaml, height=60, help="This is the Tacaml expression that will be sent to the server")
+    st.sidebar.text_area("Generated Tacaml Expression", value=custom_tacaml, height=68, help="This is the Tacaml expression that will be sent to the server")
     
     # Custom indicator visualization options
     st.sidebar.subheader("Visualization Options")
