@@ -27,32 +27,34 @@ module Input = struct
 end
 
 module Output = struct
-  open Tacaml.Output
-  open Data.Type
+  (* open Tacaml.Output *)
+  (* open Data.Type *)
+  module Flag = Tacaml.Output.Flag
 
-  let of_data (x : Tacaml.t) (data : Data.t) =
+  let of_data (x : Tacaml.t) (data : Data.t) : (Tacaml.Output.t, _) result =
     let ( let* ) = Result.( let* ) in
+    (* let f1 = CustomTacaml x in *)
     let output = Tacaml.output x in
     match output with
     | Flag.FloatBAFlag i ->
       let* row = Data.get_row data (Tacaml i) in
-      Result.return @@ FloatBA row
+      Result.return @@ Tacaml.Output.FloatBA row
     | Flag.FloatBA2Flag (f1, f2) ->
       let* row1 = Data.get_row data (Tacaml f1) in
       let* row2 = Data.get_row data (Tacaml f2) in
-      Result.return @@ FloatBA2 (row1, row2)
+      Result.return @@ Tacaml.Output.FloatBA2 (row1, row2)
     | Flag.FloatBA3Flag (f1, f2, f3) ->
       let* row1 = Data.get_row data (Tacaml f1) in
       let* row2 = Data.get_row data (Tacaml f2) in
       let* row3 = Data.get_row data (Tacaml f3) in
-      Result.return @@ FloatBA3 (row1, row2, row3)
+      Result.return @@ Tacaml.Output.FloatBA3 (row1, row2, row3)
     | Flag.IntBAFlag i ->
       let* row = Data.get_int_row data (Tacaml i) in
-      Result.return @@ IntBA row
+      Result.return @@ Tacaml.Output.IntBA row
     | Flag.IntBA2Flag (i, j) ->
       let* row1 = Data.get_int_row data (Tacaml i) in
       let* row2 = Data.get_int_row data (Tacaml j) in
-      Result.return @@ IntBA2 (row1, row2)
+      Result.return @@ Tacaml.Output.IntBA2 (row1, row2)
 end
 
 let calculate ?i (indicator : Tacaml.t) (data : Data.t) =

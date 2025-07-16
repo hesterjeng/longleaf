@@ -99,6 +99,17 @@ let get (custom : t) (indicator : Tacaml.t) (index : int) : float =
       Float.of_int @@ Array2.get custom.int_indicators slot index)
   | None -> invalid_arg "CustomTacaml indicator not registered"
 
+let get_row (custom : t) (indicator : Tacaml.t) =
+  match Hashtbl.find_opt custom.indicator_map indicator with
+  | Some slot -> (
+    match Tacaml.output indicator with
+    | Tacaml.Output.Flag.FloatBAFlag _
+    | Tacaml.Output.Flag.FloatBA2Flag _
+    | Tacaml.Output.Flag.FloatBA3Flag _ ->
+      Array2.slice_left custom.float_indicators slot
+    | _ -> invalid_arg "NYI: custom get_row flag")
+  | None -> invalid_arg "NYI: Custom.get_row"
+
 let set (custom : t) (indicator : Tacaml.t) (index : int) (value : float) : unit
     =
   match Hashtbl.find_opt custom.indicator_map indicator with
