@@ -45,15 +45,15 @@ if custom_indicator_enabled:
     # Dropdown for indicator type
     indicator_type = st.sidebar.selectbox(
         "Indicator Type",
-        ["SMA", "EMA", "RSI", "MACD", "ATR", "CCI", "Stoch", "Willr", "ADX"],
+        ["Sma", "Ema", "Rsi", "Macd", "Atr", "Cci", "Stoch", "Willr", "Adx"],
         help="Select the type of technical indicator"
     )
     
     # Parameters based on indicator type
-    if indicator_type in ["SMA", "EMA", "RSI", "ATR", "CCI", "Willr", "ADX"]:
+    if indicator_type in ["Sma", "Ema", "Rsi", "Atr", "Cci", "Willr", "Adx"]:
         period = st.sidebar.number_input("Period", min_value=1, max_value=200, value=14, help="Number of periods for calculation")
         custom_tacaml = f"{indicator_type} {period}"
-    elif indicator_type == "MACD":
+    elif indicator_type == "Macd":
         fast = st.sidebar.number_input("Fast Period", min_value=1, max_value=50, value=12)
         slow = st.sidebar.number_input("Slow Period", min_value=1, max_value=50, value=26)
         signal = st.sidebar.number_input("Signal Period", min_value=1, max_value=20, value=9)
