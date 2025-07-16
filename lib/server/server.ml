@@ -1,7 +1,15 @@
-module Longleaf_error = Error
+module Error = Error
 module Longleaf_mutex = Longleaf_mutex
-open Piaf
+
+(* open Piaf *)
 module Promise = Eio.Std.Promise
+module Talib_binding = Indicators.Talib_binding
+module Headers = Piaf.Headers
+module Response = Piaf.Response
+module Server = Piaf.Server
+module Request_info = Piaf.Request_info
+module Request = Piaf.Request
+module Body = Piaf.Body
 
 let prom, resolver = Promise.create ()
 
@@ -28,9 +36,6 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
 let data_prefix = String.prefix ~pre:"/data/"
 let custom_indicator_prefix = String.prefix ~pre:"/custom-indicator/"
 
-let parse_tacaml_string (tacaml_str : string) : (Tacaml.t, string) result =
-  Indicators.Tacaml_conv.of_string tacaml_str
-
 let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
     color yaxis =
   let ( let* ) = Result.( let* ) in
@@ -44,7 +49,7 @@ let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
       Error (Format.asprintf "Could not find data for symbol: %a" Error.pp e)
   in
 
-  let* tacaml = parse_tacaml_string tacaml_str in
+  let* tacaml = Tacaml.of_string tacaml_str in
 
   (* Register the custom indicator *)
   let* _slot =
@@ -170,7 +175,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       match Bars.yojson_of_t bars with
       | Ok x -> Yojson.Safe.to_string x
       | Error e ->
-        Eio.traceln "%a" Longleaf_error.pp e;
+        Eio.traceln "%a" Error.pp e;
         invalid_arg "Error while converting bars to json"
     in
     Response.of_string ~body `OK
@@ -200,7 +205,14 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     | Ok targ -> (
       try
         (* Read JSON body from request *)
-        let body = Body.to_string params.request.body in
+        let body =
+          Body.to_string params.request.body |> function
+          | Ok x -> x
+          | Error e ->
+            Eio.traceln "%a" Piaf.Error.pp_hum e;
+            "server.ml: Unable to convert body to string in \
+             custom_indicator_prefix endpoint"
+        in
         let json = Yojson.Safe.from_string body in
         let tacaml_str =
           Yojson.Safe.Util.(json |> member "tacaml" |> to_string)

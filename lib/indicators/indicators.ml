@@ -2,6 +2,7 @@
 module Config = Config
 module Data = Bars.Data
 module Tacaml_conv = Tacaml_conv
+module Talib_binding = Talib_binding
 
 type t = Tacaml of Tacaml.t
 
