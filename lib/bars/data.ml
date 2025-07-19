@@ -75,6 +75,8 @@ type t = {
 
 type data = t
 
+let current x = x.current
+
 let get_ source row i =
   try Array2.get source row i with
   | e ->
@@ -382,3 +384,5 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
 
 let yojson_of_t (x : t) : Yojson.Safe.t =
   to_items x |> List.map Item.yojson_of_t |> fun l -> `List l
+
+let set_current x current = { x with current }

@@ -98,7 +98,8 @@ let current (x : t) =
 let timestamp (x : t) =
   let res =
     fold x None @@ fun _symbol data acc ->
-    let timestamp = Data.get data Time data.current in
+    let current = Data.current data in
+    let timestamp = Data.get data Time current in
     match acc with
     | None -> Some timestamp
     | Some prev ->
@@ -224,16 +225,16 @@ let combine (l : t list) : (t, Error.t) result =
 
 let set_current bars i =
   (fun f -> Hashtbl.filter_map_inplace f bars) @@ fun _ data ->
-  Option.return @@ { data with Data.current = i }
+  Option.return @@ Data.set_current data i
 
 let get_current (bars : t) =
   let ( let* ) = Result.( let* ) in
   fold bars (Ok 0) @@ fun _ data acc ->
   let* acc = acc in
   match acc with
-  | 0 -> Ok data.Data.current
+  | 0 -> Result.return @@ Data.current data
   | n when n > 0 -> (
-    match n = data.Data.current with
+    match n = Data.current data with
     | true -> Ok n
     | false -> Error.fatal "Current mismatch in bars.ml")
   | _ -> Error.fatal "Bad bars length in bars.ml"

@@ -15,20 +15,13 @@ module Index : sig
   type t
 end
 
-type t = {
-  data : data_matrix;
-  (* talib_indicators : data_matrix; *)
-  (* other_indicators : data_matrix; *)
-  int_data : int_matrix;
-  index : Index.t;
-  (* custom : Custom.t; *)
-  current : int;
-  size : int;
-  indicators_computed : bool;
-}
+type t
 (** The main data type for the time-series data. It contains the data matrix,
     the current index, the size of the data, and a flag indicating whether
     indicators have been computed. *)
+
+val current : t -> int
+val set_current : t -> int -> t
 
 type data = t
 
@@ -49,7 +42,6 @@ module Type : sig
     | Close
     | Volume
     | Tacaml of Tacaml.Indicator.t
-    (* | CustomTacaml of Tacaml.t *)
     | Other of string
   [@@deriving variants, show { with_path = false }]
 
