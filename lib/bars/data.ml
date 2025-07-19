@@ -382,12 +382,3 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
 
 let yojson_of_t (x : t) : Yojson.Safe.t =
   to_items x |> List.map Item.yojson_of_t |> fun l -> `List l
-
-(* Custom indicator registration *)
-let register_custom_indicator (data : t) (indicator : Tacaml.t) :
-    (int, Error.t) result =
-  Custom.register_indicator data.custom indicator
-
-let get_custom_indicator_slot (data : t) (indicator : Tacaml.t) :
-    (int, Error.t) result =
-  Custom.get_slot data.custom indicator

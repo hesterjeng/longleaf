@@ -11,12 +11,17 @@ type data_matrix =
 
 type int_matrix = (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array2.t
 
+module Index : sig
+  type t
+end
+
 type t = {
   data : data_matrix;
-  talib_indicators : data_matrix;
-  other_indicators : data_matrix;
-  int_indicators : int_matrix;
-  custom : Custom.t;
+  (* talib_indicators : data_matrix; *)
+  (* other_indicators : data_matrix; *)
+  int_data : int_matrix;
+  index : Index.t;
+  (* custom : Custom.t; *)
   current : int;
   size : int;
   indicators_computed : bool;
@@ -44,18 +49,15 @@ module Type : sig
     | Close
     | Volume
     | Tacaml of Tacaml.Indicator.t
-    | CustomTacaml of Tacaml.t
+    (* | CustomTacaml of Tacaml.t *)
     | Other of string
   [@@deriving variants, show { with_path = false }]
 
-  val count : int
-  (** The number of data fields. *)
+  (* val to_int : t -> int *)
+  (* (\** Converts a data field type to its integer representation. *\) *)
 
-  val to_int : t -> int
-  (** Converts a data field type to its integer representation. *)
-
-  val of_int : int -> t
-  (** Converts an integer to its corresponding data field type. *)
+  (* val of_int : int -> t *)
+  (* (\** Converts an integer to its corresponding data field type. *\) *)
 end
 
 (** {1 Accessing Data} *)
@@ -143,9 +145,9 @@ val get_int_row : t -> Type.t -> (Row.introw, Error.t) result
 val pp : t Format.printer
 (** The pretty-printer for the data matrix. *)
 
-val pp_row : Type.t -> t Format.printer
-(** [pp_row ty] returns a pretty-printer for the row of the data matrix
-    corresponding to the data field [ty]. *)
+(* val pp_row : Type.t -> t Format.printer *)
+(* (\** [pp_row ty] returns a pretty-printer for the row of the data matrix *)
+(*     corresponding to the data field [ty]. *\) *)
 
 (** {1 Metadata} *)
 
@@ -161,13 +163,13 @@ val set : t -> Type.t -> int -> float -> unit
 (** [set res x i value] sets the value of the data field [x] at index [i] to
     [value]. *)
 
-val get_top : t -> Type.t -> float
-(** [get_top res x] returns the value of the data field [x] at the current
-    index. *)
+(* val get_top : t -> Type.t -> float *)
+(* (\** [get_top res x] returns the value of the data field [x] at the current *)
+(*     index. *\) *)
 
-val get_top_int : t -> Type.t -> int
-(** [get_top_int res x] returns the integer value of the data field [x] at the
-    current index. Only works for integer indicators (Tacaml (I _)). *)
+(* val get_top_int : t -> Type.t -> int *)
+(* (\** [get_top_int res x] returns the integer value of the data field [x] at the *)
+(*     current index. Only works for integer indicators (Tacaml (I _)). *\) *)
 
 (** {1 Conversions} *)
 
@@ -212,13 +214,3 @@ val t_of_yojson : Yojson.Safe.t -> (t, Error.t) result
 
 val yojson_of_t : t -> Yojson.Safe.t
 (** [yojson_of_t x] returns a JSON representation of the data matrix [x]. *)
-
-(** {1 Custom Indicator Registration} *)
-
-val register_custom_indicator : t -> Tacaml.t -> (int, Error.t) result
-(** [register_custom_indicator data indicator] registers a custom indicator and
-    returns its slot number. If already registered, returns existing slot. *)
-
-val get_custom_indicator_slot : t -> Tacaml.t -> (int, Error.t) result
-(** [get_custom_indicator_slot data indicator] returns the slot number for a
-    previously registered custom indicator. *)

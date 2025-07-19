@@ -26,19 +26,6 @@ let compute ?i (indicators : t list) (config : Config.t) (bars : Bars.t) =
             Result.return ())
         () indicators
     in
-    (* Compute custom indicators from config *)
-    let* () =
-      Result.fold_l
-        (fun _ custom_indicator ->
-          (* Register custom indicator in data *)
-          let* _slot =
-            Bars.Data.register_custom_indicator data custom_indicator
-          in
-          (* Compute the custom indicator *)
-          let* () = Talib_binding.calculate ?i custom_indicator data in
-          Result.return ())
-        () config.custom_indicators
-    in
     Result.return ()
   | true ->
     Eio.traceln "Not precomputing indicators because of Indicator_config.t";

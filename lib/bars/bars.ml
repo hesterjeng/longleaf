@@ -98,7 +98,7 @@ let current (x : t) =
 let timestamp (x : t) =
   let res =
     fold x None @@ fun _symbol data acc ->
-    let timestamp = Data.get_top data Time in
+    let timestamp = Data.get data Time data.current in
     match acc with
     | None -> Some timestamp
     | Some prev ->
