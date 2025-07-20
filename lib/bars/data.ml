@@ -20,6 +20,8 @@ module Type = struct
     | Other of string
   [@@deriving variants, show { with_path = false }, eq, hash]
 
+  let tacaml x = Tacaml x
+
   let is_int_ty (x : t) =
     match x with
     | Tacaml (I _) -> true

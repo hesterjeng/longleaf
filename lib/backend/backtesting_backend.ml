@@ -111,9 +111,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
             Result.return prev
           else
             let* data = State.data prev symbol in
-            let last_price = Bars.Data.get_top data Last in
+            let last_price = Bars.Data.get data Last @@ State.tick state in
             let* timestamp =
-              let time_float = Bars.Data.get_top data Time in
+              let time_float = Bars.Data.get data Time @@ State.tick state in
               Time.of_float_res time_float
             in
             let side = if qty > 0 then Side.Sell else Side.Buy in

@@ -158,10 +158,9 @@ let of_bars ?(start = 100) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
   let result =
     let* data = Bars.get bars symbol in
     let price_trace = direct_price_trace ~start ?end_ data symbol in
-    let sma_20 =
+    let* sma_20 =
       indicator_trace bars
-        (Data.Type.Tacaml
-           (Tacaml.Indicator.F (Tacaml.Indicator.Float.Sma { timeperiod = 14 })))
+        (Data.Type.tacaml @@ Tacaml.Indicator.sma ~timeperiod:30 ())
         symbol
     in
 
@@ -240,7 +239,7 @@ let of_bars ?(start = 100) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
            = `List
                [
                  price_trace;
-                 (* sma_20; *)
+                 sma_20;
                  (* ema_20; *)
                  (* rsi_14; *)
                  (* macd; *)
@@ -289,7 +288,8 @@ let of_bars_with_custom_indicator ?(start = 100) ?end_ (bars : Bars.t) symbol
     Result.return
     @@ `Assoc
          [
-           "traces" = `List [ price_trace; custom_trace ];
+           "traces" = `List [ price_trace ];
+           (* Add the custom indicator? *)
            "layout"
            = layout @@ Instrument.symbol symbol ^ " with Custom Indicator";
          ]

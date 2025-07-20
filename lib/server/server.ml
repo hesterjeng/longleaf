@@ -73,19 +73,19 @@ let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
   in
 
   (* Register the custom indicator *)
-  let* _slot =
-    match Bars.Data.register_custom_indicator data tacaml with
-    | Ok slot ->
-      Eio.traceln "@[Successfully registered custom indicator, slot: %d@]@."
-        slot;
-      Ok slot
-    | Error e ->
-      let err_msg =
-        Format.asprintf "Failed to register custom indicator: %a" Error.pp e
-      in
-      Eio.traceln "@[ERROR: %s@]@." err_msg;
-      Error err_msg
-  in
+  (* let* _slot = *)
+  (* match Bars.Data.register_custom_indicator data tacaml with *)
+  (* | Ok slot -> *)
+  (*   Eio.traceln "@[Successfully registered custom indicator, slot: %d@]@." *)
+  (*     slot; *)
+  (*   Ok slot *)
+  (* | Error e -> *)
+  (*   let err_msg = *)
+  (*     Format.asprintf "Failed to register custom indicator: %a" Error.pp e *)
+  (*   in *)
+  (*   Eio.traceln "@[ERROR: %s@]@." err_msg; *)
+  (*   Error err_msg *)
+  (* in *)
 
   (* Compute the custom indicator *)
   let* () =
