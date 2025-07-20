@@ -44,12 +44,6 @@ module Type : sig
     | Tacaml of Tacaml.Indicator.t
     | Other of string
   [@@deriving variants, show { with_path = false }]
-
-  (* val to_int : t -> int *)
-  (* (\** Converts a data field type to its integer representation. *\) *)
-
-  (* val of_int : int -> t *)
-  (* (\** Converts an integer to its corresponding data field type. *\) *)
 end
 
 (** {1 Accessing Data} *)
@@ -63,7 +57,7 @@ module Column : sig
   (** This module provides functions for working with columns of the data
       matrix. *)
 
-  type t = { data : data; index : int }
+  type t = private { data : data; index : int }
   (** The type for a column of the data matrix. *)
 
   val of_data : data -> int -> (t, Error.t) result

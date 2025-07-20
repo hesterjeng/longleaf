@@ -158,6 +158,12 @@ let of_bars ?(start = 100) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
   let result =
     let* data = Bars.get bars symbol in
     let price_trace = direct_price_trace ~start ?end_ data symbol in
+    let sma_20 =
+      indicator_trace bars
+        (Data.Type.Tacaml
+           (Tacaml.Indicator.F (Tacaml.Indicator.Float.Sma { timeperiod = 14 })))
+        symbol
+    in
 
     (* Create the 10 most common technical indicators *)
 
@@ -234,16 +240,16 @@ let of_bars ?(start = 100) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
            = `List
                [
                  price_trace;
-                 sma_20;
-                 ema_20;
-                 rsi_14;
-                 macd;
-                 macd_signal;
-                 bb_upper;
-                 bb_lower;
-                 stoch_k;
-                 atr_14;
-                 cci_14;
+                 (* sma_20; *)
+                 (* ema_20; *)
+                 (* rsi_14; *)
+                 (* macd; *)
+                 (* macd_signal; *)
+                 (* bb_upper; *)
+                 (* bb_lower; *)
+                 (* stoch_k; *)
+                 (* atr_14; *)
+                 (* cci_14; *)
                ];
            "layout" = layout @@ Instrument.symbol symbol;
          ]
