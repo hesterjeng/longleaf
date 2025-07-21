@@ -17,7 +17,9 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
   let ema_10 = Bars.Data.Type.(Tacaml (Tacaml.Indicator.ema ~timeperiod:10 ()))
   let williams_r = Bars.Data.Type.(Tacaml (Tacaml.Indicator.willr ()))
   let atr = Bars.Data.Type.(Tacaml (Tacaml.Indicator.atr ()))
-  let volume_sma = Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ()))
+
+  let volume_sma =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ()))
   (* We'll use this for volume average *)
 
   let pass (state : _ State.t) instrument =

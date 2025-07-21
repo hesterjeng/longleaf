@@ -12,7 +12,9 @@
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
   let rsi_indicator = Bars.Data.Type.(Tacaml (Tacaml.Indicator.rsi ()))
-  let sma_indicator = Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ()))
+
+  let sma_indicator =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ()))
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
