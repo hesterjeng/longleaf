@@ -11,8 +11,8 @@
     - 10% profit target *)
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
-  let rsi_indicator = Bars.Data.Type.(Tacaml (F Rsi))
-  let sma_indicator = Bars.Data.Type.(Tacaml (F Sma))
+  let rsi_indicator = Bars.Data.Type.(Tacaml (Tacaml.Indicator.rsi ()))
+  let sma_indicator = Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ()))
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
@@ -65,7 +65,7 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 end
 
 module Sell_trigger_impl : Template.Sell_trigger.S = struct
-  let rsi_indicator = Bars.Data.Type.(Tacaml (F Rsi))
+  let rsi_indicator = Bars.Data.Type.(Tacaml (Tacaml.Indicator.rsi ()))
 
   let make (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in

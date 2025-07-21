@@ -13,11 +13,11 @@
     - 12% profit target *)
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
-  let sma_20 = Bars.Data.Type.(Tacaml (F Sma))
-  let ema_10 = Bars.Data.Type.(Tacaml (F Ema))
-  let williams_r = Bars.Data.Type.(Tacaml (F Willr))
-  let atr = Bars.Data.Type.(Tacaml (F Atr))
-  let volume_sma = Bars.Data.Type.(Tacaml (F Sma))
+  let sma_20 = Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ()))
+  let ema_10 = Bars.Data.Type.(Tacaml (Tacaml.Indicator.ema ~timeperiod:10 ()))
+  let williams_r = Bars.Data.Type.(Tacaml (Tacaml.Indicator.willr ()))
+  let atr = Bars.Data.Type.(Tacaml (Tacaml.Indicator.atr ()))
+  let volume_sma = Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ()))
   (* We'll use this for volume average *)
 
   let pass (state : _ State.t) instrument =
@@ -123,8 +123,8 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 end
 
 module Sell_trigger_impl : Template.Sell_trigger.S = struct
-  let ema_10 = Bars.Data.Type.(Tacaml (F Ema))
-  let williams_r = Bars.Data.Type.(Tacaml (F Willr))
+  let ema_10 = Bars.Data.Type.(Tacaml (Tacaml.Indicator.ema ~timeperiod:10 ()))
+  let williams_r = Bars.Data.Type.(Tacaml (Tacaml.Indicator.willr ()))
 
   let make (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in

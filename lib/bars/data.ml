@@ -229,12 +229,14 @@ let get_top (res : t) (x : Type.t) =
   let res = get res x @@ res.current in
   res
 
-(* let get_top_int (res : t) (x : Type.t) = *)
-(*   assert (res.current >= 0); *)
-(*   assert (res.current < res.size); *)
-(*   match x with *)
-(*   | Tacaml (I _) -> get_ res.int_indicators x res.current *)
-(*   | _ -> invalid_arg "get_top_int: not an integer indicator" *)
+let get_top_int (res : t) (x : Type.t) =
+  assert (res.current >= 0);
+  assert (res.current < res.size);
+  match x with
+  | Tacaml (I _) -> 
+    let row = Index.get res.index x in
+    get_ res.int_data row res.current
+  | _ -> invalid_arg "get_top_int: not an integer indicator"
 
 let item_of_column x i =
   let open Item in

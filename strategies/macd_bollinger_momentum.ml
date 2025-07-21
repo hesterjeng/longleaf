@@ -13,12 +13,12 @@
     - 15% profit target *)
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
-  let macd_line = Bars.Data.Type.(Tacaml (F Macd_MACD))
-  let macd_signal = Bars.Data.Type.(Tacaml (F Macd_MACDSignal))
-  let macd_histogram = Bars.Data.Type.(Tacaml (F Macd_MACDHist))
-  let lower_bb = Bars.Data.Type.(Tacaml (F LowerBBand))
-  let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
-  let adx = Bars.Data.Type.(Tacaml (F Adx))
+  let macd_line = Bars.Data.Type.(Tacaml (Tacaml.Indicator.macd_macd ()))
+  let macd_signal = Bars.Data.Type.(Tacaml (Tacaml.Indicator.macd_signal ()))
+  let macd_histogram = Bars.Data.Type.(Tacaml (Tacaml.Indicator.macd_hist ()))
+  let lower_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.lower_bband ()))
+  let upper_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.upper_bband ()))
+  let adx = Bars.Data.Type.(Tacaml (Tacaml.Indicator.adx ()))
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
@@ -93,9 +93,9 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 end
 
 module Sell_trigger_impl : Template.Sell_trigger.S = struct
-  let macd_line = Bars.Data.Type.(Tacaml (F Macd_MACD))
-  let macd_signal = Bars.Data.Type.(Tacaml (F Macd_MACDSignal))
-  let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
+  let macd_line = Bars.Data.Type.(Tacaml (Tacaml.Indicator.macd_macd ()))
+  let macd_signal = Bars.Data.Type.(Tacaml (Tacaml.Indicator.macd_signal ()))
+  let upper_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.upper_bband ()))
 
   let make (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in
