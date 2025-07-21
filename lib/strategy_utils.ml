@@ -152,10 +152,6 @@ module Make (Backend : Backend.S) = struct
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
-      (* let* () = *)
-      (*   Indicators.compute_all ~eio_env:Backend.env *)
-      (*     Input.options.indicators_config state.bars *)
-      (* in *)
       Bars.set_current bars tick;
       Eio.traceln "Bars initialize: %a" Bars.pp bars;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);

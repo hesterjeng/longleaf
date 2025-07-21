@@ -183,22 +183,23 @@ module Make (Input : BACKEND_INPUT) : S = struct
             Result.return prev)
           else
             let* data = State.data prev symbol in
-            let last_column = Bars.Data.get_top data in
+            let* col = Bars.Data.Column.of_data data @@ State.tick state in
+            let* price = Bars.Data.Column.get col Last in
             let abs_qty = Int.abs qty in
             let tick = State.tick prev in
             let* order : Order.t =
               let side = if qty > 0 then Side.Sell else Side.Buy in
               let tif = TimeInForce.GoodTillCanceled in
               let order_type = OrderType.Market in
-              let price = last_column Last in
-              let* timestamp = last_column Time |> Time.of_float_res in
+              let* timestamp = Bars.Data.Column.timestamp col in
+              (* last_column Time |> Time.of_float_res in *)
               Result.return
               @@ Order.make ~symbol ~tick ~side ~tif ~order_type ~qty:abs_qty
                    ~price ~timestamp ~profit:None
                    ~reason:[ "Liquidate position" ]
             in
             Eio.traceln "@[Liquidating %d shares of %a at %f@]@." abs_qty
-              Instrument.pp symbol (last_column Last);
+              Instrument.pp symbol price;
             place_order prev order)
         (Ok state) symbols
     in

@@ -1,3 +1,5 @@
+open Longleaf_lib
+
 module type S = sig
   val run : unit -> float
   val shutdown : unit -> unit
@@ -15,7 +17,7 @@ let dummy f =
 
 module type BUILDER = functor (_ : Backend.S) -> S
 
-let mk_options switch eio_env flags target mutices : Options.t =
+let mk_options switch eio_env flags target mutices : Longleaf_lib.Options.t =
   let longleaf_env = Util.Environment.make () in
   (* let mutices = Server.Longleaf_mutex.create () in *)
   {
@@ -26,6 +28,7 @@ let mk_options switch eio_env flags target mutices : Options.t =
     flags;
     tick = 600.0;
     indicators_config = Indicators.Config.default;
+    custom_indicators = [];
     target;
     mutices;
   }

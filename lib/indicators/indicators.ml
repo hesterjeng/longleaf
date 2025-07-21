@@ -1,6 +1,8 @@
 (* module TA = Tacaml.F *)
 module Config = Config
 module Data = Bars.Data
+module Tacaml_conv = Tacaml_conv
+module Talib_binding = Talib_binding
 
 type t = Tacaml of Tacaml.t
 
@@ -14,6 +16,7 @@ let compute ?i (indicators : t list) (config : Config.t) (bars : Bars.t) =
     let ( let* ) = Result.( let* ) in
     Bars.fold bars (Ok ()) @@ fun _ data acc ->
     let* _ = acc in
+    (* Compute standard indicators *)
     let* () =
       Result.fold_l
         (fun _ indicator ->

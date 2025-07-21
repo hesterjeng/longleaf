@@ -15,6 +15,7 @@ let pp_string : t Format.printer =
 let equal x y = String.equal (symbol x) (symbol y)
 let hash x = String.hash @@ symbol x
 let yojson_of_t (x : t) : Yojson.Safe.t = `String (symbol x)
+let contract x = Contract x
 
 let of_string (x : string) =
   let l = String.to_list x |> List.map Char.to_string in
@@ -77,4 +78,13 @@ module Timestamped = struct
   type t = { instrument : instrument; time : Time.t } [@@deriving show, eq]
 
   let hash x = Hash.combine2 (hash x.instrument) (Time.hash x.time)
+end
+
+module Option = struct
+  let chain (x : t) current_price current_date =
+    match x with
+    | Security underlying ->
+      Result.return @@ List.map contract
+      @@ Contract.Chain.top underlying current_price current_date
+    | Contract _ -> Error.fatal "Cannot get option chains from contracts"
 end

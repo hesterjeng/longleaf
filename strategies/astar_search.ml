@@ -43,9 +43,9 @@ module EnumeratedSignal = struct
       | RSI_lt of EnumeratedValue.t
     [@@deriving yojson, eq, show, variants, ord]
 
-    let fso_k = Data.Type.(Tacaml (F StochF_FastK))
-    let fso_d = Data.Type.(Tacaml (F StochF_FastD))
-    let rsi = Data.Type.(Tacaml (F Rsi))
+    let fso_k = Data.Type.(Tacaml (Tacaml.Indicator.stoch_f_fast_k ()))
+    let fso_d = Data.Type.(Tacaml (Tacaml.Indicator.stoch_f_fast_d ()))
+    let rsi = Data.Type.(Tacaml (Tacaml.Indicator.rsi ()))
 
     let all : t list =
       let add acc var = var.Variantslib.Variant.constructor :: acc in

@@ -9,14 +9,9 @@ let run_l options l =
 
 let top_ options =
   let ( let* ) = Result.( let* ) in
-  (* let* () = *)
-  (*   Indicators.compute_all ~eio_env:Backend.env *)
-  (*     options.indicators_config state.bars *)
-  (* in *)
   let* _res = run_l options Gadt_examples.all_strategies in
   let res = 0.1234 in
   Result.return res
-(* let dummy = Strategy.dummy top *)
 
 let top options =
   match top_ options with

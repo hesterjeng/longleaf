@@ -34,21 +34,21 @@
     - Ranging regime: 0.8x base size *)
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
-  let adx = Bars.Data.Type.(Tacaml (F Adx))
-  let atr = Bars.Data.Type.(Tacaml (F Atr))
-  let macd_line = Bars.Data.Type.(Tacaml (F Macd_MACD))
-  let macd_signal = Bars.Data.Type.(Tacaml (F Macd_MACDSignal))
-  let macd_histogram = Bars.Data.Type.(Tacaml (F Macd_MACDHist))
-  let ema_20 = Bars.Data.Type.(Tacaml (F Ema))
-  let ema_50 = Bars.Data.Type.(Tacaml (F Ema))
-  let cci = Bars.Data.Type.(Tacaml (F Cci))
-  let sar = Bars.Data.Type.(Tacaml (F Sar))
-  let stoch_k = Bars.Data.Type.(Tacaml (F Stoch_SlowK))
-  let stoch_d = Bars.Data.Type.(Tacaml (F Stoch_SlowD))
-  let williams_r = Bars.Data.Type.(Tacaml (F Willr))
-  let lower_bb = Bars.Data.Type.(Tacaml (F LowerBBand))
-  let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
-  let mfi = Bars.Data.Type.(Tacaml (F Mfi))
+  let adx = Bars.Data.Type.(Tacaml (Tacaml.Indicator.adx ()))
+  let atr = Bars.Data.Type.(Tacaml (Tacaml.Indicator.atr ()))
+  let macd_line = Bars.Data.Type.(Tacaml (Tacaml.Indicator.macd_macd ()))
+  let macd_signal = Bars.Data.Type.(Tacaml (Tacaml.Indicator.macd_signal ()))
+  let macd_histogram = Bars.Data.Type.(Tacaml (Tacaml.Indicator.macd_hist ()))
+  let ema_20 = Bars.Data.Type.(Tacaml (Tacaml.Indicator.ema ~timeperiod:20 ()))
+  let ema_50 = Bars.Data.Type.(Tacaml (Tacaml.Indicator.ema ~timeperiod:50 ()))
+  let cci = Bars.Data.Type.(Tacaml (Tacaml.Indicator.cci ()))
+  let sar = Bars.Data.Type.(Tacaml (Tacaml.Indicator.sar ()))
+  let stoch_k = Bars.Data.Type.(Tacaml (Tacaml.Indicator.stoch_slow_k ()))
+  let stoch_d = Bars.Data.Type.(Tacaml (Tacaml.Indicator.stoch_slow_d ()))
+  let williams_r = Bars.Data.Type.(Tacaml (Tacaml.Indicator.willr ()))
+  let lower_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.lower_bband ()))
+  let upper_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.upper_bband ()))
+  let mfi = Bars.Data.Type.(Tacaml (Tacaml.Indicator.mfi ()))
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
@@ -245,12 +245,12 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 end
 
 module Sell_trigger_impl : Template.Sell_trigger.S = struct
-  let adx = Bars.Data.Type.(Tacaml (F Adx))
-  let macd_histogram = Bars.Data.Type.(Tacaml (F Macd_MACDHist))
-  let sar = Bars.Data.Type.(Tacaml (F Sar))
-  let stoch_k = Bars.Data.Type.(Tacaml (F Stoch_SlowK))
-  let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
-  let ema_10 = Bars.Data.Type.(Tacaml (F Ema))
+  let adx = Bars.Data.Type.(Tacaml (Tacaml.Indicator.adx ()))
+  let macd_histogram = Bars.Data.Type.(Tacaml (Tacaml.Indicator.macd_hist ()))
+  let sar = Bars.Data.Type.(Tacaml (Tacaml.Indicator.sar ()))
+  let stoch_k = Bars.Data.Type.(Tacaml (Tacaml.Indicator.stoch_slow_k ()))
+  let upper_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.upper_bband ()))
+  let ema_10 = Bars.Data.Type.(Tacaml (Tacaml.Indicator.ema ~timeperiod:10 ()))
 
   let make (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in

@@ -32,6 +32,15 @@ type _ expr =
   | Sub : float expr * float expr -> float expr
   | Mul : float expr * float expr -> float expr
   | Div : float expr * float expr -> float expr
+  (* Options-specific expressions *)
+  | Moneyness :
+      Instrument.t * Instrument.t
+      -> float expr (* underlying * option *)
+  | Days_to_expiry : Instrument.t -> int expr (* option *)
+  (* Custom indicator expressions *)
+  | CustomIndicator :
+      Tacaml.Indicator.t
+      -> float expr (* custom tacaml indicator *)
 
 (* Strategy structure *)
 type strategy = {
@@ -46,76 +55,112 @@ type strategy = {
 let rec eval : type a. a expr -> Data.t -> int -> (a, Error.t) result =
  fun expr data index ->
   let ( let* ) = Result.( let* ) in
-  match expr with
-  | Float f -> Result.return f
-  | Int i -> Result.return i
-  | Bool b -> Result.return b
-  | Data (Float_type data_type) ->
-    Error.guard (Error.fatal "GADT.eval float data") @@ fun () ->
-    Data.get data data_type index
-  | Data (Int_type data_type) ->
-    Error.guard (Error.fatal "GADT.eval int data") @@ fun () ->
-    Data.get_top_int data data_type
-  | GT (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 >. v2)
-  | LT (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 <. v2)
-  | GTE (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 >=. v2)
-  | LTE (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 <=. v2)
-  | EQ (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (Float.equal v1 v2)
-  | IntGT (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 > v2)
-  | IntLT (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 < v2)
-  | IntEQ (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 = v2)
-  | And (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 && v2)
-  | Or (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 || v2)
-  | Not e ->
-    let* v = eval e data index in
-    Result.return (not v)
-  | Add (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 +. v2)
-  | Sub (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 -. v2)
-  | Mul (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    Result.return (v1 *. v2)
-  | Div (e1, e2) ->
-    let* v1 = eval e1 data index in
-    let* v2 = eval e2 data index in
-    if Float.equal v2 0.0 then Error.fatal "Division by zero in GADT.eval"
-    else Result.return (v1 /. v2)
+  (* Bounds checking *)
+  if index < 0 || index >= Data.length data then
+    Error.fatal
+      (Printf.sprintf "GADT.eval: index %d out of bounds (data length: %d)"
+         index (Data.length data))
+  else
+    match expr with
+    | Float f -> Result.return f
+    | Int i -> Result.return i
+    | Bool b -> Result.return b
+    | Data (Float_type data_type) ->
+      Error.guard (Error.fatal "GADT.eval float data") @@ fun () ->
+      Data.get data data_type index
+    | Data (Int_type data_type) ->
+      Error.guard (Error.fatal "GADT.eval int data") @@ fun () ->
+      Int.of_float (Data.get data data_type index)
+    | GT (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 >. v2)
+    | LT (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 <. v2)
+    | GTE (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 >=. v2)
+    | LTE (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 <=. v2)
+    | EQ (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (Float.equal v1 v2)
+    | IntGT (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 > v2)
+    | IntLT (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 < v2)
+    | IntEQ (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 = v2)
+    | And (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 && v2)
+    | Or (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 || v2)
+    | Not e ->
+      let* v = eval e data index in
+      Result.return (not v)
+    | Add (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 +. v2)
+    | Sub (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 -. v2)
+    | Mul (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      Result.return (v1 *. v2)
+    | Div (e1, e2) ->
+      let* v1 = eval e1 data index in
+      let* v2 = eval e2 data index in
+      if Float.equal v2 0.0 then Error.fatal "Division by zero in GADT.eval"
+      else Result.return (v1 /. v2)
+    | Moneyness (underlying, option) -> (
+      Error.guard (Error.fatal "GADT.eval moneyness") @@ fun () ->
+      match (underlying, option) with
+      | Instrument.Security _, Instrument.Contract contract ->
+        (* Get underlying price from current data *)
+        let underlying_price = Data.get data Data.Type.Close index in
+        (* Use contract strike price *)
+        let strike_price = contract.strike_price in
+        underlying_price /. strike_price
+      | _ -> failwith "Moneyness requires Security and Contract instruments")
+    | Days_to_expiry option -> (
+      Error.guard (Error.fatal "GADT.eval days_to_expiry") @@ fun () ->
+      match option with
+      | Instrument.Contract contract ->
+        (* Parse expiration date and get current time from data *)
+        let expiration_date = Time.of_ymd contract.expiration_date in
+        let current_time_float = Data.get data Data.Type.Time index in
+        let current_date =
+          Ptime.of_float_s current_time_float
+          |> Option.get_exn_or "Invalid timestamp in days_to_expiry"
+        in
+        let diff_seconds =
+          Ptime.diff expiration_date current_date |> Ptime.Span.to_float_s
+        in
+        let diff_days = diff_seconds /. 86400.0 |> Float.to_int in
+        max 0 diff_days (* Ensure non-negative *)
+      | _ -> failwith "Days_to_expiry requires Contract instrument")
+    | CustomIndicator indicator ->
+      Error.guard (Error.fatal "GADT.eval custom_indicator") @@ fun () ->
+      Data.get data (Data.Type.Tacaml indicator) index
 
 (* Smart constructors for OHLCV data - these are always floats *)
 let close = Data (Float_type Data.Type.Close)
@@ -125,94 +170,98 @@ let low = Data (Float_type Data.Type.Low)
 let volume = Data (Float_type Data.Type.Volume)
 
 (* Smart constructors for float indicators *)
-let rsi = Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Rsi)))
-let sma = Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Sma)))
-let ema = Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Ema)))
-let adx = Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Adx)))
-let atr = Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Atr)))
+let rsi = Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.rsi ())))
+let sma = Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.sma ())))
+let ema = Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ())))
+let adx = Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.adx ())))
+let atr = Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.atr ())))
 
-let macd =
-  Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Macd_MACD)))
+let volume_sma =
+  Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ())))
+
+let macd = Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.macd_macd ())))
 
 let macd_signal =
-  Data
-    (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Macd_MACDSignal)))
+  Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.macd_signal ())))
 
 let macd_hist =
-  Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Macd_MACDHist)))
+  Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.macd_hist ())))
 
 let bb_upper =
-  Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.UpperBBand)))
+  Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.upper_bband ())))
 
 let bb_lower =
-  Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.LowerBBand)))
+  Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.lower_bband ())))
 
 let bb_middle =
-  Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.MiddleBBand)))
+  Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.middle_bband ())))
 
-let willr =
-  Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Willr)))
+let willr = Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.willr ())))
 
 let stoch_k =
-  Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Stoch_SlowK)))
+  Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.stoch_slow_k ())))
 
 let stoch_d =
-  Data (Float_type (Data.Type.Tacaml (F Tacaml.Indicator.Float.Stoch_SlowD)))
+  Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.stoch_slow_d ())))
 
 (* Smart constructors for integer indicators - candlestick patterns *)
-let hammer =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlHammer)))
-
-let doji = Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlDoji)))
+let hammer = Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_hammer ())))
+let doji = Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_doji ())))
 
 let engulfing =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlEngulfing)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_engulfing ())))
 
 let morning_star =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlMorningStar)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_morningstar ())))
 
 let evening_star =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlEveningStar)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_eveningstar ())))
 
 let shooting_star =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlShootingStar)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_shootingstar ())))
 
 let hanging_man =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlHangingMan)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_hangingman ())))
 
 let piercing =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlPiercing)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_piercing ())))
 
 let dark_cloud =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlDarkCloudCover)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_darkcloudcover ())))
 
 (* Additional candlestick patterns for testing *)
 let inverted_hammer =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlInvertedHammer)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_invertedhammer ())))
 
 let dragonfly_doji =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlDragonflyDoji)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_dragonflydoji ())))
 
 let gravestone_doji =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlGravestoneDoji)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_gravestonedoji ())))
 
 let three_white_soldiers =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.Cdl3WhiteSoldiers)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_3whitesoldiers ())))
 
 let three_black_crows =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.Cdl3BlackCrows)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_3blackcrows ())))
 
 let belt_hold =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlBeltHold)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_belthold ())))
 
 let abandoned_baby =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlAbandonedBaby)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_abandonedbaby ())))
 
-let harami =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlHarami)))
+let harami = Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_harami ())))
 
 let harami_cross =
-  Data (Int_type (Data.Type.Tacaml (I Tacaml.Indicator.Int.CdlHaramiCross)))
+  Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_haramicross ())))
+
+(* Options smart constructors *)
+let moneyness underlying option = Moneyness (underlying, option)
+let days_to_expiry option = Days_to_expiry option
+
+(* Custom indicator smart constructor *)
+let custom_indicator indicator = CustomIndicator indicator
 
 (* Convenience operators *)
 let ( >. ) e1 e2 = GT (e1, e2)
@@ -232,7 +281,7 @@ let rsi_mean_reversion =
   {
     name = "RSI Mean Reversion";
     buy_trigger = rsi <. Float 30.0 &&. (close >. sma);
-    sell_trigger = rsi >. Float 70.0 ||. (close <. close *. Float 0.95);
+    sell_trigger = rsi >. Float 70.0 ||. (close <. sma *. Float 0.95);
     max_positions = 3;
     position_size = 0.33;
   }
@@ -246,7 +295,7 @@ let macd_bollinger_momentum =
       &&. (adx >. Float 25.0) &&. (macd_hist >. Float 0.0);
     sell_trigger =
       macd <. macd_signal ||. (close >. bb_upper)
-      ||. (close <. close *. Float 0.92);
+      ||. (close <. sma *. Float 0.92);
     max_positions = 5;
     position_size = 0.2;
   }
@@ -257,8 +306,8 @@ let candlestick_patterns_strategy =
     buy_trigger =
       IntGT (hammer, Int 0)
       &&. (rsi <. Float 40.0)
-      &&. (volume >. volume *. Float 1.3);
-    sell_trigger = IntLT (engulfing, Int 0) ||. (close >. close *. Float 1.1);
+      &&. (volume >. volume_sma *. Float 1.3);
+    sell_trigger = IntLT (engulfing, Int 0) ||. (close >. sma *. Float 1.1);
     max_positions = 6;
     position_size = 0.16;
   }
@@ -277,11 +326,11 @@ let eval_strategy_signal (strategy_expr : bool expr) (state : _ State.t) symbol
   | Error e -> Error e
 
 (* Convert GADT strategy to Template-compatible modules *)
-let gadt_to_buy_trigger (buy_expr : bool expr) =
+let gadt_to_buy_trigger (buy_expr : bool expr) (max_positions : int) =
   let module Buy_input : Template.Buy_trigger.INPUT = struct
     let pass state symbol = eval_strategy_signal buy_expr state symbol
     let score _state _symbol = Result.return 1.0
-    let num_positions = 5
+    let num_positions = max_positions
   end in
   let module Buy_trigger = Template.Buy_trigger.Make (Buy_input) in
   (module Buy_trigger : Template.Buy_trigger.S)
@@ -293,16 +342,64 @@ let gadt_to_sell_trigger (sell_expr : bool expr) =
   (module Sell_impl : Template.Sell_trigger.S)
 
 let gadt_to_strategy_builder (strategy : strategy) =
-  let buy_trigger = gadt_to_buy_trigger strategy.buy_trigger in
+  let buy_trigger =
+    gadt_to_buy_trigger strategy.buy_trigger strategy.max_positions
+  in
   let sell_trigger = gadt_to_sell_trigger strategy.sell_trigger in
   let module StrategyBuilder =
     Template.Make ((val buy_trigger)) ((val sell_trigger))
   in
   (module StrategyBuilder : Strategy.BUILDER)
 
+(* Collect all custom Tacaml.t indicators from GADT expressions *)
+let rec collect_custom_indicators : type a. a expr -> Tacaml.Indicator.t list =
+  function
+  | Float _
+  | Int _
+  | Bool _ ->
+    []
+  | Data _ -> []
+  | GT (e1, e2)
+  | LT (e1, e2)
+  | GTE (e1, e2)
+  | LTE (e1, e2)
+  | EQ (e1, e2) ->
+    collect_custom_indicators e1 @ collect_custom_indicators e2
+  | IntGT (e1, e2)
+  | IntLT (e1, e2)
+  | IntEQ (e1, e2) ->
+    collect_custom_indicators e1 @ collect_custom_indicators e2
+  | And (e1, e2)
+  | Or (e1, e2) ->
+    collect_custom_indicators e1 @ collect_custom_indicators e2
+  | Not e -> collect_custom_indicators e
+  | Add (e1, e2)
+  | Sub (e1, e2)
+  | Mul (e1, e2)
+  | Div (e1, e2) ->
+    collect_custom_indicators e1 @ collect_custom_indicators e2
+  | Moneyness (_, _) -> [] (* Options don't use custom indicators directly *)
+  | Days_to_expiry _ -> [] (* Options don't use custom indicators directly *)
+  | CustomIndicator indicator -> [ indicator ]
+
+let collect_strategy_custom_indicators (strategy : strategy) :
+    Tacaml.Indicator.t list =
+  let buy_indicators = collect_custom_indicators strategy.buy_trigger in
+  let sell_indicators = collect_custom_indicators strategy.sell_trigger in
+  (* Remove duplicates using sort_uniq with polymorphic compare *)
+  let all_indicators = buy_indicators @ sell_indicators in
+  List.sort_uniq ~cmp:Stdlib.compare all_indicators
+
 let run (options : Options.t) strategy =
+  let custom_indicators = [] in
+  (* TODO: Fix custom indicator collection *)
   let options =
-    { options with flags = { options.flags with strategy_arg = strategy.name } }
+    {
+      options with
+      flags = { options.flags with strategy_arg = strategy.name };
+      custom_indicators;
+    }
   in
+  (* Collect custom indicators from the strategy *)
   let res = Strategy.run (gadt_to_strategy_builder strategy) options in
   res

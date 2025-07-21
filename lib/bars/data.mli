@@ -11,18 +11,17 @@ type data_matrix =
 
 type int_matrix = (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array2.t
 
-type t = {
-  data : data_matrix;
-  talib_indicators : data_matrix;
-  other_indicators : data_matrix;
-  int_indicators : int_matrix;
-  current : int;
-  size : int;
-  indicators_computed : bool;
-}
+module Index : sig
+  type t
+end
+
+type t
 (** The main data type for the time-series data. It contains the data matrix,
     the current index, the size of the data, and a flag indicating whether
     indicators have been computed. *)
+
+val current : t -> int
+val set_current : t -> int -> t
 
 type data = t
 
@@ -45,15 +44,6 @@ module Type : sig
     | Tacaml of Tacaml.Indicator.t
     | Other of string
   [@@deriving variants, show { with_path = false }]
-
-  val count : int
-  (** The number of data fields. *)
-
-  val to_int : t -> int
-  (** Converts a data field type to its integer representation. *)
-
-  val of_int : int -> t
-  (** Converts an integer to its corresponding data field type. *)
 end
 
 (** {1 Accessing Data} *)
@@ -67,7 +57,7 @@ module Column : sig
   (** This module provides functions for working with columns of the data
       matrix. *)
 
-  type t = { data : data; index : int }
+  type t = private { data : data; index : int }
   (** The type for a column of the data matrix. *)
 
   val of_data : data -> int -> (t, Error.t) result
@@ -141,9 +131,9 @@ val get_int_row : t -> Type.t -> (Row.introw, Error.t) result
 val pp : t Format.printer
 (** The pretty-printer for the data matrix. *)
 
-val pp_row : Type.t -> t Format.printer
-(** [pp_row ty] returns a pretty-printer for the row of the data matrix
-    corresponding to the data field [ty]. *)
+(* val pp_row : Type.t -> t Format.printer *)
+(* (\** [pp_row ty] returns a pretty-printer for the row of the data matrix *)
+(*     corresponding to the data field [ty]. *\) *)
 
 (** {1 Metadata} *)
 

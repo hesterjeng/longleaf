@@ -1,7 +1,15 @@
-module Longleaf_error = Error
+module Error = Error
 module Longleaf_mutex = Longleaf_mutex
-open Piaf
+
+(* open Piaf *)
 module Promise = Eio.Std.Promise
+module Talib_binding = Indicators.Talib_binding
+module Headers = Piaf.Headers
+module Response = Piaf.Response
+module Server = Piaf.Server
+module Request_info = Piaf.Request_info
+module Request = Piaf.Request
+module Body = Piaf.Body
 
 let prom, resolver = Promise.create ()
 
@@ -26,6 +34,76 @@ let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
            target)
 
 let data_prefix = String.prefix ~pre:"/data/"
+let custom_indicator_prefix = String.prefix ~pre:"/custom-indicator/"
+
+let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
+    color yaxis =
+  let ( let* ) = Result.( let* ) in
+  Eio.traceln
+    "@[Custom indicator request: target=%a, tacaml=%s, color=%s, yaxis=%s@]@."
+    Instrument.pp target tacaml_str color yaxis;
+  let state = Pmutex.get mutices.state_mutex in
+  let bars = State.bars state in
+
+  let* data =
+    match Bars.get bars target with
+    | Ok data ->
+      Eio.traceln "@[Successfully retrieved data for symbol: %a@]@."
+        Instrument.pp target;
+      Ok data
+    | Error e ->
+      let err_msg =
+        Format.asprintf "Could not find data for symbol: %a" Error.pp e
+      in
+      Eio.traceln "@[ERROR: %s@]@." err_msg;
+      Error err_msg
+  in
+
+  let* tacaml =
+    match Tacaml.of_string tacaml_str with
+    | Ok tacaml ->
+      Eio.traceln "@[Successfully parsed tacaml: %s@]@." tacaml_str;
+      Ok tacaml
+    | Error e ->
+      let err_msg =
+        Format.asprintf "Failed to parse tacaml '%s': %s" tacaml_str e
+      in
+      Eio.traceln "@[ERROR: %s@]@." err_msg;
+      Error err_msg
+  in
+
+  (* Compute the custom indicator *)
+  let* () =
+    match Talib_binding.calculate tacaml data with
+    | Ok () ->
+      Eio.traceln "@[Successfully computed custom indicator %a@]@." Tacaml.pp
+        tacaml;
+      Ok ()
+    | Error e ->
+      let err_msg =
+        Format.asprintf "Failed to compute custom indicator: %a" Error.pp e
+      in
+      Eio.traceln "@[ERROR: %s@]@." err_msg;
+      Error err_msg
+  in
+
+  (* Generate plotly visualization with the custom indicator *)
+  (* let* plotly_json = *)
+  (*   match *)
+  (*     Plotly.of_bars_with_custom_indicator bars target tacaml color yaxis *)
+  (*   with *)
+  (*   | Some json -> *)
+  (*     Eio.traceln "@[Successfully generated plotly visualization@]@."; *)
+  (*     Ok json *)
+  (*   | None -> *)
+  (*     let err_msg = "Failed to generate plotly visualization" in *)
+  (*     Eio.traceln "@[ERROR: %s@]@." err_msg; *)
+  (*     Error err_msg *)
+  (* in *)
+
+  (* Eio.traceln "@[Custom indicator response completed successfully@]@."; *)
+  (* Ok (Response.of_string ~body:(Yojson.Safe.to_string plotly_json) `OK) *)
+  Error "Plotting of custom indicators NYI"
 
 let connection_handler ~(mutices : Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
@@ -122,7 +200,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
       match Bars.yojson_of_t bars with
       | Ok x -> Yojson.Safe.to_string x
       | Error e ->
-        Eio.traceln "%a" Longleaf_error.pp e;
+        Eio.traceln "%a" Error.pp e;
         invalid_arg "Error while converting bars to json"
     in
     Response.of_string ~body `OK
@@ -136,6 +214,61 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     let instrument = Instrument.of_string_res target in
     match instrument with
     | Ok targ -> plotly_response_of_symbol ~mutices targ
+    | Error _ ->
+      Response.of_string
+        ~body:("Unable to create Instrument.t from " ^ target)
+        `Internal_server_error)
+  | { Request.meth = `POST; target; _ } when custom_indicator_prefix target -> (
+    let target =
+      String.chop_prefix ~pre:"/custom-indicator" target |> function
+      | None -> invalid_arg "Unable to get custom indicator target (server.ml)"
+      | Some s -> s
+    in
+    let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
+    let instrument = Instrument.of_string_res target in
+    match instrument with
+    | Ok targ -> (
+      try
+        Eio.traceln "@[Processing custom indicator request for target: %a@]@."
+          Instrument.pp targ;
+        (* Read JSON body from request *)
+        let body =
+          Body.to_string params.request.body |> function
+          | Ok x ->
+            Eio.traceln "@[Successfully read request body: %s@]@." x;
+            x
+          | Error e ->
+            Eio.traceln "@[ERROR reading request body: %a@]@." Piaf.Error.pp_hum
+              e;
+            "server.ml: Unable to convert body to string in \
+             custom_indicator_prefix endpoint"
+        in
+        let json = Yojson.Safe.from_string body in
+        Eio.traceln "@[Successfully parsed JSON body@]@.";
+        let tacaml_str =
+          Yojson.Safe.Util.(json |> member "tacaml" |> to_string)
+        in
+        let color = Yojson.Safe.Util.(json |> member "color" |> to_string) in
+        let yaxis = Yojson.Safe.Util.(json |> member "yaxis" |> to_string) in
+        Eio.traceln "@[Extracted parameters: tacaml=%s, color=%s, yaxis=%s@]@."
+          tacaml_str color yaxis;
+
+        match
+          custom_indicator_response ~mutices targ tacaml_str color yaxis
+        with
+        | Ok response ->
+          Eio.traceln "@[Custom indicator request completed successfully@]@.";
+          response
+        | Error err_msg ->
+          Eio.traceln "@[Custom indicator request failed: %s@]@." err_msg;
+          Response.of_string ~body:err_msg `Internal_server_error
+      with
+      | e ->
+        let err_msg =
+          "Error processing custom indicator request: " ^ Printexc.to_string e
+        in
+        Eio.traceln "@[EXCEPTION in custom indicator handler: %s@]@." err_msg;
+        Response.of_string ~body:err_msg `Internal_server_error)
     | Error _ ->
       Response.of_string
         ~body:("Unable to create Instrument.t from " ^ target)
@@ -156,10 +289,16 @@ let run ~sw ~host ~port env handler =
   (* Server.Command.shutdown command *)
   command
 
+let handler mutices (context : Request_info.t Server.ctx) =
+  let _request = context.request in
+  (* Eio.traceln "server.ml: %a" Request.pp_hum request; *)
+  let res = connection_handler ~mutices context in
+  res
+
 let start ~sw ~(mutices : Longleaf_mutex.t) env =
   let host = Eio.Net.Ipaddr.V4.loopback in
   Eio.traceln "Server listening on port 8080";
-  run ~sw ~host ~port:8080 env @@ connection_handler ~mutices
+  run ~sw ~host ~port:8080 env @@ handler mutices
 
 (* let setup_log ?style_renderer level = *)
 (*   Logs_threaded.enable (); *)

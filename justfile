@@ -7,3 +7,6 @@
 @install:
     @dune build;
     @dune install;
+
+@streamlit:
+    @streamlit run streamlit/dashboard.py

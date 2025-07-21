@@ -1,29 +1,12 @@
 module Array1 = Bigarray.Array1
 module Array2 = Bigarray.Array2
 
-(* type float64_elt = Bigarray.float64_elt *)
-(* type c_layout = Bigarray.c_layout *)
-
-(* let c_layout = Bigarray.c_layout *)
-(* let fortran_layout = Bigarray.fortran_layout *)
-(* let float64 = Bigarray.float64 *)
-
 type data_matrix = (float, Bigarray.float64_elt, Bigarray.c_layout) Array2.t
 type int_matrix = (int, Bigarray.int_elt, Bigarray.c_layout) Array2.t
 
-type t = {
-  data : data_matrix;
-  talib_indicators : data_matrix;
-  other_indicators : data_matrix;
-  int_indicators : int_matrix;
-  current : int;
-  size : int;
-  indicators_computed : bool;
-}
-
-type data = t
-
 module Type = struct
+  let hash_fold_string = Ppx_hash_lib.Std.Hash.fold_string
+
   type t =
     | Index
     | Time
@@ -35,90 +18,106 @@ module Type = struct
     | Volume
     | Tacaml of Tacaml.Indicator.t
     | Other of string
-  [@@deriving variants, show { with_path = false }]
+  [@@deriving variants, show { with_path = false }, eq, hash]
 
-  let count = List.length Variants.descriptions
+  let tacaml x = Tacaml x
 
-  (* let source : type a b c. t -> data -> (a, b, c) Array2.t = *)
-  (*   fun (type a) data x -> *)
-  (*   match x with *)
-  (*   | Tacaml (F _) -> data.talib_indicators *)
-  (*   | Tacaml (I _) -> data.int_indicators *)
-  (*   | Other _ -> invalid_arg "Other indicators NYI" *)
-  (*   | _ -> data.data *)
+  let is_int_ty (x : t) =
+    match x with
+    | Tacaml (I _) -> true
+    | _ -> false
 
-  let to_int = function
-    | Index -> 0
-    | Time -> 1
-    | Last -> 2
-    | Open -> 3
-    | High -> 4
-    | Low -> 5
-    | Close -> 6
-    | Volume -> 7
-    | Tacaml (F i) -> Tacaml.Indicator.Float.to_int i
-    | Tacaml (I i) -> Tacaml.Indicator.Int.to_int i
-    | Other _ -> invalid_arg "NYI"
-
-  let of_int = function
-    | 0 -> Index
-    | 1 -> Time
-    | 2 -> Last
-    | 3 -> Open
-    | 4 -> High
-    | 5 -> Low
-    | 6 -> Close
-    | 7 -> Volume
-    | _ -> invalid_arg "Invalid Data.Type.of_int"
+  (* let count = List.length Variants.descriptions *)
 end
 
-let get_ source ty i =
-  try Array2.get source (Type.to_int ty) i with
+module Index = struct
+  module IndexTable = Hashtbl.Make (Type)
+
+  type table = int IndexTable.t
+  type t = { mutable next_float : int; mutable next_int : int; tbl : table }
+
+  let copy x =
+    {
+      next_float = x.next_float;
+      next_int = x.next_int;
+      tbl = IndexTable.copy x.tbl;
+    }
+
+  (* Given a data type, look up the row of the correct matrix to find it. Can return a row *)
+  (* of either the int matrix or the float matrix. *)
+  let get (x : t) (ty : Type.t) : int =
+    match IndexTable.find_opt x.tbl ty with
+    | None ->
+      let next =
+        match Type.is_int_ty ty with
+        | true ->
+          let res = x.next_int in
+          x.next_int <- res + 1;
+          res
+        | false ->
+          let res = x.next_float in
+          x.next_float <- res + 1;
+          res
+      in
+      IndexTable.replace x.tbl ty next;
+      next
+    | Some i -> i
+
+  let make () = { next_float = 0; next_int = 0; tbl = IndexTable.create 200 }
+end
+
+type t = {
+  data : data_matrix;
+  int_data : int_matrix;
+  index : Index.t;
+  current : int;
+  size : int;
+  indicators_computed : bool;
+}
+
+type data = t
+
+let current x = x.current
+
+let get_ source row i =
+  try Array2.get source row i with
   | e ->
     Eio.traceln "data.ml.get_: Index out of bounds!";
     raise e
 
-let set_ source ty i value =
-  try Array2.set source (Type.to_int ty) i value with
+let set_ source row i value =
+  try Array2.set source row i value with
   | e ->
     Eio.traceln "data.ml.set_: Index out of bounds!";
     raise e
 
+exception NaNInData
+
 let get (data : t) (ty : Type.t) i =
   assert (i >= 0);
   assert (i < data.size);
+  let row = Index.get data.index ty in
   let res =
     match ty with
-    | Other _ -> get_ data.other_indicators ty i
-    | Tacaml (F _) -> get_ data.talib_indicators ty i
-    | Tacaml (I _) -> Float.of_int @@ get_ data.int_indicators ty i
-    | _ -> get_ data.data ty i
+    | _ when Type.is_int_ty ty -> Float.of_int @@ get_ data.int_data row i
+    | _ -> get_ data.data row i
   in
-  assert (
-    match not @@ Float.is_nan res with
-    | false ->
-      Eio.traceln "%a index %d NaN" Type.pp ty i;
-      (* Eio.traceln "%a" Data. *)
-      false
-      (* let col = Column.of_data data i in *)
-      (* Eio.traceln "%a" (Result.pp' Column.pp Error.pp) col; *)
-    | true -> true);
-  res
+  match Float.is_nan res with
+  | true ->
+    Eio.traceln "data.ml: raising exn %a index %d NaN" Type.pp ty i;
+    raise NaNInData
+  | false -> res
 
 let set (data : t) (ty : Type.t) i f =
   assert (i >= 0);
   assert (i < data.size);
+  let row = Index.get data.index ty in
   let () =
     match ty with
-    | Other _ -> set_ data.other_indicators ty i f
-    | Tacaml (F _) -> set_ data.talib_indicators ty i f
-    | Tacaml (I _) -> set_ data.int_indicators ty i (Int.of_float f)
-    | _ -> set_ data.data ty i f
+    | _ when Type.is_int_ty ty -> set_ data.int_data row i @@ Int.of_float f
+    | _ -> set_ data.data row i f
   in
   ()
-
-let get_top = get
-let set_top = set
 
 module Column = struct
   type t = { data : data; index : int }
@@ -134,18 +133,20 @@ module Column = struct
     Error.guard err @@ fun () -> get x.data ty x.index
 
   let pp : t Format.printer =
-   fun fmt x ->
-    let r = Int.range' 0 Type.count in
-    let pp_pair = Pair.pp ~pp_sep:(Format.return ": ") Type.pp Float.pp in
-    let pp = Iter.pp_seq ~sep:"; " pp_pair in
-    let l =
-      Iter.map
-        (fun i ->
-          let type_ = Type.of_int i in
-          (type_, get_top x.data type_ i))
-        r
-    in
-    Format.fprintf fmt "@[{ %a }@]@." pp l
+   fun fmt _ -> Format.fprintf fmt "@[<Data.Column.t opaque>@]"
+  (* let pp : t Format.printer = *)
+  (*  fun fmt x -> *)
+  (*   let r = Int.range' 0 Type.count in *)
+  (*   let pp_pair = Pair.pp ~pp_sep:(Format.return ": ") Type.pp Float.pp in *)
+  (*   let pp = Iter.pp_seq ~sep:"; " pp_pair in *)
+  (*   let l = *)
+  (*     Iter.map *)
+  (*       (fun i -> *)
+  (*         (\* let type_ = Type.of_int i in *\) *)
+  (*         (type_, get_top x.data type_ i)) *)
+  (*       r *)
+  (*   in *)
+  (*   Format.fprintf fmt "@[{ %a }@]@." pp l *)
 
   let set_exn (col : t) (ty : Type.t) value = set col.data ty col.index value
 
@@ -190,35 +191,33 @@ let get_row (data : t) (x : Type.t) =
   let ( let* ) = Result.( let* ) in
   let* source =
     match x with
-    | Tacaml (F _) -> Ok data.talib_indicators
-    | Other _ -> Ok data.other_indicators
     | Tacaml (I _) ->
       Eio.traceln "%a" Type.pp x;
       Error.fatal "Data.get_row: not a float row"
     | _ -> Ok data.data
   in
-  Result.return @@ Array2.slice_left source @@ Type.to_int x
+  Result.return @@ Array2.slice_left source @@ Index.get data.index x
 
 let get_int_row (data : t) (x : Type.t) =
   let ( let* ) = Result.( let* ) in
   let* source =
     match x with
-    | Tacaml (I _) -> Result.return data.int_indicators
+    | Tacaml (I _) -> Result.return data.int_data
     | _ -> Error.fatal "Data.get_int_row: not an int row"
   in
-  Result.return @@ Array2.slice_left source @@ Type.to_int x
+  Result.return @@ Array2.slice_left source @@ Index.get data.index x
 
 let pp : t Format.printer =
  fun fmt (x : t) ->
   let a = Array.init x.size @@ fun i -> Column.of_data x i |> Result.get_exn in
   Format.fprintf fmt "@[{ %a }@]@." (Array.pp Column.pp) a
 
-let pp_row (ty : Type.t) : t Format.printer =
- fun fmt (x : t) ->
-  let bigarr = Array2.slice_left x.data @@ Type.to_int ty in
-  let i = Array1.dim bigarr in
-  let arr = Array.init i (fun i -> bigarr.{i}) in
-  Format.fprintf fmt "%a" (Array.pp Float.pp) arr
+(* let pp_row (ty : Type.t) : t Format.printer = *)
+(*  fun fmt (x : t) -> *)
+(*   let bigarr = Array2.slice_left x.data @@ Type.to_int ty in *)
+(*   let i = Array1.dim bigarr in *)
+(*   let arr = Array.init i (fun i -> bigarr.{i}) in *)
+(*   Format.fprintf fmt "%a" (Array.pp Float.pp) arr *)
 
 let length x = Array2.dim2 x.data
 let current x = x.current
@@ -231,7 +230,9 @@ let get_top_int (res : t) (x : Type.t) =
   assert (res.current >= 0);
   assert (res.current < res.size);
   match x with
-  | Tacaml (I _) -> get_ res.int_indicators x res.current
+  | Tacaml (I _) ->
+    let row = Index.get res.index x in
+    get_ res.int_data row res.current
   | _ -> invalid_arg "get_top_int: not an integer indicator"
 
 let item_of_column x i =
@@ -262,17 +263,11 @@ let to_items (x : t) =
 let make size : t =
   {
     data =
-      Array2.init Bigarray.float64 Bigarray.c_layout Type.count size (fun _ _ ->
+      Array2.init Bigarray.float64 Bigarray.c_layout 150 size (fun _ _ ->
           Float.nan);
-    talib_indicators =
-      Array2.init Bigarray.float64 Bigarray.c_layout 110 size (fun _ _ ->
-          Float.nan);
-    other_indicators =
-      Array2.init Bigarray.float64 Bigarray.c_layout 10 size (fun _ _ ->
-          Float.nan);
-    int_indicators =
-      Array2.init Bigarray.int Bigarray.c_layout 70 size (fun _ _ -> 0);
+    int_data = Array2.init Bigarray.int Bigarray.c_layout 70 size (fun _ _ -> 0);
     current = 0;
+    index = Index.make ();
     size;
     indicators_computed = false;
   }
@@ -280,7 +275,15 @@ let make size : t =
 let copy (x : t) =
   let r = make x.size in
   Array2.blit x.data r.data;
-  { r with current = x.current; indicators_computed = x.indicators_computed }
+  Array2.blit x.int_data r.int_data;
+  {
+    (* r with *)
+    r
+    with
+    current = x.current;
+    indicators_computed = x.indicators_computed;
+    index = Index.copy x.index;
+  }
 
 let set_item (x : t) (i : int) (item : Item.t) =
   try
@@ -382,3 +385,5 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
 
 let yojson_of_t (x : t) : Yojson.Safe.t =
   to_items x |> List.map Item.yojson_of_t |> fun l -> `List l
+
+let set_current x current = { x with current }

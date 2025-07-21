@@ -5,10 +5,10 @@
     - Same regime detection but simpler conditions **)
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
-  let adx = Bars.Data.Type.(Tacaml (F Adx))
-  let rsi = Bars.Data.Type.(Tacaml (F Rsi))
-  let lower_bb = Bars.Data.Type.(Tacaml (F LowerBBand))
-  let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
+  let adx = Bars.Data.Type.(Tacaml (Tacaml.Indicator.adx ()))
+  let rsi = Bars.Data.Type.(Tacaml (Tacaml.Indicator.rsi ()))
+  let lower_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.lower_bband ()))
+  let upper_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.upper_bband ()))
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
@@ -122,9 +122,9 @@ module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
 end
 
 module Sell_trigger_impl : Template.Sell_trigger.S = struct
-  let adx = Bars.Data.Type.(Tacaml (F Adx))
-  let rsi = Bars.Data.Type.(Tacaml (F Rsi))
-  let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
+  let adx = Bars.Data.Type.(Tacaml (Tacaml.Indicator.adx ()))
+  let rsi = Bars.Data.Type.(Tacaml (Tacaml.Indicator.rsi ()))
+  let upper_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.upper_bband ()))
 
   let make (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in

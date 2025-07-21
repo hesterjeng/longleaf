@@ -23,21 +23,33 @@
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
   (* Candlestick Patterns *)
-  let hammer = Bars.Data.Type.(Tacaml (I CdlHammer))
-  let inverted_hammer = Bars.Data.Type.(Tacaml (I CdlInvertedHammer))
-  let morning_star = Bars.Data.Type.(Tacaml (I CdlMorningStar))
-  let morning_doji_star = Bars.Data.Type.(Tacaml (I CdlMorningDojiStar))
-  let piercing = Bars.Data.Type.(Tacaml (I CdlPiercing))
-  let engulfing = Bars.Data.Type.(Tacaml (I CdlEngulfing))
-  let three_white_soldiers = Bars.Data.Type.(Tacaml (I Cdl3WhiteSoldiers))
-  let doji = Bars.Data.Type.(Tacaml (I CdlDoji))
-  let dragonfly_doji = Bars.Data.Type.(Tacaml (I CdlDragonflyDoji))
+  let hammer = Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_hammer ()))
+
+  let inverted_hammer =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_invertedhammer ()))
+
+  let morning_star =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_morningstar ()))
+
+  let morning_doji_star =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_morningdojistar ()))
+
+  let piercing = Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_piercing ()))
+  let engulfing = Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_engulfing ()))
+
+  let three_white_soldiers =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_3whitesoldiers ()))
+
+  let doji = Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_doji ()))
+
+  let dragonfly_doji =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_dragonflydoji ()))
 
   (* Traditional Indicators for Confirmation *)
-  let rsi = Bars.Data.Type.(Tacaml (F Rsi))
-  let lower_bb = Bars.Data.Type.(Tacaml (F LowerBBand))
-  let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
-  let adx = Bars.Data.Type.(Tacaml (F Adx))
+  let rsi = Bars.Data.Type.(Tacaml (Tacaml.Indicator.rsi ()))
+  let lower_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.lower_bband ()))
+  let upper_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.upper_bband ()))
+  let adx = Bars.Data.Type.(Tacaml (Tacaml.Indicator.adx ()))
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in
@@ -221,20 +233,34 @@ end
 
 module Sell_trigger_impl : Template.Sell_trigger.S = struct
   (* Bearish Candlestick Patterns *)
-  let shooting_star = Bars.Data.Type.(Tacaml (I CdlShootingStar))
-  let hanging_man = Bars.Data.Type.(Tacaml (I CdlHangingMan))
-  let evening_star = Bars.Data.Type.(Tacaml (I CdlEveningStar))
-  let evening_doji_star = Bars.Data.Type.(Tacaml (I CdlEveningDojiStar))
-  let dark_cloud = Bars.Data.Type.(Tacaml (I CdlDarkCloudCover))
-  let engulfing = Bars.Data.Type.(Tacaml (I CdlEngulfing))
-  let three_black_crows = Bars.Data.Type.(Tacaml (I Cdl3BlackCrows))
-  let doji = Bars.Data.Type.(Tacaml (I CdlDoji))
-  let gravestone_doji = Bars.Data.Type.(Tacaml (I CdlGravestoneDoji))
+  let shooting_star =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_shootingstar ()))
+
+  let hanging_man = Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_hangingman ()))
+
+  let evening_star =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_eveningstar ()))
+
+  let evening_doji_star =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_eveningdojistar ()))
+
+  let dark_cloud =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_darkcloudcover ()))
+
+  let engulfing = Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_engulfing ()))
+
+  let three_black_crows =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_3blackcrows ()))
+
+  let doji = Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_doji ()))
+
+  let gravestone_doji =
+    Bars.Data.Type.(Tacaml (Tacaml.Indicator.cdl_gravestonedoji ()))
 
   (* Traditional indicators *)
-  let rsi = Bars.Data.Type.(Tacaml (F Rsi))
-  let upper_bb = Bars.Data.Type.(Tacaml (F UpperBBand))
-  let lower_bb = Bars.Data.Type.(Tacaml (F LowerBBand))
+  let rsi = Bars.Data.Type.(Tacaml (Tacaml.Indicator.rsi ()))
+  let upper_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.upper_bband ()))
+  let lower_bb = Bars.Data.Type.(Tacaml (Tacaml.Indicator.lower_bband ()))
 
   let make (state : 'a State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in
