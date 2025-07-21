@@ -72,21 +72,6 @@ let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
       Error err_msg
   in
 
-  (* Register the custom indicator *)
-  (* let* _slot = *)
-  (* match Bars.Data.register_custom_indicator data tacaml with *)
-  (* | Ok slot -> *)
-  (*   Eio.traceln "@[Successfully registered custom indicator, slot: %d@]@." *)
-  (*     slot; *)
-  (*   Ok slot *)
-  (* | Error e -> *)
-  (*   let err_msg = *)
-  (*     Format.asprintf "Failed to register custom indicator: %a" Error.pp e *)
-  (*   in *)
-  (*   Eio.traceln "@[ERROR: %s@]@." err_msg; *)
-  (*   Error err_msg *)
-  (* in *)
-
   (* Compute the custom indicator *)
   let* () =
     match Talib_binding.calculate tacaml data with
@@ -103,21 +88,22 @@ let custom_indicator_response ~(mutices : Longleaf_mutex.t) target tacaml_str
   in
 
   (* Generate plotly visualization with the custom indicator *)
-  let* plotly_json =
-    match
-      Plotly.of_bars_with_custom_indicator bars target tacaml color yaxis
-    with
-    | Some json ->
-      Eio.traceln "@[Successfully generated plotly visualization@]@.";
-      Ok json
-    | None ->
-      let err_msg = "Failed to generate plotly visualization" in
-      Eio.traceln "@[ERROR: %s@]@." err_msg;
-      Error err_msg
-  in
+  (* let* plotly_json = *)
+  (*   match *)
+  (*     Plotly.of_bars_with_custom_indicator bars target tacaml color yaxis *)
+  (*   with *)
+  (*   | Some json -> *)
+  (*     Eio.traceln "@[Successfully generated plotly visualization@]@."; *)
+  (*     Ok json *)
+  (*   | None -> *)
+  (*     let err_msg = "Failed to generate plotly visualization" in *)
+  (*     Eio.traceln "@[ERROR: %s@]@." err_msg; *)
+  (*     Error err_msg *)
+  (* in *)
 
-  Eio.traceln "@[Custom indicator response completed successfully@]@.";
-  Ok (Response.of_string ~body:(Yojson.Safe.to_string plotly_json) `OK)
+  (* Eio.traceln "@[Custom indicator response completed successfully@]@."; *)
+  (* Ok (Response.of_string ~body:(Yojson.Safe.to_string plotly_json) `OK) *)
+  Error "Plotting of custom indicators NYI"
 
 let connection_handler ~(mutices : Longleaf_mutex.t)
     (params : Request_info.t Server.ctx) =
@@ -303,10 +289,16 @@ let run ~sw ~host ~port env handler =
   (* Server.Command.shutdown command *)
   command
 
+let handler mutices (context : Request_info.t Server.ctx) =
+  let _request = context.request in
+  (* Eio.traceln "server.ml: %a" Request.pp_hum request; *)
+  let res = connection_handler ~mutices context in
+  res
+
 let start ~sw ~(mutices : Longleaf_mutex.t) env =
   let host = Eio.Net.Ipaddr.V4.loopback in
   Eio.traceln "Server listening on port 8080";
-  run ~sw ~host ~port:8080 env @@ connection_handler ~mutices
+  run ~sw ~host ~port:8080 env @@ handler mutices
 
 (* let setup_log ?style_renderer level = *)
 (*   Logs_threaded.enable (); *)

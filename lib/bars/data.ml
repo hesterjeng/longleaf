@@ -91,6 +91,8 @@ let set_ source row i value =
     Eio.traceln "data.ml.set_: Index out of bounds!";
     raise e
 
+exception NaNInData
+
 let get (data : t) (ty : Type.t) i =
   assert (i >= 0);
   assert (i < data.size);
@@ -100,16 +102,11 @@ let get (data : t) (ty : Type.t) i =
     | _ when Type.is_int_ty ty -> Float.of_int @@ get_ data.int_data row i
     | _ -> get_ data.data row i
   in
-  assert (
-    match not @@ Float.is_nan res with
-    | false ->
-      Eio.traceln "%a index %d NaN" Type.pp ty i;
-      (* Eio.traceln "%a" Data. *)
-      false
-      (* let col = Column.of_data data i in *)
-      (* Eio.traceln "%a" (Result.pp' Column.pp Error.pp) col; *)
-    | true -> true);
-  res
+  match Float.is_nan res with
+  | true ->
+    Eio.traceln "data.ml: raising exn %a index %d NaN" Type.pp ty i;
+    raise NaNInData
+  | false -> res
 
 let set (data : t) (ty : Type.t) i f =
   assert (i >= 0);
