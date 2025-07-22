@@ -12,8 +12,6 @@ module Options = Longleaf_core.Options
 module Astar = Longleaf_util.Astar
 module Error = Longleaf_core.Error
 module Pmutex = Longleaf_util.Pmutex
-module EnumeratedSignal = Astar_search.EnumeratedSignal
-module A = EnumeratedSignal.Atom
 
 (** Type of strategies that have been defined. To add a new strategy, you must
     first add a corresponding variant to this type. Afterwards, you must add a
@@ -51,7 +49,10 @@ let all = List.map fst Variants.descriptions
 
 (** Add a handler for your strategy here, imitating the styles of the others.
     There must be a handler or your strategy will not work. *)
-let strats : (t * (Options.t -> Longleaf_state.Mutex.t -> (_, _) result)) list =
+let strats :
+    (t
+    * (Bars.t option -> Options.t -> Longleaf_state.Mutex.t -> (_, _) result))
+    list =
   let ( --> ) x y = (x, Strategy.run y) in
   [
     (* BuyAndHold --> (module Buy_and_hold.Make); *)
@@ -71,7 +72,7 @@ let strats : (t * (Options.t -> Longleaf_state.Mutex.t -> (_, _) result)) list =
     (* LiberatedCrossover --> (module Liberated_crossover.Make); *)
     (* Channel --> (module Channel.Make); *)
     (* SpyTrader --> (module Spytrader.Make); *)
-    Astarexample --> (module Astar_example.Make) (* (val Astar_example.m) *);
+    (* Astarexample --> (module Astar_example.Make) (\* (val Astar_example.m) *\); *)
     RsiMeanReversion --> (module Rsi_mean_reversion.Make);
     MacdBollingerMomentum --> (module Macd_bollinger_momentum.Make);
     VolumeBreakout --> (module Volume_breakout.Make);
@@ -92,7 +93,7 @@ let of_string_res x =
             (List.pp String.pp) all)
 
 (** Based on the context, select and run the strategy. *)
-let run_strat_ (context : Options.t) mutices =
+let run_strat_ bars (context : Options.t) mutices =
   let ( let* ) = Result.( let* ) in
   let* strategy = of_string_res context.flags.strategy_arg in
   let f = List.Assoc.get ~eq:equal strategy strats in
@@ -101,14 +102,14 @@ let run_strat_ (context : Options.t) mutices =
     | None -> Error.fatal "Unable to find strategy implementation"
     | Some f -> Result.return f
   in
-  let* res = strat context mutices in
+  let* res = strat bars context mutices in
   Result.return res
 
-let run_strat (context : Options.t) mutices =
+let run_strat bars (context : Options.t) mutices =
   match context.flags.strategy_arg with
-  | "E0" -> Enumerate.top context
+  | "E0" -> Enumerate.top bars context
   | _ -> (
-    match run_strat_ context mutices with
+    match run_strat_ bars context mutices with
     | Ok x -> x
     | Error e ->
       Eio.traceln "longleaf_strateies.ml: %a" Error.pp e;
@@ -122,23 +123,9 @@ type multitest = { mean : float; min : float; max : float; std : float }
 (** Track some statistics if we are doing multiple backtests. *)
 
 (** Top level function for running strategies based on a context.*)
-let run (context : Options.t) mutices =
+let run bars (context : Options.t) mutices =
   (* let strategy = of_string_res context.flags.strategy_arg in *)
   match context.flags.runtype with
-  | AstarSearch ->
-    (* Eio.traceln "Loading context..."; *)
-    (* let context = Options.Context.load context in *)
-    (* Eio.traceln "Loading indicators..."; *)
-    (* let preload = Options.Preload.bars context.preload in *)
-    (* let target = Options.Preload.bars context.target in *)
-    (* Indicators.precompute preload target; *)
-    (* assert (Options.Preload.is_loaded context.preload); *)
-    (* assert (Options.Preload.is_loaded context.target); *)
-    Eio.traceln "Running A*...";
-    (* let context = { context with indicator_type = Precomputed } in *)
-    let res = Astar_run.top context in
-    Eio.traceln "A* completed: %a" (Option.pp Astar_run.StrategySearch.pp) res;
-    0.0
   | Live
   | Paper
   | Backtest
@@ -146,13 +133,13 @@ let run (context : Options.t) mutices =
   | Montecarlo
   | RandomSliceBacktest
   | RandomTickerBacktest ->
-    run_strat context mutices
+    run_strat bars context mutices
   | Multitest
   | MultiMontecarlo
   | MultiRandomSliceBacktest
   | MultiRandomTickerBacktest ->
     let init = Array.make 30 () in
-    let res = Array.map (fun _ -> run_strat context mutices) init in
+    let res = Array.map (fun _ -> run_strat bars context mutices) init in
     Array.sort Float.compare res;
     (* let mean = Owl_stats.mean res in *)
     (* let std = Owl_stats.std res in *)
@@ -204,7 +191,7 @@ module Run = struct
         Eio.traceln "%a" Error.pp e;
         invalid_arg "Indicators computation error"
     in
-    run options mutices
+    run (Some bars) options mutices
 
   let server env flags target mutices =
     let domain_mgr = Eio.Stdenv.domain_mgr env in

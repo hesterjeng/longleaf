@@ -10,7 +10,6 @@ module RunType = struct
     | RandomSliceBacktest
     | MultiRandomSliceBacktest
     | RandomTickerBacktest
-    | AstarSearch
     | MultiRandomTickerBacktest
       (* Run multiple tests with ranomly generated target data. *)
   [@@deriving show, eq, yojson, variants]

@@ -399,7 +399,7 @@ let collect_strategy_custom_indicators (strategy : strategy) :
   let all_indicators = buy_indicators @ sell_indicators in
   List.sort_uniq ~cmp:Stdlib.compare all_indicators
 
-let run (options : Options.t) mutices strategy =
+let run bars (options : Options.t) mutices strategy =
   let custom_indicators = [] in
   (* TODO: Fix custom indicator collection *)
   let options =
@@ -410,5 +410,7 @@ let run (options : Options.t) mutices strategy =
     }
   in
   (* Collect custom indicators from the strategy *)
-  let res = Strategy.run (gadt_to_strategy_builder strategy) options mutices in
+  let res =
+    Strategy.run (gadt_to_strategy_builder strategy) bars options mutices
+  in
   res
