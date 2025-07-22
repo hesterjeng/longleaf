@@ -122,9 +122,6 @@ let make_backend_input mutices (bars : Bars.t option) (options : Options.t) =
 
 let make mutices bars (options : Options.t) =
   let ( let* ) = Result.( let* ) in
-  (* Register custom indicators from options before creating backend *)
-  let custom_indicators = options.custom_indicators in
-  Eio.traceln "Registering %d custom indicators" (List.length custom_indicators);
 
   (* Add custom indicators to the indicator config *)
   let* backend_input = make_backend_input mutices bars options in

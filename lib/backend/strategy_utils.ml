@@ -160,6 +160,12 @@ module Make (Backend : Backend.S) = struct
       Bars.set_current bars tick;
       Eio.traceln "Bars initialize: %a" Bars.pp bars;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
+      let indicator_config = (State.config state).indicator_config in
+      let* () =
+        Longleaf_indicators.Indicators.compute_all ~i:100
+          ~eio_env:Input.options.eio_env indicator_config
+        @@ State.bars state
+      in
       start_time := Eio.Time.now Backend.env#clock;
       Eio.traceln "Running...";
       Result.return @@ State.set state Listening
