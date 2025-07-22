@@ -163,20 +163,19 @@ let of_state ?(start = 100) ?end_ (state : 'a Longleaf_state.t) symbol :
     let bars = Longleaf_state.bars state in
     let* data = Bars.get bars symbol in
     let price_trace = direct_price_trace ~start ?end_ data symbol in
+    let indicators x = Tacaml.get_indicators x |> List.uniq ~eq:Equal.poly in
     let trace indicator =
       indicator_trace ~drop:100 bars (Data.Type.tacaml indicator) symbol
     in
-    let indicators = Longleaf_state.config state in
-    (* let* sma_20 = trace @@ TI.sma () in *)
-    (* let* ad = trace @@ TI.ad () in *)
-    (* let* macd = trace @@ TI.macd_macd () in *)
-    (* let* stochd = trace @@ TI.stoch_f_fast_d () in *)
-    (* let* stochk = trace @@ TI.stoch_f_fast_k () in *)
+    let* indicators =
+      (Longleaf_state.config state).indicator_config.custom_indicators
+      |> List.flat_map indicators |> Result.map_l trace
+    in
     let ( = ) = fun x y -> (x, y) in
     Result.return
     @@ `Assoc
          [
-           "traces" = `List [ price_trace ];
+           "traces" = `List (price_trace :: indicators);
            "layout" = layout @@ Instrument.symbol symbol;
          ]
   in
