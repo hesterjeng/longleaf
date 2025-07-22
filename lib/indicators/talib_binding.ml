@@ -63,4 +63,5 @@ let calculate ?i (indicator : Tacaml.t) (data : Data.t) =
   let* input = Input.of_data indicator data in
   let* output = Output.of_data indicator data in
   let* _ = Tacaml.calculate ?i indicator input output in
+  (* Eio.traceln "talib_binding.calculate: %d %d" a b; *)
   Result.return ()

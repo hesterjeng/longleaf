@@ -360,6 +360,55 @@ let gadt_to_strategy_builder (strategy : strategy) =
   in
   (module StrategyBuilder : Strategy.BUILDER)
 
+(* Collect all Data.Type.t from GADT expressions *)
+let rec collect_data_types : type a. a expr -> Data.Type.t list = function
+  | Float _
+  | Int _
+  | Bool _ ->
+    []
+  | Data (Float_type data_type) -> [ data_type ]
+  | Data (Int_type data_type) -> [ data_type ]
+  | GT (e1, e2)
+  | LT (e1, e2)
+  | GTE (e1, e2)
+  | LTE (e1, e2)
+  | EQ (e1, e2) ->
+    collect_data_types e1 @ collect_data_types e2
+  | IntGT (e1, e2)
+  | IntLT (e1, e2)
+  | IntEQ (e1, e2) ->
+    collect_data_types e1 @ collect_data_types e2
+  | And (e1, e2)
+  | Or (e1, e2) ->
+    collect_data_types e1 @ collect_data_types e2
+  | Not e -> collect_data_types e
+  | Add (e1, e2)
+  | Sub (e1, e2)
+  | Mul (e1, e2)
+  | Div (e1, e2) ->
+    collect_data_types e1 @ collect_data_types e2
+  | Moneyness (_, _) ->
+    [ Data.Type.Close ] (* Uses Close price for moneyness calculation *)
+  | Days_to_expiry _ ->
+    [ Data.Type.Time ] (* Uses Time for expiry calculation *)
+  | CustomIndicator indicator -> [ Data.Type.Tacaml indicator ]
+
+let collect_strategy_data_types (strategy : strategy) : Data.Type.t list =
+  let buy_data_types = collect_data_types strategy.buy_trigger in
+  let sell_data_types = collect_data_types strategy.sell_trigger in
+  (* Remove duplicates using sort_uniq with polymorphic compare *)
+  let all_data_types = buy_data_types @ sell_data_types in
+  List.sort_uniq ~cmp:Stdlib.compare all_data_types
+
+let collect_tacaml_data_types (strategy : strategy) =
+  let res = collect_strategy_data_types strategy in
+  List.filter_map
+    (fun x ->
+      match x with
+      | Data.Type.Tacaml x -> Some x
+      | _ -> None)
+    res
+
 (* Collect all custom Tacaml.t indicators from GADT expressions *)
 let rec collect_custom_indicators : type a. a expr -> Tacaml.Indicator.t list =
   function
@@ -399,14 +448,21 @@ let collect_strategy_custom_indicators (strategy : strategy) :
   let all_indicators = buy_indicators @ sell_indicators in
   List.sort_uniq ~cmp:Stdlib.compare all_indicators
 
+let indicators strategy =
+  collect_strategy_data_types strategy
+  |> List.filter_map (function
+       | Data.Type.Tacaml x -> Some x
+       | _ -> None)
+  |> List.map Tacaml.Conv.indicator_to_safe
+  |> List.uniq ~eq:Equal.poly
+
 let run bars (options : Options.t) mutices strategy =
-  let custom_indicators = [] in
-  (* TODO: Fix custom indicator collection *)
+  let tacaml_indicators = indicators strategy in
   let options =
     {
       options with
       flags = { options.flags with strategy_arg = strategy.name };
-      custom_indicators;
+      tacaml_indicators;
     }
   in
   (* Collect custom indicators from the strategy *)

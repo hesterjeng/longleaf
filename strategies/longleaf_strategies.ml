@@ -17,31 +17,31 @@ module Pmutex = Longleaf_util.Pmutex
     first add a corresponding variant to this type. Afterwards, you must add a
     handler for your strategy in the strats value below. *)
 type t =
-  | BuyAndHold
-  | Listener
-  | DoubleTop
-  | LowBoll
-  | LowBoll2
-  | Challenge1
-  | Scalper
-  | TemplateExample
-  | TemplateExample2
-  | Crossover
-  | SpyTrader
-  | SlowCrossover
-  | ConfirmedCrossover
-  | ThrowingCrossover
-  | LiberatedCrossover
-  | Monaspa
-  | Channel
-  | Astar
-  | Astarexample
-  | RsiMeanReversion
-  | MacdBollingerMomentum
-  | VolumeBreakout
-  | AdaptiveMomentumRegime
-  | SimpleAdaptiveRegime
-  | CandlestickPatterns
+  (* | BuyAndHold *)
+  (* | Listener *)
+  (* | DoubleTop *)
+  (* | LowBoll *)
+  (* | LowBoll2 *)
+  (* | Challenge1 *)
+  (* | Scalper *)
+  (* | TemplateExample *)
+  (* | TemplateExample2 *)
+  (* | Crossover *)
+  (* | SpyTrader *)
+  (* | SlowCrossover *)
+  (* | ConfirmedCrossover *)
+  (* | ThrowingCrossover *)
+  (* | LiberatedCrossover *)
+  (* | Monaspa *)
+  (* | Channel *)
+  (* | Astar *)
+  (* | Astarexample *)
+  (* | RsiMeanReversion *)
+  (* | MacdBollingerMomentum *)
+  (* | VolumeBreakout *)
+  (* | AdaptiveMomentumRegime *)
+  (* | SimpleAdaptiveRegime *)
+  (* | CandlestickPatterns *)
   | ModeE
 [@@deriving show, eq, yojson, variants]
 
@@ -54,8 +54,7 @@ let strats :
     * (Bars.t option -> Options.t -> Longleaf_state.Mutex.t -> (_, _) result))
     list =
   let ( --> ) x y = (x, Strategy.run y) in
-  [
-    (* BuyAndHold --> (module Buy_and_hold.Make); *)
+  [ (* BuyAndHold --> (module Buy_and_hold.Make); *)
     (* Listener --> (module Listener.Make); *)
     (* Monaspa --> (module Monaspa.Make); *)
     (* DoubleTop --> (module Double_top.DoubleTop); *)
@@ -73,13 +72,12 @@ let strats :
     (* Channel --> (module Channel.Make); *)
     (* SpyTrader --> (module Spytrader.Make); *)
     (* Astarexample --> (module Astar_example.Make) (\* (val Astar_example.m) *\); *)
-    RsiMeanReversion --> (module Rsi_mean_reversion.Make);
-    MacdBollingerMomentum --> (module Macd_bollinger_momentum.Make);
-    VolumeBreakout --> (module Volume_breakout.Make);
-    AdaptiveMomentumRegime --> (module Adaptive_momentum_regime.Make);
-    SimpleAdaptiveRegime --> (module Simple_adaptive_regime.Make);
-    CandlestickPatterns --> (module Candlestick_patterns.Make);
-  ]
+    (* RsiMeanReversion --> (module Rsi_mean_reversion.Make); *)
+    (* MacdBollingerMomentum --> (module Macd_bollinger_momentum.Make); *)
+    (* VolumeBreakout --> (module Volume_breakout.Make); *)
+    (* AdaptiveMomentumRegime --> (module Adaptive_momentum_regime.Make); *)
+    (* SimpleAdaptiveRegime --> (module Simple_adaptive_regime.Make); *)
+    (* CandlestickPatterns --> (module Candlestick_patterns.Make); *) ]
 
 (** Function for Cmdliner use. *)
 let of_string_res x =
@@ -181,17 +179,9 @@ module Run = struct
       | Download -> invalid_arg "Download bars NYI"
       (* | Loaded bars -> (target, bars) *)
     in
-    let options = Strategy.mk_options sw eio_env flags target in
-    let () =
-      Longleaf_indicators.Indicators.compute_all ~eio_env
-        options.indicators_config bars
-      |> function
-      | Ok x -> x
-      | Error e ->
-        Eio.traceln "%a" Error.pp e;
-        invalid_arg "Indicators computation error"
-    in
-    run (Some bars) options mutices
+    let options = Strategy.mk_options sw eio_env flags target [] in
+    Gadt.run (Some bars) options mutices Gadt_examples.rsi_classic
+  (* run (Some bars) options mutices *)
 
   let server env flags target mutices =
     let domain_mgr = Eio.Stdenv.domain_mgr env in
@@ -211,7 +201,7 @@ module Run = struct
 
   let top (flags : Options.CLI.t) target =
     Eio_main.run @@ fun eio_env ->
-    let mutices = Longleaf_state.Mutex.create () in
+    let mutices = Longleaf_state.Mutex.create [] in
     let res = server eio_env flags target mutices in
     res
 end

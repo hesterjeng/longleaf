@@ -20,7 +20,7 @@ let dummy f =
 
 module type BUILDER = functor (_ : Backend.S) -> S
 
-let mk_options switch eio_env flags target : Options.t =
+let mk_options switch eio_env flags target tacaml_indicators : Options.t =
   let longleaf_env = Environment.make () in
   (* let mutices = Server.Longleaf_mutex.create () in *)
   {
@@ -30,9 +30,8 @@ let mk_options switch eio_env flags target : Options.t =
     switch;
     flags;
     tick = 600.0;
-    indicators_config = Longleaf_core.Indicators_config.default;
-    custom_indicators = [];
     target;
+    tacaml_indicators;
   }
 
 (** Helper function to reduce code duplication. *)

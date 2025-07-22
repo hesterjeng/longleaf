@@ -10,7 +10,7 @@ type 'a res = ('a, Error.t) result
 val current : 'a t -> Mode.t
 
 (* Create a new state with index, data, and content *)
-val make : int -> Bars.t -> 'a -> 'a t res
+val make : int -> Bars.t -> 'a -> Indicators_config.t -> 'a t res
 
 (* Print basic info about the state *)
 val pp : 'a t Format.printer
@@ -23,6 +23,7 @@ val cash : 'a t -> float
 
 (* Get the time of the state machine.  Uses Bars.timestamp *)
 val time : 'a t -> Time.t res
+val config : 'a t -> Config.t
 
 (* Get list of active orders *)
 val history : 'a t -> Order.t list Vector.ro_vector
@@ -61,5 +62,5 @@ val set : 'a t -> Mode.t -> 'a t
 
 (* Return the options record *)
 val options : 'a t -> Config.t
-val empty : unit -> unit t
+val empty : Tacaml.t list -> unit t
 val stats : 'a t -> Stats.t

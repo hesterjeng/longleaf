@@ -24,8 +24,7 @@ let serve_favicon () =
 
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let state = Pmutex.get mutices.state_mutex in
-  let bars = State.bars state in
-  let bars_json_opt = Plotly.of_bars bars target in
+  let bars_json_opt = Plotly.of_state state target in
   match bars_json_opt with
   | Some bars -> Response.of_string ~body:(Yojson.Safe.to_string bars) `OK
   | None ->

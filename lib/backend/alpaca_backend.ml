@@ -77,7 +77,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
       | None -> Error.fatal "No historical data for alpaca backend"
       | Some b -> Result.return b
     in
-    State.make 0 bars content
+    let config = Indicators_config.make Input.options.tacaml_indicators in
+    State.make 0 bars content config
   (* @@ { *)
   (*      State.current = Initialize; *)
   (*      bars; *)

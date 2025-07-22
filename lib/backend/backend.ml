@@ -122,20 +122,12 @@ let make_backend_input mutices (bars : Bars.t option) (options : Options.t) =
 
 let make mutices bars (options : Options.t) =
   let ( let* ) = Result.( let* ) in
-  (* Register custom indicators from options before creating backend *)
-  let custom_indicators = options.custom_indicators in
-  Eio.traceln "Registering %d custom indicators" (List.length custom_indicators);
-  (* Add custom indicators to the indicator config *)
-  let updated_config =
-    Longleaf_core.Indicators_config.with_custom_indicators custom_indicators
-      options.indicators_config
-  in
-  let updated_options = { options with indicators_config = updated_config } in
 
-  let* backend_input = make_backend_input mutices bars updated_options in
+  (* Add custom indicators to the indicator config *)
+  let* backend_input = make_backend_input mutices bars options in
   let module Input = (val backend_input) in
   let* res =
-    match updated_options.flags.runtype with
+    match options.flags.runtype with
     | Manual -> Error.fatal "Cannot create a strategy with manual runtype"
     | Paper
     | Live ->

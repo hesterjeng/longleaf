@@ -20,7 +20,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
         Bars.set_current b Input.options.flags.start;
         Result.return b
     in
-    State.make Input.options.flags.start bars content
+    let config = Indicators_config.make Input.options.tacaml_indicators in
+    State.make Input.options.flags.start bars content config
 
   let opts = Input.options
 
