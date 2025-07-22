@@ -2,7 +2,7 @@ module Array1 = Bigarray.Array1
 module Array2 = Bigarray.Array2
 
 type data_matrix = (float, Bigarray.float64_elt, Bigarray.c_layout) Array2.t
-type int_matrix = (int, Bigarray.int_elt, Bigarray.c_layout) Array2.t
+type int_matrix = (int32, Bigarray.int32_elt, Bigarray.c_layout) Array2.t
 
 module Type = struct
   let hash_fold_string = Ppx_hash_lib.Std.Hash.fold_string
@@ -104,7 +104,10 @@ let get (data : t) (ty : Type.t) i =
   let row = Index.get data.index ty in
   let res =
     match ty with
-    | _ when Type.is_int_ty ty -> Float.of_int @@ get_ data.int_data row i
+    | _ when Type.is_int_ty ty ->
+      (* Float.of_int @@ *)
+      let res = get_ data.int_data row i in
+      Int32.to_float res
     | _ -> get_ data.data row i
   in
   match Float.is_nan res with
@@ -119,7 +122,7 @@ let set (data : t) (ty : Type.t) i f =
   let row = Index.get data.index ty in
   let () =
     match ty with
-    | _ when Type.is_int_ty ty -> set_ data.int_data row i @@ Int.of_float f
+    | _ when Type.is_int_ty ty -> set_ data.int_data row i @@ Int32.of_float f
     | _ -> set_ data.data row i f
   in
   ()
@@ -187,7 +190,7 @@ end
 
 module Row = struct
   type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Array1.t
-  type introw = (int, Bigarray.int_elt, Bigarray.c_layout) Array1.t
+  type introw = (int32, Bigarray.int32_elt, Bigarray.c_layout) Array1.t
 
   let slice start length array : t = Array1.sub array start length
 end
@@ -237,7 +240,7 @@ let get_top_int (res : t) (x : Type.t) =
   match x with
   | Tacaml (I _) ->
     let row = Index.get res.index x in
-    get_ res.int_data row res.current
+    Int32.to_int @@ get_ res.int_data row res.current
   | _ -> invalid_arg "get_top_int: not an integer indicator"
 
 let item_of_column x i =
@@ -270,7 +273,9 @@ let make size : t =
     data =
       Array2.init Bigarray.float64 Bigarray.c_layout 150 size (fun _ _ ->
           Float.nan);
-    int_data = Array2.init Bigarray.int Bigarray.c_layout 70 size (fun _ _ -> 0);
+    int_data =
+      Array2.init Bigarray.int32 Bigarray.c_layout 70 size (fun _ _ ->
+          Int32.zero);
     current = 0;
     index = Index.make ();
     size;

@@ -9,7 +9,8 @@ type data_matrix =
 (** The underlying data structure for the time-series data, which is a 2D
     Bigarray of 64-bit floats. *)
 
-type int_matrix = (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array2.t
+type int_matrix =
+  (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array2.t
 
 module Index : sig
   type t
@@ -111,7 +112,7 @@ module Row : sig
   type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
   (** The type for a row of the data matrix. *)
 
-  type introw = (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array1.t
+  type introw = (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
 
   val slice : int -> int -> t -> t
   (** [slice x y a] returns a slice of the row [a] from index [x] with length
