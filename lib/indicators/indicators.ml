@@ -7,6 +7,9 @@ module Util = Longleaf_util
 
 type t = Tacaml of Tacaml.t
 
+let pp : t Format.printer =
+ fun fmt (Tacaml x) -> Format.fprintf fmt "%a" Tacaml.pp x
+
 let tacaml x = Tacaml x
 let ta_lib_common = List.map (fun x -> Tacaml x) Talib_binding.common
 let ta_lib_all = List.map (fun x -> Tacaml x) Tacaml.Defaults.all
@@ -44,8 +47,7 @@ let compute_all ?i ?eio_env (config : Config.t) (bars : Bars.t) =
   let start_total = Unix.gettimeofday () in
 
   let indicators = List.map tacaml config.tacaml_indicators in
-  Eio.traceln "Starting indicator computation for %d indicators..."
-    (List.length indicators);
+  Eio.traceln "Starting indicator computation for... %a" (List.pp pp) indicators;
   (* Check if we should use parallel computation *)
   let result =
     match (eio_env, config.compute_live) with

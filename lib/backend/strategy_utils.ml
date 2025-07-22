@@ -162,7 +162,7 @@ module Make (Backend : Backend.S) = struct
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       let indicator_config = (State.config state).indicator_config in
       let* () =
-        Longleaf_indicators.Indicators.compute_all ~i:100
+        Longleaf_indicators.Indicators.compute_all
           ~eio_env:Input.options.eio_env indicator_config
         @@ State.bars state
       in
