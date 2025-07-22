@@ -449,8 +449,14 @@ let collect_strategy_custom_indicators (strategy : strategy) :
   List.sort_uniq ~cmp:Stdlib.compare all_indicators
 
 let run bars (options : Options.t) mutices strategy =
-  let custom_indicators = [] in
-  (* TODO: Fix custom indicator collection *)
+  let custom_indicators =
+    collect_strategy_data_types strategy
+    |> List.filter_map (function
+         | Data.Type.Tacaml x -> Some x
+         | _ -> None)
+    |> List.map Tacaml.Conv.indicator_to_safe
+    |> List.uniq ~eq:Equal.poly
+  in
   let options =
     {
       options with

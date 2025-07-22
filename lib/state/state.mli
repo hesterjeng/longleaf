@@ -23,6 +23,7 @@ val cash : 'a t -> float
 
 (* Get the time of the state machine.  Uses Bars.timestamp *)
 val time : 'a t -> Time.t res
+val config : 'a t -> Config.t
 
 (* Get list of active orders *)
 val history : 'a t -> Order.t list Vector.ro_vector

@@ -21,7 +21,7 @@ let empty () : unit t =
     current_state = Initialize;
     bars = Bars.empty ();
     current_tick = 0;
-    config = { placeholder = false };
+    config = Config.default;
     cash = 0.0;
     history = Vector.create ();
     positions = Positions.empty;
@@ -36,11 +36,14 @@ let cost_basis x = Positions.cost_basis x.positions
 type 'a res = ('a, Error.t) result
 
 let current t = t.current_state
+let config x = x.config
 
 let make tick bars content =
   let ( let* ) = Result.( let* ) in
   let* length = Bars.length bars in
-  let config = Config.{ placeholder = true } in
+  let config =
+    Config.{ placeholder = true; indicator_config = Indicators_config.default }
+  in
   Result.return
     {
       current_state = Initialize;

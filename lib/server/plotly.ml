@@ -156,24 +156,27 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
 
 module TI = Tacaml.Indicator
 
-let of_bars ?(start = 100) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
+let of_state ?(start = 100) ?end_ (state : 'a Longleaf_state.t) symbol :
+    Yojson.Safe.t option =
   let ( let* ) = Result.( let* ) in
   let result =
+    let bars = Longleaf_state.bars state in
     let* data = Bars.get bars symbol in
     let price_trace = direct_price_trace ~start ?end_ data symbol in
     let trace indicator =
       indicator_trace ~drop:100 bars (Data.Type.tacaml indicator) symbol
     in
-    let* sma_20 = trace @@ TI.sma () in
-    let* ad = trace @@ TI.ad () in
-    let* macd = trace @@ TI.macd_macd () in
-    let* stochd = trace @@ TI.stoch_f_fast_d () in
-    let* stochk = trace @@ TI.stoch_f_fast_k () in
+    let indicators = Longleaf_state.config state in
+    (* let* sma_20 = trace @@ TI.sma () in *)
+    (* let* ad = trace @@ TI.ad () in *)
+    (* let* macd = trace @@ TI.macd_macd () in *)
+    (* let* stochd = trace @@ TI.stoch_f_fast_d () in *)
+    (* let* stochk = trace @@ TI.stoch_f_fast_k () in *)
     let ( = ) = fun x y -> (x, y) in
     Result.return
     @@ `Assoc
          [
-           "traces" = `List [ price_trace; sma_20; ad; macd; stochd; stochk ];
+           "traces" = `List [ price_trace ];
            "layout" = layout @@ Instrument.symbol symbol;
          ]
   in
