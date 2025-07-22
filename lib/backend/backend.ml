@@ -1,6 +1,11 @@
 module type S = Backend_intf.S
 module type BACKEND_INPUT = Backend_intf.BACKEND_INPUT
 
+module Tiingo_api = Longleaf_apis.Tiingo_api
+module Market_data_api = Longleaf_apis.Market_data_api
+module Bars = Longleaf_bars
+module Indicators = Longleaf_indicators
+
 let make_bars (options : Options.t) =
   let ( let* ) = Result.( let* ) in
   (* let context = options.context in *)
@@ -40,9 +45,9 @@ let make_bars (options : Options.t) =
     (*   Result.return res *)
     | File file_path ->
       Eio.traceln "Loading bars from %s with parallel deserialization" file_path;
-      let bars = Target.load_bars ~eio_env:options.eio_env target in
+      let bars = Bars.of_file ~eio_env:options.eio_env file_path in
       Result.return bars
-    | Loaded b -> Result.return b
+    (* | Loaded b -> Result.return b *)
     (* let res = Bars.copy b in *)
     (* Bars.sort Item.compare res; *)
     (* Result.return res *)
@@ -52,7 +57,7 @@ let make_bars (options : Options.t) =
     (* | None -> Ok None *)
     | File _ -> Error.missing_data "NYI File target - should be loaded by now"
     | Download -> Error.missing_data "NYI Download target"
-    | Loaded bars -> Result.return @@ Option.return @@ Bars.copy bars
+    (* | Loaded bars -> Result.return @@ Option.return @@ Bars.copy bars *)
     (* | File t -> ( *)
     (*   let* res = *)
     (*     let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in *)
@@ -85,7 +90,7 @@ let make_bars (options : Options.t) =
   | AstarSearch ->
     Result.return @@ (bars, target)
 
-let make_backend_input (options : Options.t) =
+let make_backend_input mutices (options : Options.t) =
   let ( let* ) = Result.( let* ) in
   let* target =
     match options.target with
@@ -94,7 +99,7 @@ let make_backend_input (options : Options.t) =
     | Download ->
       Error.fatal "Expected to have loaded target when creating backend"
     (* | None -> Result.return None *)
-    | Loaded t -> Result.return @@ Some t
+    (* | Loaded t -> Result.return @@ Some t *)
   in
   (* let* bars = *)
   (*   match options.context.preload with *)
@@ -107,24 +112,25 @@ let make_backend_input (options : Options.t) =
   Result.return
   @@ (module struct
        let options = options
+       let mutices = mutices
 
        (* let bars = bars *)
        let target = target
      end : BACKEND_INPUT)
 
-let make (options : Options.t) =
+let make mutices (options : Options.t) =
   let ( let* ) = Result.( let* ) in
   (* Register custom indicators from options before creating backend *)
   let custom_indicators = options.custom_indicators in
   Eio.traceln "Registering %d custom indicators" (List.length custom_indicators);
   (* Add custom indicators to the indicator config *)
   let updated_config =
-    Indicators.Config.with_custom_indicators custom_indicators
+    Longleaf_core.Indicators_config.with_custom_indicators custom_indicators
       options.indicators_config
   in
   let updated_options = { options with indicators_config = updated_config } in
 
-  let* backend_input = make_backend_input updated_options in
+  let* backend_input = make_backend_input mutices updated_options in
   let module Input = (val backend_input) in
   let* res =
     match updated_options.flags.runtype with

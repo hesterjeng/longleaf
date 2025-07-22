@@ -1,3 +1,4 @@
+module Bars = Longleaf_bars
 module Data = Bars.Data
 module Headers = Piaf.Headers
 (* module Hashtbl = Bars.Hashtbl *)
@@ -70,7 +71,7 @@ let tiingo_client eio_env sw =
     Eio.traceln "%a" Piaf.Error.pp_hum s;
     invalid_arg "Unable to create Tiingo client"
 
-module Make (Tiingo : Util.CLIENT) = struct
+module Make (Tiingo : Client.CLIENT) = struct
   let client = Tiingo.client
 
   let tiingo_key =
@@ -85,7 +86,7 @@ module Make (Tiingo : Util.CLIENT) = struct
         ("Authorization", Format.asprintf "Token %s" tiingo_key);
       ]
 
-  let get = Util.get_piaf ~client:Tiingo.client
+  let get = Tools.get_piaf ~client:Tiingo.client
   let iex_endpoint = Uri.of_string "/iex/"
 
   let test () =

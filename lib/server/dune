@@ -7,6 +7,7 @@
  (libraries
   longleaf_core
   longleaf_util
+  longleaf_indicators
   longleaf_state
   fmt
   containers
@@ -33,6 +34,10 @@
    -a+8+49+33
    -open
    Containers
+   -open
+   Longleaf_core
+   -open
+   Longleaf_util
    -open
    Ppx_yojson_conv_lib.Yojson_conv.Primitives
    -strict-sequence

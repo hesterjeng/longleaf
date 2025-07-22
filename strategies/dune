@@ -34,8 +34,8 @@
    -a+8+49+33
    -open
    Containers
-   -open
-   Longleaf_lib
+   ; -open
+   ; Longleaf_lib
    -open
    Ppx_yojson_conv_lib.Yojson_conv.Primitives
    -strict-sequence

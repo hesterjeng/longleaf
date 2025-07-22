@@ -1,4 +1,5 @@
 open Trading_types
+module Pmutex = Longleaf_util.Pmutex
 
 type order = {
   symbol : Instrument.t;

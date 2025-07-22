@@ -1,3 +1,4 @@
+module Error = Longleaf_core.Error
 (** Volume Breakout Strategy
 
     Buy Logic:
@@ -11,6 +12,17 @@
     - Williams %R > -20 (overbought) OR
     - 6% stop loss OR
     - 12% profit target *)
+
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
+module Data = Bars.Data
+module Time = Longleaf_core.Time
+module Options = Longleaf_core.Options
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
   let sma_20 = Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ()))

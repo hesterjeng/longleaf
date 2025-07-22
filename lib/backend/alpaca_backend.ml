@@ -1,4 +1,8 @@
 open Backend_intf
+module Util = Longleaf_util
+module Tiingo_api = Longleaf_apis.Tiingo_api
+module Trading_api = Longleaf_apis.Trading_api
+module Market_data_api = Longleaf_apis.Market_data_api
 
 (* type runtype = Live | Paper *)
 
@@ -34,7 +38,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let tiingo_client = Tiingo_api.tiingo_client opts.eio_env opts.switch
 
-  module Tiingo_client : Util.CLIENT = struct
+  module Tiingo_client : Longleaf_apis.Client.CLIENT = struct
     let longleaf_env = opts.longleaf_env
     let client = tiingo_client
   end

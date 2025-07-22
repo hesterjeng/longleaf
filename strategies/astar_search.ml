@@ -1,6 +1,15 @@
-module Search = Longleaf_lib.Util.Astar
-module Error = Longleaf_lib.Error
+module Search = Longleaf_util.Astar
+module Error = Longleaf_core.Error
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
 module Data = Bars.Data
+module Time = Longleaf_core.Time
+module Options = Longleaf_core.Options
 
 module EnumeratedValue = struct
   type t =

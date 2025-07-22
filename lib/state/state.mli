@@ -1,6 +1,7 @@
 module Mode = Mode
 module Config = Config
 module Stats = Stats
+module Bars = Longleaf_bars
 
 type 'a t
 type 'a res = ('a, Error.t) result

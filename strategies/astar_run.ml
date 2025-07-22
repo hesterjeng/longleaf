@@ -1,5 +1,16 @@
-module Astar = Longleaf_lib.Util.Astar
-module Error = Longleaf_lib.Error
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
+module Data = Bars.Data
+module Time = Longleaf_core.Time
+module Options = Longleaf_core.Options
+module Astar = Longleaf_util.Astar
+module Error = Longleaf_core.Error
+module Pmutex = Longleaf_util.Pmutex
 module EnumeratedSignal = Astar_search.EnumeratedSignal
 module A = EnumeratedSignal.Atom
 
@@ -30,10 +41,11 @@ let example_node context : node_ =
 let run (x : node_) =
   let ( let* ) = Result.( let* ) in
   Eio.traceln "Running enumerated strategy %a" pp_node_ x;
+  let mutices = Longleaf_state.Mutex.create () in
   let* res =
     if EnumeratedSignal.is_empty x.buy || EnumeratedSignal.is_empty x.sell then
       Result.return 0.0
-    else Astar_search.run_astar x.context ~buy:x.buy ~sell:x.sell
+    else Astar_search.run_astar x.context ~buy:x.buy ~sell:x.sell mutices
   in
   Eio.traceln "Ending value: %f" res;
   Result.return res

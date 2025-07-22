@@ -1,25 +1,25 @@
 (** Longleaf Algorithmic Trading Platform *)
 
-(** Core trading types and functionality *)
 module Core = Longleaf_core
+(** Core trading types and functionality *)
 
-(** Utility functions and helpers *)
 module Util = Longleaf_util
+(** Utility functions and helpers *)
 
-(** Market data and bar management *)
 module Bars = Longleaf_bars
+(** Market data and bar management *)
 
-(** Technical indicators *)
 module Indicators = Longleaf_indicators
+(** Technical indicators *)
 
-(** External API integrations *)
 module Apis = Longleaf_apis
+(** External API integrations *)
 
-(** State management and configuration *)
 module State = Longleaf_state
+(** State management and configuration *)
 
-(** Trading backends (live, paper, backtesting) *)
 module Backend = Longleaf_backend
+(** Trading backends (live, paper, backtesting) *)
 
-(** Web server and visualization *)
 module Server = Longleaf_server
+(** Web server and visualization *)

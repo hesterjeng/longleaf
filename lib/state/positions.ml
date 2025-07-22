@@ -1,4 +1,4 @@
-module PosMap = Map.Make (Instrument)
+module PosMap = Map.Make (Longleaf_core.Instrument)
 
 type t = Order.t list PosMap.t
 

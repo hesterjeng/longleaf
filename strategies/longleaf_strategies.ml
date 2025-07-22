@@ -1,4 +1,19 @@
 module Collections = Ticker_collections
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
+module Data = Bars.Data
+module Time = Longleaf_core.Time
+module Options = Longleaf_core.Options
+module Astar = Longleaf_util.Astar
+module Error = Longleaf_core.Error
+module Pmutex = Longleaf_util.Pmutex
+module EnumeratedSignal = Astar_search.EnumeratedSignal
+module A = EnumeratedSignal.Atom
 
 (** Type of strategies that have been defined. To add a new strategy, you must
     first add a corresponding variant to this type. Afterwards, you must add a
@@ -36,7 +51,7 @@ let all = List.map fst Variants.descriptions
 
 (** Add a handler for your strategy here, imitating the styles of the others.
     There must be a handler or your strategy will not work. *)
-let strats : (t * (Options.t -> (_, _) result)) list =
+let strats : (t * (Options.t -> Longleaf_state.Mutex.t -> (_, _) result)) list =
   let ( --> ) x y = (x, Strategy.run y) in
   [
     (* BuyAndHold --> (module Buy_and_hold.Make); *)
@@ -77,7 +92,7 @@ let of_string_res x =
             (List.pp String.pp) all)
 
 (** Based on the context, select and run the strategy. *)
-let run_strat_ (context : Options.t) =
+let run_strat_ (context : Options.t) mutices =
   let ( let* ) = Result.( let* ) in
   let* strategy = of_string_res context.flags.strategy_arg in
   let f = List.Assoc.get ~eq:equal strategy strats in
@@ -86,14 +101,14 @@ let run_strat_ (context : Options.t) =
     | None -> Error.fatal "Unable to find strategy implementation"
     | Some f -> Result.return f
   in
-  let* res = strat context in
+  let* res = strat context mutices in
   Result.return res
 
-let run_strat (context : Options.t) =
+let run_strat (context : Options.t) mutices =
   match context.flags.strategy_arg with
   | "E0" -> Enumerate.top context
   | _ -> (
-    match run_strat_ context with
+    match run_strat_ context mutices with
     | Ok x -> x
     | Error e ->
       Eio.traceln "longleaf_strateies.ml: %a" Error.pp e;
@@ -107,7 +122,7 @@ type multitest = { mean : float; min : float; max : float; std : float }
 (** Track some statistics if we are doing multiple backtests. *)
 
 (** Top level function for running strategies based on a context.*)
-let run (context : Options.t) =
+let run (context : Options.t) mutices =
   (* let strategy = of_string_res context.flags.strategy_arg in *)
   match context.flags.runtype with
   | AstarSearch ->
@@ -131,13 +146,13 @@ let run (context : Options.t) =
   | Montecarlo
   | RandomSliceBacktest
   | RandomTickerBacktest ->
-    run_strat context
+    run_strat context mutices
   | Multitest
   | MultiMontecarlo
   | MultiRandomSliceBacktest
   | MultiRandomTickerBacktest ->
     let init = Array.make 30 () in
-    let res = Array.map (fun _ -> run_strat context) init in
+    let res = Array.map (fun _ -> run_strat context mutices) init in
     Array.sort Float.compare res;
     (* let mean = Owl_stats.mean res in *)
     (* let std = Owl_stats.std res in *)
@@ -161,33 +176,35 @@ let run (context : Options.t) =
     0.0
 
 module Run = struct
-  open Longleaf_lib
+  module Target = Longleaf_core.Target
 
   let run_server eio_env (flags : Options.CLI.t) mutices () =
     match flags.no_gui with
     | true -> ()
-    | false -> Server.top ~mutices eio_env
+    | false -> Longleaf_server.Server.top ~mutices eio_env
 
   let run_strategy eio_env flags target mutices () =
     (* Load target bars with eio_env if needed *)
     Eio.Switch.run @@ fun sw ->
-    let loaded_target, bars =
+    let bars =
       match target with
-      | Target.File _ ->
-        let bars = Target.load_bars ~eio_env target in
-        (Target.Loaded bars, bars)
-      | Target.Download -> invalid_arg "Download bars NYI"
-      | Target.Loaded bars -> (target, bars)
+      | Longleaf_core.Target.File s ->
+        let bars = Bars.of_file ~eio_env s in
+        bars
+      | Download -> invalid_arg "Download bars NYI"
+      (* | Loaded bars -> (target, bars) *)
     in
-    let options = Strategy.mk_options sw eio_env flags loaded_target mutices in
+    let options = Strategy.mk_options sw eio_env flags target in
     let () =
-      Indicators.compute_all ~eio_env options.indicators_config bars |> function
+      Longleaf_indicators.Indicators.compute_all ~eio_env
+        options.indicators_config bars
+      |> function
       | Ok x -> x
       | Error e ->
         Eio.traceln "%a" Error.pp e;
         invalid_arg "Indicators computation error"
     in
-    run options
+    run options mutices
 
   let server env flags target mutices =
     let domain_mgr = Eio.Stdenv.domain_mgr env in
@@ -207,7 +224,7 @@ module Run = struct
 
   let top (flags : Options.CLI.t) target =
     Eio_main.run @@ fun eio_env ->
-    let mutices = Server.Longleaf_mutex.create () in
+    let mutices = Longleaf_state.Mutex.create () in
     let res = server eio_env flags target mutices in
     res
 end

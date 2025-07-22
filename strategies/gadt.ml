@@ -1,5 +1,14 @@
-open Longleaf_lib
+module Error = Longleaf_core.Error
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
 module Data = Bars.Data
+module Time = Longleaf_core.Time
+module Options = Longleaf_core.Options
 
 (* Phantom types for data return types *)
 type _ data_type =
@@ -390,7 +399,7 @@ let collect_strategy_custom_indicators (strategy : strategy) :
   let all_indicators = buy_indicators @ sell_indicators in
   List.sort_uniq ~cmp:Stdlib.compare all_indicators
 
-let run (options : Options.t) strategy =
+let run (options : Options.t) mutices strategy =
   let custom_indicators = [] in
   (* TODO: Fix custom indicator collection *)
   let options =
@@ -401,5 +410,5 @@ let run (options : Options.t) strategy =
     }
   in
   (* Collect custom indicators from the strategy *)
-  let res = Strategy.run (gadt_to_strategy_builder strategy) options in
+  let res = Strategy.run (gadt_to_strategy_builder strategy) options mutices in
   res

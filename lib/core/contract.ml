@@ -151,36 +151,6 @@ let response_of_yojson_res x =
     in
     Error.json msg
 
-(* Get all of the contracts available corresponding to the request. *)
-(*  The important thing is the symbol of the contract you want. *)
-(*   You can then buy/sell this option normally, like other securities.  *)
-(* i/e using a function of type Backend_intf.place_order *)
-let rec get_all (longleaf_env : Util.Environment.t) client (request : Request.t)
-    =
-  let ( let* ) = Result.( let* ) in
-  let headers =
-    Piaf.Headers.of_list
-      [
-        ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
-        ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);
-      ]
-  in
-  let endpoint =
-    Uri.of_string "/v2/positions" |> fun u ->
-    Uri.add_query_params' u (Request.to_query_params request) |> Uri.to_string
-  in
-  let* res = Util.get_piaf ~client ~headers ~endpoint in
-  let* response = response_of_yojson_res res in
-  let* next =
-    match response.next_page_token with
-    | None -> Result.return []
-    | Some page_token ->
-      let next_request = { request with page_token = Some page_token } in
-      let* res = get_all longleaf_env client next_request in
-      Result.return res
-  in
-  Result.return @@ response.option_contracts @ next
-
 module Chain = struct
   module Internal = struct
     let generate_occ_symbol ~underlying ~expiry ~option_type ~strike =

@@ -2,15 +2,17 @@ open Trading_types
 module Headers = Piaf.Headers
 module Response = Piaf.Response
 module Status = Piaf.Status
+module Util = Longleaf_util
+module Pmutex = Longleaf_util.Pmutex
 
 (* Create the headers based on the current environment *)
 
-module Make (Alpaca : Util.CLIENT) = struct
+module Make (Alpaca : Client.CLIENT) = struct
   let client = Alpaca.client
   let longleaf_env = Alpaca.longleaf_env
-  let get = Util.get_piaf ~client
-  let delete = Util.delete_piaf ~client
-  let post = Util.post_piaf ~client
+  let get = Tools.get_piaf ~client
+  let delete = Tools.delete_piaf ~client
+  let post = Tools.post_piaf ~client
 
   let headers =
     Headers.of_list

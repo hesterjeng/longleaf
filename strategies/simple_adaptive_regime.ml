@@ -1,8 +1,20 @@
+module Error = Longleaf_core.Error
 (** Simplified Adaptive Regime Strategy
 
     Simplified version with fewer indicators:
     - Only ADX, RSI, Bollinger Bands, Volume
     - Same regime detection but simpler conditions **)
+
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
+module Data = Bars.Data
+module Time = Longleaf_core.Time
+module Options = Longleaf_core.Options
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
   let adx = Bars.Data.Type.(Tacaml (Tacaml.Indicator.adx ()))

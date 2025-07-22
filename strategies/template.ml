@@ -5,7 +5,14 @@
     selected for purchase. Any held stock that meets the sell criterion will be
     sold. This template will only hold n at a time. *)
 
-module Error = Longleaf_lib.Error
+module Error = Longleaf_core.Error
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
 
 (** Used as a functor argument to instantiate the strategy tmeplate. *)
 module Buy_trigger = struct
@@ -74,7 +81,7 @@ module Make
     (Buy : Buy_trigger.S)
     (Sell : Sell_trigger.S)
     (Backend : Backend.S) : Strategy.S = struct
-  module SU = Strategy_utils.Make (Backend)
+  module SU = Longleaf_backend.Utils.Make (Backend)
 
   let shutdown () =
     Eio.traceln "Shutdown command NYI";

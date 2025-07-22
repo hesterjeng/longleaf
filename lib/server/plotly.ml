@@ -1,5 +1,6 @@
 (** Plotly.js JSON generation for trading data visualization *)
 
+module Bars = Longleaf_bars
 module Data = Bars.Data
 
 (** {1 Layout Configuration} *)

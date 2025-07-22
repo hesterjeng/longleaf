@@ -1,9 +1,11 @@
-module Work_pool = Longleaf_lib.Util.Work_pool
+module Work_pool = Longleaf_util.Work_pool
+module Error = Longleaf_core.Error
 
 let run_l options l =
   let ( let* ) = Result.( let* ) in
   Eio.traceln "Enumerate mode E1";
-  let* vals = Result.map_l (Gadt.run options) l in
+  let mutices = Longleaf_state.Mutex.create () in
+  let* vals = Result.map_l (Gadt.run options mutices) l in
   Eio.traceln "%a" (List.pp Float.pp) vals;
   Result.return 0.0
 

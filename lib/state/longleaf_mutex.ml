@@ -1,3 +1,5 @@
+module Pmutex = Longleaf_util.Pmutex
+
 type t = {
   shutdown_mutex : bool Pmutex.t;
   state_mutex : unit State.t Pmutex.t;
@@ -20,3 +22,6 @@ let create () =
   }
 
 let pp : t Format.printer = fun fmt _x -> Format.fprintf fmt "<mutex>"
+
+(* let create (module X : sig type context val x : content end) = *)
+(*   create () *)
