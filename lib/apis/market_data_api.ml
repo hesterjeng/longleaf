@@ -1,5 +1,7 @@
 open Trading_types
 module Headers = Piaf.Headers
+module Util = Longleaf_util
+module Bars = Longleaf_bars
 
 module Request = struct
   (* Type for requesting historical bars *)
@@ -79,12 +81,12 @@ module Request = struct
       rs
 end
 
-module Make (Alpaca : Util.CLIENT) = struct
+module Make (Alpaca : Client.CLIENT) = struct
   let client = Alpaca.client
   let longleaf_env = Alpaca.longleaf_env
-  let get = Util.get_piaf ~client
-  let delete = Util.delete_piaf ~client
-  let post = Util.post_piaf ~client
+  let get = Tools.get_piaf ~client
+  let delete = Tools.delete_piaf ~client
+  let post = Tools.post_piaf ~client
 
   let headers () =
     Headers.of_list
@@ -154,6 +156,37 @@ module Make (Alpaca : Util.CLIENT) = struct
   end
 
   module Contract = struct
-    let get_all = Contract.get_all longleaf_env client
+    open Longleaf_core.Contract
+
+    (* Get all of the contracts available corresponding to the request. *)
+    (*  The important thing is the symbol of the contract you want. *)
+    (*   You can then buy/sell this option normally, like other securities.  *)
+    (* i/e using a function of type Backend_intf.place_order *)
+    let rec get_all (longleaf_env : Environment.t) client (request : Request.t)
+        =
+      let ( let* ) = Result.( let* ) in
+      let headers =
+        Piaf.Headers.of_list
+          [
+            ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
+            ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);
+          ]
+      in
+      let endpoint =
+        Uri.of_string "/v2/positions" |> fun u ->
+        Uri.add_query_params' u (Request.to_query_params request)
+        |> Uri.to_string
+      in
+      let* res = Tools.get_piaf ~client ~headers ~endpoint in
+      let* response = response_of_yojson_res res in
+      let* next =
+        match response.next_page_token with
+        | None -> Result.return []
+        | Some page_token ->
+          let next_request = { request with page_token = Some page_token } in
+          let* res = get_all longleaf_env client next_request in
+          Result.return res
+      in
+      Result.return @@ response.option_contracts @ next
   end
 end

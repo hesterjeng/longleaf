@@ -1,4 +1,7 @@
-open Longleaf_lib
+module Backend = Longleaf_backend
+module Options = Longleaf_core.Options
+module Util = Longleaf_util
+module Environment = Longleaf_core.Environment
 
 module type S = sig
   val run : unit -> float
@@ -17,8 +20,8 @@ let dummy f =
 
 module type BUILDER = functor (_ : Backend.S) -> S
 
-let mk_options switch eio_env flags target mutices : Longleaf_lib.Options.t =
-  let longleaf_env = Util.Environment.make () in
+let mk_options switch eio_env flags target : Options.t =
+  let longleaf_env = Environment.make () in
   (* let mutices = Server.Longleaf_mutex.create () in *)
   {
     symbols = Ticker_collections.sp100;
@@ -27,17 +30,16 @@ let mk_options switch eio_env flags target mutices : Longleaf_lib.Options.t =
     switch;
     flags;
     tick = 600.0;
-    indicators_config = Indicators.Config.default;
+    indicators_config = Longleaf_core.Indicators_config.default;
     custom_indicators = [];
     target;
-    mutices;
   }
 
 (** Helper function to reduce code duplication. *)
-let run (module Strat : BUILDER) options =
+let run (module Strat : BUILDER) bars options mutices =
   (* let options = run_options context in *)
   let ( let* ) = Result.( let* ) in
-  let* backend = Backend.make options in
+  let* backend = Backend.make mutices bars options in
   let module Backend = (val backend) in
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running %s."

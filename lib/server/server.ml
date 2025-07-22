@@ -1,9 +1,11 @@
 module Error = Error
-module Longleaf_mutex = Longleaf_mutex
+module Longleaf_mutex = Longleaf_state.Mutex
+module State = Longleaf_state
 
 (* open Piaf *)
+module Bars = Longleaf_bars
 module Promise = Eio.Std.Promise
-module Talib_binding = Indicators.Talib_binding
+module Talib_binding = Longleaf_indicators.Talib_binding
 module Headers = Piaf.Headers
 module Response = Piaf.Response
 module Server = Piaf.Server
@@ -15,7 +17,7 @@ let prom, resolver = Promise.create ()
 
 let serve_favicon () =
   let favicon_path = "./static/favicon.ico" in
-  let body = Util.read_file_as_string favicon_path in
+  let body = read_file_as_string favicon_path in
   (* Eio.traceln "@[favicon has length %d@]@." (String.length body); *)
   let headers = Headers.of_list [ ("Content-Type", "image/x-icon") ] in
   Response.of_string ~headers ~body `OK
@@ -123,12 +125,12 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     let headers =
       Headers.of_list [ ("Content-Type", "application/javascript") ]
     in
-    let body = Util.read_file_as_string "./static/plotly_latest.js" in
+    let body = read_file_as_string "./static/plotly_latest.js" in
     Response.of_string ~body ~headers `OK
   | { Request.meth = `GET; target = "/plotly_graph.js"; _ } ->
     (* Eio.traceln "GET request for my javascript"; *)
     let file_path = "./static/plotly_graph.js" in
-    let body = Util.read_file_as_string file_path in
+    let body = read_file_as_string file_path in
     let headers =
       Headers.of_list [ ("Content-Type", "application/javascript") ]
     in

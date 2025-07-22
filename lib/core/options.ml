@@ -10,7 +10,6 @@ module RunType = struct
     | RandomSliceBacktest
     | MultiRandomSliceBacktest
     | RandomTickerBacktest
-    | AstarSearch
     | MultiRandomTickerBacktest
       (* Run multiple tests with ranomly generated target data. *)
   [@@deriving show, eq, yojson, variants]
@@ -194,13 +193,12 @@ end
 type t = {
   symbols : string list;
   tick : float;
-  indicators_config : Indicators.Config.t;
+  indicators_config : Indicators_config.t;
   custom_indicators : Tacaml.t list;
   eio_env : Eio_unix.Stdenv.base; [@opaque]
-  longleaf_env : Util.Environment.t; [@opaque]
+  longleaf_env : Environment.t; [@opaque]
   switch : Eio.Switch.t; [@opaque]
   target : Target.t; [@opaque]
-  flags : CLI.t;
-  mutices : Server.Longleaf_mutex.t;
+  flags : CLI.t; (* mutices : Longleaf_mutex.t; *)
 }
 [@@deriving show]

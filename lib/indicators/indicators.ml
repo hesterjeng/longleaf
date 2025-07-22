@@ -1,8 +1,9 @@
 (* module TA = Tacaml.F *)
-module Config = Config
-module Data = Bars.Data
+module Config = Indicators_config
+module Bars = Longleaf_bars
 module Tacaml_conv = Tacaml_conv
 module Talib_binding = Talib_binding
+module Util = Longleaf_util
 
 type t = Tacaml of Tacaml.t
 

@@ -1,3 +1,7 @@
+module Options = Longleaf_core.Options
+module Bars = Longleaf_bars
+module State = Longleaf_state
+
 module type BACKEND_INPUT = sig
   val options : Options.t
 
@@ -6,6 +10,8 @@ module type BACKEND_INPUT = sig
 
   val target : Bars.t option
   (** The data to be iterated over *)
+
+  val mutices : Longleaf_state.Mutex.t
 end
 
 module type S = sig

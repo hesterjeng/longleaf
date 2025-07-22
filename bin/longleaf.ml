@@ -1,5 +1,4 @@
-module Longleaf = Longleaf_lib
-module Options = Longleaf.Options
+module Options = Longleaf_core.Options
 module Cmd = Cmdliner.Cmd
 
 let top () =
@@ -22,7 +21,7 @@ let () =
   | Error e -> Stdlib.exit e
   | Ok s ->
     Fmt_tty.setup_std_outputs ();
-    Longleaf.Util.handle_output s.output;
-    Longleaf.Indicators.initialize ();
+    Longleaf_util.handle_output s.output;
+    Longleaf_indicators.Indicators.initialize ();
     let _ = Longleaf_strategies.Run.top s.cli s.target in
     Stdlib.exit Cmd.Exit.ok

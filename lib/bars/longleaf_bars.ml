@@ -1,6 +1,7 @@
 module Hashtbl_make = Hashtbl.Make
 module Hashtbl = Hashtbl_make (Instrument)
 module Data = Data
+module Util = Longleaf_util
 
 let fold (x : 'a Hashtbl.t) init f = Hashtbl.fold f x init
 

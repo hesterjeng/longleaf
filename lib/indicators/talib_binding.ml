@@ -1,5 +1,6 @@
 [@@@warning "-33"]
 
+module Bars = Longleaf_bars
 module Data = Bars.Data
 
 let common = Tacaml.Defaults.common_indicators

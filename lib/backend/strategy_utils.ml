@@ -1,11 +1,16 @@
+module State = Longleaf_state
+module Pmutex = Longleaf_util.Pmutex
+module Options = Longleaf_core.Options
 module Mode = State.Mode
+module Bars = Longleaf_bars
+(* module Server = Longleaf_server *)
 
 module Make (Backend : Backend.S) = struct
   module Input = Backend.Input
 
   let ( let* ) = Result.( let* )
   let options = Input.options
-  let mutices : Server.Longleaf_mutex.t = options.mutices
+  let mutices : State.Mutex.t = Input.mutices
   let runtype = options.flags.runtype
 
   let listen_tick () : (State.Mode.t, Error.t) result =
@@ -97,7 +102,7 @@ module Make (Backend : Backend.S) = struct
       Eio.traceln "[error] %a" Error.pp e;
       0.0
 
-  let get_filename () = Util.random_filename ()
+  let get_filename () = Longleaf_util.random_filename ()
 
   let output_data (state : _ State.t) filename =
     let ( let* ) = Result.( let* ) in

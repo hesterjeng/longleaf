@@ -8,8 +8,7 @@ let tick ~(runtype : Options.RunType.t) env time =
   | RandomSliceBacktest
   | MultiRandomSliceBacktest
   | RandomTickerBacktest
-  | MultiRandomTickerBacktest
-  | AstarSearch ->
+  | MultiRandomTickerBacktest ->
     ()
   | Live
   | Paper ->

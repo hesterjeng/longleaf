@@ -1,3 +1,4 @@
+module Error = Longleaf_core.Error
 (** RSI Mean Reversion Strategy
 
     Buy Logic:
@@ -10,11 +11,20 @@
     - 5% stop loss OR
     - 10% profit target *)
 
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
+module Data = Bars.Data
+module Time = Longleaf_core.Time
+module Options = Longleaf_core.Options
+
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
   let rsi_indicator = Bars.Data.Type.(Tacaml (Tacaml.Indicator.rsi ()))
-
-  let sma_indicator =
-    Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ~timeperiod:20 ()))
+  let sma_indicator = Bars.Data.Type.(Tacaml (Tacaml.Indicator.sma ()))
 
   let pass (state : _ State.t) instrument =
     let ( let* ) = Result.( let* ) in

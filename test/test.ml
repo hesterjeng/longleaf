@@ -3,7 +3,7 @@
 (*   () *)
 
 let good_time () =
-  let _ = Longleaf_lib.Time.of_string "2025-03-03T16:59:00Z" in
+  let _ = Longleaf_core.Time.of_string "2025-03-03T16:59:00Z" in
   ()
 
 let () =

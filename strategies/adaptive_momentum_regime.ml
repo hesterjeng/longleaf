@@ -1,3 +1,4 @@
+module Error = Longleaf_core.Error
 (** Adaptive Momentum Regime Strategy
 
     This is a sophisticated multi-indicator strategy that adapts to market
@@ -32,6 +33,17 @@
     - Base size adjusted by ATR percentile (high volatility = smaller positions)
     - Trending regime: 1.5x base size
     - Ranging regime: 0.8x base size *)
+
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
+module Data = Bars.Data
+module Time = Longleaf_core.Time
+module Options = Longleaf_core.Options
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
   let adx = Bars.Data.Type.(Tacaml (Tacaml.Indicator.adx ()))

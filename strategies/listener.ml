@@ -1,5 +1,5 @@
-module Make (Backend : Backend.S) : Strategy.S = struct
-  module SU = Strategy_utils.Make (Backend)
+module Make (Backend : Longleaf_backend.S) : Strategy.S = struct
+  module SU = Longleaf_backend.Utils.Make (Backend)
 
   let init_state = Backend.init_state ()
 
@@ -7,9 +7,9 @@ module Make (Backend : Backend.S) : Strategy.S = struct
     Eio.traceln "Shutting down listener.";
     ()
 
-  let step (state : _ State.t) =
-    match State.current state with
-    | Ordering -> Result.return @@ State.listen state
+  let step (state : _ Longleaf_state.t) =
+    match Longleaf_state.current state with
+    | Ordering -> Result.return @@ Longleaf_state.listen state
     | _ -> SU.handle_nonlogical_state state
 
   let run () = SU.run ~init_state step

@@ -1,3 +1,4 @@
+module Error = Longleaf_core.Error
 (** Candlestick Pattern Strategy
 
     This strategy uses TA-Lib's candlestick pattern recognition to identify
@@ -20,6 +21,17 @@
     - RSI confirmation (oversold for buy, overbought for sell)
     - Volume above average for pattern confirmation
     - ADX for trend strength assessment **)
+
+module Signal = Longleaf_core.Signal
+module Instrument = Longleaf_core.Instrument
+module State = Longleaf_state
+module Backend = Longleaf_backend
+module Bars = Longleaf_bars
+module Util = Longleaf_util
+module Order = Longleaf_core.Order
+module Data = Bars.Data
+module Time = Longleaf_core.Time
+module Options = Longleaf_core.Options
 
 module Buy_trigger_input : Template.Buy_trigger.INPUT = struct
   (* Candlestick Patterns *)

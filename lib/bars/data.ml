@@ -22,6 +22,11 @@ module Type = struct
 
   let tacaml x = Tacaml x
 
+  let show x =
+    match x with
+    | Tacaml x -> Tacaml.Indicator.show x
+    | _ -> show x
+
   let is_int_ty (x : t) =
     match x with
     | Tacaml (I _) -> true

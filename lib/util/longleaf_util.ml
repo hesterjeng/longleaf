@@ -5,64 +5,11 @@
 (*   let _ = p [| x |] in *)
 (*   () *)
 
-module Environment = Environment
+(* module Environment = Environment *)
 module Lots_of_words = Lots_of_words
 module Astar = Astar
 module Work_pool = Work_pool
-include Ppx_yojson_conv_lib.Yojson_conv
-module Headers = Piaf.Headers
-module Response = Piaf.Response
-module Body = Piaf.Body
-module Client = Piaf.Client
-
-let get_piaf ~client ~headers ~endpoint : (Yojson.Safe.t, Error.t) result =
-  (* let open Piaf in *)
-  let ( let* ) = Result.( let* ) in
-  let headers = Headers.to_list headers in
-  let* resp = Client.get client ~headers endpoint in
-  let _status = Response.status resp in
-  let body = Response.body resp in
-  let* json = Body.to_string body in
-  try
-    let res = Result.return (Yojson.Safe.from_string json) in
-    (* let resp_headers = Response.headers resp in *)
-    (* Eio.traceln "response headers: %a" Headers.pp_hum resp_headers; *)
-    res
-  with
-  | Yojson.Json_error s as e ->
-    let resp_headers = Response.headers resp in
-    Eio.traceln "@[%s@]@." json;
-    Eio.traceln
-      "@[Error converting body of response to json in get_piaf.@]@.@[reason: \
-       %s@]@.@[headers: %a@]@.@[endpoint: %s@]@."
-      s Headers.pp_hum resp_headers endpoint;
-    let s = Printexc.to_string e in
-    Result.fail @@ `JsonError s
-
-let delete_piaf ~client ~headers ~endpoint =
-  let open Piaf in
-  let headers = Headers.to_list headers in
-  let resp =
-    match Client.delete client ~headers endpoint with
-    | Ok x -> x
-    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
-  in
-  let _status = Response.status resp in
-  let body = Response.body resp in
-  let json =
-    match Body.to_string body with
-    | Ok x -> x
-    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
-  in
-  Yojson.Safe.from_string json
-
-let post_piaf ~client ~body ~headers ~endpoint =
-  let open Piaf in
-  let headers = Headers.to_list headers in
-  let body = Yojson.Safe.to_string body |> Body.of_string in
-  match Client.post client ~headers ~body endpoint with
-  | Ok x -> x
-  | Error e -> invalid_arg @@ Format.asprintf "post_piaf: %a" Error.pp_hum e
+module Pmutex = Pmutex
 
 let get_next_page_token (x : Yojson.Safe.t) =
   Option.(
@@ -112,8 +59,6 @@ let random_choose_opt l =
   | [] -> None
   | l -> Some (List.random_choose l random_state)
 
-let coin_flip () = Random.State.bool random_state
-
 let handle_output output =
   (* Redirect stdout and stderr to the selected file *)
   match output with
@@ -128,16 +73,7 @@ let handle_output output =
     Unix.dup2 fd Unix.stderr;
     Unix.close fd
 
-let last_n (n : int) (vec : ('a, _) Vector.t) : 'a Iter.t =
-  let length = Vector.length vec in
-  Vector.slice_iter vec (Int.max (length - n) 0) (Int.min n length)
-
 let random_state = Random.State.make_self_init ()
-
-module type CLIENT = sig
-  val longleaf_env : Environment.t
-  val client : Piaf.Client.t
-end
 
 let qty ~current_cash ~pct ~price =
   match current_cash >=. 0.0 with

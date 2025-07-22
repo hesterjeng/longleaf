@@ -1,5 +1,8 @@
-open Longleaf_lib
+open Longleaf_core
 module Collections = Longleaf_strategies.Collections
+module Bars = Longleaf_bars
+module Market_data_api = Longleaf_apis.Market_data_api
+module Tiingo_api = Longleaf_apis.Tiingo_api
 
 module Downloader_ty = struct
   type t = Alpaca | Tiingo [@@deriving show]
@@ -57,7 +60,7 @@ end
 module Downloader = struct
   let data_client switch eio_env =
     let res =
-      Piaf.Client.create ~sw:switch eio_env Longleaf_lib.Util.apca_api_data_url
+      Piaf.Client.create ~sw:switch eio_env Longleaf_util.apca_api_data_url
     in
     match res with
     | Ok x -> x
@@ -68,9 +71,9 @@ module Downloader = struct
     Eio.Switch.run @@ fun switch ->
     let ( let* ) = Result.( let* ) in
     (* Util.yojson_safe true @@ fun () -> *)
-    let longleaf_env = Util.Environment.make () in
+    let longleaf_env = Longleaf_core.Environment.make () in
     let data_client = data_client switch eio_env in
-    let module Conn : Util.CLIENT = struct
+    let module Conn : Longleaf_apis.Client.CLIENT = struct
       let client = data_client
       let longleaf_env = longleaf_env
     end in

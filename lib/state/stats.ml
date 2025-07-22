@@ -1,5 +1,7 @@
 type t = { num_orders : int }
 
+module Bars = Longleaf_bars
+
 let num_orders arr =
   let lengths = Vector.map List.length arr in
   Vector.fold ( + ) 0 lengths

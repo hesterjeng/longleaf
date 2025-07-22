@@ -1,5 +1,6 @@
 (** Plotly.js JSON generation for trading data visualization *)
 
+module Bars = Longleaf_bars
 module Data = Bars.Data
 
 (** {1 Layout Configuration} *)
@@ -153,103 +154,26 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
 
 (** {1 Main API} *)
 
+module TI = Tacaml.Indicator
+
 let of_bars ?(start = 100) ?end_ (bars : Bars.t) symbol : Yojson.Safe.t option =
   let ( let* ) = Result.( let* ) in
   let result =
     let* data = Bars.get bars symbol in
     let price_trace = direct_price_trace ~start ?end_ data symbol in
-    let* sma_20 =
-      indicator_trace ~drop:100 bars
-        (Data.Type.tacaml @@ Tacaml.Indicator.sma ())
-        symbol
+    let trace indicator =
+      indicator_trace ~drop:100 bars (Data.Type.tacaml indicator) symbol
     in
-
-    (* Create the 10 most common technical indicators *)
-
-    (* Price overlay indicators (main y-axis) *)
-    (* let* sma_20 = *)
-    (*   indicator_trace ~show:true ~drop:20 ~color:"#ff7f0e" ~width:2 ~start ?end_ *)
-    (*     bars (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Sma)) *)
-    (*     symbol *)
-    (* in *)
-    (* let* ema_20 = *)
-    (*   indicator_trace ~show:true ~drop:20 ~color:"#2ca02c" ~width:2 ~start ?end_ *)
-    (*     bars (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Ema)) *)
-    (*     symbol *)
-    (* in *)
-    (* let* bb_upper = *)
-    (*   indicator_trace ~show:false ~drop:20 ~color:"#d62728" ~dash:"dot" ~start *)
-    (*     ?end_ bars *)
-    (*     (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.UpperBBand)) *)
-    (*     symbol *)
-    (* in *)
-    (* let* bb_lower = *)
-    (*   indicator_trace ~show:false ~drop:20 ~color:"#d62728" ~dash:"dot" ~start *)
-    (*     ?end_ bars *)
-    (*     (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.LowerBBand)) *)
-    (*     symbol *)
-    (* in *)
-
-    (* (\* Oscillators (secondary y-axis) *\) *)
-    (* let* rsi_14 = *)
-    (*   indicator_trace ~show:false ~drop:14 ~yaxis:"y2" ~color:"#9467bd" ~width:2 *)
-    (*     ~start ?end_ bars *)
-    (*     (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Rsi)) *)
-    (*     symbol *)
-    (* in *)
-    (* let* stoch_k = *)
-    (*   indicator_trace ~show:false ~drop:14 ~yaxis:"y2" ~color:"#8c564b" *)
-    (*     ~dash:"dash" ~start ?end_ bars *)
-    (*     (Data.Type.Tacaml *)
-    (*        (Tacaml.Indicator.F Tacaml.Indicator.Float.Stoch_SlowK)) symbol *)
-    (* in *)
-    (* let* cci_14 = *)
-    (*   indicator_trace ~show:false ~drop:14 ~yaxis:"y2" ~color:"#e377c2" *)
-    (*     ~dash:"dashdot" ~start ?end_ bars *)
-    (*     (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Cci)) *)
-    (*     symbol *)
-    (* in *)
-
-    (* (\* MACD indicators (main y-axis but separate) *\) *)
-    (* let* macd = *)
-    (*   indicator_trace ~show:false ~drop:26 ~color:"#17becf" ~width:2 ~start *)
-    (*     ?end_ bars *)
-    (*     (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Macd_MACD)) *)
-    (*     symbol *)
-    (* in *)
-    (* let* macd_signal = *)
-    (*   indicator_trace ~show:false ~drop:35 ~color:"#bcbd22" ~dash:"dash" ~start *)
-    (*     ?end_ bars *)
-    (*     (Data.Type.Tacaml *)
-    (*        (Tacaml.Indicator.F Tacaml.Indicator.Float.Macd_MACDSignal)) symbol *)
-    (* in *)
-
-    (* (\* Volatility indicator *\) *)
-    (* let* atr_14 = *)
-    (*   indicator_trace ~show:false ~drop:14 ~color:"#ff9896" ~width:2 ~start *)
-    (*     ?end_ bars *)
-    (*     (Data.Type.Tacaml (Tacaml.Indicator.F Tacaml.Indicator.Float.Atr)) *)
-    (*     symbol *)
-    (* in *)
+    let* sma_20 = trace @@ TI.sma () in
+    let* ad = trace @@ TI.ad () in
+    let* macd = trace @@ TI.macd_macd () in
+    let* stochd = trace @@ TI.stoch_f_fast_d () in
+    let* stochk = trace @@ TI.stoch_f_fast_k () in
     let ( = ) = fun x y -> (x, y) in
     Result.return
     @@ `Assoc
          [
-           "traces"
-           = `List
-               [
-                 price_trace;
-                 sma_20;
-                 (* ema_20; *)
-                 (* rsi_14; *)
-                 (* macd; *)
-                 (* macd_signal; *)
-                 (* bb_upper; *)
-                 (* bb_lower; *)
-                 (* stoch_k; *)
-                 (* atr_14; *)
-                 (* cci_14; *)
-               ];
+           "traces" = `List [ price_trace; sma_20; ad; macd; stochd; stochk ];
            "layout" = layout @@ Instrument.symbol symbol;
          ]
   in

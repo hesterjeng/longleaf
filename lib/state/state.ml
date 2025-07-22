@@ -1,6 +1,8 @@
 module Mode = Mode
 module Config = Config
 module Stats = Stats
+module Bars = Longleaf_bars
+module Pmutex = Longleaf_util.Pmutex
 
 type 'a t = {
   current_state : Mode.t;
