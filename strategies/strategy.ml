@@ -30,7 +30,6 @@ let mk_options switch eio_env flags target : Options.t =
     switch;
     flags;
     tick = 600.0;
-    custom_indicators = [];
     target;
   }
 

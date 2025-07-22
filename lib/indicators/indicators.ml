@@ -42,9 +42,10 @@ let initialize () =
 
 let compute_all ?i ?eio_env (config : Config.t) (bars : Bars.t) =
   let start_total = Unix.gettimeofday () in
-  Eio.traceln "Starting indicator computation...";
 
   let indicators = List.map tacaml config.custom_indicators in
+  Eio.traceln "Starting indicator computation for %d indicators..."
+    (List.length indicators);
   (* Check if we should use parallel computation *)
   let result =
     match (eio_env, config.compute_live) with
