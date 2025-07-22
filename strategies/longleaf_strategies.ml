@@ -179,7 +179,7 @@ module Run = struct
       | Download -> invalid_arg "Download bars NYI"
       (* | Loaded bars -> (target, bars) *)
     in
-    let options = Strategy.mk_options sw eio_env flags target in
+    let options = Strategy.mk_options sw eio_env flags target [] in
     Gadt.run (Some bars) options mutices Gadt_examples.rsi_classic
   (* run (Some bars) options mutices *)
 

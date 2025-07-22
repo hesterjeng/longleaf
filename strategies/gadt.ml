@@ -448,15 +448,15 @@ let collect_strategy_custom_indicators (strategy : strategy) :
   let all_indicators = buy_indicators @ sell_indicators in
   List.sort_uniq ~cmp:Stdlib.compare all_indicators
 
+let indicators strategy =
+  collect_strategy_data_types strategy
+  |> List.filter_map (function
+       | Data.Type.Tacaml x -> Some x
+       | _ -> None)
+  |> List.map Tacaml.Conv.indicator_to_safe
+  |> List.uniq ~eq:Equal.poly
+
 let run bars (options : Options.t) mutices strategy =
-  (* let custom_indicators = *)
-  (*   collect_strategy_data_types strategy *)
-  (*   |> List.filter_map (function *)
-  (*        | Data.Type.Tacaml x -> Some x *)
-  (*        | _ -> None) *)
-  (*   |> List.map Tacaml.Conv.indicator_to_safe *)
-  (*   |> List.uniq ~eq:Equal.poly *)
-  (* in *)
   let options =
     {
       options with
