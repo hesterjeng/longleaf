@@ -311,7 +311,6 @@ let aggressive_candlestick =
     (* Smaller size per position *)
   }
 
-
 let moving_average_crossover =
   {
     name = "SMA/EMA Crossover";
@@ -322,7 +321,8 @@ let moving_average_crossover =
     sell_trigger =
       cross_down sma ema (* Fast SMA crosses below slow EMA *)
       ||. (rsi >. Float 80.0) (* Overbought *)
-      ||. (close <. lag close 10 *. Float 0.95); (* 5% stop loss from 10 periods ago *)
+      ||. (close <. lag close 10 *. Float 0.95);
+    (* 5% stop loss from 10 periods ago *)
     max_positions = 3;
     position_size = 0.33;
   }

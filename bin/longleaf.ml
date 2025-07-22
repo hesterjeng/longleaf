@@ -3,11 +3,14 @@ module Cmd = Cmdliner.Cmd
 
 let top () =
   let doc =
-    "This is the OCaml algorithmic trading platform longleaf.  It relies on \
-     having a backend instantiated, with an appropriate.  The user must select \
-     a backend and a strategy to run.  For an example of how to create a new \
-     strategy, look at template_example.ml.  In longleaf_strategies.ml, you \
-     can instantiate the functors to create your strategy."
+    Format.asprintf
+      "@[This is the OCaml algorithmic trading platform longleaf.  It relies \
+       on having a backend instantiated, with an appropriate.  The user must \
+       select a backend and a strategy to run.  For an example of how to \
+       create a new strategy, look at template_example.ml.  In \
+       longleaf_strategies.ml, you can instantiate the functors to create your \
+       strategy.  Valid strategies are:@]@.@.@[%a]@."
+      (List.pp String.pp) Longleaf_strategies.all_strategy_names
   in
   let info = Cmd.info ~doc "longleaf" in
   let res = Cmd.v info Options.CLI.Full.term in

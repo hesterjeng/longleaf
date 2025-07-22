@@ -13,16 +13,17 @@ module Astar = Longleaf_util.Astar
 module Error = Longleaf_core.Error
 module Pmutex = Longleaf_util.Pmutex
 
-(** GADT Strategy Registry
-    All strategies are now defined as Gadt.strategy records.
-    To add a new strategy, simply add it to this list. *)
-let gadt_strategies : (string * Gadt.strategy) list = 
-  let strategies_from_gadt = [
-    ("rsi_mean_reversion", Gadt.rsi_mean_reversion);
-    ("macd_bollinger_momentum", Gadt.macd_bollinger_momentum);  
-    ("candlestick_patterns", Gadt.candlestick_patterns_strategy);
-  ] in
-  let strategies_from_examples = 
+(** GADT Strategy Registry All strategies are now defined as Gadt.strategy
+    records. To add a new strategy, simply add it to this list. *)
+let gadt_strategies : (string * Gadt.strategy) list =
+  let strategies_from_gadt =
+    [
+      ("rsi_mean_reversion", Gadt.rsi_mean_reversion);
+      ("macd_bollinger_momentum", Gadt.macd_bollinger_momentum);
+      ("candlestick_patterns", Gadt.candlestick_patterns_strategy);
+    ]
+  in
+  let strategies_from_examples =
     List.map (fun s -> (s.Gadt.name, s)) Gadt_examples.all_strategies
   in
   strategies_from_gadt @ strategies_from_examples
@@ -33,7 +34,7 @@ let all_strategy_names = List.map fst gadt_strategies
 (** Find a GADT strategy by name *)
 let rec find_gadt_strategy name = function
   | [] -> None
-  | (n, strategy) :: _ when String.equal n name -> Some strategy  
+  | (n, strategy) :: _ when String.equal n name -> Some strategy
   | _ :: rest -> find_gadt_strategy name rest
 
 let find_gadt_strategy name = find_gadt_strategy name gadt_strategies
@@ -42,18 +43,17 @@ let find_gadt_strategy name = find_gadt_strategy name gadt_strategies
 let of_string_res strategy_name =
   match find_gadt_strategy strategy_name with
   | Some _ -> Result.return strategy_name
-  | None -> 
+  | None ->
     Result.fail
     @@ `Msg
          (Format.asprintf
-            "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@." 
-            strategy_name
-            (List.pp String.pp) all_strategy_names)
+            "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@."
+            strategy_name (List.pp String.pp) all_strategy_names)
 
 (** Run a GADT strategy by name *)
 let run_gadt_strategy strategy_name bars (context : Options.t) mutices =
   let ( let* ) = Result.( let* ) in
-  let* strategy = 
+  let* strategy =
     match find_gadt_strategy strategy_name with
     | Some s -> Result.return s
     | None -> Error.fatal ("Unknown GADT strategy: " ^ strategy_name)
@@ -113,22 +113,21 @@ module Run = struct
 
   let run_strategy eio_env flags target mutices () =
     (* Load target bars with eio_env if needed *)
+    let ( let* ) = Result.( let* ) in
     Eio.Switch.run @@ fun sw ->
-    let bars =
+    let* bars =
       match target with
       | Longleaf_core.Target.File s ->
         let bars = Bars.of_file ~eio_env s in
-        bars
-      | Download -> invalid_arg "Download bars NYI"
+        Result.return bars
+      | Download -> Error.fatal "Download bars NYI"
     in
     let options = Strategy.mk_options sw eio_env flags target [] in
     (* Use the strategy specified in flags instead of hardcoding *)
     let strategy_name = flags.strategy_arg in
     match find_gadt_strategy strategy_name with
     | Some strategy -> Gadt.run (Some bars) options mutices strategy
-    | None -> 
-      Eio.traceln "Unknown strategy: %s, using default moving_average_crossover" strategy_name;
-      Gadt.run (Some bars) options mutices Gadt_examples.moving_average_crossover
+    | None -> Error.fatal "Unknown strategy selected"
 
   let server env flags target mutices =
     let domain_mgr = Eio.Stdenv.domain_mgr env in
