@@ -311,6 +311,22 @@ let aggressive_candlestick =
     (* Smaller size per position *)
   }
 
+
+let moving_average_crossover =
+  {
+    name = "SMA/EMA Crossover";
+    buy_trigger =
+      cross_up sma ema (* Fast SMA crosses above slow EMA *)
+      &&. (rsi >. Float 30.0) (* Not oversold *)
+      &&. (volume >. volume_sma *. Float 1.1);
+    sell_trigger =
+      cross_down sma ema (* Fast SMA crosses below slow EMA *)
+      ||. (rsi >. Float 80.0) (* Overbought *)
+      ||. (close <. lag close 10 *. Float 0.95); (* 5% stop loss from 10 periods ago *)
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
 (* List of all example strategies *)
 let all_strategies =
   [
@@ -336,6 +352,7 @@ let all_strategies =
     doji_only;
     conservative_candlestick;
     aggressive_candlestick;
+    moving_average_crossover;
   ]
 
 (* Helper function to run any strategy by name *)

@@ -13,95 +13,58 @@ module Astar = Longleaf_util.Astar
 module Error = Longleaf_core.Error
 module Pmutex = Longleaf_util.Pmutex
 
-(** Type of strategies that have been defined. To add a new strategy, you must
-    first add a corresponding variant to this type. Afterwards, you must add a
-    handler for your strategy in the strats value below. *)
-type t =
-  (* | BuyAndHold *)
-  (* | Listener *)
-  (* | DoubleTop *)
-  (* | LowBoll *)
-  (* | LowBoll2 *)
-  (* | Challenge1 *)
-  (* | Scalper *)
-  (* | TemplateExample *)
-  (* | TemplateExample2 *)
-  (* | Crossover *)
-  (* | SpyTrader *)
-  (* | SlowCrossover *)
-  (* | ConfirmedCrossover *)
-  (* | ThrowingCrossover *)
-  (* | LiberatedCrossover *)
-  (* | Monaspa *)
-  (* | Channel *)
-  (* | Astar *)
-  (* | Astarexample *)
-  (* | RsiMeanReversion *)
-  (* | MacdBollingerMomentum *)
-  (* | VolumeBreakout *)
-  (* | AdaptiveMomentumRegime *)
-  (* | SimpleAdaptiveRegime *)
-  (* | CandlestickPatterns *)
-  | ModeE
-[@@deriving show, eq, yojson, variants]
+(** GADT Strategy Registry
+    All strategies are now defined as Gadt.strategy records.
+    To add a new strategy, simply add it to this list. *)
+let gadt_strategies : (string * Gadt.strategy) list = 
+  let strategies_from_gadt = [
+    ("rsi_mean_reversion", Gadt.rsi_mean_reversion);
+    ("macd_bollinger_momentum", Gadt.macd_bollinger_momentum);  
+    ("candlestick_patterns", Gadt.candlestick_patterns_strategy);
+  ] in
+  let strategies_from_examples = 
+    List.map (fun s -> (s.Gadt.name, s)) Gadt_examples.all_strategies
+  in
+  strategies_from_gadt @ strategies_from_examples
 
-let all = List.map fst Variants.descriptions
+(** Get all available strategy names *)
+let all_strategy_names = List.map fst gadt_strategies
 
-(** Add a handler for your strategy here, imitating the styles of the others.
-    There must be a handler or your strategy will not work. *)
-let strats :
-    (t
-    * (Bars.t option -> Options.t -> Longleaf_state.Mutex.t -> (_, _) result))
-    list =
-  let ( --> ) x y = (x, Strategy.run y) in
-  [ (* BuyAndHold --> (module Buy_and_hold.Make); *)
-    (* Listener --> (module Listener.Make); *)
-    (* Monaspa --> (module Monaspa.Make); *)
-    (* DoubleTop --> (module Double_top.DoubleTop); *)
-    (* LowBoll --> (module Buy_low_bollinger.BuyLowBollinger); *)
-    (* LowBoll2 --> (module Lowboll2.Make); *)
-    (* Challenge1 --> (module Challenge1.Make); *)
-    (* Scalper --> (module Scalper.Make); *)
-    (* TemplateExample --> (module Template_example.Make); *)
-    (* TemplateExample2 --> (module Template_example2.Make); *)
-    (* Crossover --> (module Crossover.Make); *)
-    (* SlowCrossover --> (module Slow_crossover.Make); *)
-    (* ConfirmedCrossover --> (module Confirmed_crossover.Make); *)
-    (* ThrowingCrossover --> (module Throwing_crossover.Make); *)
-    (* LiberatedCrossover --> (module Liberated_crossover.Make); *)
-    (* Channel --> (module Channel.Make); *)
-    (* SpyTrader --> (module Spytrader.Make); *)
-    (* Astarexample --> (module Astar_example.Make) (\* (val Astar_example.m) *\); *)
-    (* RsiMeanReversion --> (module Rsi_mean_reversion.Make); *)
-    (* MacdBollingerMomentum --> (module Macd_bollinger_momentum.Make); *)
-    (* VolumeBreakout --> (module Volume_breakout.Make); *)
-    (* AdaptiveMomentumRegime --> (module Adaptive_momentum_regime.Make); *)
-    (* SimpleAdaptiveRegime --> (module Simple_adaptive_regime.Make); *)
-    (* CandlestickPatterns --> (module Candlestick_patterns.Make); *) ]
+(** Find a GADT strategy by name *)
+let rec find_gadt_strategy name = function
+  | [] -> None
+  | (n, strategy) :: _ when String.equal n name -> Some strategy  
+  | _ :: rest -> find_gadt_strategy name rest
+
+let find_gadt_strategy name = find_gadt_strategy name gadt_strategies
 
 (** Function for Cmdliner use. *)
-let of_string_res x =
-  let j = `List [ `String x ] in
-  try Result.return @@ t_of_yojson j with
-  | _ ->
+let of_string_res strategy_name =
+  match find_gadt_strategy strategy_name with
+  | Some _ -> Result.return strategy_name
+  | None -> 
     Result.fail
     @@ `Msg
          (Format.asprintf
-            "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@." x
-            (List.pp String.pp) all)
+            "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@." 
+            strategy_name
+            (List.pp String.pp) all_strategy_names)
+
+(** Run a GADT strategy by name *)
+let run_gadt_strategy strategy_name bars (context : Options.t) mutices =
+  let ( let* ) = Result.( let* ) in
+  let* strategy = 
+    match find_gadt_strategy strategy_name with
+    | Some s -> Result.return s
+    | None -> Error.fatal ("Unknown GADT strategy: " ^ strategy_name)
+  in
+  Gadt.run bars context mutices strategy
 
 (** Based on the context, select and run the strategy. *)
 let run_strat_ bars (context : Options.t) mutices =
   let ( let* ) = Result.( let* ) in
-  let* strategy = of_string_res context.flags.strategy_arg in
-  let f = List.Assoc.get ~eq:equal strategy strats in
-  let* strat =
-    match f with
-    | None -> Error.fatal "Unable to find strategy implementation"
-    | Some f -> Result.return f
-  in
-  let* res = strat bars context mutices in
-  Result.return res
+  let* strategy_name = of_string_res context.flags.strategy_arg in
+  run_gadt_strategy strategy_name bars context mutices
 
 let run_strat bars (context : Options.t) mutices =
   match context.flags.strategy_arg with
@@ -110,11 +73,11 @@ let run_strat bars (context : Options.t) mutices =
     match run_strat_ bars context mutices with
     | Ok x -> x
     | Error e ->
-      Eio.traceln "longleaf_strateies.ml: %a" Error.pp e;
+      Eio.traceln "longleaf_strategies.ml: %a" Error.pp e;
       Error.raise e)
 
 (** Function for Cmdliner use. *)
-let conv = Cmdliner.Arg.conv (of_string_res, pp)
+let conv = Cmdliner.Arg.conv (of_string_res, String.pp)
 
 type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
@@ -122,7 +85,6 @@ type multitest = { mean : float; min : float; max : float; std : float }
 
 (** Top level function for running strategies based on a context.*)
 let run bars (context : Options.t) mutices =
-  (* let strategy = of_string_res context.flags.strategy_arg in *)
   match context.flags.runtype with
   | Live
   | Paper
@@ -139,25 +101,6 @@ let run bars (context : Options.t) mutices =
     let init = Array.make 30 () in
     let res = Array.map (fun _ -> run_strat bars context mutices) init in
     Array.sort Float.compare res;
-    (* let mean = Owl_stats.mean res in *)
-    (* let std = Owl_stats.std res in *)
-    (* let min, max = Owl_stats.minmax res in *)
-    (* let result = { mean; min; max; std } in *)
-    (* Eio.traceln "@[%a@]@.@[%a@]@." pp_multitest result (Array.pp Float.pp) res; *)
-    (* let histogram = Owl_stats.histogram (`N 10) res in *)
-    (* let percent_profitable = *)
-    (*   Array.filter (fun x -> x >=. 100000.0) res |> Array.length |> Float.of_int *)
-    (*   |> fun f -> f /. (Float.of_int @@ Array.length res) *)
-    (* in *)
-    (* let percent_great = *)
-    (*   Array.filter (fun x -> x >=. 110000.0) res |> Array.length |> Float.of_int *)
-    (*   |> fun f -> f /. (Float.of_int @@ Array.length res) *)
-    (* in *)
-    (* Eio.traceln "@[percent profitable: %f@]@." percent_profitable; *)
-    (* Eio.traceln "@[percent great: %f@]@." percent_great; *)
-    (* let normalised_histogram = Owl_stats.normalise histogram in *)
-    (* Eio.traceln "@[%a@]@." Owl_stats.pp_hist histogram; *)
-    (* Eio.traceln "@[%a@]@." Owl_stats.pp_hist normalised_histogram; *)
     0.0
 
 module Run = struct
@@ -177,11 +120,15 @@ module Run = struct
         let bars = Bars.of_file ~eio_env s in
         bars
       | Download -> invalid_arg "Download bars NYI"
-      (* | Loaded bars -> (target, bars) *)
     in
     let options = Strategy.mk_options sw eio_env flags target [] in
-    Gadt.run (Some bars) options mutices Gadt_examples.rsi_classic
-  (* run (Some bars) options mutices *)
+    (* Use the strategy specified in flags instead of hardcoding *)
+    let strategy_name = flags.strategy_arg in
+    match find_gadt_strategy strategy_name with
+    | Some strategy -> Gadt.run (Some bars) options mutices strategy
+    | None -> 
+      Eio.traceln "Unknown strategy: %s, using default moving_average_crossover" strategy_name;
+      Gadt.run (Some bars) options mutices Gadt_examples.moving_average_crossover
 
   let server env flags target mutices =
     let domain_mgr = Eio.Stdenv.domain_mgr env in

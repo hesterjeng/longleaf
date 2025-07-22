@@ -357,21 +357,6 @@ let candlestick_patterns_strategy =
     position_size = 0.16;
   }
 
-let moving_average_crossover =
-  {
-    name = "SMA/EMA Crossover";
-    buy_trigger =
-      cross_up sma ema (* Fast SMA crosses above slow EMA *)
-      &&. (rsi >. Float 30.0) (* Not oversold *)
-      &&. (volume >. volume_sma *. Float 1.1);
-    sell_trigger =
-      cross_down sma ema (* Fast SMA crosses below slow EMA *)
-      ||. (rsi >. Float 80.0) (* Overbought *)
-      ||. (close <. lag close 10 *. Float 0.95); (* 5% stop loss from 10 periods ago *)
-    max_positions = 3;
-    position_size = 0.33;
-  }
-
 (* Helper function to evaluate strategy triggers *)
 let eval_strategy_signal (strategy_expr : bool expr) (state : _ State.t) symbol
     =
