@@ -15,7 +15,11 @@ module Response = Piaf.Response
 module Body = Piaf.Body
 module Client = Piaf.Client
 
-let get_piaf ~client ~headers ~endpoint : (Yojson.Safe.t, Error.t) result =
+type error = Piaf.Error.t
+
+let pp_error = Piaf.Error.pp_hum
+
+let get_piaf ~client ~headers ~endpoint : (Yojson.Safe.t, error) result =
   (* let open Piaf in *)
   let ( let* ) = Result.( let* ) in
   let headers = Headers.to_list headers in
@@ -37,7 +41,7 @@ let get_piaf ~client ~headers ~endpoint : (Yojson.Safe.t, Error.t) result =
        %s@]@.@[headers: %a@]@.@[endpoint: %s@]@."
       s Headers.pp_hum resp_headers endpoint;
     let s = Printexc.to_string e in
-    Result.fail @@ `JsonError s
+    Result.fail @@ `Msg s
 
 let delete_piaf ~client ~headers ~endpoint =
   let open Piaf in
@@ -45,14 +49,14 @@ let delete_piaf ~client ~headers ~endpoint =
   let resp =
     match Client.delete client ~headers endpoint with
     | Ok x -> x
-    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+    | Error e -> invalid_arg @@ Format.asprintf "%a" pp_error e
   in
   let _status = Response.status resp in
   let body = Response.body resp in
   let json =
     match Body.to_string body with
     | Ok x -> x
-    | Error e -> invalid_arg @@ Format.asprintf "%a" Error.pp_hum e
+    | Error e -> invalid_arg @@ Format.asprintf "%a" pp_error e
   in
   Yojson.Safe.from_string json
 
@@ -62,7 +66,7 @@ let post_piaf ~client ~body ~headers ~endpoint =
   let body = Yojson.Safe.to_string body |> Body.of_string in
   match Client.post client ~headers ~body endpoint with
   | Ok x -> x
-  | Error e -> invalid_arg @@ Format.asprintf "post_piaf: %a" Error.pp_hum e
+  | Error e -> invalid_arg @@ Format.asprintf "post_piaf: %a" pp_error e
 
 let get_next_page_token (x : Yojson.Safe.t) =
   Option.(

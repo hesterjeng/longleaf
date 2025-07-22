@@ -2,7 +2,7 @@
 type t =
   | Download
   | File of string (* Store file path for deferred loading *)
-  | Loaded of Bars.t (* For already loaded bars *)
+  | Loaded of string (* Placeholder - will be updated when bars are available *)
 [@@deriving show, variants]
 
 let of_string_res x =
@@ -35,19 +35,14 @@ let conv = Cmdliner.Arg.conv (of_string_res, pp)
 (*   | Download -> invalid_arg "Cannot load download in Options.Preload.load" *)
 (*   | Loaded b -> Loaded b *)
 
-(* Load bars with eio_env for parallel processing *)
+(* Functions to be implemented when bars library is available *)
 let load_bars ~eio_env = function
   | Download -> invalid_arg "Target.load_bars: Download not yet implemented"
   | File file_path ->
-    Eio.traceln "Loading bars from %s (with parallel deserialization)" file_path;
-    let bars = Bars.of_file ~eio_env file_path in
-    Eio.traceln "Done loading bars";
-    bars
-  | Loaded bars -> bars
+    invalid_arg "Target.load_bars: Bars loading not yet implemented - needs bars library"
+  | Loaded _ -> invalid_arg "Target.load_bars: Loaded case needs bars type"
 
-(* Legacy function for backwards compatibility *)
 let bars = function
-  | Loaded b -> b
-  | File _ ->
-    invalid_arg "Target.bars: bars not loaded - use load_bars with eio_env"
+  | Loaded _ -> invalid_arg "Target.bars: needs bars type"
+  | File _ -> invalid_arg "Target.bars: bars not loaded"
   | Download -> invalid_arg "Target.bars: Download not supported"

@@ -1,29 +1,18 @@
 (library
- (name longleaf)
+ (name longleaf_server)
  (modules :standard)
- (public_name longleaf-lib)
+ (public_name longleaf-lib.server)
  (instrumentation
   (backend landmarks))
  (libraries
   longleaf_core
   longleaf_util
-  longleaf_bars
-  longleaf_indicators
-  longleaf_apis
   longleaf_state
-  longleaf_backend
-  longleaf_server
   fmt
   containers
   containers-data
   ptime
   eio_main
-  iter
-  uuidm
-  cmdliner
-  landmarks
-  nx
-  tacaml
   piaf
   yojson)
  (preprocess

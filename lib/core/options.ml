@@ -194,7 +194,7 @@ end
 type t = {
   symbols : string list;
   tick : float;
-  indicators_config : Indicators.Config.t;
+  indicators_config : Indicators_config.t;
   custom_indicators : Tacaml.t list;
   eio_env : Eio_unix.Stdenv.base; [@opaque]
   longleaf_env : Util.Environment.t; [@opaque]
