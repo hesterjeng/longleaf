@@ -457,11 +457,12 @@ let indicators strategy =
   |> List.uniq ~eq:Equal.poly
 
 let run bars (options : Options.t) mutices strategy =
+  let tacaml_indicators = indicators strategy in
   let options =
     {
       options with
       flags = { options.flags with strategy_arg = strategy.name };
-      (* custom_indicators; *)
+      tacaml_indicators;
     }
   in
   (* Collect custom indicators from the strategy *)

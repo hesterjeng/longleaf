@@ -24,9 +24,7 @@ let empty (indicators : Tacaml.t list) : unit t =
     config =
       {
         placeholder = false;
-        indicator_config =
-          Longleaf_core.Indicators_config.with_custom_indicators indicators
-            Indicators_config.default;
+        indicator_config = Indicators_config.make indicators;
       };
     cash = 0.0;
     history = Vector.create ();
@@ -44,12 +42,10 @@ type 'a res = ('a, Error.t) result
 let current t = t.current_state
 let config x = x.config
 
-let make tick bars content =
+let make tick bars content indicator_config =
   let ( let* ) = Result.( let* ) in
   let* length = Bars.length bars in
-  let config =
-    Config.{ placeholder = true; indicator_config = Indicators_config.default }
-  in
+  let config = Config.{ placeholder = true; indicator_config } in
   Result.return
     {
       current_state = Initialize;

@@ -168,7 +168,7 @@ let of_state ?(start = 100) ?end_ (state : 'a Longleaf_state.t) symbol :
       indicator_trace ~drop:100 bars (Data.Type.tacaml indicator) symbol
     in
     let* indicators =
-      (Longleaf_state.config state).indicator_config.custom_indicators
+      (Longleaf_state.config state).indicator_config.tacaml_indicators
       |> List.flat_map indicators |> Result.map_l trace
     in
     let ( = ) = fun x y -> (x, y) in
