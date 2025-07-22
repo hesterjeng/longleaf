@@ -30,7 +30,6 @@ let mk_options switch eio_env flags target : Options.t =
     switch;
     flags;
     tick = 600.0;
-    indicators_config = Longleaf_core.Indicators_config.default;
     custom_indicators = [];
     target;
   }

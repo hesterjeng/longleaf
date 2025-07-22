@@ -182,15 +182,6 @@ module Run = struct
       (* | Loaded bars -> (target, bars) *)
     in
     let options = Strategy.mk_options sw eio_env flags target in
-    let () =
-      Longleaf_indicators.Indicators.compute_all ~eio_env
-        options.indicators_config bars
-      |> function
-      | Ok x -> x
-      | Error e ->
-        Eio.traceln "%a" Error.pp e;
-        invalid_arg "Indicators computation error"
-    in
     run (Some bars) options mutices
 
   let server env flags target mutices =
@@ -211,7 +202,7 @@ module Run = struct
 
   let top (flags : Options.CLI.t) target =
     Eio_main.run @@ fun eio_env ->
-    let mutices = Longleaf_state.Mutex.create () in
+    let mutices = Longleaf_state.Mutex.create [] in
     let res = server eio_env flags target mutices in
     res
 end

@@ -4,7 +4,7 @@ module Error = Longleaf_core.Error
 let run_l bars options l =
   let ( let* ) = Result.( let* ) in
   Eio.traceln "Enumerate mode E1";
-  let mutices = Longleaf_state.Mutex.create () in
+  let mutices = Longleaf_state.Mutex.create [] in
   let* vals = Result.map_l (Gadt.run bars options mutices) l in
   Eio.traceln "%a" (List.pp Float.pp) vals;
   Result.return 0.0

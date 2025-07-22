@@ -16,12 +16,18 @@ type 'a t = {
 }
 [@@warning "-69"]
 
-let empty () : unit t =
+let empty (indicators : Tacaml.t list) : unit t =
   {
     current_state = Initialize;
     bars = Bars.empty ();
     current_tick = 0;
-    config = Config.default;
+    config =
+      {
+        placeholder = false;
+        indicator_config =
+          Longleaf_core.Indicators_config.with_custom_indicators indicators
+            Indicators_config.default;
+      };
     cash = 0.0;
     history = Vector.create ();
     positions = Positions.empty;
