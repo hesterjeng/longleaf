@@ -79,7 +79,7 @@ module CLI = struct
     (*     & info [] ~docv:"strategy" ~doc) *)
 
     let strategy_arg =
-      let doc = "The selected strategy" in
+      let doc = "The selected strategy." in
       Cmdliner.Arg.(
         required & pos 1 (some string) None & info [] ~docv:"strategy" ~doc)
 

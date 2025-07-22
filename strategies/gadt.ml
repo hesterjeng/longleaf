@@ -50,6 +50,15 @@ type _ expr =
   | CustomIndicator :
       Tacaml.Indicator.t
       -> float expr (* custom tacaml indicator *)
+  (* Lag expressions for historical data access *)
+  | Lag : 'a expr * int -> 'a expr (* Access data N periods ago *)
+  (* Crossover detection *)
+  | CrossUp :
+      float expr * float expr
+      -> bool expr (* line1 crosses above line2 *)
+  | CrossDown :
+      float expr * float expr
+      -> bool expr (* line1 crosses below line2 *)
 
 (* Strategy structure *)
 type strategy = {
@@ -170,6 +179,33 @@ let rec eval : type a. a expr -> Data.t -> int -> (a, Error.t) result =
     | CustomIndicator indicator ->
       Error.guard (Error.fatal "GADT.eval custom_indicator") @@ fun () ->
       Data.get data (Data.Type.Tacaml indicator) index
+    | Lag (expr, periods) ->
+      let lag_index = index - periods in
+      if lag_index < 0 then
+        Error.fatal
+          (Printf.sprintf
+             "GADT.eval: lag index %d out of bounds (periods: %d, current \
+              index: %d)"
+             lag_index periods index)
+      else eval expr data lag_index
+    | CrossUp (e1, e2) ->
+      if index = 0 then
+        Error.fatal "GADT.eval: CrossUp requires at least 1 historical period"
+      else
+        let* current_e1 = eval e1 data index in
+        let* current_e2 = eval e2 data index in
+        let* prev_e1 = eval e1 data (index - 1) in
+        let* prev_e2 = eval e2 data (index - 1) in
+        Result.return (prev_e1 <=. prev_e2 && current_e1 >. current_e2)
+    | CrossDown (e1, e2) ->
+      if index = 0 then
+        Error.fatal "GADT.eval: CrossDown requires at least 1 historical period"
+      else
+        let* current_e1 = eval e1 data index in
+        let* current_e2 = eval e2 data index in
+        let* prev_e1 = eval e1 data (index - 1) in
+        let* prev_e2 = eval e2 data (index - 1) in
+        Result.return (prev_e1 >=. prev_e2 && current_e1 <. current_e2)
 
 (* Smart constructors for OHLCV data - these are always floats *)
 let close = Data (Float_type Data.Type.Close)
@@ -271,6 +307,11 @@ let days_to_expiry option = Days_to_expiry option
 
 (* Custom indicator smart constructor *)
 let custom_indicator indicator = CustomIndicator indicator
+
+(* Lag and crossover smart constructors *)
+let lag expr periods = Lag (expr, periods)
+let cross_up e1 e2 = CrossUp (e1, e2)
+let cross_down e1 e2 = CrossDown (e1, e2)
 
 (* Convenience operators *)
 let ( >. ) e1 e2 = GT (e1, e2)
@@ -392,6 +433,11 @@ let rec collect_data_types : type a. a expr -> Data.Type.t list = function
   | Days_to_expiry _ ->
     [ Data.Type.Time ] (* Uses Time for expiry calculation *)
   | CustomIndicator indicator -> [ Data.Type.Tacaml indicator ]
+  | Lag (expr, _) ->
+    collect_data_types expr (* Lag inherits types from wrapped expr *)
+  | CrossUp (e1, e2)
+  | CrossDown (e1, e2) ->
+    collect_data_types e1 @ collect_data_types e2
 
 let collect_strategy_data_types (strategy : strategy) : Data.Type.t list =
   let buy_data_types = collect_data_types strategy.buy_trigger in
@@ -439,6 +485,12 @@ let rec collect_custom_indicators : type a. a expr -> Tacaml.Indicator.t list =
   | Moneyness (_, _) -> [] (* Options don't use custom indicators directly *)
   | Days_to_expiry _ -> [] (* Options don't use custom indicators directly *)
   | CustomIndicator indicator -> [ indicator ]
+  | Lag (expr, _) ->
+    collect_custom_indicators
+      expr (* Lag inherits indicators from wrapped expr *)
+  | CrossUp (e1, e2)
+  | CrossDown (e1, e2) ->
+    collect_custom_indicators e1 @ collect_custom_indicators e2
 
 let collect_strategy_custom_indicators (strategy : strategy) :
     Tacaml.Indicator.t list =
