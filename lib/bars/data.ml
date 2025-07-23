@@ -96,7 +96,7 @@ let set_ source row i value =
     Eio.traceln "data.ml.set_: Index out of bounds!";
     raise e
 
-exception NaNInData
+exception NaNInData of int * Type.t
 
 let get (data : t) (ty : Type.t) i =
   assert (i >= 0);
@@ -120,7 +120,7 @@ let get (data : t) (ty : Type.t) i =
     in
     Eio.traceln "data.ml: (%a) raising exn %a index %d NaN" Ptime.pp time
       Type.pp ty i;
-    raise NaNInData
+    raise (NaNInData (i, ty))
   | false -> res
 
 let set (data : t) (ty : Type.t) i f =
@@ -271,14 +271,21 @@ let item_of_column x i =
   }
 
 let to_items (x : t) =
-  let rec aux i acc =
-    match i >= x.size with
-    | true -> acc
-    | false ->
-      let item = item_of_column x i in
-      aux (i + 1) @@ (item :: acc)
-  in
-  aux 0 []
+  try
+    Result.return
+    @@
+    let rec aux i acc =
+      match i >= x.size with
+      | true -> acc
+      | false ->
+        let item = item_of_column x i in
+        aux (i + 1) @@ (item :: acc)
+    in
+    aux 0 []
+  with
+  | NaNInData (i, ty) ->
+    let msg = Format.asprintf "NaN in data %a %d" Type.pp ty i in
+    Error.missing_data msg
 
 let make size : t =
   {
@@ -426,6 +433,14 @@ let t_of_yojson ?symbol (json : Yojson.Safe.t) : (t, Error.t) result =
     Error.json "Expected a list of datapoints in Price_history.V2.t_of_yojson"
 
 let yojson_of_t (x : t) : Yojson.Safe.t =
-  to_items x |> List.map Item.yojson_of_t |> fun l -> `List l
+  let items =
+    to_items x |> function
+    | Ok x -> x
+    | Error e ->
+      Eio.traceln "Data.yojson_of_t: %a" Error.pp e;
+      invalid_arg "Data.yojson_of_t"
+  in
+  let l = List.map Item.yojson_of_t items in
+  `List l
 
 let set_current x current = { x with current }

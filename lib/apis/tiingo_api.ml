@@ -154,6 +154,7 @@ module Make (Tiingo : Client.CLIENT) = struct
       let ( let* ) = Result.( let* ) in
       match json with
       | `List json_list ->
+        Eio.traceln "Tiingo_api.json_to_data_direct %d" (List.length json_list);
         let size = 2 * List.length json_list in
         let data = Data.make size in
         let* () =
@@ -215,6 +216,7 @@ module Make (Tiingo : Client.CLIENT) = struct
       Eio.traceln "%s" endpoint;
       let* json = get ~headers ~endpoint in
       Eio.traceln "Tiingo_api.ml: Converting data directly from JSON";
+      (* Yojson.Safe.to_file "download.json" json; *)
       let* data = json_to_data_direct json in
       Result.return @@ (instrument, data)
 
@@ -237,9 +239,15 @@ module Make (Tiingo : Client.CLIENT) = struct
             Result.return @@ Bars.of_list res)
           split_requests
       in
-      Eio.traceln "About to combine";
-      let final = Bars.combine r in
+      Eio.traceln "About to combine %d" (List.length r);
+      (* ( *)
+      (*   match r with *)
+      (*   | [ x ] -> *)
+      (*     Eio.traceln "tiingo_api: saving to file" *)
+      (*   | _ -> () *)
+      (* ); *)
+      let* final = Bars.combine r in
       Eio.traceln "Tiingo_api.top done";
-      final
+      Result.return final
   end
 end

@@ -107,6 +107,7 @@ module Run = struct
         let module D = Longleaf_apis.Downloader in
         let request = D.previous_30_days (TF.Min 10) options.symbols in
         let* bars = D.download eio_env request (Some Tiingo) true in
+        Eio.traceln "Returning bars from download...";
         Result.return bars
     in
     (* Use the strategy specified in flags instead of hardcoding *)
@@ -128,7 +129,7 @@ module Run = struct
     match Eio.Promise.await strat_result with
     | Ok x -> x
     | Error e ->
-      Eio.traceln "longleaf_strategies: strategy did not return before server";
+      Eio.traceln "longleaf_strategies: strategy error";
       raise e
 
   let top (flags : Options.CLI.t) target =

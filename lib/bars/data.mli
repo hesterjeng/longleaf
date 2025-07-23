@@ -155,7 +155,7 @@ val get_top_int : t -> Type.t -> int
 val item_of_column : t -> int -> Item.t
 (** [item_of_column x i] returns the item at index [i] of the data matrix. *)
 
-val to_items : t -> Item.t list
+val to_items : t -> (Item.t list, Error.t) result
 (** [to_items x] returns a list of all the items in the data matrix. *)
 
 (** {1 Creating and Copying} *)

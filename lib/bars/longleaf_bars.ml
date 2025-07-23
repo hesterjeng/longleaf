@@ -218,8 +218,9 @@ let combine (l : t list) : (t, Error.t) result =
         Eio.traceln "Combining %a" Instrument.pp key;
         let* acc = acc in
         let* data = get_data key in
-        let items = List.flat_map Data.to_items data in
-        let* combined = Data.of_items items in
+        let* items = Result.map_l Data.to_items data in
+        let flattened = List.flatten items in
+        let* combined = Data.of_items flattened in
         Result.return @@ Seq.cons (key, combined) acc)
       (Ok Seq.empty) keys
   in
