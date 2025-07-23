@@ -13,7 +13,6 @@
   iter
   cmdliner
   landmarks
-  nx
   tacaml
   longleaf-lib
   piaf)

@@ -189,8 +189,8 @@ module Column = struct
 end
 
 module Row = struct
-  type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Array1.t
-  type introw = (int32, Bigarray.int32_elt, Bigarray.c_layout) Array1.t
+  type t = Tacaml.Safe.float_ba
+  type introw = Tacaml.Safe.int_ba
 
   let slice start length array : t = Array1.sub array start length
 end
