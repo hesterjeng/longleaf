@@ -52,27 +52,12 @@ module Cmd = struct
     Fmt_tty.setup_std_outputs ();
     let prefix = if today then "download_today" else "download" in
     let collection = Collections.sp100 in
-    let request =
-      match
-        Market_data_api.Request.of_data_downloader collection begin_arg end_arg
-          timeframe_arg interval_arg
-      with
-      | Some r -> r
-      | None ->
-        Eio.traceln
-          "Creating default download request because of missing arguments";
-        let start =
-          if today then Time.get_todays_date () else Time.of_ymd "2024-11-01"
-        in
-        {
-          timeframe = Trading_types.Timeframe.min 10;
-          start;
-          symbols = collection;
-          end_ = None;
-        }
-    in
     let _ =
       Eio_main.run @@ fun eio_env ->
+      let request =
+        Downloader.request today (Trading_types.Timeframe.Min 10) collection
+          begin_arg end_arg timeframe_arg interval_arg
+      in
       Downloader.download eio_env request prefix output_file_arg downloader_arg
         afterhours_arg
     in

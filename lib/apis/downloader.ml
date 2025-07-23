@@ -61,3 +61,17 @@ let download eio_env request prefix output_file (downloader_arg : Ty.t option)
   in
   Piaf.Client.shutdown data_client;
   Result.return ()
+
+let request today timeframe symbols begin_arg end_arg timeframe_arg interval_arg
+    =
+  match
+    Market_data_api.Request.of_data_downloader symbols begin_arg end_arg
+      timeframe_arg interval_arg
+  with
+  | Some r -> r
+  | None ->
+    Eio.traceln "Creating default download request because of missing arguments";
+    let start =
+      if today then Time.get_todays_date () else Time.of_ymd "2024-11-01"
+    in
+    { timeframe; start; symbols; end_ = None }
