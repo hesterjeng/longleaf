@@ -39,27 +39,6 @@ let t_of_yojson (l : Yojson.Safe.t) =
   | `Null -> Result.fail @@ `JsonError "Got `Null from Tiingo_api"
   | _ -> Result.fail @@ `JsonError "Expected a list in Tiingo_api.t_of_yojson"
 
-let item_to_bar_item (x : item) : Item.t =
-  let open_ = x.open_ in
-  let timestamp = x.timestamp in
-  let high = x.high in
-  let low = x.low in
-  let close = x.prevClose in
-  let last = x.last in
-  let volume = x.volume in
-  (* let order = None in *)
-  Item.make ~open_ ~timestamp ~high ~low ~close ~last ~volume
-
-let add_items (bars : Bars.t) (l : t) =
-  let ( let* ) = Result.( let* ) in
-  List.foldi
-    (fun acc i item ->
-      let* () = acc in
-      let* data = Bars.get bars item.ticker in
-      let item = item_to_bar_item item in
-      let* () = Data.add_item data item i in
-      Result.return ())
-    (Ok ()) l
 
 let tiingo_client eio_env sw =
   let res =
@@ -105,10 +84,26 @@ module Make (Tiingo : Client.CLIENT) = struct
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
     let* tiingo = t_of_yojson resp in
     assert (List.is_sorted ~cmp:compare_item tiingo);
-    let* () = add_items bars tiingo in
+    (* Direct addition without Item.t *)
+    let* () =
+      List.foldi
+        (fun acc i tiingo_item ->
+          let* () = acc in
+          let* data = Bars.get bars tiingo_item.ticker in
+          (* Directly set data fields from tiingo item *)
+          Data.set data Data.Type.Time i (Ptime.to_float_s tiingo_item.timestamp);
+          Data.set data Data.Type.Open i tiingo_item.open_;
+          Data.set data Data.Type.High i tiingo_item.high;
+          Data.set data Data.Type.Low i tiingo_item.low;
+          Data.set data Data.Type.Close i tiingo_item.prevClose;
+          Data.set data Data.Type.Last i tiingo_item.last;
+          Data.set data Data.Type.Volume i (Float.of_int tiingo_item.volume);
+          Result.return ())
+        (Ok ()) tiingo
+    in
     Result.return ()
 
-  module Data = struct
+  module Download = struct
     module Request = Market_data_api.Request
     module Timeframe = Trading_types.Timeframe
     (* module Hashbtl = Bars.Hashtbl *)
@@ -126,10 +121,96 @@ module Make (Tiingo : Client.CLIENT) = struct
 
     type resp = t list [@@deriving yojson]
 
-    let item_of (x : t) : Item.t =
-      let { date; open_; high; low; close; volume } = x in
-      Item.make ~timestamp:date ~open_ ~high ~low ~close
-        ~volume:(Int.of_float volume) ~last:close
+    (* Direct JSON to Data.t conversion without Item.t *)
+    let json_to_data_direct (json_list : t list) : (Data.t, Error.t) result =
+      let ( let* ) = Result.( let* ) in
+      let size = 2 * List.length json_list in
+      let data = Data.make size in
+      let* () =
+        List.foldi
+          (fun acc i item ->
+            let* () = acc in
+            let { date; open_; high; low; close; volume } = item in
+            Data.set data Data.Type.Index i (Float.of_int i);
+            Data.set data Data.Type.Time i (Ptime.to_float_s date);
+            Data.set data Data.Type.Open i open_;
+            Data.set data Data.Type.High i high;
+            Data.set data Data.Type.Low i low;
+            Data.set data Data.Type.Close i close;
+            Data.set data Data.Type.Last i close;
+            Data.set data Data.Type.Volume i volume;
+            Result.return ())
+          (Ok ()) json_list
+      in
+      Result.return data
+
+    (* New top2 function that bypasses Item.t *)
+    let top2 ?(afterhours = false) (starting_request : Request.t) =
+      let ( let* ) = Result.( let* ) in
+      let split_requests = Request.split starting_request in
+      Eio.traceln "Tiingo_api.top2";
+      let get_data (request : Request.t) instrument =
+        let symbol = Instrument.symbol instrument in
+        let endpoint =
+          (match request.timeframe with
+          | Day ->
+            Uri.of_string
+              ("/tiingo/daily/" ^ String.lowercase_ascii symbol ^ "/prices")
+          | _ ->
+            Uri.of_string ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices"))
+          |> fun e ->
+          Uri.add_query_params' e
+          @@ ([
+                ("ticker", Option.return @@ symbol);
+                ( "resampleFreq",
+                  match request.timeframe with
+                  | Day -> None
+                  | x -> Option.return @@ Timeframe.to_string_tiingo x );
+                ("startDate", Option.return @@ Time.to_ymd request.start);
+                ( "forceFill",
+                  match request.timeframe with
+                  | Day -> None
+                  | _ -> Some "true" );
+                ( "columns",
+                  match request.timeframe with
+                  | Day -> None
+                  | _ -> Option.return @@ "open,high,low,close,volume" );
+              ]
+             |> List.filter_map (fun (x, y) ->
+                    match y with
+                    | None -> None
+                    | Some y -> Some (x, y)))
+          |> (fun uri ->
+          match request.end_ with
+          | Some end_t -> Uri.add_query_param' uri ("endDate", Time.to_ymd end_t)
+          | None -> uri)
+          |> (fun uri ->
+          if afterhours then Uri.add_query_param' uri ("afterHours", "true")
+          else uri)
+          |> Uri.to_string
+        in
+        Eio.traceln "%s" endpoint;
+        let* json = get ~headers ~endpoint in
+        let resp = resp_of_yojson json in
+        Eio.traceln "Tiingo_api.ml: Converting data directly from JSON";
+        let* data = json_to_data_direct resp in
+        Result.return @@ (instrument, data)
+      in
+      let* r =
+        let request_symbols =
+          List.map Instrument.of_string starting_request.symbols
+        in
+        Eio.traceln "Tiingo_api.ml: About to map get_data";
+        Result.map_l
+          (fun request ->
+            let* res = Result.map_l (get_data request) request_symbols in
+            Result.return @@ Bars.of_list res)
+          split_requests
+      in
+      Eio.traceln "About to combine";
+      let final = Bars.combine r in
+      Eio.traceln "Tiingo_api.top2 done";
+      final
 
     (* Function for downloading preload bars data on the fly *)
     let top ?(afterhours = false) (starting_request : Request.t) =
@@ -179,8 +260,8 @@ module Make (Tiingo : Client.CLIENT) = struct
         Eio.traceln "%s" endpoint;
         let* json = get ~headers ~endpoint in
         let resp = resp_of_yojson json in
-        Eio.traceln "Tiingo_api.ml: Converting data from items";
-        let* data = List.map item_of resp |> Data.of_items in
+        Eio.traceln "Tiingo_api.ml: Converting data directly from JSON";
+        let* data = json_to_data_direct resp in
         Result.return @@ (instrument, data)
       in
       let* r =

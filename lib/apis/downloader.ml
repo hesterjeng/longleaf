@@ -45,7 +45,7 @@ let download eio_env request (downloader_arg : Ty.t option) afterhours =
         let client = Tiingo_api.tiingo_client eio_env switch
       end in
       let module Tiingo = Tiingo_api.Make (Param) in
-      let res = Tiingo.Data.top ~afterhours request in
+      let res = Tiingo.Download.top ~afterhours request in
       Piaf.Client.shutdown Param.client;
       res
     | None -> invalid_arg "Need to specify downloader type for data_downloader."
