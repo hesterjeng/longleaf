@@ -154,9 +154,7 @@ module Make (Tiingo : Client.CLIENT) = struct
       let ( let* ) = Result.( let* ) in
       match json with
       | `List json_list ->
-        Eio.traceln "Tiingo_api.json_to_data_direct %d" (List.length json_list);
-        let size = 2 * List.length json_list in
-        let data = Data.make size in
+        let data = Data.make @@ List.length json_list in
         let* () =
           List.foldi
             (fun acc i item ->
@@ -216,7 +214,6 @@ module Make (Tiingo : Client.CLIENT) = struct
       Eio.traceln "%s" endpoint;
       let* json = get ~headers ~endpoint in
       Eio.traceln "Tiingo_api.ml: Converting data directly from JSON";
-      (* Yojson.Safe.to_file "download.json" json; *)
       let* data = json_to_data_direct json in
       Result.return @@ (instrument, data)
 

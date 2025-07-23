@@ -82,6 +82,7 @@ type t = {
 
 type data = t
 
+let size x = x.size
 let current x = x.current
 
 let get_ source row i =
@@ -118,8 +119,8 @@ let get (data : t) (ty : Type.t) i =
       | Some x -> x
       | None -> Ptime.min
     in
-    Eio.traceln "data.ml: (%a) raising exn %a index %d NaN" Ptime.pp time
-      Type.pp ty i;
+    Eio.traceln "data.ml: (%a) raising exn %a index %d NaN (size %d)" Ptime.pp
+      time Type.pp ty i data.size;
     raise (NaNInData (i, ty))
   | false -> res
 
@@ -359,7 +360,7 @@ let add_item (x : t) (item : Item.t) i =
 
 let of_items (l : Item.t list) =
   let ( let* ) = Result.( let* ) in
-  let size = 2 * List.length l in
+  let size = List.length l in
   let matrix = make size in
   let sorted = List.sort Item.compare l in
   let* () =
@@ -400,7 +401,6 @@ let is_sorted (x : t) =
   let* () =
     Seq.fold_left
       (fun acc i ->
-        Eio.traceln "folding... %d" i;
         let* _ = acc in
         let* curr = Row.get_time row i in
         let* prev = Row.get_time row (i - 1) in
@@ -416,7 +416,8 @@ let t_of_yojson ?symbol (json : Yojson.Safe.t) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
   match json with
   | `List items ->
-    Eio.traceln "Data.t_of_yojson symbol: %a" (Option.pp String.pp) symbol;
+    let _ = symbol in
+    (* Eio.traceln "Data.t_of_yojson symbol: %a" (Option.pp String.pp) symbol; *)
     let size = List.length items in
     let res = make size in
     let* () =

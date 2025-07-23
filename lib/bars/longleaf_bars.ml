@@ -215,12 +215,13 @@ let combine (l : t list) : (t, Error.t) result =
   let* assoc_seq =
     List.fold_left
       (fun acc key ->
-        Eio.traceln "Combining %a" Instrument.pp key;
+        Eio.traceln "Combining %a (%d)" Instrument.pp key (List.length l);
         let* acc = acc in
         let* data = get_data key in
         let* items = Result.map_l Data.to_items data in
         let flattened = List.flatten items in
         let* combined = Data.of_items flattened in
+        Eio.traceln "Resulting in data of size %d" (Data.size combined);
         Result.return @@ Seq.cons (key, combined) acc)
       (Ok Seq.empty) keys
   in

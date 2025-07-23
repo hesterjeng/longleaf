@@ -46,6 +46,7 @@ module Make (Alpaca : Client.CLIENT) = struct
       maintenance_margin : float;
       daytrade_count : int;
       pattern_day_trader : bool;
+      account_number : string;
       (* margin_enabled : bool; *)
       status : string;
     }
@@ -58,6 +59,7 @@ module Make (Alpaca : Client.CLIENT) = struct
         long_market_value = 0.0;
         short_market_value = 0.0;
         position_market_value = 0.0;
+        account_number = "NONE";
         maintenance_margin = 0.0;
         initial_margin = 0.0;
         daytrade_count = 0;
@@ -66,16 +68,52 @@ module Make (Alpaca : Client.CLIENT) = struct
         status = "Default account";
       }
 
+    let t_of_yojson_ (x : Yojson.Safe.t) =
+      let ( let* ) = Result.( let* ) in
+      let module J = Longleaf_util.Json in
+      let* cash = J.float_of_string_member "cash" x in
+      let* long_market_value = J.float_of_string_member "long_market_value" x in
+      let* short_market_value =
+        J.float_of_string_member "short_market_value" x
+      in
+      let* position_market_value =
+        J.float_of_string_member "position_market_value" x
+      in
+      let* account_number = J.string_member "account_number" x in
+      let* buying_power = J.float_of_string_member "buying_power" x in
+      let* initial_margin = J.float_of_string_member "initial_margin" x in
+      let* maintenance_margin =
+        J.float_of_string_member "maintenance_margin" x
+      in
+      let* daytrade_count = J.int_member "daytrade_count" x in
+      let* pattern_day_trader = J.bool_member "pattern_day_trader" x in
+      let* status = J.string_member "status" x in
+      Result.return
+      @@ {
+           cash;
+           long_market_value;
+           short_market_value;
+           position_market_value;
+           account_number;
+           buying_power;
+           initial_margin;
+           maintenance_margin;
+           daytrade_count;
+           pattern_day_trader;
+           status;
+         }
+
     let t_of_yojson x =
-      try t_of_yojson x with
-      | Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (e, _j) ->
-        Eio.traceln "@[%a]@." Yojson.Safe.pp x;
-        let err = Printexc.to_string e in
-        invalid_arg @@ Format.asprintf "[account error] %s" err
+      match t_of_yojson_ x with
+      | Ok _ as res -> res
+      | Error e -> Error.json e
 
     let get_account () =
+      let ( let* ) = Result.( let* ) in
       let endpoint = "/v2/account" in
-      Result.map t_of_yojson @@ get ~headers ~endpoint
+      let* received = get ~headers ~endpoint in
+      let* res = t_of_yojson received in
+      Result.return res
   end
 
   module Assets = struct

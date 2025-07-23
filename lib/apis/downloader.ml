@@ -67,6 +67,11 @@ let request today timeframe symbols begin_arg end_arg timeframe_arg interval_arg
     in
     { timeframe; start; symbols; end_ = None }
 
-let previous_30_days timeframe symbols : Market_data_api.Request.t =
+let today timeframe symbols : Market_data_api.Request.t =
   let start = Time.get_todays_date () in
+  { timeframe; start; symbols; end_ = None }
+
+let previous_30_days timeframe symbols : Market_data_api.Request.t =
+  let today = Time.get_todays_date () in
+  let start = Time.subtract_30_days today in
   { timeframe; start; symbols; end_ = None }

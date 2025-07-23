@@ -166,6 +166,8 @@ val make : int -> t
 val copy : t -> t
 (** [copy x] returns a copy of the data matrix [x]. *)
 
+val size : t -> int
+
 (** {1 Setting Data} *)
 
 val set_item : t -> int -> Item.t -> (unit, Error.t) result
