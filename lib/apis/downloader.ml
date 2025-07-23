@@ -19,8 +19,7 @@ let data_client switch eio_env =
   | Ok x -> x
   | Error _ -> invalid_arg "Unable to create data client"
 
-let download eio_env request prefix output_file (downloader_arg : Ty.t option)
-    afterhours =
+let download eio_env request (downloader_arg : Ty.t option) afterhours =
   Eio.Switch.run @@ fun switch ->
   let ( let* ) = Result.( let* ) in
   (* Util.yojson_safe true @@ fun () -> *)
@@ -51,16 +50,8 @@ let download eio_env request prefix output_file (downloader_arg : Ty.t option)
       res
     | None -> invalid_arg "Need to specify downloader type for data_downloader."
   in
-  (* Bars.Infill.top bars; *)
-  Eio.traceln "%a" Bars.pp_stats bars;
-  (* Bars.sort Longleaf_lib.Item.compare bars; *)
-  let* () =
-    match output_file with
-    | Some filename -> Bars.print_to_file_direct bars filename
-    | None -> Bars.print_to_file bars prefix
-  in
   Piaf.Client.shutdown data_client;
-  Result.return ()
+  Result.return bars
 
 let request today timeframe symbols begin_arg end_arg timeframe_arg interval_arg
     =
@@ -75,3 +66,7 @@ let request today timeframe symbols begin_arg end_arg timeframe_arg interval_arg
       if today then Time.get_todays_date () else Time.of_ymd "2024-11-01"
     in
     { timeframe; start; symbols; end_ = None }
+
+let previous_30_days timeframe symbols : Market_data_api.Request.t =
+  let start = Time.get_todays_date () in
+  { timeframe; start; symbols; end_ = None }

@@ -96,14 +96,19 @@ module Run = struct
     (* Load target bars with eio_env if needed *)
     let ( let* ) = Result.( let* ) in
     Eio.Switch.run @@ fun sw ->
+    let options = Strategy.mk_options sw eio_env flags target [] in
     let* bars =
       match target with
       | Longleaf_core.Target.File s ->
         let bars = Bars.of_file ~eio_env s in
         Result.return bars
-      | Download -> Error.fatal "Download bars NYI"
+      | Download ->
+        let module TF = Longleaf_core.Trading_types.Timeframe in
+        let module D = Longleaf_apis.Downloader in
+        let request = D.previous_30_days (TF.Min 10) options.symbols in
+        let* bars = D.download eio_env request (Some Tiingo) true in
+        Result.return bars
     in
-    let options = Strategy.mk_options sw eio_env flags target [] in
     (* Use the strategy specified in flags instead of hardcoding *)
     let strategy_name = flags.strategy_arg in
     match find_gadt_strategy strategy_name with

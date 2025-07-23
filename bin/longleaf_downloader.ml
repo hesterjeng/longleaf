@@ -1,6 +1,5 @@
 open Longleaf_core
 module Collections = Longleaf_strategies.Collections
-module Market_data_api = Longleaf_apis.Market_data_api
 module Downloader = Longleaf_apis.Downloader
 module Ty = Downloader.Ty
 
@@ -43,25 +42,34 @@ module Args = struct
   let output_file_arg =
     let doc = "Output file for the downloaded data." in
     Cmdliner.Arg.(
-      value & pos 1 (some string) None & info [] ~docv:"output file" ~doc)
+      required & pos 1 (some string) None & info [] ~docv:"output file" ~doc)
 end
 
 module Cmd = struct
   let run today begin_arg end_arg timeframe_arg interval_arg output_file_arg
       downloader_arg afterhours_arg =
     Fmt_tty.setup_std_outputs ();
-    let prefix = if today then "download_today" else "download" in
+    (* let prefix = if today then "download_today" else "download" in *)
     let collection = Collections.sp100 in
-    let _ =
+    let bars =
       Eio_main.run @@ fun eio_env ->
       let request =
         Downloader.request today (Trading_types.Timeframe.Min 10) collection
           begin_arg end_arg timeframe_arg interval_arg
       in
-      Downloader.download eio_env request prefix output_file_arg downloader_arg
-        afterhours_arg
+      Downloader.download eio_env request downloader_arg afterhours_arg
     in
-    ()
+    let res =
+      Result.Infix.(
+        bars >>= fun b -> Longleaf_bars.print_to_file_direct b output_file_arg)
+    in
+    match res with
+    | Ok () ->
+      Eio.traceln "Done downloading";
+      ()
+    | Error e ->
+      Eio.traceln "%a" Error.pp e;
+      ()
 
   let top =
     let term =
