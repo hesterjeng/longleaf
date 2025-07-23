@@ -21,6 +21,7 @@ let gadt_strategies : (string * Gadt.strategy) list =
       ("rsi_mean_reversion", Gadt.rsi_mean_reversion);
       ("macd_bollinger_momentum", Gadt.macd_bollinger_momentum);
       ("candlestick_patterns", Gadt.candlestick_patterns_strategy);
+      ("listener", Listener.listener_strategy);
     ]
   in
   let strategies_from_examples =
@@ -83,26 +84,6 @@ type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 (** Track some statistics if we are doing multiple backtests. *)
 
-(** Top level function for running strategies based on a context.*)
-let run bars (context : Options.t) mutices =
-  match context.flags.runtype with
-  | Live
-  | Paper
-  | Backtest
-  | Manual
-  | Montecarlo
-  | RandomSliceBacktest
-  | RandomTickerBacktest ->
-    run_strat bars context mutices
-  | Multitest
-  | MultiMontecarlo
-  | MultiRandomSliceBacktest
-  | MultiRandomTickerBacktest ->
-    let init = Array.make 30 () in
-    let res = Array.map (fun _ -> run_strat bars context mutices) init in
-    Array.sort Float.compare res;
-    0.0
-
 module Run = struct
   module Target = Longleaf_core.Target
 
@@ -126,7 +107,7 @@ module Run = struct
     (* Use the strategy specified in flags instead of hardcoding *)
     let strategy_name = flags.strategy_arg in
     match find_gadt_strategy strategy_name with
-    | Some strategy -> Gadt.run (Some bars) options mutices strategy
+    | Some strategy -> Gadt.run bars options mutices strategy
     | None -> Error.fatal "Unknown strategy selected"
 
   let server env flags target mutices =

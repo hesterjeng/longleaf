@@ -90,19 +90,19 @@ module Indicators = Longleaf_indicators
 (*   | AstarSearch -> *)
 (*     Result.return @@ (bars, target) *)
 
-let make_backend_input mutices (bars : Bars.t option) (options : Options.t) =
+let make_backend_input mutices (bars : Bars.t) (options : Options.t) =
   let ( let* ) = Result.( let* ) in
-  let* target : Bars.t option =
-    match bars with
-    | None -> (
-      match options.target with
-      | File s ->
-        let res = Bars.of_file ~eio_env:options.eio_env s in
-        Result.return @@ Some res
-      | Download ->
-        Error.fatal "Expected to have loaded target when creating backend")
-    | Some _ -> Result.return bars
-  in
+  (* let* target : Bars.t option = *)
+  (*   match bars with *)
+  (*   | None -> ( *)
+  (*     match options.target with *)
+  (*     | File s -> *)
+  (*       let res = Bars.of_file ~eio_env:options.eio_env s in *)
+  (*       Result.return @@ Some res *)
+  (*     | Download -> *)
+  (*       Error.fatal "Expected to have loaded target when creating backend") *)
+  (*   | Some _ -> Result.return bars *)
+  (* in *)
   (* let* bars = *)
   (*   match options.context.preload with *)
   (*   | File _ *)
@@ -117,7 +117,7 @@ let make_backend_input mutices (bars : Bars.t option) (options : Options.t) =
        let mutices = mutices
 
        (* let bars = bars *)
-       let target = target
+       let target = Some bars
      end : BACKEND_INPUT)
 
 let make mutices bars (options : Options.t) =
