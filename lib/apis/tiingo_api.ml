@@ -83,6 +83,7 @@ module Make (Tiingo : Client.CLIENT) = struct
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
     let* tiingo = t_of_yojson resp in
     assert (List.is_sorted ~cmp:compare_item tiingo);
+    (* FIXME:  This doesn't work properly.  The index should be set to the current. *)
     let* () =
       List.foldi
         (fun acc i tiingo_item ->

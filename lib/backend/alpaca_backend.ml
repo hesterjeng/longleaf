@@ -79,16 +79,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
     in
     let config = Indicators_config.make Input.options.tacaml_indicators in
     State.make 0 bars content config
-  (* @@ { *)
-  (*      State.current = Initialize; *)
-  (*      bars; *)
-  (*      tick = 0; *)
-  (*      tick_length = Input.options.tick; *)
-  (*      trading_state = State.Core.empty (); *)
-  (*      content; *)
-  (*      (\* indicators = Indicators.empty Live; *\) *)
-  (*      time = Ptime.min; *)
-  (*    } *)
 
   let next_market_open () =
     let ( let* ) = Result.( let* ) in
@@ -115,8 +105,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let last_data_bar =
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
-  let update_bars _ _ _i = Result.return ()
-
   let latest_bars (symbols : Instrument.t list) bars _ =
     let ( let* ) = Result.( let* ) in
     (* let* account = Trading_api.Accounts.get_account () in *)
@@ -131,8 +119,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Eio.traceln "No symbols in latest bars request.";
       Result.return ()
     | _ ->
-      (* let _ = Backtesting.latest_bars symbols in *)
-      (* let res = Market_data_api.Stock.latest_bars symbols in *)
       let* () =
         match Tiingo.latest bars symbols with
         | Ok x -> Result.return x
@@ -143,18 +129,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
           Ticker.tick ~runtype:opts.flags.runtype opts.eio_env 5.0;
           Tiingo.latest bars symbols
       in
-      (* let* () = *)
-      (*   Result.fold_l *)
-      (*     (fun acc x -> *)
-      (*       match Bars.Latest.get res x with *)
-      (*       | Ok _ -> Result.return acc *)
-      (*       | Error _ as e -> *)
-      (*         Eio.traceln *)
-      (*           "[error] Missing data in Alpaca_backend.latest_bars for %a" *)
-      (*           Instrument.pp x; *)
-      (*         e) *)
-      (*     () symbols *)
-      (* in *)
       let* () =
         if save_received then
           invalid_arg "Alpaca_backend.latest_bars save_received nyi"
@@ -163,6 +137,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       in
       Ok ()
 
+  let update_bars _ _ _i = Result.return ()
   let get_clock = Trading_api.Clock.get
 
   let place_order state order =

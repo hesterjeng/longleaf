@@ -42,7 +42,7 @@ type 'a res = ('a, Error.t) result
 let current t = t.current_state
 let config x = x.config
 
-let make tick bars content indicator_config =
+let make current_tick bars content indicator_config =
   let ( let* ) = Result.( let* ) in
   let* length = Bars.length bars in
   let config = Config.{ placeholder = true; indicator_config } in
@@ -50,7 +50,7 @@ let make tick bars content indicator_config =
     {
       current_state = Initialize;
       bars;
-      current_tick = tick;
+      current_tick;
       content;
       config;
       cash = 100000.0;
