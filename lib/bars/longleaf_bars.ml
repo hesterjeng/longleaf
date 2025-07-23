@@ -18,7 +18,7 @@ let copy x =
 let deserialize_symbol (symbol_string, symbol_json) =
   let ( let* ) = Result.( let* ) in
   let* instrument = Instrument.of_string_res symbol_string in
-  let* ph = Data.t_of_yojson symbol_json in
+  let* ph = Data.t_of_yojson ~symbol:symbol_string symbol_json in
   Result.return @@ (instrument, ph)
 
 let t_of_yojson ?eio_env (json : Yojson.Safe.t) : (t, Error.t) result =
@@ -215,6 +215,7 @@ let combine (l : t list) : (t, Error.t) result =
   let* assoc_seq =
     List.fold_left
       (fun acc key ->
+        Eio.traceln "Combining %a" Instrument.pp key;
         let* acc = acc in
         let* data = get_data key in
         let items = List.flat_map Data.to_items data in

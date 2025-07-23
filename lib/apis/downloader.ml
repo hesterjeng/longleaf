@@ -37,7 +37,7 @@ let download eio_env request (downloader_arg : Ty.t option) afterhours =
       MDA.Stock.historical_bars request |> function
       | Ok x -> x
       | Error e ->
-        Eio.traceln "%a" Error.pp e;
+        Eio.traceln "error in MDA.Stock.historical_bars: %a" Error.pp e;
         invalid_arg "Error downloading historical bars")
     | Some Tiingo ->
       let module Param = struct

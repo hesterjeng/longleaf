@@ -135,6 +135,7 @@ module Make (Tiingo : Client.CLIENT) = struct
     let top ?(afterhours = false) (starting_request : Request.t) =
       let ( let* ) = Result.( let* ) in
       let split_requests = Request.split starting_request in
+      Eio.traceln "Tiingo_api.top";
       let get_data (request : Request.t) instrument =
         let symbol = Instrument.symbol instrument in
         let endpoint =
@@ -178,6 +179,7 @@ module Make (Tiingo : Client.CLIENT) = struct
         Eio.traceln "%s" endpoint;
         let* json = get ~headers ~endpoint in
         let resp = resp_of_yojson json in
+        Eio.traceln "Tiingo_api.ml: Converting data from items";
         let* data = List.map item_of resp |> Data.of_items in
         Result.return @@ (instrument, data)
       in
@@ -185,13 +187,16 @@ module Make (Tiingo : Client.CLIENT) = struct
         let request_symbols =
           List.map Instrument.of_string starting_request.symbols
         in
+        Eio.traceln "Tiingo_api.ml: About to map get_data";
         Result.map_l
           (fun request ->
             let* res = Result.map_l (get_data request) request_symbols in
             Result.return @@ Bars.of_list res)
           split_requests
       in
+      Eio.traceln "About to combine";
       let final = Bars.combine r in
+      Eio.traceln "Tiingo_api.top done";
       final
   end
 end

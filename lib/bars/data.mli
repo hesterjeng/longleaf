@@ -188,7 +188,7 @@ val load_json_item : t -> int -> Yojson.Safe.t -> (unit, Error.t) result
 (** [load_json_item data i json] loads an item from the given JSON object and
     adds it to the data matrix at index [i]. *)
 
-val t_of_yojson : Yojson.Safe.t -> (t, Error.t) result
+val t_of_yojson : ?symbol:string -> Yojson.Safe.t -> (t, Error.t) result
 (** [t_of_yojson json] creates a new data matrix from the given JSON object. *)
 
 val yojson_of_t : t -> Yojson.Safe.t

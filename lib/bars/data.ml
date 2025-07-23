@@ -112,7 +112,14 @@ let get (data : t) (ty : Type.t) i =
   in
   match Float.is_nan res with
   | true ->
-    Eio.traceln "data.ml: raising exn %a index %d NaN" Type.pp ty i;
+    let time_row = Index.get data.index Time in
+    let time =
+      get_ data.data time_row i |> Ptime.of_float_s |> function
+      | Some x -> x
+      | None -> Ptime.min
+    in
+    Eio.traceln "data.ml: (%a) raising exn %a index %d NaN" Ptime.pp time
+      Type.pp ty i;
     raise NaNInData
   | false -> res
 
@@ -193,6 +200,11 @@ module Row = struct
   type introw = Tacaml.Safe.int_ba
 
   let slice start length array : t = Array1.sub array start length
+
+  let get_time x i =
+    Array1.get x i |> Ptime.of_float_s |> function
+    | Some x -> Ok x
+    | None -> Error.fatal "Invalid time in row of Data.t"
 end
 
 let get_row (data : t) (x : Type.t) =
@@ -375,10 +387,29 @@ let load_json_item (data : t) i (json : Yojson.Safe.t) =
     Eio.traceln "%a" Yojson.Safe.pp json;
     Error.fatal "Bad json in Data.load_json_item"
 
-let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
+let is_sorted (x : t) =
+  let ( let* ) = Result.( let* ) in
+  let* row = get_row x Time in
+  let* () =
+    Seq.fold_left
+      (fun acc i ->
+        Eio.traceln "folding... %d" i;
+        let* _ = acc in
+        let* curr = Row.get_time row i in
+        let* prev = Row.get_time row (i - 1) in
+        match Ptime.compare curr prev with
+        | 1 -> Ok ()
+        | _ -> Error.fatal "Bad timestamp comparison in Data.sort")
+      (Ok ())
+    @@ Seq.take (length x - 1) (Seq.ints 1)
+  in
+  Result.return ()
+
+let t_of_yojson ?symbol (json : Yojson.Safe.t) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
   match json with
   | `List items ->
+    Eio.traceln "Data.t_of_yojson symbol: %a" (Option.pp String.pp) symbol;
     let size = List.length items in
     let res = make size in
     let* () =
@@ -389,6 +420,7 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
           Result.return ())
         (Ok ()) items
     in
+    let* () = is_sorted res in
     Result.return res
   | _ ->
     Error.json "Expected a list of datapoints in Price_history.V2.t_of_yojson"
