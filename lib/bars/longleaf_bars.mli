@@ -36,6 +36,7 @@ val combine : t list -> (t, Error.t) result
 val print_to_file : ?filename:string -> t -> string -> (unit, Error.t) result
 val print_to_file_direct : t -> string -> (unit, Error.t) result
 val fold : t -> 'a -> (Instrument.t -> Data.t -> 'a -> 'a) -> 'a
+val grow : t -> t
 
 (* val last_bar : t -> (Latest.t, Error.t) result *)
 (* val to_queue : t -> (Latest.t Queue.t, Error.t) result *)
