@@ -6,12 +6,14 @@ type t = {
 }
 [@@deriving show]
 
-let default =
+let default runtype =
+  let compute_live = Runtype.real runtype in
   {
     fft = false;
     compare_preloaded = false;
-    compute_live = false;
+    compute_live;
     tacaml_indicators = [];
   }
 
-let make tacaml_indicators = { default with tacaml_indicators }
+let make runtype tacaml_indicators =
+  { (default runtype) with tacaml_indicators }

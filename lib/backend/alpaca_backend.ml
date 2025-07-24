@@ -77,7 +77,10 @@ module Make (Input : BACKEND_INPUT) : S = struct
       | None -> Error.fatal "No historical data for alpaca backend"
       | Some b -> Result.return b
     in
-    let config = Indicators_config.make Input.options.tacaml_indicators in
+    let config =
+      Indicators_config.make Input.options.flags.runtype
+        Input.options.tacaml_indicators
+    in
     State.make 0 bars content config
 
   let next_market_open () =

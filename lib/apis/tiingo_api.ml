@@ -85,7 +85,7 @@ module Make (Tiingo : Client.CLIENT) = struct
     assert (List.is_sorted ~cmp:compare_item tiingo);
     let* () =
       List.foldi
-        (fun acc i tiingo_item ->
+        (fun acc _ tiingo_item ->
           let* () = acc in
           let* data = Bars.get bars tiingo_item.ticker in
           let current_idx = Data.current data in

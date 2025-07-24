@@ -16,7 +16,7 @@ type 'a t = {
 }
 [@@warning "-69"]
 
-let empty (indicators : Tacaml.t list) : unit t =
+let empty runtype (indicators : Tacaml.t list) : unit t =
   {
     current_state = Initialize;
     bars = Bars.empty ();
@@ -24,7 +24,7 @@ let empty (indicators : Tacaml.t list) : unit t =
     config =
       {
         placeholder = false;
-        indicator_config = Indicators_config.make indicators;
+        indicator_config = Indicators_config.make runtype indicators;
       };
     cash = 0.0;
     history = Vector.create ();

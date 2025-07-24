@@ -23,6 +23,7 @@ let make mutices bars (options : Options.t) =
   let module Input = (val backend_input) in
   let* res =
     match options.flags.runtype with
+    | Invalid -> Error.fatal "Cannot create a strategy with invalid backend"
     | Manual -> Error.fatal "Cannot create a strategy with manual runtype"
     | Paper
     | Live ->
