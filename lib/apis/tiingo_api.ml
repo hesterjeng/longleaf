@@ -97,7 +97,8 @@ module Make (Tiingo : Client.CLIENT) = struct
           Data.set data Data.Type.Low current_idx tiingo_item.low;
           Data.set data Data.Type.Close current_idx tiingo_item.prevClose;
           Data.set data Data.Type.Last current_idx tiingo_item.last;
-          Data.set data Data.Type.Volume current_idx (Float.of_int tiingo_item.volume);
+          Data.set data Data.Type.Volume current_idx
+            (Float.of_int tiingo_item.volume);
           Result.return ())
         (Ok ()) tiingo
     in
