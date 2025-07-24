@@ -25,8 +25,6 @@ val cash : 'a t -> float
 val time : 'a t -> Time.t res
 val config : 'a t -> Config.t
 
-(* Get list of active orders *)
-val history : 'a t -> Order.t list Vector.ro_vector
 
 (* Cost basis to enter the corresponding position *)
 val cost_basis : 'a t -> Instrument.t -> float

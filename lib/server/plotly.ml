@@ -171,11 +171,33 @@ let of_state ?(start = 100) ?end_ (state : 'a Longleaf_state.t) symbol :
       (Longleaf_state.config state).indicator_config.tacaml_indicators
       |> List.flat_map indicators |> Result.map_l trace
     in
+    (* Extract orders for this symbol from the data *)
+    let all_orders = Data.get_all_orders data in
+    let length = Data.length data in
+    let end_idx = Option.value end_ ~default:length in
+    let end_idx = Int.min end_idx length in
+    let orders_in_range = 
+      let rec collect_orders acc i =
+        if i >= end_idx then acc
+        else
+          let orders_at_tick = 
+            if i >= start then
+              List.filter (fun (order : Order.t) -> Instrument.equal order.symbol symbol) all_orders.(i)
+            else []
+          in
+          collect_orders (orders_at_tick @ acc) (i + 1)
+      in
+      collect_orders [] start
+    in
+    let buy_orders = List.filter (fun (order : Order.t) -> Trading_types.Side.equal order.side Buy) orders_in_range in
+    let sell_orders = List.filter (fun (order : Order.t) -> Trading_types.Side.equal order.side Sell) orders_in_range in
+    let buy_trace = if List.is_empty buy_orders then [] else [order_trace Buy buy_orders] in
+    let sell_trace = if List.is_empty sell_orders then [] else [order_trace Sell sell_orders] in
     let ( = ) = fun x y -> (x, y) in
     Result.return
     @@ `Assoc
          [
-           "traces" = `List (price_trace :: indicators);
+           "traces" = `List (price_trace :: indicators @ buy_trace @ sell_trace);
            "layout" = layout @@ Instrument.symbol symbol;
          ]
   in
