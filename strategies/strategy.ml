@@ -24,7 +24,7 @@ let mk_options switch eio_env flags target tacaml_indicators : Options.t =
   let longleaf_env = Environment.make () in
   (* let mutices = Server.Longleaf_mutex.create () in *)
   {
-    symbols = Ticker_collections.sp100;
+    symbols = Ticker_collections.spy;
     eio_env;
     longleaf_env;
     switch;

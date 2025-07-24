@@ -19,12 +19,20 @@ let top () =
   | `Ok s -> Result.return s
   | `Exit e -> Result.fail e
 
+let print_res fmt x =
+  match x with
+  | Ok _ -> ()
+  | Error e -> Format.fprintf fmt "%a" Longleaf_strategies.Error.pp e
+
 let () =
   match top () with
-  | Error e -> Stdlib.exit e
+  | Error e ->
+    Eio.traceln "Exiting with code %d" e;
+    Stdlib.exit e
   | Ok s ->
     Fmt_tty.setup_std_outputs ();
     Longleaf_util.handle_output s.output;
     Longleaf_indicators.Indicators.initialize ();
-    let _ = Longleaf_strategies.Run.top s.cli s.target in
+    let f = Longleaf_strategies.Run.top s.cli s.target in
+    Eio.traceln "%a" print_res f;
     Stdlib.exit Cmd.Exit.ok

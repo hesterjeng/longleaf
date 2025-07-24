@@ -62,5 +62,5 @@ val set : 'a t -> Mode.t -> 'a t
 
 (* Return the options record *)
 val options : 'a t -> Config.t
-val empty : Tacaml.t list -> unit t
+val empty : Runtype.t -> Tacaml.t list -> unit t
 val stats : 'a t -> Stats.t

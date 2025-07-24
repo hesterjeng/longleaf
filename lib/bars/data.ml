@@ -82,6 +82,7 @@ type t = {
 
 type data = t
 
+let size x = x.size
 let current x = x.current
 
 let get_ source row i =
@@ -96,7 +97,7 @@ let set_ source row i value =
     Eio.traceln "data.ml.set_: Index out of bounds!";
     raise e
 
-exception NaNInData
+exception NaNInData of int * Type.t
 
 let get (data : t) (ty : Type.t) i =
   assert (i >= 0);
@@ -112,8 +113,15 @@ let get (data : t) (ty : Type.t) i =
   in
   match Float.is_nan res with
   | true ->
-    Eio.traceln "data.ml: raising exn %a index %d NaN" Type.pp ty i;
-    raise NaNInData
+    let time_row = Index.get data.index Time in
+    let time =
+      get_ data.data time_row i |> Ptime.of_float_s |> function
+      | Some x -> x
+      | None -> Ptime.min
+    in
+    Eio.traceln "data.ml: (%a) raising exn %a index %d NaN (size %d)" Ptime.pp
+      time Type.pp ty i data.size;
+    raise (NaNInData (i, ty))
   | false -> res
 
 let set (data : t) (ty : Type.t) i f =
@@ -189,10 +197,15 @@ module Column = struct
 end
 
 module Row = struct
-  type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Array1.t
-  type introw = (int32, Bigarray.int32_elt, Bigarray.c_layout) Array1.t
+  type t = Tacaml.Safe.float_ba
+  type introw = Tacaml.Safe.int_ba
 
   let slice start length array : t = Array1.sub array start length
+
+  let get_time x i =
+    Array1.get x i |> Ptime.of_float_s |> function
+    | Some x -> Ok x
+    | None -> Error.fatal "Invalid time in row of Data.t"
 end
 
 let get_row (data : t) (x : Type.t) =
@@ -259,14 +272,21 @@ let item_of_column x i =
   }
 
 let to_items (x : t) =
-  let rec aux i acc =
-    match i >= x.size with
-    | true -> acc
-    | false ->
-      let item = item_of_column x i in
-      aux (i + 1) @@ (item :: acc)
-  in
-  aux 0 []
+  try
+    Result.return
+    @@
+    let rec aux i acc =
+      match i >= x.size with
+      | true -> acc
+      | false ->
+        let item = item_of_column x i in
+        aux (i + 1) @@ (item :: acc)
+    in
+    aux 0 []
+  with
+  | NaNInData (i, ty) ->
+    let msg = Format.asprintf "NaN in data %a %d" Type.pp ty i in
+    Error.missing_data msg
 
 let make size : t =
   {
@@ -340,7 +360,7 @@ let add_item (x : t) (item : Item.t) i =
 
 let of_items (l : Item.t list) =
   let ( let* ) = Result.( let* ) in
-  let size = 2 * List.length l in
+  let size = List.length l in
   let matrix = make size in
   let sorted = List.sort Item.compare l in
   let* () =
@@ -375,10 +395,29 @@ let load_json_item (data : t) i (json : Yojson.Safe.t) =
     Eio.traceln "%a" Yojson.Safe.pp json;
     Error.fatal "Bad json in Data.load_json_item"
 
-let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
+let is_sorted (x : t) =
+  let ( let* ) = Result.( let* ) in
+  let* row = get_row x Time in
+  let* () =
+    Seq.fold_left
+      (fun acc i ->
+        let* _ = acc in
+        let* curr = Row.get_time row i in
+        let* prev = Row.get_time row (i - 1) in
+        match Ptime.compare curr prev with
+        | 1 -> Ok ()
+        | _ -> Error.fatal "Bad timestamp comparison in Data.sort")
+      (Ok ())
+    @@ Seq.take (length x - 1) (Seq.ints 1)
+  in
+  Result.return ()
+
+let t_of_yojson ?symbol (json : Yojson.Safe.t) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
   match json with
   | `List items ->
+    let _ = symbol in
+    (* Eio.traceln "Data.t_of_yojson symbol: %a" (Option.pp String.pp) symbol; *)
     let size = List.length items in
     let res = make size in
     let* () =
@@ -389,11 +428,20 @@ let t_of_yojson (json : Yojson.Safe.t) : (t, Error.t) result =
           Result.return ())
         (Ok ()) items
     in
+    let* () = is_sorted res in
     Result.return res
   | _ ->
     Error.json "Expected a list of datapoints in Price_history.V2.t_of_yojson"
 
 let yojson_of_t (x : t) : Yojson.Safe.t =
-  to_items x |> List.map Item.yojson_of_t |> fun l -> `List l
+  let items =
+    to_items x |> function
+    | Ok x -> x
+    | Error e ->
+      Eio.traceln "Data.yojson_of_t: %a" Error.pp e;
+      invalid_arg "Data.yojson_of_t"
+  in
+  let l = List.map Item.yojson_of_t items in
+  `List l
 
 let set_current x current = { x with current }

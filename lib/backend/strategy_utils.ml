@@ -3,6 +3,7 @@ module Pmutex = Longleaf_util.Pmutex
 module Options = Longleaf_core.Options
 module Mode = State.Mode
 module Bars = Longleaf_bars
+module Indicators = Longleaf_indicators.Indicators
 (* module Server = Longleaf_server *)
 
 module Make (Backend : Backend.S) = struct
@@ -137,10 +138,20 @@ module Make (Backend : Backend.S) = struct
   let update_continue (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let bars = State.bars state in
-    let* () = Backend.update_bars Backend.symbols bars @@ State.tick state in
-    let* _value = State.value state in
     let res = State.increment_tick state in
     Bars.set_current bars @@ State.tick res;
+    let* () = Backend.update_bars Backend.symbols bars @@ State.tick res in
+    let* () =
+      match Input.options.flags.runtype with
+      | Live
+      | Paper ->
+        let indicator_config = (State.config state).indicator_config in
+        let eio_env = Input.options.eio_env in
+        Indicators.Calc.compute_single (State.tick res) eio_env indicator_config
+        @@ State.bars state
+      | _ -> Result.return ()
+    in
+    let* _value = State.value state in
     Result.return res
 
   let start_time = ref 0.0
@@ -160,11 +171,10 @@ module Make (Backend : Backend.S) = struct
       Bars.set_current bars tick;
       Eio.traceln "Bars initialize: %a" Bars.pp bars;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
-      let indicator_config = (State.config state).indicator_config in
       let* () =
-        Longleaf_indicators.Indicators.compute_all
-          ~eio_env:Input.options.eio_env indicator_config
-        @@ State.bars state
+        let indicator_config = (State.config state).indicator_config in
+        let eio_env = Input.options.eio_env in
+        Indicators.Calc.compute_all eio_env indicator_config @@ State.bars state
       in
       start_time := Eio.Time.now Backend.env#clock;
       Eio.traceln "Running...";

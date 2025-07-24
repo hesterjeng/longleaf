@@ -6,128 +6,24 @@ module Market_data_api = Longleaf_apis.Market_data_api
 module Bars = Longleaf_bars
 module Indicators = Longleaf_indicators
 
-(* let make_bars (options : Options.t) = *)
-(*   let ( let* ) = Result.( let* ) in *)
-(*   (\* let context = options.context in *\) *)
-(*   (\* let preload = context.preload in *\) *)
-(*   let target = options.target in *)
-(*   let symbols = options.symbols in *)
-(*   let* bars = *)
-(*     match target with *)
-(*     (\* | None -> Result.return @@ Bars.empty () *\) *)
-(*     | Download -> *)
-(*       Eio.traceln "Downloading data from tiingo for preload"; *)
-(*       let module Param = struct *)
-(*         let longleaf_env = options.longleaf_env *)
-(*         let client = Tiingo_api.tiingo_client options.eio_env options.switch *)
-(*       end in *)
-(*       let module Tiingo = Tiingo_api.Make (Param) in *)
-(*       let request : Market_data_api.Request.t = *)
-(*         let end_ = Time.get_todays_date () in *)
-(*         let start = Time.subtract_30_days end_ in *)
-(*         let tick_mins = Int.of_float (options.tick /. 60.0) in *)
-(*         { *)
-(*           timeframe = Trading_types.Timeframe.min tick_mins; *)
-(*           symbols; *)
-(*           start; *)
-(*           end_ = Some end_; *)
-(*         } *)
-(*       in *)
-(*       let* res = Tiingo.Data.top request in *)
-(*       Result.return res *)
-(*     (\* Bars.sort Item.compare res; *\) *)
-(*     (\* invalid_arg "Downloading Bars in V2 format NYI" *\) *)
-(*     (\* Result.return res *\) *)
-(*     (\* | File file -> *\) *)
-(*     (\*   Eio.traceln "Preloading bars from %s" file; *\) *)
-(*     (\*   let* res = Yojson.Safe.from_file file |> Bars.t_of_yojson in *\) *)
-(*     (\*   (\\* Bars.sort Item.compare res; *\\) *\) *)
-(*     (\*   Result.return res *\) *)
-(*     | File file_path -> *)
-(*       Eio.traceln "Loading bars from %s with parallel deserialization" file_path; *)
-(*       let bars = Bars.of_file ~eio_env:options.eio_env file_path in *)
-(*       Result.return bars *)
-(*     (\* | Loaded b -> Result.return b *\) *)
-(*     (\* let res = Bars.copy b in *\) *)
-(*     (\* Bars.sort Item.compare res; *\) *)
-(*     (\* Result.return res *\) *)
-(*   in *)
-(*   let* target = *)
-(*     match target with *)
-(*     (\* | None -> Ok None *\) *)
-(*     | File _ -> Error.missing_data "NYI File target - should be loaded by now" *)
-(*     | Download -> Error.missing_data "NYI Download target" *)
-(*     (\* | Loaded bars -> Result.return @@ Option.return @@ Bars.copy bars *\) *)
-(*     (\* | File t -> ( *\) *)
-(*     (\*   let* res = *\) *)
-(*     (\*     let conv = Yojson.Safe.from_file t |> Bars.t_of_yojson in *\) *)
-(*     (\*     conv *\) *)
-(*     (\*   in *\) *)
-(*     (\*   (\\* Bars.sort (Ord.opp Item.compare) res; *\\) *\) *)
-(*     (\*   match context.runtype with *\) *)
-(*     (\*   | Options.RunType.Montecarlo *\) *)
-(*     (\*   | MultiMontecarlo -> *\) *)
-(*     (\*     invalid_arg "Montecarlo testing with V2 bars NYI" *\) *)
-(*     (\*     (\\* Result.return @@ Option.some *\\) *\) *)
-(*     (\*     (\\* @@ Monte_carlo.Bars.of_bars ~preload:bars ~target:res *\\) *\) *)
-(*     (\*   | _ -> Result.return @@ Some res) *\) *)
-(*   in *)
-(*   match options.flags.runtype with *)
-(*   | RandomSliceBacktest *)
-(*   | MultiRandomSliceBacktest -> *)
-(*     invalid_arg "Random slice backtesting with V2 bars NYI" *)
-(*     (\* let bars, target = Slice_backtesting.top ~options bars target in *\) *)
-(*     (\* Result.return @@ (bars, Some target) *\) *)
-(*   | Live *)
-(*   | Manual *)
-(*   | Paper *)
-(*   | Backtest *)
-(*   | Multitest *)
-(*   | Montecarlo *)
-(*   | MultiMontecarlo *)
-(*   | RandomTickerBacktest *)
-(*   | MultiRandomTickerBacktest *)
-(*   | AstarSearch -> *)
-(*     Result.return @@ (bars, target) *)
+let make_backend_input mutices (bars : Bars.t) (options : Options.t) =
+  (module struct
+    let options = options
+    let mutices = mutices
 
-let make_backend_input mutices (bars : Bars.t option) (options : Options.t) =
-  let ( let* ) = Result.( let* ) in
-  let* target : Bars.t option =
-    match bars with
-    | None -> (
-      match options.target with
-      | File s ->
-        let res = Bars.of_file ~eio_env:options.eio_env s in
-        Result.return @@ Some res
-      | Download ->
-        Error.fatal "Expected to have loaded target when creating backend")
-    | Some _ -> Result.return bars
-  in
-  (* let* bars = *)
-  (*   match options.context.preload with *)
-  (*   | File _ *)
-  (*   | Download *)
-  (*   | None -> *)
-  (*     Error.fatal "Expected to have preloaded bars when creating backend" *)
-  (*   | Loaded b -> Result.return b *)
-  (* in *)
-  Result.return
-  @@ (module struct
-       let options = options
-       let mutices = mutices
-
-       (* let bars = bars *)
-       let target = target
-     end : BACKEND_INPUT)
+    (* let bars = bars *)
+    let target = Some bars
+  end : BACKEND_INPUT)
 
 let make mutices bars (options : Options.t) =
   let ( let* ) = Result.( let* ) in
 
   (* Add custom indicators to the indicator config *)
-  let* backend_input = make_backend_input mutices bars options in
+  let backend_input = make_backend_input mutices bars options in
   let module Input = (val backend_input) in
   let* res =
     match options.flags.runtype with
+    | Invalid -> Error.fatal "Cannot create a strategy with invalid backend"
     | Manual -> Error.fatal "Cannot create a strategy with manual runtype"
     | Paper
     | Live ->

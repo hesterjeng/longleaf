@@ -22,7 +22,6 @@
   uuidm
   cmdliner
   landmarks
-  nx
   tacaml
   piaf
   yojson)

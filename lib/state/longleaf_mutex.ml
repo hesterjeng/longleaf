@@ -9,7 +9,7 @@ type t = {
 
 let create config =
   let shutdown_mutex = Pmutex.make false in
-  let state_mutex = Pmutex.make @@ State.empty config in
+  let state_mutex = Pmutex.make @@ State.empty Invalid config in
   let symbols_mutex = Pmutex.make None in
   (* let indicators_mutex = Pmutex.make @@ Indicators.empty Precomputed in *)
   let target_symbol = Pmutex.make None in

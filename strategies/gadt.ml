@@ -23,6 +23,7 @@ type _ expr =
   | Bool : bool -> bool expr
   (* Type-safe data access *)
   | Data : 'a data_type -> 'a expr
+  | Symbol : unit -> Instrument.t expr
   (* Comparisons *)
   | GT : float expr * float expr -> bool expr
   | LT : float expr * float expr -> bool expr
@@ -70,8 +71,9 @@ type strategy = {
 }
 
 (* Type-safe evaluation *)
-let rec eval : type a. a expr -> Data.t -> int -> (a, Error.t) result =
- fun expr data index ->
+let rec eval : type a.
+    Instrument.t -> a expr -> Data.t -> int -> (a, Error.t) result =
+ fun symbol expr data index ->
   let ( let* ) = Result.( let* ) in
   (* Bounds checking *)
   if index < 0 || index >= Data.length data then
@@ -80,6 +82,7 @@ let rec eval : type a. a expr -> Data.t -> int -> (a, Error.t) result =
          index (Data.length data))
   else
     match expr with
+    | Symbol () -> Result.return symbol
     | Float f -> Result.return f
     | Int i -> Result.return i
     | Bool b -> Result.return b
@@ -90,63 +93,63 @@ let rec eval : type a. a expr -> Data.t -> int -> (a, Error.t) result =
       Error.guard (Error.fatal "GADT.eval int data") @@ fun () ->
       Int.of_float (Data.get data data_type index)
     | GT (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 >. v2)
     | LT (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 <. v2)
     | GTE (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 >=. v2)
     | LTE (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 <=. v2)
     | EQ (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (Float.equal v1 v2)
     | IntGT (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 > v2)
     | IntLT (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 < v2)
     | IntEQ (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 = v2)
     | And (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 && v2)
     | Or (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 || v2)
     | Not e ->
-      let* v = eval e data index in
+      let* v = eval symbol e data index in
       Result.return (not v)
     | Add (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 +. v2)
     | Sub (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 -. v2)
     | Mul (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       Result.return (v1 *. v2)
     | Div (e1, e2) ->
-      let* v1 = eval e1 data index in
-      let* v2 = eval e2 data index in
+      let* v1 = eval symbol e1 data index in
+      let* v2 = eval symbol e2 data index in
       if Float.equal v2 0.0 then Error.fatal "Division by zero in GADT.eval"
       else Result.return (v1 /. v2)
     | Moneyness (underlying, option) -> (
@@ -187,24 +190,24 @@ let rec eval : type a. a expr -> Data.t -> int -> (a, Error.t) result =
              "GADT.eval: lag index %d out of bounds (periods: %d, current \
               index: %d)"
              lag_index periods index)
-      else eval expr data lag_index
+      else eval symbol expr data lag_index
     | CrossUp (e1, e2) ->
       if index = 0 then
         Error.fatal "GADT.eval: CrossUp requires at least 1 historical period"
       else
-        let* current_e1 = eval e1 data index in
-        let* current_e2 = eval e2 data index in
-        let* prev_e1 = eval e1 data (index - 1) in
-        let* prev_e2 = eval e2 data (index - 1) in
+        let* current_e1 = eval symbol e1 data index in
+        let* current_e2 = eval symbol e2 data index in
+        let* prev_e1 = eval symbol e1 data (index - 1) in
+        let* prev_e2 = eval symbol e2 data (index - 1) in
         Result.return (prev_e1 <=. prev_e2 && current_e1 >. current_e2)
     | CrossDown (e1, e2) ->
       if index = 0 then
         Error.fatal "GADT.eval: CrossDown requires at least 1 historical period"
       else
-        let* current_e1 = eval e1 data index in
-        let* current_e2 = eval e2 data index in
-        let* prev_e1 = eval e1 data (index - 1) in
-        let* prev_e2 = eval e2 data (index - 1) in
+        let* current_e1 = eval symbol e1 data index in
+        let* current_e2 = eval symbol e2 data index in
+        let* prev_e1 = eval symbol e1 data (index - 1) in
+        let* prev_e2 = eval symbol e2 data (index - 1) in
         Result.return (prev_e1 >=. prev_e2 && current_e1 <. current_e2)
 
 (* Smart constructors for OHLCV data - these are always floats *)
@@ -371,7 +374,7 @@ let eval_strategy_signal (strategy_expr : bool expr) (state : _ State.t) symbol
     (* State.get_bars state symbol *)
   in
   let current_index = State.tick state in
-  match eval strategy_expr data current_index with
+  match eval symbol strategy_expr data current_index with
   | Ok should_signal -> Result.return @@ Signal.make symbol should_signal
   | Error e -> Error e
 
@@ -403,6 +406,7 @@ let gadt_to_strategy_builder (strategy : strategy) =
 
 (* Collect all Data.Type.t from GADT expressions *)
 let rec collect_data_types : type a. a expr -> Data.Type.t list = function
+  | Symbol _
   | Float _
   | Int _
   | Bool _ ->
@@ -458,6 +462,7 @@ let collect_tacaml_data_types (strategy : strategy) =
 (* Collect all custom Tacaml.t indicators from GADT expressions *)
 let rec collect_custom_indicators : type a. a expr -> Tacaml.Indicator.t list =
   function
+  | Symbol _
   | Float _
   | Int _
   | Bool _ ->

@@ -21,6 +21,7 @@ let gadt_strategies : (string * Gadt.strategy) list =
       ("rsi_mean_reversion", Gadt.rsi_mean_reversion);
       ("macd_bollinger_momentum", Gadt.macd_bollinger_momentum);
       ("candlestick_patterns", Gadt.candlestick_patterns_strategy);
+      ("listener", Listener.listener_strategy);
     ]
   in
   let strategies_from_examples =
@@ -83,26 +84,6 @@ type multitest = { mean : float; min : float; max : float; std : float }
 [@@deriving show]
 (** Track some statistics if we are doing multiple backtests. *)
 
-(** Top level function for running strategies based on a context.*)
-let run bars (context : Options.t) mutices =
-  match context.flags.runtype with
-  | Live
-  | Paper
-  | Backtest
-  | Manual
-  | Montecarlo
-  | RandomSliceBacktest
-  | RandomTickerBacktest ->
-    run_strat bars context mutices
-  | Multitest
-  | MultiMontecarlo
-  | MultiRandomSliceBacktest
-  | MultiRandomTickerBacktest ->
-    let init = Array.make 30 () in
-    let res = Array.map (fun _ -> run_strat bars context mutices) init in
-    Array.sort Float.compare res;
-    0.0
-
 module Run = struct
   module Target = Longleaf_core.Target
 
@@ -115,18 +96,24 @@ module Run = struct
     (* Load target bars with eio_env if needed *)
     let ( let* ) = Result.( let* ) in
     Eio.Switch.run @@ fun sw ->
+    let options = Strategy.mk_options sw eio_env flags target [] in
     let* bars =
       match target with
       | Longleaf_core.Target.File s ->
         let bars = Bars.of_file ~eio_env s in
         Result.return bars
-      | Download -> Error.fatal "Download bars NYI"
+      | Download ->
+        let module TF = Longleaf_core.Trading_types.Timeframe in
+        let module D = Longleaf_apis.Downloader in
+        let request = D.previous_30_days (TF.Min 10) options.symbols in
+        let* bars = D.download eio_env request (Some Tiingo) true in
+        Eio.traceln "Returning bars from download...";
+        Result.return bars
     in
-    let options = Strategy.mk_options sw eio_env flags target [] in
     (* Use the strategy specified in flags instead of hardcoding *)
     let strategy_name = flags.strategy_arg in
     match find_gadt_strategy strategy_name with
-    | Some strategy -> Gadt.run (Some bars) options mutices strategy
+    | Some strategy -> Gadt.run bars options mutices strategy
     | None -> Error.fatal "Unknown strategy selected"
 
   let server env flags target mutices =
@@ -142,7 +129,7 @@ module Run = struct
     match Eio.Promise.await strat_result with
     | Ok x -> x
     | Error e ->
-      Eio.traceln "longleaf_strategies: strategy did not return before server";
+      Eio.traceln "longleaf_strategies: strategy error";
       raise e
 
   let top (flags : Options.CLI.t) target =

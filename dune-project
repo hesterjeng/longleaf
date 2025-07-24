@@ -1,5 +1,5 @@
 (lang dune 3.17)
-(version 1.0.1)
+(version 1.0.2)
 
 (name longleaf)
 

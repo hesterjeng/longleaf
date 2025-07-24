@@ -4,14 +4,6 @@
 
 (** {1 Types} *)
 
-type data_matrix =
-  (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-(** The underlying data structure for the time-series data, which is a 2D
-    Bigarray of 64-bit floats. *)
-
-type int_matrix =
-  (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array2.t
-
 module Index : sig
   type t
 end
@@ -109,10 +101,10 @@ module Row : sig
   (** This module provides functions for working with rows of the data matrix.
   *)
 
-  type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
-  (** The type for a row of the data matrix. *)
+  type t = Tacaml.Safe.float_ba
 
-  type introw = (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
+  type introw = Tacaml.Safe.int_ba
+  (** The type for a row of the data matrix. *)
 
   val slice : int -> int -> t -> t
   (** [slice x y a] returns a slice of the row [a] from index [x] with length
@@ -163,7 +155,7 @@ val get_top_int : t -> Type.t -> int
 val item_of_column : t -> int -> Item.t
 (** [item_of_column x i] returns the item at index [i] of the data matrix. *)
 
-val to_items : t -> Item.t list
+val to_items : t -> (Item.t list, Error.t) result
 (** [to_items x] returns a list of all the items in the data matrix. *)
 
 (** {1 Creating and Copying} *)
@@ -173,6 +165,8 @@ val make : int -> t
 
 val copy : t -> t
 (** [copy x] returns a copy of the data matrix [x]. *)
+
+val size : t -> int
 
 (** {1 Setting Data} *)
 
@@ -196,7 +190,7 @@ val load_json_item : t -> int -> Yojson.Safe.t -> (unit, Error.t) result
 (** [load_json_item data i json] loads an item from the given JSON object and
     adds it to the data matrix at index [i]. *)
 
-val t_of_yojson : Yojson.Safe.t -> (t, Error.t) result
+val t_of_yojson : ?symbol:string -> Yojson.Safe.t -> (t, Error.t) result
 (** [t_of_yojson json] creates a new data matrix from the given JSON object. *)
 
 val yojson_of_t : t -> Yojson.Safe.t
