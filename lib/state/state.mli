@@ -59,6 +59,7 @@ val place_order : 'a t -> Order.t -> 'a t res
 val tick : 'a t -> int
 val increment_tick : 'a t -> 'a t
 val set : 'a t -> Mode.t -> 'a t
+val grow : 'a t -> 'a t
 
 (* Return the options record *)
 val options : 'a t -> Config.t

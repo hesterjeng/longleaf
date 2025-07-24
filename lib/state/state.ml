@@ -125,3 +125,5 @@ let options t = t.config
 let stats x =
   let bars = bars x in
   Stats.make x.history bars
+
+let grow x = { x with bars = Bars.grow x.bars }
