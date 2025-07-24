@@ -176,6 +176,15 @@ module Make (Backend : Backend.S) = struct
         let eio_env = Input.options.eio_env in
         Indicators.Calc.compute_all eio_env indicator_config @@ State.bars state
       in
+      let state =
+        (* If we are in live or paper, we need to grow the bars to have somewhere \ *)
+        (* to put the received data. *)
+        match Input.options.flags.runtype with
+        | Live
+        | Paper ->
+          State.grow state
+        | _ -> state
+      in
       start_time := Eio.Time.now Backend.env#clock;
       Eio.traceln "Running...";
       Result.return @@ State.set state Listening

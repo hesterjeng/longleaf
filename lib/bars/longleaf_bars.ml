@@ -246,6 +246,15 @@ let get_current (bars : t) =
 let of_seq = Hashtbl.of_seq
 let of_list l = of_seq @@ Seq.of_list l
 
+let grow bars =
+  let new_bars = Hashtbl.create (Hashtbl.length bars) in
+  Hashtbl.iter
+    (fun instrument data ->
+      let grown_data = Data.grow data in
+      Hashtbl.add new_bars instrument grown_data)
+    bars;
+  new_bars
+
 let print_to_file_direct bars filename =
   let ( let* ) = Result.( let* ) in
   let* bars_json = yojson_of_t bars in

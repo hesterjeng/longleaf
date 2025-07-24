@@ -166,6 +166,10 @@ val make : int -> t
 val copy : t -> t
 (** [copy x] returns a copy of the data matrix [x]. *)
 
+val grow : t -> t
+(** [grow x] returns a new data matrix with double the capacity, preserving
+    existing data. *)
+
 val size : t -> int
 
 (** {1 Setting Data} *)

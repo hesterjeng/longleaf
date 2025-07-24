@@ -315,6 +315,36 @@ let copy (x : t) =
     index = Index.copy x.index;
   }
 
+let grow (x : t) =
+  let new_size = x.size * 2 in
+  let new_data =
+    Array2.init Bigarray.float64 Bigarray.c_layout 150 new_size (fun _ _ ->
+        Float.nan)
+  in
+  let new_int_data =
+    Array2.init Bigarray.int32 Bigarray.c_layout 70 new_size (fun _ _ ->
+        Int32.zero)
+  in
+  (* Copy existing data to new matrices *)
+  for i = 0 to Array2.dim1 x.data - 1 do
+    for j = 0 to Array2.dim2 x.data - 1 do
+      Array2.set new_data i j (Array2.get x.data i j)
+    done
+  done;
+  for i = 0 to Array2.dim1 x.int_data - 1 do
+    for j = 0 to Array2.dim2 x.int_data - 1 do
+      Array2.set new_int_data i j (Array2.get x.int_data i j)
+    done
+  done;
+  {
+    data = new_data;
+    int_data = new_int_data;
+    index = Index.copy x.index;
+    current = x.current;
+    size = new_size;
+    indicators_computed = x.indicators_computed;
+  }
+
 let set_item (x : t) (i : int) (item : Item.t) =
   try
     set x Index i (Float.of_int i);
