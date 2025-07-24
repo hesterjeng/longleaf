@@ -8,6 +8,7 @@ type 'a t = {
   current_state : Mode.t;
   bars : Bars.t;
   current_tick : int;
+  orders_placed : int;
   content : 'a;
   config : Config.t;
   cash : float;
@@ -20,6 +21,7 @@ let empty runtype (indicators : Tacaml.t list) : unit t =
     current_state = Initialize;
     bars = Bars.empty ();
     current_tick = 0;
+    orders_placed = 0;
     config =
       {
         placeholder = false;
@@ -47,6 +49,7 @@ let make current_tick bars content indicator_config =
       current_state = Initialize;
       bars;
       current_tick;
+      orders_placed = 0;
       content;
       config;
       cash = 100000.0;
@@ -100,15 +103,27 @@ let place_order t (order : Order.t) =
   let* () = Bars.Data.add_order data tick order in
   match order.side with
   | Buy ->
-    if t.cash >=. order_value then (
+    if t.cash >=. order_value then
       let new_cash = t.cash -. order_value in
-      Result.return { t with cash = new_cash; positions })
+      Result.return
+        {
+          t with
+          cash = new_cash;
+          positions;
+          orders_placed = t.orders_placed + 1;
+        }
     else Error.fatal "Insufficient cash for buy order"
   | Sell ->
     let qty_held = qty t order.symbol in
-    if qty_held >= order.qty then (
+    if qty_held >= order.qty then
       let new_cash = t.cash +. order_value in
-      Result.return { t with cash = new_cash; positions })
+      Result.return
+        {
+          t with
+          cash = new_cash;
+          positions;
+          orders_placed = t.orders_placed + 1;
+        }
     else Error.fatal "Insufficient shares for sell order"
 
 let tick t = t.current_tick
@@ -121,3 +136,4 @@ let stats x =
   Stats.make (Vector.create ()) bars
 
 let grow x = { x with bars = Bars.grow x.bars }
+let orders_placed x = x.orders_placed

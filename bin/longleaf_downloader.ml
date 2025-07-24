@@ -1,5 +1,4 @@
 open Longleaf_core
-module Collections = Longleaf_strategies.Collections
 module Downloader = Longleaf_apis.Downloader
 module Ty = Downloader.Ty
 
@@ -50,7 +49,7 @@ module Cmd = struct
       downloader_arg afterhours_arg =
     Fmt_tty.setup_std_outputs ();
     (* let prefix = if today then "download_today" else "download" in *)
-    let collection = Collections.sp100 in
+    let collection = Longleaf_strategies.Ticker_collections.sp100 in
     let bars =
       Eio_main.run @@ fun eio_env ->
       let request =

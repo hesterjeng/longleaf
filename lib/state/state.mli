@@ -25,7 +25,6 @@ val cash : 'a t -> float
 val time : 'a t -> Time.t res
 val config : 'a t -> Config.t
 
-
 (* Cost basis to enter the corresponding position *)
 val cost_basis : 'a t -> Instrument.t -> float
 
@@ -43,6 +42,7 @@ val bars : 'a t -> Bars.t
 
 (* Get the value of the state's portfolio, plus the cash on hand *)
 val value : 'a t -> float res
+val orders_placed : 'a t -> int
 
 (* The same state but with with x.state set to Listening *)
 val listen : 'a t -> 'a t

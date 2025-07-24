@@ -487,14 +487,11 @@ let set_current x current = { x with current }
 let add_order (data : t) (tick : int) (order : Order.t) =
   if tick >= 0 && tick < data.size then (
     data.orders.(tick) <- order :: data.orders.(tick);
-    Ok ()
-  ) else
-    Error.fatal "Data.add_order: tick index out of bounds"
+    Ok ())
+  else Error.fatal "Data.add_order: tick index out of bounds"
 
 let get_orders (data : t) (tick : int) =
-  if tick >= 0 && tick < data.size then
-    Ok data.orders.(tick)
-  else
-    Error.fatal "Data.get_orders: tick index out of bounds"
+  if tick >= 0 && tick < data.size then Ok data.orders.(tick)
+  else Error.fatal "Data.get_orders: tick index out of bounds"
 
 let get_all_orders (data : t) = data.orders

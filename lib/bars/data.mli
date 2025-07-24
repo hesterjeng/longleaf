@@ -203,7 +203,8 @@ val yojson_of_t : t -> Yojson.Safe.t
 (** {1 Order Management} *)
 
 val add_order : t -> int -> Order.t -> (unit, Error.t) result
-(** [add_order data tick order] adds an order to the data at the specified tick. *)
+(** [add_order data tick order] adds an order to the data at the specified tick.
+*)
 
 val get_orders : t -> int -> (Order.t list, Error.t) result
 (** [get_orders data tick] returns the list of orders at the specified tick. *)

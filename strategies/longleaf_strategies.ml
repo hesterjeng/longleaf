@@ -1,4 +1,4 @@
-module Collections = Ticker_collections
+module Ticker_collections = Ticker_collections
 module Signal = Longleaf_core.Signal
 module Instrument = Longleaf_core.Instrument
 module State = Longleaf_state
