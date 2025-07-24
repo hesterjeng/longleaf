@@ -326,9 +326,16 @@ let grow (x : t) =
         Int32.zero)
   in
   (* Copy existing data to new matrices *)
-  Array2.blit x.data (Array2.sub_left new_data 0 (Array2.dim1 x.data));
-  Array2.blit x.int_data
-    (Array2.sub_left new_int_data 0 (Array2.dim1 x.int_data));
+  for i = 0 to Array2.dim1 x.data - 1 do
+    for j = 0 to Array2.dim2 x.data - 1 do
+      Array2.set new_data i j (Array2.get x.data i j)
+    done
+  done;
+  for i = 0 to Array2.dim1 x.int_data - 1 do
+    for j = 0 to Array2.dim2 x.int_data - 1 do
+      Array2.set new_int_data i j (Array2.get x.int_data i j)
+    done
+  done;
   {
     data = new_data;
     int_data = new_int_data;
