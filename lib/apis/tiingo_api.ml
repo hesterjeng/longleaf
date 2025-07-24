@@ -83,21 +83,21 @@ module Make (Tiingo : Client.CLIENT) = struct
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
     let* tiingo = t_of_yojson resp in
     assert (List.is_sorted ~cmp:compare_item tiingo);
-    (* FIXME:  This doesn't work properly.  The index should be set to the current. *)
     let* () =
       List.foldi
         (fun acc i tiingo_item ->
           let* () = acc in
           let* data = Bars.get bars tiingo_item.ticker in
+          let current_idx = Data.current data in
           (* Directly set data fields from tiingo item *)
-          Data.set data Data.Type.Time i
+          Data.set data Data.Type.Time current_idx
             (Ptime.to_float_s tiingo_item.timestamp);
-          Data.set data Data.Type.Open i tiingo_item.open_;
-          Data.set data Data.Type.High i tiingo_item.high;
-          Data.set data Data.Type.Low i tiingo_item.low;
-          Data.set data Data.Type.Close i tiingo_item.prevClose;
-          Data.set data Data.Type.Last i tiingo_item.last;
-          Data.set data Data.Type.Volume i (Float.of_int tiingo_item.volume);
+          Data.set data Data.Type.Open current_idx tiingo_item.open_;
+          Data.set data Data.Type.High current_idx tiingo_item.high;
+          Data.set data Data.Type.Low current_idx tiingo_item.low;
+          Data.set data Data.Type.Close current_idx tiingo_item.prevClose;
+          Data.set data Data.Type.Last current_idx tiingo_item.last;
+          Data.set data Data.Type.Volume current_idx (Float.of_int tiingo_item.volume);
           Result.return ())
         (Ok ()) tiingo
     in

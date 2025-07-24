@@ -137,10 +137,10 @@ module Make (Backend : Backend.S) = struct
   let update_continue (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let bars = State.bars state in
-    let* () = Backend.update_bars Backend.symbols bars @@ State.tick state in
-    let* _value = State.value state in
     let res = State.increment_tick state in
     Bars.set_current bars @@ State.tick res;
+    let* () = Backend.update_bars Backend.symbols bars @@ State.tick res in
+    let* _value = State.value state in
     Result.return res
 
   let start_time = ref 0.0
