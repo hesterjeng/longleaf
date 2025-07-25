@@ -63,3 +63,4 @@ val grow : 'a t -> 'a t
 val options : 'a t -> Config.t
 val empty : Runtype.t -> Tacaml.t list -> unit t
 val stats : 'a t -> Stats.t
+val positions : 'a t -> Positions.t
