@@ -3,6 +3,35 @@
 module Bars = Longleaf_bars
 module Data = Bars.Data
 
+(** {1 Color Palette} *)
+
+(* Plotly default color palette with good visual distinction *)
+let color_palette = [|
+  "#1f77b4"; (* blue *)
+  "#ff7f0e"; (* orange *)
+  "#2ca02c"; (* green *)
+  "#d62728"; (* red *)
+  "#9467bd"; (* purple *)
+  "#8c564b"; (* brown *)
+  "#e377c2"; (* pink *)
+  "#7f7f7f"; (* gray *)
+  "#bcbd22"; (* olive *)
+  "#17becf"; (* cyan *)
+  "#aec7e8"; (* light blue *)
+  "#ffbb78"; (* light orange *)
+  "#98df8a"; (* light green *)
+  "#ff9896"; (* light red *)
+  "#c5b0d5"; (* light purple *)
+  "#c49c94"; (* light brown *)
+  "#f7b6d3"; (* light pink *)
+  "#c7c7c7"; (* light gray *)
+  "#dbdb8d"; (* light olive *)
+  "#9edae5"; (* light cyan *)
+|]
+
+let get_color index = 
+  color_palette.(index mod Array.length color_palette)
+
 (** {1 Layout Configuration} *)
 
 let layout title =
@@ -35,7 +64,7 @@ let layout title =
 
 (** {1 Core Trace Functions} *)
 
-let direct_price_trace ?(start = 0) ?end_ (data : Data.t)
+let direct_price_trace ?(start = 0) ?(color = "#1f77b4") ?end_ (data : Data.t)
     (symbol : Instrument.t) : Yojson.Safe.t =
   let length = Data.length data in
   let end_idx = Option.value end_ ~default:length in
@@ -62,6 +91,7 @@ let direct_price_trace ?(start = 0) ?end_ (data : Data.t)
       ("text", `String symbol_str);
       ("name", `String symbol_str);
       ("type", `String "scatter");
+      ("line", `Assoc [("color", `String color)]);
     ]
 
 let indicator_trace ?(show = false) ?(drop = 100) ?(yaxis = "y1")
@@ -162,15 +192,19 @@ let of_state ?(start = 100) ?end_ (state : 'a Longleaf_state.t) symbol :
   let result =
     let bars = Longleaf_state.bars state in
     let* data = Bars.get bars symbol in
-    let price_trace = direct_price_trace ~start ?end_ data symbol in
+    let price_trace = direct_price_trace ~start ~color:(get_color 0) ?end_ data symbol in
     let indicators x = Tacaml.get_indicators x |> List.uniq ~eq:Equal.poly in
-    let trace indicator =
-      indicator_trace ~drop:100 bars (Data.Type.tacaml indicator) symbol
-    in
-    let* indicators =
+    let all_indicators = 
       (Longleaf_state.config state).indicator_config.tacaml_indicators
-      |> List.flat_map indicators |> Result.map_l trace
+      |> List.flat_map indicators
     in
+    let trace_with_color i indicator =
+      (* Start color index at 1 to avoid the same color as price trace *)
+      let color = get_color (i + 1) in
+      indicator_trace ~drop:100 ~color bars (Data.Type.tacaml indicator) symbol
+    in
+    let* indicators = Result.map_l (fun (i, indicator) -> trace_with_color i indicator) 
+      (List.mapi (fun i x -> (i, x)) all_indicators) in
     (* Extract orders for this symbol from the data *)
     let all_orders = Data.get_all_orders data in
     let length = Data.length data in
