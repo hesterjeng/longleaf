@@ -63,6 +63,23 @@ let state_info_response ~(mutices : Longleaf_mutex.t) =
   ] |> Yojson.Safe.to_string in
   Response.of_string ~body `OK
 
+let stats_response ~(mutices : Longleaf_mutex.t) =
+  let state = Pmutex.get mutices.state_mutex in
+  let stats = State.stats state in
+  let body = `Assoc [
+    ("num_orders", `Int stats.num_orders);
+    ("num_buy_orders", `Int stats.num_buy_orders);
+    ("num_sell_orders", `Int stats.num_sell_orders);
+    ("total_volume", `Int stats.total_volume);
+    ("total_cash_traded", `Float stats.total_cash_traded);
+    ("symbols_traded", `Int stats.symbols_traded);
+    ("profit_loss", `Float stats.profit_loss);
+    ("cash", `Float (State.cash state));
+    ("current_tick", `Int (State.tick state));
+    ("orders_placed", `Int (State.orders_placed state));
+  ] |> Yojson.Safe.to_string in
+  Response.of_string ~body `OK
+
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let state = Pmutex.get mutices.state_mutex in
   let bars_json_opt = Plotly.of_state state target in
@@ -198,7 +215,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     (* in *)
     (* Response.of_string ~body `OK *)
   | { Request.meth = `GET; target = "/stats"; _ } ->
-    invalid_arg "stats endpoint NYI"
+    stats_response ~mutices
     (* let trading_state = Pmutex.get mutices.state_mutex in *)
     (* let body = *)
     (*   `Assoc *)

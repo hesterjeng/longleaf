@@ -131,9 +131,8 @@ let options t = t.config
 
 let stats x =
   let bars = bars x in
-  (* TODO: Extract orders from data structure for statistics *)
-  (* For now, create empty stats *)
-  Stats.make (Vector.create ()) bars
+  let positions = positions x in
+  Stats.from_positions positions bars
 
 let grow x = { x with bars = Bars.grow x.bars }
 let orders_placed x = x.orders_placed
