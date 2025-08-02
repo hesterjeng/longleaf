@@ -217,9 +217,9 @@ module Make (Backend : Backend.S) = struct
       Ticker.tick ~runtype Backend.env 600.0;
       Result.return @@ State.set state Listening
     | Finished code ->
-      let stats = State.stats state in
       Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@."
-        tick (State.cash state) stats.num_orders;
+        tick (State.cash state)
+        (State.orders_placed state);
       (* TODO: get order history length from trading_state *)
       Eio.traceln "state.bars at finish: %a" Bars.pp bars;
       Eio.traceln "Done... %fs" (Eio.Time.now Backend.env#clock -. !start_time);

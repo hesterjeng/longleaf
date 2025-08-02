@@ -1,4 +1,4 @@
-module Collections = Ticker_collections
+module Ticker_collections = Ticker_collections
 module Signal = Longleaf_core.Signal
 module Instrument = Longleaf_core.Instrument
 module State = Longleaf_state
@@ -27,7 +27,13 @@ let gadt_strategies : (string * Gadt.strategy) list =
   let strategies_from_examples =
     List.map (fun s -> (s.Gadt.name, s)) Gadt_examples.all_strategies
   in
+  let strategies_from_crossover_candlestick =
+    List.map
+      (fun s -> (s.Gadt.name, s))
+      Crossover_candlestick_strategies.crossover_candlestick_strategies
+  in
   strategies_from_gadt @ strategies_from_examples
+  @ strategies_from_crossover_candlestick
 
 (** Get all available strategy names *)
 let all_strategy_names = List.map fst gadt_strategies

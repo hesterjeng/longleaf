@@ -22,6 +22,79 @@ let serve_favicon () =
   let headers = Headers.of_list [ ("Content-Type", "image/x-icon") ] in
   Response.of_string ~headers ~body `OK
 
+let state_info_response ~(mutices : Longleaf_mutex.t) =
+  let state = Pmutex.get mutices.state_mutex in
+  let held_symbols = State.held_symbols state in
+  let positions_list =
+    List.fold_left
+      (fun acc symbol ->
+        let qty = State.qty state symbol in
+        if qty <> 0 then
+          let position_json =
+            `Assoc
+              [
+                ("symbol", `String (Instrument.symbol symbol));
+                ("qty", `Int qty);
+                ("side", `String (if qty > 0 then "long" else "short"));
+              ]
+          in
+          position_json :: acc
+        else acc)
+      [] held_symbols
+  in
+  let current_state_str =
+    match State.current state with
+    | Initialize -> "Initialize"
+    | Listening -> "Listening"
+    | Ordering -> "Ordering"
+    | Liquidate -> "Liquidate"
+    | LiquidateContinue -> "LiquidateContinue"
+    | Continue -> "Continue"
+    | BeginShutdown -> "BeginShutdown"
+    | Finished reason -> "Finished(" ^ reason ^ ")"
+  in
+  let config = State.config state in
+  let body =
+    `Assoc
+      [
+        ("current_state", `String current_state_str);
+        ("current_tick", `Int (State.tick state));
+        ("orders_placed", `Int (State.orders_placed state));
+        ("cash", `Float (State.cash state));
+        ("positions", `List positions_list);
+        ( "config",
+          `Assoc
+            [
+              ("placeholder", `Bool config.placeholder);
+              ( "indicators_count",
+                `Int (List.length config.indicator_config.tacaml_indicators) );
+            ] );
+      ]
+    |> Yojson.Safe.to_string
+  in
+  Response.of_string ~body `OK
+
+let stats_response ~(mutices : Longleaf_mutex.t) =
+  let state = Pmutex.get mutices.state_mutex in
+  let stats = State.stats state in
+  let body =
+    `Assoc
+      [
+        ("num_orders", `Int stats.num_orders);
+        ("num_buy_orders", `Int stats.num_buy_orders);
+        ("num_sell_orders", `Int stats.num_sell_orders);
+        ("total_volume", `Int stats.total_volume);
+        ("total_cash_traded", `Float stats.total_cash_traded);
+        ("symbols_traded", `Int stats.symbols_traded);
+        ("profit_loss", `Float stats.profit_loss);
+        ("cash", `Float (State.cash state));
+        ("current_tick", `Int (State.tick state));
+        ("orders_placed", `Int (State.orders_placed state));
+      ]
+    |> Yojson.Safe.to_string
+  in
+  Response.of_string ~body `OK
+
 let plotly_response_of_symbol ~(mutices : Longleaf_mutex.t) target =
   let state = Pmutex.get mutices.state_mutex in
   let bars_json_opt = Plotly.of_state state target in
@@ -157,7 +230,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     (* in *)
     (* Response.of_string ~body `OK *)
   | { Request.meth = `GET; target = "/stats"; _ } ->
-    invalid_arg "stats endpoint NYI"
+    stats_response ~mutices
     (* let trading_state = Pmutex.get mutices.state_mutex in *)
     (* let body = *)
     (*   `Assoc *)
@@ -174,6 +247,8 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     (*   |> Yojson.Safe.to_string *)
     (* in *)
     (* Response.of_string ~body `OK *)
+  | { Request.meth = `GET; target = "/state-info"; _ } ->
+    state_info_response ~mutices
   | { Request.meth = `GET; target = "/symbols"; _ } ->
     let state = Pmutex.get mutices.state_mutex in
     let bars = State.bars state in

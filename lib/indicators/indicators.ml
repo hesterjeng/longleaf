@@ -94,9 +94,7 @@ module Calc = struct
     result
 
   let compute_all eio_env (config : Config.t) bars =
-    match config.compute_live with
-    | false -> Result.return ()
-    | true -> compute_parallel eio_env config bars
+    compute_parallel eio_env config bars
 
   let compute_single i eio_env (config : Config.t) bars =
     match config.compute_live with

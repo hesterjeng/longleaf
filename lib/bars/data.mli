@@ -199,3 +199,15 @@ val t_of_yojson : ?symbol:string -> Yojson.Safe.t -> (t, Error.t) result
 
 val yojson_of_t : t -> Yojson.Safe.t
 (** [yojson_of_t x] returns a JSON representation of the data matrix [x]. *)
+
+(** {1 Order Management} *)
+
+val add_order : t -> int -> Order.t -> (unit, Error.t) result
+(** [add_order data tick order] adds an order to the data at the specified tick.
+*)
+
+val get_orders : t -> int -> (Order.t list, Error.t) result
+(** [get_orders data tick] returns the list of orders at the specified tick. *)
+
+val get_all_orders : t -> Order.t list array
+(** [get_all_orders data] returns all orders indexed by tick. *)

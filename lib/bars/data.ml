@@ -78,6 +78,7 @@ type t = {
   current : int;
   size : int;
   indicators_computed : bool;
+  orders : Order.t list array;
 }
 
 type data = t
@@ -300,12 +301,14 @@ let make size : t =
     index = Index.make ();
     size;
     indicators_computed = false;
+    orders = Array.make size [];
   }
 
 let copy (x : t) =
   let r = make x.size in
   Array2.blit x.data r.data;
   Array2.blit x.int_data r.int_data;
+  Array.blit x.orders 0 r.orders 0 x.size;
   {
     (* r with *)
     r
@@ -325,6 +328,9 @@ let grow (x : t) =
     Array2.init Bigarray.int32 Bigarray.c_layout 70 new_size (fun _ _ ->
         Int32.zero)
   in
+  (* Create new orders array and copy existing orders *)
+  let new_orders = Array.make new_size [] in
+  Array.blit x.orders 0 new_orders 0 x.size;
   (* Copy existing data to new matrices *)
   for i = 0 to Array2.dim1 x.data - 1 do
     for j = 0 to Array2.dim2 x.data - 1 do
@@ -343,6 +349,7 @@ let grow (x : t) =
     current = x.current;
     size = new_size;
     indicators_computed = x.indicators_computed;
+    orders = new_orders;
   }
 
 let set_item (x : t) (i : int) (item : Item.t) =
@@ -475,3 +482,16 @@ let yojson_of_t (x : t) : Yojson.Safe.t =
   `List l
 
 let set_current x current = { x with current }
+
+(* Order management functions *)
+let add_order (data : t) (tick : int) (order : Order.t) =
+  if tick >= 0 && tick < data.size then (
+    data.orders.(tick) <- order :: data.orders.(tick);
+    Ok ())
+  else Error.fatal "Data.add_order: tick index out of bounds"
+
+let get_orders (data : t) (tick : int) =
+  if tick >= 0 && tick < data.size then Ok data.orders.(tick)
+  else Error.fatal "Data.get_orders: tick index out of bounds"
+
+let get_all_orders (data : t) = data.orders

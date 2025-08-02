@@ -8,10 +8,10 @@ type 'a t = {
   current_state : Mode.t;
   bars : Bars.t;
   current_tick : int;
+  orders_placed : int;
   content : 'a;
   config : Config.t;
   cash : float;
-  history : Order.t list Vector.vector;
   positions : Positions.t;
 }
 [@@warning "-69"]
@@ -21,13 +21,13 @@ let empty runtype (indicators : Tacaml.t list) : unit t =
     current_state = Initialize;
     bars = Bars.empty ();
     current_tick = 0;
+    orders_placed = 0;
     config =
       {
         placeholder = false;
         indicator_config = Indicators_config.make runtype indicators;
       };
     cash = 0.0;
-    history = Vector.create ();
     positions = Positions.empty;
     content = ();
   }
@@ -43,18 +43,16 @@ let current t = t.current_state
 let config x = x.config
 
 let make current_tick bars content indicator_config =
-  let ( let* ) = Result.( let* ) in
-  let* length = Bars.length bars in
   let config = Config.{ placeholder = true; indicator_config } in
   Result.return
     {
       current_state = Initialize;
       bars;
       current_tick;
+      orders_placed = 0;
       content;
       config;
       cash = 100000.0;
-      history = Vector.init length (fun _ -> []);
       positions = Positions.empty;
     }
 
@@ -65,7 +63,6 @@ let pp fmt t =
 let show t = Format.asprintf "%a" pp t
 let cash t = t.cash
 let time t = Bars.timestamp t.bars
-let history t = Vector.freeze t.history
 let positions x = x.positions
 
 (* let symbols x = List.map (fun (x : Order.t) -> x.symbol) @@ positions x *)
@@ -102,21 +99,31 @@ let place_order t (order : Order.t) =
   let _ = Pmutex.set order.status Order.Status.Filled in
   let positions = t.positions in
   let positions = Positions.update positions order in
+  (* Add order to data structure for visualization *)
+  let* () = Bars.Data.add_order data tick order in
   match order.side with
   | Buy ->
-    if t.cash >=. order_value then (
+    if t.cash >=. order_value then
       let new_cash = t.cash -. order_value in
-      let current_tick_orders = order :: Vector.get t.history tick in
-      Vector.set t.history tick current_tick_orders;
-      Result.return { t with cash = new_cash; positions })
+      Result.return
+        {
+          t with
+          cash = new_cash;
+          positions;
+          orders_placed = t.orders_placed + 1;
+        }
     else Error.fatal "Insufficient cash for buy order"
   | Sell ->
     let qty_held = qty t order.symbol in
-    if qty_held >= order.qty then (
+    if qty_held >= order.qty then
       let new_cash = t.cash +. order_value in
-      let current_tick_orders = order :: Vector.get t.history tick in
-      Vector.set t.history tick current_tick_orders;
-      Result.return { t with cash = new_cash; positions })
+      Result.return
+        {
+          t with
+          cash = new_cash;
+          positions;
+          orders_placed = t.orders_placed + 1;
+        }
     else Error.fatal "Insufficient shares for sell order"
 
 let tick t = t.current_tick
@@ -124,6 +131,8 @@ let options t = t.config
 
 let stats x =
   let bars = bars x in
-  Stats.make x.history bars
+  let positions = positions x in
+  Stats.from_positions positions bars
 
 let grow x = { x with bars = Bars.grow x.bars }
+let orders_placed x = x.orders_placed
