@@ -1,4 +1,4 @@
-type t = { 
+type t = {
   num_orders : int;
   num_buy_orders : int;
   num_sell_orders : int;
