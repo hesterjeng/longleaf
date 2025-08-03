@@ -4,24 +4,24 @@ open Gadt
 let golden_cross_candlestick =
   let ema_50 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:50 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:50 ()))
   in
   let ema_200 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:200 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:200 ()))
   in
   let hammer_pattern =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_hammer ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_hammer ()))
   in
   let piercing_pattern =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_piercing ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_piercing ()))
   in
   let engulfing_pattern =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_engulfing ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_engulfing ()))
   in
   let rsi_14 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:14 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:14 ()))
   in
   {
     name = "Golden Cross Candlestick";
@@ -30,9 +30,9 @@ let golden_cross_candlestick =
       cross_up ema_50 ema_200
       &&.
       (* Bullish candlestick confirmation *)
-      (IntGT (hammer_pattern, Int 0)
-      ||. IntGT (piercing_pattern, Int 0)
-      ||. IntGT (engulfing_pattern, Int 0))
+      ((hammer_pattern > Int 0)
+      ||. (piercing_pattern > Int 0)
+      ||. (engulfing_pattern > Int 0))
       &&.
       (* RSI not overbought *)
       (rsi_14 <. Float 70.0)
@@ -55,22 +55,22 @@ let golden_cross_candlestick =
 (* MACD Crossover with Doji Reversal *)
 let macd_doji_reversal =
   let macd_line =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.macd_macd ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.macd_macd ()))
   in
   let macd_signal_line =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.macd_signal ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.macd_signal ()))
   in
   let doji_pattern =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_doji ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_doji ()))
   in
   let dragonfly_doji =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_dragonflydoji ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_dragonflydoji ()))
   in
   let morning_star =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_morningstar ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_morningstar ()))
   in
   let bb_lower =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.lower_bband ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.lower_bband ()))
   in
   {
     name = "MACD Doji Reversal";
@@ -79,9 +79,9 @@ let macd_doji_reversal =
       cross_up macd_line macd_signal_line
       &&.
       (* Doji reversal patterns near support *)
-      (IntGT (doji_pattern, Int 0)
-      ||. IntGT (dragonfly_doji, Int 0)
-      ||. IntGT (morning_star, Int 0))
+      ((doji_pattern > Int 0)
+      ||. (dragonfly_doji > Int 0)
+      ||. (morning_star > Int 0))
       &&.
       (* Price near lower Bollinger Band (oversold) *)
       (close <. bb_lower *. Float 1.05)
@@ -104,23 +104,23 @@ let macd_doji_reversal =
 (* Stochastic Crossover with Three White Soldiers *)
 let stochastic_three_soldiers =
   let stoch_k =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.stoch_slow_k ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.stoch_slow_k ()))
   in
   let stoch_d =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.stoch_slow_d ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.stoch_slow_d ()))
   in
   let three_white_soldiers =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_3whitesoldiers ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_3whitesoldiers ()))
   in
   let three_black_crows =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_3blackcrows ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_3blackcrows ()))
   in
   let evening_star =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_eveningstar ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_eveningstar ()))
   in
   let atr_14 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.atr ~timeperiod:14 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.atr ~timeperiod:14 ()))
   in
   {
     name = "Stochastic Three Soldiers";
@@ -132,7 +132,7 @@ let stochastic_three_soldiers =
       (lag stoch_k 1 <. Float 30.0)
       &&.
       (* Three white soldiers pattern *)
-      IntGT (three_white_soldiers, Int 0)
+      (three_white_soldiers > Int 0)
       &&.
       (* Above short-term average *)
       (close >. sma)
@@ -141,8 +141,8 @@ let stochastic_three_soldiers =
       (atr_14 >. close *. Float 0.01);
     sell_trigger =
       (* Bearish patterns *)
-      IntLT (three_black_crows, Int 0)
-      ||. IntLT (evening_star, Int 0)
+      (three_black_crows < Int 0)
+      ||. (evening_star < Int 0)
       ||.
       (* Stochastic overbought crossover *)
       (cross_down stoch_k stoch_d &&. (stoch_k >. Float 70.0))
@@ -157,27 +157,27 @@ let stochastic_three_soldiers =
 let rsi_hanging_man =
   let rsi_21 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:21 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:21 ()))
   in
   let hanging_man =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_hangingman ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_hangingman ()))
   in
   let shooting_star =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_shootingstar ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_shootingstar ()))
   in
   let inverted_hammer =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_invertedhammer ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_invertedhammer ()))
   in
   let dark_cloud =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_darkcloudcover ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_darkcloudcover ()))
   in
   let ema_20 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:20 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:20 ()))
   in
   let ema_50 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:50 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:50 ()))
   in
   {
     name = "RSI Hanging Man Reversal";
@@ -187,7 +187,7 @@ let rsi_hanging_man =
       &&. (rsi_21 >. lag rsi_21 1)
       &&.
       (* Bullish hammer patterns *)
-      (IntGT (inverted_hammer, Int 0) ||. IntGT (hammer, Int 0))
+      ((inverted_hammer > Int 0) ||. (hammer > Int 0))
       &&.
       (* Uptrend context (20 EMA above 50 EMA) *)
       (ema_20 >. ema_50)
@@ -196,9 +196,9 @@ let rsi_hanging_man =
       (close >. ema_20 *. Float 0.95);
     sell_trigger =
       (* Bearish reversal patterns *)
-      IntLT (hanging_man, Int 0)
-      ||. IntLT (shooting_star, Int 0)
-      ||. IntLT (dark_cloud, Int 0)
+      (hanging_man < Int 0)
+      ||. (shooting_star < Int 0)
+      ||. (dark_cloud < Int 0)
       ||.
       (* RSI overbought *)
       (rsi_21 >. Float 75.0)
@@ -213,24 +213,24 @@ let rsi_hanging_man =
 let williams_engulfing =
   let williams_r =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.willr ~timeperiod:14 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.willr ~timeperiod:14 ()))
   in
   let bullish_engulfing =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_engulfing ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_engulfing ()))
   in
   let belt_hold =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_belthold ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_belthold ()))
   in
   let harami =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_harami ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_harami ()))
   in
   let adx_14 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.adx ~timeperiod:14 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.adx ~timeperiod:14 ()))
   in
   let mom_10 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.mom ~timeperiod:10 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.mom ~timeperiod:10 ()))
   in
   {
     name = "Williams R Engulfing";
@@ -240,7 +240,7 @@ let williams_engulfing =
       &&. (williams_r >. lag williams_r 1)
       &&.
       (* Bullish engulfing patterns *)
-      (IntGT (bullish_engulfing, Int 0) ||. IntGT (belt_hold, Int 0))
+      ((bullish_engulfing > Int 0) ||. (belt_hold > Int 0))
       &&.
       (* Trend strength *)
       (adx_14 >. Float 20.0)
@@ -255,7 +255,7 @@ let williams_engulfing =
       williams_r >. Float (-20.0)
       ||.
       (* Bearish harami pattern *)
-      IntLT (harami, Int 0)
+      (harami < Int 0)
       ||.
       (* Momentum turning negative *)
       (mom_10 <. lag mom_10 1 &&. (mom_10 <. Float 0.0))
@@ -270,23 +270,23 @@ let williams_engulfing =
 let cci_star_patterns =
   let cci_20 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.cci ~timeperiod:20 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.cci ~timeperiod:20 ()))
   in
   let morning_star =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_morningstar ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_morningstar ()))
   in
   let evening_star =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_eveningstar ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_eveningstar ()))
   in
   let abandoned_baby =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_abandonedbaby ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_abandonedbaby ()))
   in
   let bb_middle =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.middle_bband ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.middle_bband ()))
   in
   let roc_10 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.roc ~timeperiod:10 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.roc ~timeperiod:10 ()))
   in
   {
     name = "CCI Star Patterns";
@@ -296,7 +296,7 @@ let cci_star_patterns =
       &&. (cci_20 >. lag cci_20 1)
       &&.
       (* Morning star or abandoned baby patterns *)
-      (IntGT (morning_star, Int 0) ||. IntGT (abandoned_baby, Int 0))
+      ((morning_star > Int 0) ||. (abandoned_baby > Int 0))
       &&.
       (* Price above middle Bollinger Band *)
       (close >. bb_middle)
@@ -308,7 +308,7 @@ let cci_star_patterns =
       cci_20 >. Float 150.0
       ||.
       (* Evening star pattern *)
-      IntLT (evening_star, Int 0)
+      (evening_star < Int 0)
       ||.
       (* Price below middle Bollinger Band *)
       (close <. bb_middle *. Float 0.98)
@@ -322,29 +322,29 @@ let cci_star_patterns =
 (* Moving Average Ribbon with Harami Cross *)
 let ma_ribbon_harami =
   let ema_8 =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:8 ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:8 ()))
   in
   let ema_13 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:13 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:13 ()))
   in
   let ema_21 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:21 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:21 ()))
   in
   let ema_34 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:34 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:34 ()))
   in
   let harami_cross =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_haramicross ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_haramicross ()))
   in
   let gravestone_doji =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_gravestonedoji ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_gravestonedoji ()))
   in
   let trix_14 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.trix ~timeperiod:14 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.trix ~timeperiod:14 ()))
   in
   {
     name = "MA Ribbon Harami Cross";
@@ -356,7 +356,7 @@ let ma_ribbon_harami =
       cross_up close ema_8
       &&.
       (* Harami cross bullish signal *)
-      IntGT (harami_cross, Int 0)
+      (harami_cross > Int 0)
       &&.
       (* TRIX momentum positive *)
       (trix_14 >. Float 0.0)
@@ -368,8 +368,8 @@ let ma_ribbon_harami =
       cross_down ema_8 ema_13
       ||.
       (* Bearish harami cross or gravestone doji *)
-      IntLT (harami_cross, Int 0)
-      ||. IntLT (gravestone_doji, Int 0)
+      (harami_cross > Int 0)
+      ||. (gravestone_doji < Int 0)
       ||.
       (* TRIX momentum turns negative *)
       (trix_14 <. Float 0.0)

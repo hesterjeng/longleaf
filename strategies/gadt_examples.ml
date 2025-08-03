@@ -4,11 +4,11 @@ open Gadt
 let intraday_momentum_strategy =
   let rsi_3h =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:18 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:18 ()))
   in
   let sma_2h =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:12 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:12 ()))
   in
   {
     name = "Intraday Momentum";
@@ -24,25 +24,25 @@ let intraday_momentum_strategy =
 let daily_trend_following =
   let ema_4h =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:24 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:24 ()))
   in
   let ema_2h =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:12 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:12 ()))
   in
   let macd_4h =
     Data
-      (Float_type
-         (Data.Type.Tacaml
+      (Float_type,
+         Data.Type.Tacaml
             (Tacaml.Indicator.macd_macd ~fast_period:12 ~slow_period:26
-               ~signal_period:9 ())))
+               ~signal_period:9 ()))
   in
   let macd_signal_4h =
     Data
-      (Float_type
-         (Data.Type.Tacaml
+      (Float_type,
+         Data.Type.Tacaml
             (Tacaml.Indicator.macd_signal ~fast_period:12 ~slow_period:26
-               ~signal_period:9 ())))
+               ~signal_period:9 ()))
   in
   {
     name = "Daily Trend Following";
@@ -58,17 +58,17 @@ let daily_trend_following =
 (* Volatility breakout - uses hourly ATR (6 periods * 10min) *)
 let volatility_breakout_strategy =
   let atr_1h =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.atr ~timeperiod:6 ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.atr ~timeperiod:6 ()))
   in
   let bb_20h =
     Data
-      (Float_type
-         (Data.Type.Tacaml (Tacaml.Indicator.upper_bband ~timeperiod:120 ())))
+      (Float_type,
+        Data.Type.Tacaml (Tacaml.Indicator.upper_bband ~timeperiod:120 ()))
   in
   let bb_low_20h =
     Data
-      (Float_type
-         (Data.Type.Tacaml (Tacaml.Indicator.lower_bband ~timeperiod:120 ())))
+      (Float_type,
+        Data.Type.Tacaml (Tacaml.Indicator.lower_bband ~timeperiod:120 ()))
   in
   let bb_width = bb_20h -. bb_low_20h in
   {
@@ -88,21 +88,21 @@ let volatility_breakout_strategy =
 let swing_trading_strategy =
   let rsi_8h =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:48 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:48 ()))
   in
   let stoch_k_4h =
     Data
-      (Float_type
-         (Data.Type.Tacaml
+      (Float_type,
+        Data.Type.Tacaml
             (Tacaml.Indicator.stoch_slow_k ~fast_k_period:30 ~slow_k_period:18
-               ())))
+               ()))
   in
   let stoch_d_4h =
     Data
-      (Float_type
-         (Data.Type.Tacaml
+      (Float_type,
+        Data.Type.Tacaml
             (Tacaml.Indicator.stoch_slow_d ~fast_k_period:30 ~slow_k_period:18
-               ())))
+               ()))
   in
   {
     name = "Intraday Swing Trading";
@@ -121,22 +121,22 @@ let swing_trading_strategy =
 let mean_reversion_2h =
   let bb_upper_2h =
     Data
-      (Float_type
-         (Data.Type.Tacaml (Tacaml.Indicator.upper_bband ~timeperiod:12 ())))
+      (Float_type,
+        Data.Type.Tacaml (Tacaml.Indicator.upper_bband ~timeperiod:12 ()))
   in
   let bb_lower_2h =
     Data
-      (Float_type
-         (Data.Type.Tacaml (Tacaml.Indicator.lower_bband ~timeperiod:12 ())))
+      (Float_type,
+        Data.Type.Tacaml (Tacaml.Indicator.lower_bband ~timeperiod:12 ()))
   in
   let bb_middle_2h =
     Data
-      (Float_type
-         (Data.Type.Tacaml (Tacaml.Indicator.middle_bband ~timeperiod:12 ())))
+      (Float_type,
+        Data.Type.Tacaml (Tacaml.Indicator.middle_bband ~timeperiod:12 ()))
   in
   let rsi_2h =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:12 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:12 ()))
   in
   {
     name = "2-Hour Mean Reversion";
@@ -152,14 +152,14 @@ let mean_reversion_2h =
 let williams_30min_momentum =
   let wr_30m =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.willr ~timeperiod:3 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.willr ~timeperiod:3 ()))
   in
   let wr_1h =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.willr ~timeperiod:6 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.willr ~timeperiod:6 ()))
   in
   let roc_1h =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.roc ~timeperiod:6 ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.roc ~timeperiod:6 ()))
   in
   {
     name = "Williams 30min Momentum";
@@ -175,7 +175,7 @@ let williams_30min_momentum =
 (* CCI divergence - uses 1-hour periods (6 periods * 10min) *)
 let cci_1h_divergence =
   let cci_1h =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.cci ~timeperiod:6 ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.cci ~timeperiod:6 ()))
   in
   let cci_lag1 = lag cci_1h 1 in
   let cci_lag3 = lag cci_1h 3 in
@@ -200,17 +200,17 @@ let cci_1h_divergence =
 (* Triple EMA - uses 30min, 1h, 2h periods *)
 let triple_ema_intraday =
   let ema_30m =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:3 ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:3 ()))
   in
   let ema_1h =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:6 ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:6 ()))
   in
   let ema_2h =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:12 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:12 ()))
   in
   let mom_30m =
-    Data (Float_type (Data.Type.Tacaml (Tacaml.Indicator.mom ~timeperiod:3 ())))
+    Data (Float_type, Data.Type.Tacaml (Tacaml.Indicator.mom ~timeperiod:3 ()))
   in
   {
     name = "Triple EMA Intraday";
@@ -227,7 +227,7 @@ let triple_ema_intraday =
 let trix_2h_oscillator =
   let trix_2h =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.trix ~timeperiod:12 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.trix ~timeperiod:12 ()))
   in
   let trix_lag1 = lag trix_2h 1 in
   {
@@ -249,22 +249,22 @@ let trix_2h_oscillator =
 (* Advanced candlestick with volume confirmation *)
 let candlestick_with_volume =
   let three_soldiers =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_3whitesoldiers ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_3whitesoldiers ()))
   in
   let morning_doji =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_morningdojistar ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_morningdojistar ()))
   in
   let piercing_line =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_piercing ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_piercing ()))
   in
   let three_crows =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_3blackcrows ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_3blackcrows ()))
   in
   let evening_doji =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_eveningdojistar ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_eveningdojistar ()))
   in
   let dark_cloud =
-    Data (Int_type (Data.Type.Tacaml (Tacaml.Indicator.cdl_darkcloudcover ())))
+    Data (Int_type, Data.Type.Tacaml (Tacaml.Indicator.cdl_darkcloudcover ()))
   in
   let volume_3bar_avg =
     (lag volume 1 +. lag volume 2 +. lag volume 3) /. Float 3.0
@@ -272,16 +272,16 @@ let candlestick_with_volume =
   {
     name = "Candlestick Volume Confirmation";
     buy_trigger =
-      IntGT (three_soldiers, Int 0)
-      ||. IntGT (morning_doji, Int 0)
-      ||. IntGT (piercing_line, Int 0)
+      (three_soldiers > Int 0)
+      ||. (morning_doji > Int 0)
+      ||. (piercing_line > Int 0)
       &&. (rsi <. Float 55.0)
       &&. (volume >. volume_3bar_avg *. Float 1.5)
       &&. (close >. open_);
     sell_trigger =
-      IntLT (three_crows, Int 0)
-      ||. IntLT (evening_doji, Int 0)
-      ||. IntLT (dark_cloud, Int 0)
+      (three_crows < Int 0)
+      ||. (evening_doji < Int 0)
+      ||. (dark_cloud < Int 0)
       ||. (close >. sma *. Float 1.06);
     max_positions = 6;
     position_size = 0.16;
@@ -292,27 +292,27 @@ let medium_term_crossover =
   (* With 10min bars: 20 periods = 3.3 hours, 50 = 8.3 hours, 100 = 16.7 hours *)
   let ema_20 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:20 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:20 ()))
   in
   let ema_50 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:50 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:50 ()))
   in
   let sma_100 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:100 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:100 ()))
   in
   let rsi_50 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:50 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:50 ()))
   in
   let volume_50 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:50 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:50 ()))
   in
   let adx_50 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.adx ~timeperiod:50 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.adx ~timeperiod:50 ()))
   in
   {
     name = "Medium Term Crossover";
@@ -351,29 +351,29 @@ let medium_term_crossover =
 let macd_crossover_filtered =
   let macd_line =
     Data
-      (Float_type
-         (Data.Type.Tacaml
+      (Float_type,
+        Data.Type.Tacaml
             (Tacaml.Indicator.macd_macd ~fast_period:12 ~slow_period:26
-               ~signal_period:9 ())))
+               ~signal_period:9 ()))
   in
   let macd_signal_line =
     Data
-      (Float_type
-         (Data.Type.Tacaml
+      (Float_type,
+        Data.Type.Tacaml
             (Tacaml.Indicator.macd_signal ~fast_period:12 ~slow_period:26
-               ~signal_period:9 ())))
+               ~signal_period:9 ()))
   in
   let ema_100 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:100 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:100 ()))
   in
   let rsi_30 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:30 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:30 ()))
   in
   let atr_20 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.atr ~timeperiod:20 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.atr ~timeperiod:20 ()))
   in
   {
     name = "MACD Crossover Filtered";
@@ -412,23 +412,23 @@ let macd_crossover_filtered =
 let triple_ma_momentum =
   let ema_10 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:10 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:10 ()))
   in
   let ema_30 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:30 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.ema ~timeperiod:30 ()))
   in
   let sma_60 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:60 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:60 ()))
   in
   let rsi_20 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:20 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:20 ()))
   in
   let mom_10 =
     Data
-      (Float_type (Data.Type.Tacaml (Tacaml.Indicator.mom ~timeperiod:10 ())))
+      (Float_type, Data.Type.Tacaml (Tacaml.Indicator.mom ~timeperiod:10 ()))
   in
   {
     name = "Triple MA Momentum";
