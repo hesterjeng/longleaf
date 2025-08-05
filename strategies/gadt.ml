@@ -17,6 +17,7 @@ type _ data_type =
 
 type const = VFloat of float | VInt of int
 type env = (Uuidm.t, const) List.Assoc.t
+type _ arg = None : unit arg | Int : int arg
 
 (* GADT AST with phantom types for compile-time type safety *)
 type _ expr =
@@ -26,7 +27,7 @@ type _ expr =
   | Bool : bool -> bool expr
   (* Type-safe data access *)
   | Data : 'a data_type -> 'a expr
-  | App : ('a -> 'b) * 'a expr -> 'b expr
+  | App : 'a arg * ('a -> 'b) * 'a expr -> 'b expr
   | Var : Uuidm.t -> _ expr
   | Symbol : unit -> Instrument.t expr
   (* Comparisons *)
@@ -87,7 +88,7 @@ let rec eval : type a.
          index (Data.length data))
   else
     match expr with
-    | App (f, x) ->
+    | App (_, f, x) ->
       let* v = eval symbol x data index in
       Result.return @@ f v
     | Symbol () -> Result.return symbol
