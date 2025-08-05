@@ -15,6 +15,22 @@ type _ data_type =
   | Float_type : Data.Type.t -> float data_type
   | Int_type : Data.Type.t -> int data_type
 
+(* Function type GADT for De Bruijn lambda expressions *)
+type (_, _) fn_type =
+  | FloatToInt : (float, int) fn_type
+  | FloatToFloat : (float, float) fn_type
+  | IntToFloat : (int, float) fn_type
+  | IntToInt : (int, int) fn_type
+  | FloatIntToFloat : (float * int, float) fn_type
+  | IntIntToFloat : (int * int, float) fn_type
+  | BoolToBool : (bool, bool) fn_type
+  | FloatToBool : (float, bool) fn_type
+  | IntToBool : (int, bool) fn_type
+
+(* Environment for De Bruijn index evaluation *)
+type env_entry = Float_val of float | Int_val of int | Bool_val of bool
+type env = env_entry list (* Stack: head is index 0 *)
+
 (* GADT AST with phantom types for compile-time type safety *)
 type _ expr =
   (* Literals *)
@@ -60,6 +76,15 @@ type _ expr =
   | CrossDown :
       float expr * float expr
       -> bool expr (* line1 crosses below line2 *)
+  (* De Bruijn lambda expressions *)
+  | Var : int -> 'a expr (* De Bruijn index - 0 is innermost binding *)
+  | Lambda :
+      ('a, 'b) fn_type * 'b expr
+      -> ('a -> 'b) expr (* Lambda abstraction *)
+  | App : ('a -> 'b) expr * 'a expr -> 'b expr (* Function application *)
+  | ExtFun :
+      ('a, 'b) fn_type * string * ('a -> 'b)
+      -> ('a -> 'b) expr (* External function *)
 
 (* Strategy structure *)
 type strategy = {
@@ -70,10 +95,62 @@ type strategy = {
   position_size : float;
 }
 
+(* De Bruijn index shifting for lambda scope management *)
+let rec shift_expr : type a. int -> int -> a expr -> a expr =
+ fun cutoff delta expr ->
+  match expr with
+  | Var n -> Var (if n >= cutoff then n + delta else n)
+  | Lambda (fn_type, body) ->
+    Lambda (fn_type, shift_expr (cutoff + 1) delta body)
+  | App (fn_expr, arg_expr) ->
+    App (shift_expr cutoff delta fn_expr, shift_expr cutoff delta arg_expr)
+  | ExtFun (fn_type, name, f) ->
+    ExtFun (fn_type, name, f) (* External functions are closed *)
+  (* All other cases just recurse *)
+  | Symbol () -> Symbol ()
+  | Float f -> Float f
+  | Int i -> Int i
+  | Bool b -> Bool b
+  | Data dt -> Data dt
+  | GT (e1, e2) -> GT (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | LT (e1, e2) -> LT (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | GTE (e1, e2) -> GTE (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | LTE (e1, e2) -> LTE (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | EQ (e1, e2) -> EQ (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | IntGT (e1, e2) ->
+    IntGT (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | IntLT (e1, e2) ->
+    IntLT (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | IntEQ (e1, e2) ->
+    IntEQ (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | And (e1, e2) -> And (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | Or (e1, e2) -> Or (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | Not e -> Not (shift_expr cutoff delta e)
+  | Add (e1, e2) -> Add (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | Sub (e1, e2) -> Sub (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | Mul (e1, e2) -> Mul (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | Div (e1, e2) -> Div (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | Moneyness (underlying, option) -> Moneyness (underlying, option)
+  | Days_to_expiry option -> Days_to_expiry option
+  | CustomIndicator indicator -> CustomIndicator indicator
+  | Lag (expr, periods) -> Lag (shift_expr cutoff delta expr, periods)
+  | CrossUp (e1, e2) ->
+    CrossUp (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+  | CrossDown (e1, e2) ->
+    CrossDown (shift_expr cutoff delta e1, shift_expr cutoff delta e2)
+
+(* Substitution for beta reduction - this is tricky with GADTs *)
+(* We'll implement a simpler version that works for our use case *)
+let substitute_var : type a b. int -> a expr -> b expr -> b expr =
+ fun _var_index _replacement expr ->
+  (* For now, we'll use a simple approach that doesn't do full substitution *)
+  (* This will be expanded when we actually need complex lambda calculus *)
+  expr
+
 (* Type-safe evaluation *)
 let rec eval : type a.
-    Instrument.t -> a expr -> Data.t -> int -> (a, Error.t) result =
- fun symbol expr data index ->
+    env -> Instrument.t -> a expr -> Data.t -> int -> (a, Error.t) result =
+ fun env symbol expr data index ->
   let ( let* ) = Result.( let* ) in
   (* Bounds checking *)
   if index < 0 || index >= Data.length data then
@@ -93,63 +170,63 @@ let rec eval : type a.
       Error.guard (Error.fatal "GADT.eval int data") @@ fun () ->
       Int.of_float (Data.get data data_type index)
     | GT (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 >. v2)
     | LT (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 <. v2)
     | GTE (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 >=. v2)
     | LTE (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 <=. v2)
     | EQ (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (Float.equal v1 v2)
     | IntGT (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 > v2)
     | IntLT (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 < v2)
     | IntEQ (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 = v2)
     | And (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 && v2)
     | Or (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 || v2)
     | Not e ->
-      let* v = eval symbol e data index in
+      let* v = eval env symbol e data index in
       Result.return (not v)
     | Add (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 +. v2)
     | Sub (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 -. v2)
     | Mul (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       Result.return (v1 *. v2)
     | Div (e1, e2) ->
-      let* v1 = eval symbol e1 data index in
-      let* v2 = eval symbol e2 data index in
+      let* v1 = eval env symbol e1 data index in
+      let* v2 = eval env symbol e2 data index in
       if Float.equal v2 0.0 then Error.fatal "Division by zero in GADT.eval"
       else Result.return (v1 /. v2)
     | Moneyness (underlying, option) -> (
@@ -190,25 +267,46 @@ let rec eval : type a.
              "GADT.eval: lag index %d out of bounds (periods: %d, current \
               index: %d)"
              lag_index periods index)
-      else eval symbol expr data lag_index
+      else eval env symbol expr data lag_index
     | CrossUp (e1, e2) ->
       if index = 0 then
         Error.fatal "GADT.eval: CrossUp requires at least 1 historical period"
       else
-        let* current_e1 = eval symbol e1 data index in
-        let* current_e2 = eval symbol e2 data index in
-        let* prev_e1 = eval symbol e1 data (index - 1) in
-        let* prev_e2 = eval symbol e2 data (index - 1) in
+        let* current_e1 = eval env symbol e1 data index in
+        let* current_e2 = eval env symbol e2 data index in
+        let* prev_e1 = eval env symbol e1 data (index - 1) in
+        let* prev_e2 = eval env symbol e2 data (index - 1) in
         Result.return (prev_e1 <=. prev_e2 && current_e1 >. current_e2)
     | CrossDown (e1, e2) ->
       if index = 0 then
         Error.fatal "GADT.eval: CrossDown requires at least 1 historical period"
       else
-        let* current_e1 = eval symbol e1 data index in
-        let* current_e2 = eval symbol e2 data index in
-        let* prev_e1 = eval symbol e1 data (index - 1) in
-        let* prev_e2 = eval symbol e2 data (index - 1) in
+        let* current_e1 = eval env symbol e1 data index in
+        let* current_e2 = eval env symbol e2 data index in
+        let* prev_e1 = eval env symbol e1 data (index - 1) in
+        let* prev_e2 = eval env symbol e2 data (index - 1) in
         Result.return (prev_e1 >=. prev_e2 && current_e1 <. current_e2)
+    (* De Bruijn lambda expression cases *)
+    | Var db_index -> (
+      match List.get_at_idx db_index env with
+      | Some entry -> (
+        match entry with
+        | Float_val f -> Result.return (Obj.magic f : a)
+        | Int_val i -> Result.return (Obj.magic i : a)
+        | Bool_val b -> Result.return (Obj.magic b : a))
+      | None ->
+        Error.fatal
+          (Printf.sprintf "Unbound variable at De Bruijn index %d" db_index))
+    | Lambda (_fn_type, _body) ->
+      (* Return a closure - for now we'll represent it as an OCaml function *)
+      (* This is complex with GADTs - we'll use a simpler approach *)
+      Error.fatal "Lambda evaluation not yet implemented"
+    | App (_fn_expr, _arg_expr) ->
+      (* Function application - also complex with our current setup *)
+      Error.fatal "Application evaluation not yet implemented"
+    | ExtFun (_fn_type, _name, f) ->
+      (* External functions return the OCaml function directly *)
+      Result.return f
 
 (* Smart constructors for OHLCV data - these are always floats *)
 let close = Data (Float_type Data.Type.Close)
@@ -374,7 +472,9 @@ let eval_strategy_signal (strategy_expr : bool expr) (state : _ State.t) symbol
     (* State.get_bars state symbol *)
   in
   let current_index = State.tick state in
-  match eval symbol strategy_expr data current_index with
+  let empty_env = [] in
+  (* Start with empty environment for now *)
+  match eval empty_env symbol strategy_expr data current_index with
   | Ok should_signal -> Result.return @@ Signal.make symbol should_signal
   | Error e -> Error e
 
@@ -442,6 +542,12 @@ let rec collect_data_types : type a. a expr -> Data.Type.t list = function
   | CrossUp (e1, e2)
   | CrossDown (e1, e2) ->
     collect_data_types e1 @ collect_data_types e2
+  (* De Bruijn lambda expressions don't contribute data types directly *)
+  | Var _ -> [] (* Variables get their types from the environment at runtime *)
+  | Lambda (_, body) -> collect_data_types body
+  | App (fn_expr, arg_expr) ->
+    collect_data_types fn_expr @ collect_data_types arg_expr
+  | ExtFun (_, _, _) -> [] (* External functions don't access data directly *)
 
 let collect_strategy_data_types (strategy : strategy) : Data.Type.t list =
   let buy_data_types = collect_data_types strategy.buy_trigger in
@@ -496,6 +602,13 @@ let rec collect_custom_indicators : type a. a expr -> Tacaml.Indicator.t list =
   | CrossUp (e1, e2)
   | CrossDown (e1, e2) ->
     collect_custom_indicators e1 @ collect_custom_indicators e2
+  (* De Bruijn lambda expressions *)
+  | Var _ -> [] (* Variables don't contain custom indicators directly *)
+  | Lambda (_, body) -> collect_custom_indicators body
+  | App (fn_expr, arg_expr) ->
+    collect_custom_indicators fn_expr @ collect_custom_indicators arg_expr
+  | ExtFun (_, _, _) ->
+    [] (* External functions don't use custom indicators directly *)
 
 let collect_strategy_custom_indicators (strategy : strategy) :
     Tacaml.Indicator.t list =
