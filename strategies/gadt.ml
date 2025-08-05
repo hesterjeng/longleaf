@@ -15,6 +15,9 @@ type _ data_type =
   | Float_type : Data.Type.t -> float data_type
   | Int_type : Data.Type.t -> int data_type
 
+type const = VFloat of float | VInt of int
+type env = (Uuidm.t, const) List.Assoc.t
+
 (* GADT AST with phantom types for compile-time type safety *)
 type _ expr =
   (* Literals *)
@@ -23,6 +26,8 @@ type _ expr =
   | Bool : bool -> bool expr
   (* Type-safe data access *)
   | Data : 'a data_type -> 'a expr
+  | App : ('a -> 'b) * 'a expr -> 'b expr
+  | Var : Uuidm.t -> _ expr
   | Symbol : unit -> Instrument.t expr
   (* Comparisons *)
   | GT : float expr * float expr -> bool expr
@@ -82,8 +87,12 @@ let rec eval : type a.
          index (Data.length data))
   else
     match expr with
+    | App (f, x) ->
+      let* v = eval symbol x data index in
+      Result.return @@ f v
     | Symbol () -> Result.return symbol
     | Float f -> Result.return f
+    | Var _ -> invalid_arg "Cannot evalute gadts with variables in them"
     | Int i -> Result.return i
     | Bool b -> Result.return b
     | Data (Float_type data_type) ->
@@ -406,6 +415,8 @@ let gadt_to_strategy_builder (strategy : strategy) =
 
 (* Collect all Data.Type.t from GADT expressions *)
 let rec collect_data_types : type a. a expr -> Data.Type.t list = function
+  | Var _
+  | App _
   | Symbol _
   | Float _
   | Int _
@@ -462,6 +473,8 @@ let collect_tacaml_data_types (strategy : strategy) =
 (* Collect all custom Tacaml.t indicators from GADT expressions *)
 let rec collect_custom_indicators : type a. a expr -> Tacaml.Indicator.t list =
   function
+  | Var _
+  | App _
   | Symbol _
   | Float _
   | Int _
