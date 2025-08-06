@@ -1,13 +1,16 @@
 open Gadt
 
+let ( @@@ ) = Gadt_fo.( @@@ )
+
+(* let tacaml x = Data ( Const (Data.Type.Tacaml x) ) *)
+(* let data x = Data x *)
+
+module I = Tacaml.Indicator.Raw
+
 (* Intraday momentum strategy - uses 3-hour RSI (18 periods * 10min) *)
 let intraday_momentum_strategy =
-  let rsi_3h =
-    Data (Data.Type.Tacaml (Tacaml.Indicator.rsi ~timeperiod:18 ()))
-  in
-  let sma_2h =
-    Data (Data.Type.Tacaml (Tacaml.Indicator.sma ~timeperiod:12 ()))
-  in
+  let rsi_3h = indicator @@ Fun I.rsi @@@ Int 18 in
+  let sma_2h = indicator @@ Fun I.sma @@@ Int 12 in
   {
     name = "Intraday Momentum";
     buy_trigger =

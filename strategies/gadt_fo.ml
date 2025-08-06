@@ -1,11 +1,13 @@
 open Gadt
 module I = Tacaml.Indicator.Raw
 
-let ( @@@ ) f x = App (f, x)
+let ( @@@ ) f x = App (Fun f, x)
+(* let indicator f x = *)
+
 let uid () = Var (Uuidm.v4_gen Util.random_state ())
 
 (* Single argument indicators *)
-let dema = Fun I.dema @@@ uid ()
+let dema = I.dema @@@ uid ()
 let ema = Fun I.ema @@@ uid ()
 let kama = Fun I.kama @@@ uid ()
 let ma = Fun I.ma @@@ uid ()
@@ -190,10 +192,3 @@ let max_index = Fun I.max_index @@@ uid ()
 let min_index = Fun I.min_index @@@ uid ()
 let min_max_index_min = Fun I.min_max_index_min @@@ uid ()
 let min_max_index_max = Fun I.min_max_index_max @@@ uid ()
-
-module Examples = struct
-
-  let expr =
-    GT (atr, 0,0)
-
-end
