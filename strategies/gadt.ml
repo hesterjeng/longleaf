@@ -12,7 +12,6 @@ module Options = Longleaf_core.Options
 
 type const = VFloat of float | VInt of int
 type env = (Uuidm.t, const) List.Assoc.t
-(* type _ arg = None : unit arg | Int : int arg *)
 
 (* GADT AST with phantom types for compile-time type safety *)
 type _ expr =
@@ -23,8 +22,10 @@ type _ expr =
   | Const : 'a -> 'a expr
   (* Type-safe data access *)
   | Data : Data.Type.t expr -> float expr
-  (* | Indicator : Tacaml.Indicator.t expr -> float expr *)
-  | App : ('a -> 'b) expr * 'a expr -> 'b expr
+  | Indicator : Tacaml.Indicator.t expr -> float expr
+  | App1 : ('a -> 'b) expr * 'a expr -> 'b expr
+  | App2 : ('a -> 'b -> 'c) expr * 'a expr * 'b expr -> 'c expr
+  | App3 : ('a -> 'b -> 'c -> 'd) expr * 'a expr * 'b expr * 'c expr -> 'd expr
   | Fun : ('a -> 'b) -> ('a -> 'b) expr
   | Var : Uuidm.t -> _ expr
   | Symbol : unit -> Instrument.t expr
@@ -48,10 +49,6 @@ type _ expr =
       Instrument.t * Instrument.t
       -> float expr (* underlying * option *)
   | Days_to_expiry : Instrument.t -> int expr (* option *)
-  (* Custom indicator expressions *)
-  (* | CustomIndicator : *)
-  (*     Tacaml.Indicator.t *)
-  (*     -> float expr (\* custom tacaml indicator *\) *)
   (* Lag expressions for historical data access *)
   | Lag : 'a expr * int -> 'a expr (* Access data N periods ago *)
   (* Crossover detection *)
@@ -87,10 +84,23 @@ let rec eval : type a.
     match expr with
     | Const x -> Result.return x
     | Fun f -> Result.return f
-    | App (f, x) ->
+    | App1 (f, x) ->
       let* f = eval symbol f data index in
       let* arg = eval symbol x data index in
       let res = f arg in
+      Result.return res
+    | App2 (f, x, y) ->
+      let* f = eval symbol f data index in
+      let* x = eval symbol x data index in
+      let* y = eval symbol y data index in
+      let res = f x y in
+      Result.return res
+    | App3 (f, x, y, z) ->
+      let* f = eval symbol f data index in
+      let* x = eval symbol x data index in
+      let* y = eval symbol y data index in
+      let* z = eval symbol z data index in
+      let res = f x y z in
       Result.return res
     | Symbol () -> Result.return symbol
     | Float f -> Result.return f
@@ -101,10 +111,10 @@ let rec eval : type a.
       let* ty = eval symbol ty data index in
       Error.guard (Error.fatal "Error in GADT evaluation at Data node")
       @@ fun () -> Data.get data ty index
-    (* | Indicator ty -> *)
-    (*   let* ty = eval symbol ty data index in *)
-    (*   Error.guard (Error.fatal "Error in GADT evaluation at Data node") *)
-    (*   @@ fun () -> Data.get data (Tacaml ty) index *)
+    | Indicator ty ->
+      let* ty = eval symbol ty data index in
+      Error.guard (Error.fatal "Error in GADT evaluation at Data node")
+      @@ fun () -> Data.get data (Tacaml ty) index
     | GT (e1, e2) ->
       let* v1 = eval symbol e1 data index in
       let* v2 = eval symbol e2 data index in
@@ -180,9 +190,6 @@ let rec eval : type a.
         let diff_days = diff_seconds /. 86400.0 |> Float.to_int in
         max 0 diff_days (* Ensure non-negative *)
       | _ -> failwith "Days_to_expiry requires Contract instrument")
-    (* | CustomIndicator indicator -> *)
-    (*   Error.guard (Error.fatal "GADT.eval custom_indicator") @@ fun () -> *)
-    (*   Data.get data (Data.Type.Tacaml indicator) index *)
     | Lag (expr, periods) ->
       let lag_index = index - periods in
       if lag_index < 0 then
@@ -219,10 +226,23 @@ let rec eval_simple : type a. a expr -> (a, Error.t) result =
   match expr with
   | Const x -> Result.return x
   | Fun f -> Result.return f
-  | App (f, x) ->
+  | App1 (f, x) ->
     let* f = eval f in
     let* arg = eval x in
     let res = f arg in
+    Result.return res
+  | App2 (f, x, y) ->
+    let* f = eval f in
+    let* x = eval x in
+    let* y = eval y in
+    let res = f x y in
+    Result.return res
+  | App3 (f, x, y, z) ->
+    let* f = eval f in
+    let* x = eval x in
+    let* y = eval y in
+    let* z = eval z in
+    let res = f x y z in
     Result.return res
   | Symbol () -> Error.fatal "Symbol unknown in eval_simple"
   | Float f -> Result.return f
@@ -230,6 +250,7 @@ let rec eval_simple : type a. a expr -> (a, Error.t) result =
   | Int i -> Result.return i
   | Bool b -> Result.return b
   | Data _ -> Error.fatal "Cannot evaluate Data in eval_simple"
+  | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple"
   (* | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple" *)
   | GT (e1, e2) ->
     let* v1 = eval e1 in
@@ -286,75 +307,6 @@ let rec eval_simple : type a. a expr -> (a, Error.t) result =
   | CrossDown _ ->
     Error.fatal "Unable to evalute complex constructor in eval_simple"
 
-(* module Defaults = struct *)
-(*   module I = Tacaml.Indicator *)
-
-(*   let data x = Data (Const x) *)
-
-(*   open Data.Type *)
-(*   open Tacaml.Indicator *)
-
-(*   (\* Smart constructors for OHLCV data - these are always floats *\) *)
-(*   let close = data Close *)
-(*   let open_ = data Open *)
-(*   let high = data High *)
-(*   let low = data Low *)
-(*   let volume = data Volume *)
-
-(*   (\* Smart constructors for float indicators *\) *)
-(*   let rsi = data (Tacaml (rsi ())) *)
-(*   let sma = data (Tacaml (sma ())) *)
-(*   let ema = data (Tacaml (ema ())) *)
-(*   let adx = data (Tacaml (adx ())) *)
-(*   let atr = data (Tacaml (atr ())) *)
-(*   let volume_sma = data (Tacaml (I.sma ~timeperiod:20 ())) *)
-(*   let macd = data (Tacaml (macd_macd ())) *)
-(*   let macd_signal = data (Tacaml (macd_signal ())) *)
-(*   let macd_hist = data (Tacaml (macd_hist ())) *)
-(*   let bb_upper = data (Tacaml (upper_bband ())) *)
-(*   let bb_lower = data (Tacaml (lower_bband ())) *)
-(*   let bb_middle = data (Tacaml (middle_bband ())) *)
-(*   let willr = data (Tacaml (willr ())) *)
-(*   let stoch_k = data (Tacaml (stoch_slow_k ())) *)
-(*   let stoch_d = data (Tacaml (stoch_slow_d ())) *)
-
-(*   (\* Smart constructors for integer indicators - candlestick patterns *\) *)
-(*   let hammer = data (Tacaml (cdl_hammer ())) *)
-(*   let doji = data (Tacaml (cdl_doji ())) *)
-(*   let engulfing = data (Tacaml (cdl_engulfing ())) *)
-(*   let morning_star = data (Tacaml (cdl_morningstar ())) *)
-(*   let evening_star = data (Tacaml (cdl_eveningstar ())) *)
-(*   let shooting_star = data (Tacaml (cdl_shootingstar ())) *)
-(*   let hanging_man = data (Tacaml (cdl_hangingman ())) *)
-(*   let piercing = data (Tacaml (cdl_piercing ())) *)
-(*   let dark_cloud = data (Tacaml (cdl_darkcloudcover ())) *)
-
-(*   (\* Additional candlestick patterns for testing *\) *)
-(*   let inverted_hammer = data (Tacaml (cdl_invertedhammer ())) *)
-(*   let dragonfly_doji = data (Tacaml (cdl_dragonflydoji ())) *)
-(*   let gravestone_doji = data (Tacaml (cdl_gravestonedoji ())) *)
-(*   let three_white_soldiers = data (Tacaml (cdl_3whitesoldiers ())) *)
-(*   let three_black_crows = data (Tacaml (cdl_3blackcrows ())) *)
-(*   let belt_hold = data (Tacaml (cdl_belthold ())) *)
-(*   let abandoned_baby = data (Tacaml (cdl_abandonedbaby ())) *)
-(*   let harami = data (Tacaml (cdl_harami ())) *)
-(*   let harami_cross = data (Tacaml (cdl_haramicross ())) *)
-(* end *)
-
-(* include Defaults *)
-
-(* Options smart constructors *)
-let moneyness underlying option = Moneyness (underlying, option)
-let days_to_expiry option = Days_to_expiry option
-
-(* Custom indicator smart constructor *)
-(* let custom_indicator indicator = CustomIndicator indicator *)
-
-(* Lag and crossover smart constructors *)
-let lag expr periods = Lag (expr, periods)
-let cross_up e1 e2 = CrossUp (e1, e2)
-let cross_down e1 e2 = CrossDown (e1, e2)
-
 (* Convenience operators *)
 let ( >. ) e1 e2 = GT (e1, e2)
 let ( <. ) e1 e2 = LT (e1, e2)
@@ -368,41 +320,6 @@ let ( -. ) e1 e2 = Sub (e1, e2)
 let ( *. ) e1 e2 = Mul (e1, e2)
 let ( /. ) e1 e2 = Div (e1, e2)
 
-(* (\* Example strategies *\) *)
-(* let rsi_mean_reversion = *)
-(*   { *)
-(*     name = "RSI Mean Reversion"; *)
-(*     buy_trigger = rsi <. Float 30.0 &&. (close >. sma); *)
-(*     sell_trigger = rsi >. Float 70.0 ||. (close <. sma *. Float 0.95); *)
-(*     max_positions = 3; *)
-(*     position_size = 0.33; *)
-(*   } *)
-
-(* let macd_bollinger_momentum = *)
-(*   { *)
-(*     name = "MACD Bollinger Momentum"; *)
-(*     buy_trigger = *)
-(*       macd >. macd_signal *)
-(*       &&. (close <. bb_lower +. ((bb_upper -. bb_lower) *. Float 0.2)) *)
-(*       &&. (adx >. Float 25.0) &&. (macd_hist >. Float 0.0); *)
-(*     sell_trigger = *)
-(*       macd <. macd_signal ||. (close >. bb_upper) *)
-(*       ||. (close <. sma *. Float 0.92); *)
-(*     max_positions = 5; *)
-(*     position_size = 0.2; *)
-(*   } *)
-
-(* let candlestick_patterns_strategy = *)
-(*   { *)
-(*     name = "Candlestick Patterns"; *)
-(*     buy_trigger = *)
-(*       hammer >. Float 0.0 &&. (rsi <. Float 40.0) *)
-(*       &&. (volume >. volume_sma *. Float 1.3); *)
-(*     sell_trigger = engulfing <. Float 0.0 ||. (close >. sma *. Float 1.1); *)
-(*     max_positions = 6; *)
-(*     position_size = 0.16; *)
-(*   } *)
-
 module CollectIndicators : sig
   val top : strategy -> Tacaml.t list
 end = struct
@@ -412,21 +329,31 @@ end = struct
   let rec collect_data_types : type a. a expr -> Data.Type.t list = function
     | Var _
     | Const _
-    | App _
+    | App1 _
+    | App2 _
+    | App3 _
     | Fun _
     | Symbol _
     | Float _
     | Int _
     | Bool _ ->
       []
-    | Data data_type -> (
-      match eval_simple data_type with
-      | Ok x -> [ x ]
-      | _ -> raise InvalidGADT)
-    (* | Indicator i -> ( *)
-    (*   match eval_simple i with *)
-    (*   | Ok x -> [ Tacaml x ] *)
-    (*   | _ -> raise InvalidGADT) *)
+    | Data data_type ->
+      [
+        ( eval_simple data_type |> function
+          | Ok x -> x
+          | Error e ->
+            Eio.traceln "%a" Error.pp e;
+            raise InvalidGADT );
+      ]
+    | Indicator data_type ->
+      [
+        ( eval_simple data_type |> function
+          | Ok x -> Data.Type.Tacaml x
+          | Error e ->
+            Eio.traceln "%a" Error.pp e;
+            raise InvalidGADT );
+      ]
     | GT (e1, e2)
     | LT (e1, e2)
     | GTE (e1, e2)
@@ -446,7 +373,6 @@ end = struct
       [ Data.Type.Close ] (* Uses Close price for moneyness calculation *)
     | Days_to_expiry _ ->
       [ Data.Type.Time ] (* Uses Time for expiry calculation *)
-    (* | CustomIndicator indicator -> [ Data.Type.Tacaml indicator ] *)
     | Lag (expr, _) ->
       collect_data_types expr (* Lag inherits types from wrapped expr *)
     | CrossUp (e1, e2)
