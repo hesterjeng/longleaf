@@ -1,13 +1,15 @@
 open Gadt
 module I = Tacaml.Indicator.Raw
 
-let ( @@@ ) f x = App (Fun f, x)
+let ( @@@ ) f x = App (f, x)
 (* let indicator f x = *)
 
 let uid () = Var (Uuidm.v4_gen Util.random_state ())
+let tacaml x = Data (App (Fun (fun x -> Data.Type.Tacaml x), x))
 
 (* Single argument indicators *)
-let dema = I.dema @@@ uid ()
+let dema = tacaml @@ Fun I.dema @@@ uid ()
+let dema = Fun I.dema @@@ uid ()
 let ema = Fun I.ema @@@ uid ()
 let kama = Fun I.kama @@@ uid ()
 let ma = Fun I.ma @@@ uid ()

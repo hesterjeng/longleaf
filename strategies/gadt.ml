@@ -23,7 +23,7 @@ type _ expr =
   | Const : 'a -> 'a expr
   (* Type-safe data access *)
   | Data : Data.Type.t expr -> float expr
-  | Indicator : Tacaml.Indicator.t expr -> float expr
+  (* | Indicator : Tacaml.Indicator.t expr -> float expr *)
   | App : ('a -> 'b) expr * 'a expr -> 'b expr
   | Fun : ('a -> 'b) -> ('a -> 'b) expr
   | Var : Uuidm.t -> _ expr
@@ -62,7 +62,7 @@ type _ expr =
       float expr * float expr
       -> bool expr (* line1 crosses below line2 *)
 
-let indicator f x = Indicator (App (Fun f, x))
+(* let indicator f x = Indicator (App (Fun f, x)) *)
 
 (* Strategy structure *)
 type strategy = {
@@ -101,10 +101,10 @@ let rec eval : type a.
       let* ty = eval symbol ty data index in
       Error.guard (Error.fatal "Error in GADT evaluation at Data node")
       @@ fun () -> Data.get data ty index
-    | Indicator ty ->
-      let* ty = eval symbol ty data index in
-      Error.guard (Error.fatal "Error in GADT evaluation at Data node")
-      @@ fun () -> Data.get data (Tacaml ty) index
+    (* | Indicator ty -> *)
+    (*   let* ty = eval symbol ty data index in *)
+    (*   Error.guard (Error.fatal "Error in GADT evaluation at Data node") *)
+    (*   @@ fun () -> Data.get data (Tacaml ty) index *)
     | GT (e1, e2) ->
       let* v1 = eval symbol e1 data index in
       let* v2 = eval symbol e2 data index in
@@ -230,7 +230,7 @@ let rec eval_simple : type a. a expr -> (a, Error.t) result =
   | Int i -> Result.return i
   | Bool b -> Result.return b
   | Data _ -> Error.fatal "Cannot evaluate Data in eval_simple"
-  | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple"
+  (* | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple" *)
   | GT (e1, e2) ->
     let* v1 = eval e1 in
     let* v2 = eval e2 in
@@ -286,62 +286,62 @@ let rec eval_simple : type a. a expr -> (a, Error.t) result =
   | CrossDown _ ->
     Error.fatal "Unable to evalute complex constructor in eval_simple"
 
-module Defaults = struct
-  module I = Tacaml.Indicator
+(* module Defaults = struct *)
+(*   module I = Tacaml.Indicator *)
 
-  let data x = Data (Const x)
+(*   let data x = Data (Const x) *)
 
-  open Data.Type
-  open Tacaml.Indicator
+(*   open Data.Type *)
+(*   open Tacaml.Indicator *)
 
-  (* Smart constructors for OHLCV data - these are always floats *)
-  let close = data Close
-  let open_ = data Open
-  let high = data High
-  let low = data Low
-  let volume = data Volume
+(*   (\* Smart constructors for OHLCV data - these are always floats *\) *)
+(*   let close = data Close *)
+(*   let open_ = data Open *)
+(*   let high = data High *)
+(*   let low = data Low *)
+(*   let volume = data Volume *)
 
-  (* Smart constructors for float indicators *)
-  let rsi = data (Tacaml (rsi ()))
-  let sma = data (Tacaml (sma ()))
-  let ema = data (Tacaml (ema ()))
-  let adx = data (Tacaml (adx ()))
-  let atr = data (Tacaml (atr ()))
-  let volume_sma = data (Tacaml (I.sma ~timeperiod:20 ()))
-  let macd = data (Tacaml (macd_macd ()))
-  let macd_signal = data (Tacaml (macd_signal ()))
-  let macd_hist = data (Tacaml (macd_hist ()))
-  let bb_upper = data (Tacaml (upper_bband ()))
-  let bb_lower = data (Tacaml (lower_bband ()))
-  let bb_middle = data (Tacaml (middle_bband ()))
-  let willr = data (Tacaml (willr ()))
-  let stoch_k = data (Tacaml (stoch_slow_k ()))
-  let stoch_d = data (Tacaml (stoch_slow_d ()))
+(*   (\* Smart constructors for float indicators *\) *)
+(*   let rsi = data (Tacaml (rsi ())) *)
+(*   let sma = data (Tacaml (sma ())) *)
+(*   let ema = data (Tacaml (ema ())) *)
+(*   let adx = data (Tacaml (adx ())) *)
+(*   let atr = data (Tacaml (atr ())) *)
+(*   let volume_sma = data (Tacaml (I.sma ~timeperiod:20 ())) *)
+(*   let macd = data (Tacaml (macd_macd ())) *)
+(*   let macd_signal = data (Tacaml (macd_signal ())) *)
+(*   let macd_hist = data (Tacaml (macd_hist ())) *)
+(*   let bb_upper = data (Tacaml (upper_bband ())) *)
+(*   let bb_lower = data (Tacaml (lower_bband ())) *)
+(*   let bb_middle = data (Tacaml (middle_bband ())) *)
+(*   let willr = data (Tacaml (willr ())) *)
+(*   let stoch_k = data (Tacaml (stoch_slow_k ())) *)
+(*   let stoch_d = data (Tacaml (stoch_slow_d ())) *)
 
-  (* Smart constructors for integer indicators - candlestick patterns *)
-  let hammer = data (Tacaml (cdl_hammer ()))
-  let doji = data (Tacaml (cdl_doji ()))
-  let engulfing = data (Tacaml (cdl_engulfing ()))
-  let morning_star = data (Tacaml (cdl_morningstar ()))
-  let evening_star = data (Tacaml (cdl_eveningstar ()))
-  let shooting_star = data (Tacaml (cdl_shootingstar ()))
-  let hanging_man = data (Tacaml (cdl_hangingman ()))
-  let piercing = data (Tacaml (cdl_piercing ()))
-  let dark_cloud = data (Tacaml (cdl_darkcloudcover ()))
+(*   (\* Smart constructors for integer indicators - candlestick patterns *\) *)
+(*   let hammer = data (Tacaml (cdl_hammer ())) *)
+(*   let doji = data (Tacaml (cdl_doji ())) *)
+(*   let engulfing = data (Tacaml (cdl_engulfing ())) *)
+(*   let morning_star = data (Tacaml (cdl_morningstar ())) *)
+(*   let evening_star = data (Tacaml (cdl_eveningstar ())) *)
+(*   let shooting_star = data (Tacaml (cdl_shootingstar ())) *)
+(*   let hanging_man = data (Tacaml (cdl_hangingman ())) *)
+(*   let piercing = data (Tacaml (cdl_piercing ())) *)
+(*   let dark_cloud = data (Tacaml (cdl_darkcloudcover ())) *)
 
-  (* Additional candlestick patterns for testing *)
-  let inverted_hammer = data (Tacaml (cdl_invertedhammer ()))
-  let dragonfly_doji = data (Tacaml (cdl_dragonflydoji ()))
-  let gravestone_doji = data (Tacaml (cdl_gravestonedoji ()))
-  let three_white_soldiers = data (Tacaml (cdl_3whitesoldiers ()))
-  let three_black_crows = data (Tacaml (cdl_3blackcrows ()))
-  let belt_hold = data (Tacaml (cdl_belthold ()))
-  let abandoned_baby = data (Tacaml (cdl_abandonedbaby ()))
-  let harami = data (Tacaml (cdl_harami ()))
-  let harami_cross = data (Tacaml (cdl_haramicross ()))
-end
+(*   (\* Additional candlestick patterns for testing *\) *)
+(*   let inverted_hammer = data (Tacaml (cdl_invertedhammer ())) *)
+(*   let dragonfly_doji = data (Tacaml (cdl_dragonflydoji ())) *)
+(*   let gravestone_doji = data (Tacaml (cdl_gravestonedoji ())) *)
+(*   let three_white_soldiers = data (Tacaml (cdl_3whitesoldiers ())) *)
+(*   let three_black_crows = data (Tacaml (cdl_3blackcrows ())) *)
+(*   let belt_hold = data (Tacaml (cdl_belthold ())) *)
+(*   let abandoned_baby = data (Tacaml (cdl_abandonedbaby ())) *)
+(*   let harami = data (Tacaml (cdl_harami ())) *)
+(*   let harami_cross = data (Tacaml (cdl_haramicross ())) *)
+(* end *)
 
-include Defaults
+(* include Defaults *)
 
 (* Options smart constructors *)
 let moneyness underlying option = Moneyness (underlying, option)
@@ -368,40 +368,40 @@ let ( -. ) e1 e2 = Sub (e1, e2)
 let ( *. ) e1 e2 = Mul (e1, e2)
 let ( /. ) e1 e2 = Div (e1, e2)
 
-(* Example strategies *)
-let rsi_mean_reversion =
-  {
-    name = "RSI Mean Reversion";
-    buy_trigger = rsi <. Float 30.0 &&. (close >. sma);
-    sell_trigger = rsi >. Float 70.0 ||. (close <. sma *. Float 0.95);
-    max_positions = 3;
-    position_size = 0.33;
-  }
+(* (\* Example strategies *\) *)
+(* let rsi_mean_reversion = *)
+(*   { *)
+(*     name = "RSI Mean Reversion"; *)
+(*     buy_trigger = rsi <. Float 30.0 &&. (close >. sma); *)
+(*     sell_trigger = rsi >. Float 70.0 ||. (close <. sma *. Float 0.95); *)
+(*     max_positions = 3; *)
+(*     position_size = 0.33; *)
+(*   } *)
 
-let macd_bollinger_momentum =
-  {
-    name = "MACD Bollinger Momentum";
-    buy_trigger =
-      macd >. macd_signal
-      &&. (close <. bb_lower +. ((bb_upper -. bb_lower) *. Float 0.2))
-      &&. (adx >. Float 25.0) &&. (macd_hist >. Float 0.0);
-    sell_trigger =
-      macd <. macd_signal ||. (close >. bb_upper)
-      ||. (close <. sma *. Float 0.92);
-    max_positions = 5;
-    position_size = 0.2;
-  }
+(* let macd_bollinger_momentum = *)
+(*   { *)
+(*     name = "MACD Bollinger Momentum"; *)
+(*     buy_trigger = *)
+(*       macd >. macd_signal *)
+(*       &&. (close <. bb_lower +. ((bb_upper -. bb_lower) *. Float 0.2)) *)
+(*       &&. (adx >. Float 25.0) &&. (macd_hist >. Float 0.0); *)
+(*     sell_trigger = *)
+(*       macd <. macd_signal ||. (close >. bb_upper) *)
+(*       ||. (close <. sma *. Float 0.92); *)
+(*     max_positions = 5; *)
+(*     position_size = 0.2; *)
+(*   } *)
 
-let candlestick_patterns_strategy =
-  {
-    name = "Candlestick Patterns";
-    buy_trigger =
-      hammer >. Float 0.0 &&. (rsi <. Float 40.0)
-      &&. (volume >. volume_sma *. Float 1.3);
-    sell_trigger = engulfing <. Float 0.0 ||. (close >. sma *. Float 1.1);
-    max_positions = 6;
-    position_size = 0.16;
-  }
+(* let candlestick_patterns_strategy = *)
+(*   { *)
+(*     name = "Candlestick Patterns"; *)
+(*     buy_trigger = *)
+(*       hammer >. Float 0.0 &&. (rsi <. Float 40.0) *)
+(*       &&. (volume >. volume_sma *. Float 1.3); *)
+(*     sell_trigger = engulfing <. Float 0.0 ||. (close >. sma *. Float 1.1); *)
+(*     max_positions = 6; *)
+(*     position_size = 0.16; *)
+(*   } *)
 
 module CollectIndicators : sig
   val top : strategy -> Tacaml.t list
@@ -423,10 +423,10 @@ end = struct
       match eval_simple data_type with
       | Ok x -> [ x ]
       | _ -> raise InvalidGADT)
-    | Indicator i -> (
-      match eval_simple i with
-      | Ok x -> [ Tacaml x ]
-      | _ -> raise InvalidGADT)
+    (* | Indicator i -> ( *)
+    (*   match eval_simple i with *)
+    (*   | Ok x -> [ Tacaml x ] *)
+    (*   | _ -> raise InvalidGADT) *)
     | GT (e1, e2)
     | LT (e1, e2)
     | GTE (e1, e2)

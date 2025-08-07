@@ -9,11 +9,11 @@ let run_l bars options l =
   Eio.traceln "%a" (List.pp Float.pp) vals;
   Result.return 0.0
 
-let top_ bars options =
-  let ( let* ) = Result.( let* ) in
-  let* _res = run_l bars options Gadt_examples.all_strategies in
-  let res = 0.1234 in
-  Result.return res
+let top_ bars options = invalid_arg "NYI"
+(* let ( let* ) = Result.( let* ) in *)
+(* let* _res = run_l bars options Gadt_examples.all_strategies in *)
+(* let res = 0.1234 in *)
+(* Result.return res *)
 
 let top bars options =
   match top_ bars options with
