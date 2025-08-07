@@ -16,24 +16,7 @@ module Pmutex = Longleaf_util.Pmutex
 (** GADT Strategy Registry All strategies are now defined as Gadt.strategy
     records. To add a new strategy, simply add it to this list. *)
 let gadt_strategies : (string * Gadt.strategy) list =
-  let strategies_from_gadt =
-    [ (* ("rsi_mean_reversion", Gadt.rsi_mean_reversion); *)
-      (* ("macd_bollinger_momentum", Gadt.macd_bollinger_momentum); *)
-      (* ("candlestick_patterns", Gadt.candlestick_patterns_strategy); *)
-      (* ("listener", Listener.listener_strategy); *) ]
-  in
-  let strategies_from_examples =
-    (* List.map (fun s -> (s.Gadt.name, s)) Gadt_examples.all_strategies *)
-    []
-  in
-  let strategies_from_crossover_candlestick =
-    []
-    (* List.map *)
-    (*   (fun s -> (s.Gadt.name, s)) *)
-    (*   Crossover_candlestick_strategies.crossover_candlestick_strategies *)
-  in
-  strategies_from_gadt @ strategies_from_examples
-  @ strategies_from_crossover_candlestick
+  List.map (fun s -> (s.Gadt.name, s)) Gadt_examples.all_strategies
 
 (** Get all available strategy names *)
 let all_strategy_names = List.map fst gadt_strategies

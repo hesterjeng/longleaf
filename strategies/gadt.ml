@@ -61,6 +61,16 @@ type _ expr =
 
 (* let indicator f x = Indicator (App (Fun f, x)) *)
 
+let data x = Data x
+let const x = Const x
+let close = data @@ const @@ Data.Type.Close
+let volume = data @@ const @@ Data.Type.Volume
+let index = data @@ const @@ Data.Type.Index
+let last = data @@ const @@ Data.Type.Last
+let open_ = data @@ const @@ Data.Type.Open
+let high = data @@ const @@ Data.Type.High
+let low = data @@ const @@ Data.Type.Low
+
 (* Strategy structure *)
 type strategy = {
   name : string;
