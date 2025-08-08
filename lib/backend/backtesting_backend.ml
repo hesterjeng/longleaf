@@ -33,7 +33,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (* let context = Input.options.context *)
   let next_market_open _ = Ok None
   let next_market_close _ = Ok Ptime.max
-  let env = opts.eio_env
   let symbols = List.map Instrument.security opts.symbols
   let is_backtest = true
   let shutdown () = ()
