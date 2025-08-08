@@ -1,103 +1,138 @@
 open Gadt
 module I = Tacaml.Indicator.Raw
 
-let var () = Var (Uuidm.v4_gen Util.random_state ())
+let var ty = Var (Uuidm.v4_gen Util.random_state (), ty)
 let tacaml x = Indicator x
 
 module Variable = struct
   (* Single argument indicators *)
-  let dema = tacaml (App1 (Fun I.dema, var ()))
-  let ema = tacaml (App1 (Fun I.ema, var ()))
-  let kama = tacaml (App1 (Fun I.kama, var ()))
-  let ma = tacaml (App1 (Fun I.ma, var ()))
-  let midpoint = tacaml (App1 (Fun I.midpoint, var ()))
-  let midprice = tacaml (App1 (Fun I.midprice, var ()))
-  let sma = tacaml (App1 (Fun I.sma, var ()))
-  let tema = tacaml (App1 (Fun I.tema, var ()))
-  let trima = tacaml (App1 (Fun I.trima, var ()))
-  let wma = tacaml (App1 (Fun I.wma, var ()))
-  let adx = tacaml (App1 (Fun I.adx, var ()))
-  let adxr = tacaml (App1 (Fun I.adxr, var ()))
-  let aroon_osc = tacaml (App1 (Fun I.aroon_osc, var ()))
-  let cci = tacaml (App1 (Fun I.cci, var ()))
-  let cmo = tacaml (App1 (Fun I.cmo, var ()))
-  let dx = tacaml (App1 (Fun I.dx, var ()))
-  let mfi = tacaml (App1 (Fun I.mfi, var ()))
-  let minus_di = tacaml (App1 (Fun I.minus_di, var ()))
-  let minus_dm = tacaml (App1 (Fun I.minus_dm, var ()))
-  let mom = tacaml (App1 (Fun I.mom, var ()))
-  let plus_di = tacaml (App1 (Fun I.plus_di, var ()))
-  let plus_dm = tacaml (App1 (Fun I.plus_dm, var ()))
-  let roc = tacaml (App1 (Fun I.roc, var ()))
-  let rocp = tacaml (App1 (Fun I.rocp, var ()))
-  let rocr = tacaml (App1 (Fun I.rocr, var ()))
-  let rocr100 = tacaml (App1 (Fun I.rocr100, var ()))
-  let rsi = tacaml (App1 (Fun I.rsi, var ()))
-  let trix = tacaml (App1 (Fun I.trix, var ()))
-  let willr = tacaml (App1 (Fun I.willr, var ()))
-  let atr = tacaml (App1 (Fun I.atr, var ()))
-  let natr = tacaml (App1 (Fun I.natr, var ()))
-  let aroon_down = tacaml (App1 (Fun I.aroon_down, var ()))
-  let aroon_up = tacaml (App1 (Fun I.aroon_up, var ()))
-  let beta = tacaml (App1 (Fun I.beta, var ()))
-  let correl = tacaml (App1 (Fun I.correl, var ()))
-  let linearreg = tacaml (App1 (Fun I.linearreg, var ()))
-  let linearreg_angle = tacaml (App1 (Fun I.linearreg_angle, var ()))
-  let linearreg_intercept = tacaml (App1 (Fun I.linearreg_intercept, var ()))
-  let linearreg_slope = tacaml (App1 (Fun I.linearreg_slope, var ()))
-  let min_max_min = tacaml (App1 (Fun I.min_max_min, var ()))
-  let min_max_max = tacaml (App1 (Fun I.min_max_max, var ()))
-  let tsf = tacaml (App1 (Fun I.tsf, var ()))
-  let max = tacaml (App1 (Fun I.max, var ()))
-  let min = tacaml (App1 (Fun I.min, var ()))
-  let sum = tacaml (App1 (Fun I.sum, var ()))
-  let avgdev = tacaml (App1 (Fun I.avgdev, var ()))
-  let imi = tacaml (App1 (Fun I.imi, var ()))
-  let accbands_upper = tacaml (App1 (Fun I.accbands_upper, var ()))
-  let accbands_middle = tacaml (App1 (Fun I.accbands_middle, var ()))
-  let accbands_lower = tacaml (App1 (Fun I.accbands_lower, var ()))
+  let dema = tacaml (App1 (Fun I.dema, var Type.Int))
+  let ema = tacaml (App1 (Fun I.ema, var Type.Int))
+  let kama = tacaml (App1 (Fun I.kama, var Type.Int))
+  let ma = tacaml (App1 (Fun I.ma, var Type.Int))
+  let midpoint = tacaml (App1 (Fun I.midpoint, var Type.Int))
+  let midprice = tacaml (App1 (Fun I.midprice, var Type.Int))
+  let sma = tacaml (App1 (Fun I.sma, var Type.Int))
+  let tema = tacaml (App1 (Fun I.tema, var Type.Int))
+  let trima = tacaml (App1 (Fun I.trima, var Type.Int))
+  let wma = tacaml (App1 (Fun I.wma, var Type.Int))
+  let adx = tacaml (App1 (Fun I.adx, var Type.Int))
+  let adxr = tacaml (App1 (Fun I.adxr, var Type.Int))
+  let aroon_osc = tacaml (App1 (Fun I.aroon_osc, var Type.Int))
+  let cci = tacaml (App1 (Fun I.cci, var Type.Int))
+  let cmo = tacaml (App1 (Fun I.cmo, var Type.Int))
+  let dx = tacaml (App1 (Fun I.dx, var Type.Int))
+  let mfi = tacaml (App1 (Fun I.mfi, var Type.Int))
+  let minus_di = tacaml (App1 (Fun I.minus_di, var Type.Int))
+  let minus_dm = tacaml (App1 (Fun I.minus_dm, var Type.Int))
+  let mom = tacaml (App1 (Fun I.mom, var Type.Int))
+  let plus_di = tacaml (App1 (Fun I.plus_di, var Type.Int))
+  let plus_dm = tacaml (App1 (Fun I.plus_dm, var Type.Int))
+  let roc = tacaml (App1 (Fun I.roc, var Type.Int))
+  let rocp = tacaml (App1 (Fun I.rocp, var Type.Int))
+  let rocr = tacaml (App1 (Fun I.rocr, var Type.Int))
+  let rocr100 = tacaml (App1 (Fun I.rocr100, var Type.Int))
+  let rsi = tacaml (App1 (Fun I.rsi, var Type.Int))
+  let trix = tacaml (App1 (Fun I.trix, var Type.Int))
+  let willr = tacaml (App1 (Fun I.willr, var Type.Int))
+  let atr = tacaml (App1 (Fun I.atr, var Type.Int))
+  let natr = tacaml (App1 (Fun I.natr, var Type.Int))
+  let aroon_down = tacaml (App1 (Fun I.aroon_down, var Type.Int))
+  let aroon_up = tacaml (App1 (Fun I.aroon_up, var Type.Int))
+  let beta = tacaml (App1 (Fun I.beta, var Type.Int))
+  let correl = tacaml (App1 (Fun I.correl, var Type.Int))
+  let linearreg = tacaml (App1 (Fun I.linearreg, var Type.Int))
+  let linearreg_angle = tacaml (App1 (Fun I.linearreg_angle, var Type.Int))
+
+  let linearreg_intercept =
+    tacaml (App1 (Fun I.linearreg_intercept, var Type.Int))
+
+  let linearreg_slope = tacaml (App1 (Fun I.linearreg_slope, var Type.Int))
+  let min_max_min = tacaml (App1 (Fun I.min_max_min, var Type.Int))
+  let min_max_max = tacaml (App1 (Fun I.min_max_max, var Type.Int))
+  let tsf = tacaml (App1 (Fun I.tsf, var Type.Int))
+  let max = tacaml (App1 (Fun I.max, var Type.Int))
+  let min = tacaml (App1 (Fun I.min, var Type.Int))
+  let sum = tacaml (App1 (Fun I.sum, var Type.Int))
+  let avgdev = tacaml (App1 (Fun I.avgdev, var Type.Int))
+  let imi = tacaml (App1 (Fun I.imi, var Type.Int))
+  let accbands_upper = tacaml (App1 (Fun I.accbands_upper, var Type.Int))
+  let accbands_middle = tacaml (App1 (Fun I.accbands_middle, var Type.Int))
+  let accbands_lower = tacaml (App1 (Fun I.accbands_lower, var Type.Int))
 
   (* Two argument indicators *)
-  let mama = tacaml (App2 (Fun I.mama, var (), var ()))
-  let mavp = tacaml (App2 (Fun I.mavp, var (), var ()))
-  let sar = tacaml (App2 (Fun I.sar, var (), var ()))
-  let t3 = tacaml (App2 (Fun I.t3, var (), var ()))
-  let apo = tacaml (App2 (Fun I.apo, var (), var ()))
-  let ppo = tacaml (App2 (Fun I.ppo, var (), var ()))
-  let adosc = tacaml (App2 (Fun I.adosc, var (), var ()))
-  let stddev = tacaml (App2 (Fun I.stddev, var (), var ()))
-  let var_indicator = tacaml (App2 (Fun I.var, var (), var ()))
-  let mama_mama = tacaml (App2 (Fun I.mama_mama, var (), var ()))
-  let mama_fama = tacaml (App2 (Fun I.mama_fama, var (), var ()))
-  let stoch_f_fast_k = tacaml (App2 (Fun I.stoch_f_fast_k, var (), var ()))
-  let stoch_f_fast_d = tacaml (App2 (Fun I.stoch_f_fast_d, var (), var ()))
+  let mama = tacaml (App2 (Fun I.mama, var Type.Float, var Type.Float))
+  let mavp = tacaml (App2 (Fun I.mavp, var Type.Int, var Type.Int))
+  let sar = tacaml (App2 (Fun I.sar, var Type.Float, var Type.Float))
+  let t3 = tacaml (App2 (Fun I.t3, var Type.Int, var Type.Float))
+  let apo = tacaml (App2 (Fun I.apo, var Type.Int, var Type.Int))
+  let ppo = tacaml (App2 (Fun I.ppo, var Type.Int, var Type.Int))
+  let adosc = tacaml (App2 (Fun I.adosc, var Type.Int, var Type.Int))
+  let stddev = tacaml (App2 (Fun I.stddev, var Type.Int, var Type.Float))
+  let var_indicator = tacaml (App2 (Fun I.var, var Type.Int, var Type.Float))
+
+  let mama_mama =
+    tacaml (App2 (Fun I.mama_mama, var Type.Float, var Type.Float))
+
+  let mama_fama =
+    tacaml (App2 (Fun I.mama_fama, var Type.Float, var Type.Float))
+
+  let stoch_f_fast_k =
+    tacaml (App2 (Fun I.stoch_f_fast_k, var Type.Int, var Type.Int))
+
+  let stoch_f_fast_d =
+    tacaml (App2 (Fun I.stoch_f_fast_d, var Type.Int, var Type.Int))
 
   (* Three argument indicators *)
-  let upper_bband = tacaml (App3 (Fun I.upper_bband, var (), var (), var ()))
-  let middle_bband = tacaml (App3 (Fun I.middle_bband, var (), var (), var ()))
-  let lower_bband = tacaml (App3 (Fun I.lower_bband, var (), var (), var ()))
-  let macd_macd = tacaml (App3 (Fun I.macd_macd, var (), var (), var ()))
-  let macd_signal = tacaml (App3 (Fun I.macd_signal, var (), var (), var ()))
-  let macd_hist = tacaml (App3 (Fun I.macd_hist, var (), var (), var ()))
+  let upper_bband =
+    tacaml
+      (App3 (Fun I.upper_bband, var Type.Int, var Type.Float, var Type.Float))
+
+  let middle_bband =
+    tacaml
+      (App3 (Fun I.middle_bband, var Type.Int, var Type.Float, var Type.Float))
+
+  let lower_bband =
+    tacaml
+      (App3 (Fun I.lower_bband, var Type.Int, var Type.Float, var Type.Float))
+
+  let macd_macd =
+    tacaml (App3 (Fun I.macd_macd, var Type.Int, var Type.Int, var Type.Int))
+
+  let macd_signal =
+    tacaml (App3 (Fun I.macd_signal, var Type.Int, var Type.Int, var Type.Int))
+
+  let macd_hist =
+    tacaml (App3 (Fun I.macd_hist, var Type.Int, var Type.Int, var Type.Int))
 
   let macd_ext_macd =
-    tacaml (App3 (Fun I.macd_ext_macd, var (), var (), var ()))
+    tacaml
+      (App3 (Fun I.macd_ext_macd, var Type.Int, var Type.Int, var Type.Int))
 
   let macd_ext_signal =
-    tacaml (App3 (Fun I.macd_ext_signal, var (), var (), var ()))
+    tacaml
+      (App3 (Fun I.macd_ext_signal, var Type.Int, var Type.Int, var Type.Int))
 
   let macd_ext_hist =
-    tacaml (App3 (Fun I.macd_ext_hist, var (), var (), var ()))
+    tacaml
+      (App3 (Fun I.macd_ext_hist, var Type.Int, var Type.Int, var Type.Int))
 
-  let ultosc = tacaml (App3 (Fun I.ultosc, var (), var (), var ()))
-  let stoch_slow_k = tacaml (App3 (Fun I.stoch_slow_k, var (), var (), var ()))
-  let stoch_slow_d = tacaml (App3 (Fun I.stoch_slow_d, var (), var (), var ()))
+  let ultosc =
+    tacaml (App3 (Fun I.ultosc, var Type.Int, var Type.Int, var Type.Int))
+
+  let stoch_slow_k =
+    tacaml (App3 (Fun I.stoch_slow_k, var Type.Int, var Type.Int, var Type.Int))
+
+  let stoch_slow_d =
+    tacaml (App3 (Fun I.stoch_slow_d, var Type.Int, var Type.Int, var Type.Int))
 
   let stoch_rsi_fast_k =
-    tacaml (App3 (Fun I.stoch_rsi_fast_k, var (), var (), var ()))
+    tacaml
+      (App3 (Fun I.stoch_rsi_fast_k, var Type.Int, var Type.Int, var Type.Int))
 
   let stoch_rsi_fast_d =
-    tacaml (App3 (Fun I.stoch_rsi_fast_d, var (), var (), var ()))
+    tacaml
+      (App3 (Fun I.stoch_rsi_fast_d, var Type.Int, var Type.Int, var Type.Int))
 
   (* Zero argument indicators *)
   let ht_trendline = tacaml (Const I.ht_trendline)
@@ -144,20 +179,29 @@ module Variable = struct
   let cdl_3outside = tacaml (Const I.cdl_3outside)
   let cdl_3starsinsouth = tacaml (Const I.cdl_3starsinsouth)
   let cdl_3whitesoldiers = tacaml (Const I.cdl_3whitesoldiers)
-  let cdl_abandonedbaby = tacaml (App1 (Fun I.cdl_abandonedbaby, var ()))
+
+  let cdl_abandonedbaby =
+    tacaml (App1 (Fun I.cdl_abandonedbaby, var Type.Float))
+
   let cdl_advanceblock = tacaml (Const I.cdl_advanceblock)
   let cdl_belthold = tacaml (Const I.cdl_belthold)
   let cdl_breakaway = tacaml (Const I.cdl_breakaway)
   let cdl_closingmarubozu = tacaml (Const I.cdl_closingmarubozu)
   let cdl_concealbabyswall = tacaml (Const I.cdl_concealbabyswall)
   let cdl_counterattack = tacaml (Const I.cdl_counterattack)
-  let cdl_darkcloudcover = tacaml (App1 (Fun I.cdl_darkcloudcover, var ()))
+
+  let cdl_darkcloudcover =
+    tacaml (App1 (Fun I.cdl_darkcloudcover, var Type.Float))
+
   let cdl_doji = tacaml (Const I.cdl_doji)
   let cdl_dojistar = tacaml (Const I.cdl_dojistar)
   let cdl_dragonflydoji = tacaml (Const I.cdl_dragonflydoji)
   let cdl_engulfing = tacaml (Const I.cdl_engulfing)
-  let cdl_eveningdojistar = tacaml (App1 (Fun I.cdl_eveningdojistar, var ()))
-  let cdl_eveningstar = tacaml (App1 (Fun I.cdl_eveningstar, var ()))
+
+  let cdl_eveningdojistar =
+    tacaml (App1 (Fun I.cdl_eveningdojistar, var Type.Float))
+
+  let cdl_eveningstar = tacaml (App1 (Fun I.cdl_eveningstar, var Type.Float))
   let cdl_gap_side_side_white = tacaml (Const I.cdl_gap_side_side_white)
   let cdl_gravestonedoji = tacaml (Const I.cdl_gravestonedoji)
   let cdl_hammer = tacaml (Const I.cdl_hammer)
@@ -178,9 +222,12 @@ module Variable = struct
   let cdl_longline = tacaml (Const I.cdl_longline)
   let cdl_marubozu = tacaml (Const I.cdl_marubozu)
   let cdl_matchinglow = tacaml (Const I.cdl_matchinglow)
-  let cdl_mathold = tacaml (App1 (Fun I.cdl_mathold, var ()))
-  let cdl_morningdojistar = tacaml (App1 (Fun I.cdl_morningdojistar, var ()))
-  let cdl_morningstar = tacaml (App1 (Fun I.cdl_morningstar, var ()))
+  let cdl_mathold = tacaml (App1 (Fun I.cdl_mathold, var Type.Float))
+
+  let cdl_morningdojistar =
+    tacaml (App1 (Fun I.cdl_morningdojistar, var Type.Float))
+
+  let cdl_morningstar = tacaml (App1 (Fun I.cdl_morningstar, var Type.Float))
   let cdl_onneck = tacaml (Const I.cdl_onneck)
   let cdl_piercing = tacaml (Const I.cdl_piercing)
   let cdl_rickshawman = tacaml (Const I.cdl_rickshawman)
@@ -198,10 +245,10 @@ module Variable = struct
   let cdl_unique3river = tacaml (Const I.cdl_unique3river)
   let cdl_upsidegap2crows = tacaml (Const I.cdl_upsidegap2crows)
   let cdl_xsidegap3methods = tacaml (Const I.cdl_xsidegap3methods)
-  let max_index = tacaml (App1 (Fun I.max_index, var ()))
-  let min_index = tacaml (App1 (Fun I.min_index, var ()))
-  let min_max_index_min = tacaml (App1 (Fun I.min_max_index_min, var ()))
-  let min_max_index_max = tacaml (App1 (Fun I.min_max_index_max, var ()))
+  let max_index = tacaml (App1 (Fun I.max_index, var Type.Int))
+  let min_index = tacaml (App1 (Fun I.min_index, var Type.Int))
+  let min_max_index_min = tacaml (App1 (Fun I.min_max_index_min, var Type.Int))
+  let min_max_index_max = tacaml (App1 (Fun I.min_max_index_max, var Type.Int))
 end
 
 module Constant = struct

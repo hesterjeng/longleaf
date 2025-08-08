@@ -11,7 +11,14 @@ module Time = Longleaf_core.Time
 module Options = Longleaf_core.Options
 
 type const = VFloat of float | VInt of int
-type env = (Uuidm.t, const) List.Assoc.t
+(* type env = (Uuidm.t, _ const) List.Assoc.t *)
+
+module Type = struct
+  type _ t = Float : float t | Int : int t
+  type shadow = A : _ t -> shadow
+
+  let shadow x = A x
+end
 
 (* GADT AST with phantom types for compile-time type safety *)
 type _ expr =
@@ -27,7 +34,7 @@ type _ expr =
   | App2 : ('a -> 'b -> 'c) expr * 'a expr * 'b expr -> 'c expr
   | App3 : ('a -> 'b -> 'c -> 'd) expr * 'a expr * 'b expr * 'c expr -> 'd expr
   | Fun : ('a -> 'b) -> ('a -> 'b) expr
-  | Var : Uuidm.t -> _ expr
+  | Var : Uuidm.t * 'a Type.t -> 'a expr
   | Symbol : unit -> Instrument.t expr
   (* Comparisons *)
   | GT : float expr * float expr -> bool expr
@@ -59,8 +66,6 @@ type _ expr =
       float expr * float expr
       -> bool expr (* line1 crosses below line2 *)
 
-(* let indicator f x = Indicator (App (Fun f, x)) *)
-
 let data x = Data x
 let const x = Const x
 let close = data @@ const @@ Data.Type.Close
@@ -70,6 +75,11 @@ let last = data @@ const @@ Data.Type.Last
 let open_ = data @@ const @@ Data.Type.Open
 let high = data @@ const @@ Data.Type.High
 let low = data @@ const @@ Data.Type.Low
+
+(* let of_const (type a) (x : const) = *)
+(*   match x with *)
+(*   | VInt i -> Int i *)
+(*   | VFloat f -> Float f *)
 
 (* Strategy structure *)
 type strategy = {
@@ -337,7 +347,7 @@ end = struct
 
   (* Collect all t from GADT expressions *)
   let rec collect_data_types : type a. a expr -> Data.Type.t list = function
-    | Var _
+    | Var _ -> raise InvalidGADT
     | Const _
     | App1 _
     | App2 _
@@ -412,7 +422,7 @@ end = struct
 end
 
 module Builder : sig
-  val top : strategy -> (module Strategy.BUILDER)
+  val top : strategy -> Strategy.builder
 end = struct
   (* Helper function to evaluate strategy triggers *)
   let eval_strategy_signal (strategy_expr : bool expr) (state : _ State.t)
@@ -452,6 +462,76 @@ end = struct
       Template.Make ((val buy_trigger)) ((val sell_trigger))
     in
     (module StrategyBuilder : Strategy.BUILDER)
+end
+
+module Subst = struct
+  module Bindings = struct
+    include Map.Make (Uuidm)
+
+    let get id map =
+      get id map |> function
+      | Some x -> Ok x
+      | None -> Error.fatal "No binding for variable"
+  end
+
+  let rec collect_variables : type a. a expr -> 'b list = function
+    | Var (id, ty) -> [ (id, Type.A ty) ]
+    | Float _ -> []
+    | Int _ -> []
+    | Bool _ -> []
+    | Const _ -> []
+    | Symbol _ -> []
+    | Data x -> collect_variables x
+    | Indicator x -> collect_variables x
+    | App1 (f, x) -> collect_variables f @ collect_variables x
+    | App2 (f, x, y) ->
+      collect_variables f @ collect_variables x @ collect_variables y
+    | App3 (f, x, y, z) ->
+      collect_variables f @ collect_variables x @ collect_variables y
+      @ collect_variables z
+    | Fun _ -> []
+    | LT (x, y)
+    | GT (x, y)
+    | GTE (x, y)
+    | LTE (x, y)
+    | Add (x, y)
+    | Sub (x, y)
+    | Mul (x, y)
+    | Div (x, y)
+    | EQ (x, y) ->
+      collect_variables x @ collect_variables y
+    | And (x, y)
+    | Or (x, y) ->
+      collect_variables x @ collect_variables y
+    | Not x -> collect_variables x
+    | Moneyness _ -> []
+    | Days_to_expiry _ -> []
+    | Lag (a, _) -> collect_variables a
+    | CrossUp (x, y) -> collect_variables x @ collect_variables y
+    | CrossDown (x, y) -> collect_variables x @ collect_variables y
+
+  let collect_variables : 'a expr -> (Uuidm.t * Type.shadow) list =
+   fun x ->
+    let vars = collect_variables x in
+    List.uniq ~eq:(fun (id0, _) (id1, _) -> Uuidm.equal id0 id1) vars
+
+  type env = { float_map : float Bindings.t; int_map : int Bindings.t }
+
+  let rec instantiate : type a. env -> a expr -> (a expr, Error.t) result =
+    let ( let* ) = Result.( let* ) in
+    fun env -> function
+      | Var (id, ty) -> (
+        match ty with
+        | Float ->
+          let* res = Bindings.get id env.float_map in
+          Result.return @@ Float res
+        | Int ->
+          let* res = Bindings.get id env.int_map in
+          Result.return @@ Int res)
+      | App1 (f, x) ->
+        let* res = instantiate env x in
+        Result.return @@ App1 (f, res)
+      | _ -> Error.fatal "not a variable"
 end
 
 let run bars (options : Options.t) mutices strategy =

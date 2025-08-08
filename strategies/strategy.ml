@@ -20,6 +20,8 @@ let dummy f =
 
 module type BUILDER = functor (_ : Backend.S) -> S
 
+type builder = (module BUILDER)
+
 let mk_options switch eio_env flags target tacaml_indicators : Options.t =
   let longleaf_env = Environment.make () in
   (* let mutices = Server.Longleaf_mutex.create () in *)
