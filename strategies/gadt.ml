@@ -10,6 +10,9 @@ module Data = Bars.Data
 module Time = Longleaf_core.Time
 module Options = Longleaf_core.Options
 
+exception OptimizationException
+exception InvalidGADT
+
 type const = VFloat of float | VInt of int
 (* type env = (Uuidm.t, _ const) List.Assoc.t *)
 
@@ -238,112 +241,98 @@ let rec eval : type a.
         let* prev_e2 = eval symbol e2 data (index - 1) in
         Result.return (prev_e1 >=. prev_e2 && current_e1 <. current_e2)
 
-let rec eval_simple : type a. a expr -> (a, Error.t) result =
- fun expr ->
-  let eval = eval_simple in
-  let ( let* ) = Result.( let* ) in
-  (* Bounds checking *)
-  match expr with
-  | Const x -> Result.return x
-  | Fun f -> Result.return f
-  | App1 (f, x) ->
-    let* f = eval f in
-    let* arg = eval x in
-    let res = f arg in
-    Result.return res
-  | App2 (f, x, y) ->
-    let* f = eval f in
-    let* x = eval x in
-    let* y = eval y in
-    let res = f x y in
-    Result.return res
-  | App3 (f, x, y, z) ->
-    let* f = eval f in
-    let* x = eval x in
-    let* y = eval y in
-    let* z = eval z in
-    let res = f x y z in
-    Result.return res
-  | Symbol () -> Error.fatal "Symbol unknown in eval_simple"
-  | Float f -> Result.return f
-  | Var _ -> invalid_arg "Cannot evalute gadts with variables in them"
-  | Int i -> Result.return i
-  | Bool b -> Result.return b
-  | Data _ -> Error.fatal "Cannot evaluate Data in eval_simple"
-  | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple"
-  (* | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple" *)
-  | GT (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (v1 >. v2)
-  | LT (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (v1 <. v2)
-  | GTE (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (v1 >=. v2)
-  | LTE (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (v1 <=. v2)
-  | EQ (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (Float.equal v1 v2)
-  | And (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (v1 && v2)
-  | Or (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (v1 || v2)
-  | Not e ->
-    let* v = eval e in
-    Result.return (not v)
-  | Add (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (v1 +. v2)
-  | Sub (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (v1 -. v2)
-  | Mul (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    Result.return (v1 *. v2)
-  | Div (e1, e2) ->
-    let* v1 = eval e1 in
-    let* v2 = eval e2 in
-    if Float.equal v2 0.0 then Error.fatal "Division by zero in GADT.eval"
-    else Result.return (v1 /. v2)
-  | Moneyness _
-  | Days_to_expiry _
-  | Lag _
-  | CrossUp _
-  | CrossDown _ ->
-    Error.fatal "Unable to evalute complex constructor in eval_simple"
-
-(* Convenience operators *)
-let ( >. ) e1 e2 = GT (e1, e2)
-let ( <. ) e1 e2 = LT (e1, e2)
-let ( >=. ) e1 e2 = GTE (e1, e2)
-let ( <=. ) e1 e2 = LTE (e1, e2)
-let ( =. ) e1 e2 = EQ (e1, e2)
-let ( &&. ) e1 e2 = And (e1, e2)
-let ( ||. ) e1 e2 = Or (e1, e2)
-let ( +. ) e1 e2 = Add (e1, e2)
-let ( -. ) e1 e2 = Sub (e1, e2)
-let ( *. ) e1 e2 = Mul (e1, e2)
-let ( /. ) e1 e2 = Div (e1, e2)
-
 module CollectIndicators : sig
   val top : strategy -> Tacaml.t list
 end = struct
-  exception InvalidGADT
+  let rec eval_simple : type a. a expr -> (a, Error.t) result =
+   fun expr ->
+    let eval = eval_simple in
+    let ( let* ) = Result.( let* ) in
+    (* Bounds checking *)
+    match expr with
+    | Const x -> Result.return x
+    | Fun f -> Result.return f
+    | App1 (f, x) ->
+      let* f = eval f in
+      let* arg = eval x in
+      let res = f arg in
+      Result.return res
+    | App2 (f, x, y) ->
+      let* f = eval f in
+      let* x = eval x in
+      let* y = eval y in
+      let res = f x y in
+      Result.return res
+    | App3 (f, x, y, z) ->
+      let* f = eval f in
+      let* x = eval x in
+      let* y = eval y in
+      let* z = eval z in
+      let res = f x y z in
+      Result.return res
+    | Symbol () -> Error.fatal "Symbol unknown in eval_simple"
+    | Float f -> Result.return f
+    | Var _ ->
+      invalid_arg "Cannot evalute gadts with variables in them (eval_simple)"
+    | Int i -> Result.return i
+    | Bool b -> Result.return b
+    | Data _ -> Error.fatal "Cannot evaluate Data in eval_simple"
+    | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple"
+    (* | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple" *)
+    | GT (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (v1 >. v2)
+    | LT (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (v1 <. v2)
+    | GTE (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (v1 >=. v2)
+    | LTE (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (v1 <=. v2)
+    | EQ (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (Float.equal v1 v2)
+    | And (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (v1 && v2)
+    | Or (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (v1 || v2)
+    | Not e ->
+      let* v = eval e in
+      Result.return (not v)
+    | Add (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (v1 +. v2)
+    | Sub (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (v1 -. v2)
+    | Mul (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      Result.return (v1 *. v2)
+    | Div (e1, e2) ->
+      let* v1 = eval e1 in
+      let* v2 = eval e2 in
+      if Float.equal v2 0.0 then Error.fatal "Division by zero in GADT.eval"
+      else Result.return (v1 /. v2)
+    | Moneyness _
+    | Days_to_expiry _
+    | Lag _
+    | CrossUp _
+    | CrossDown _ ->
+      Error.fatal "Unable to evalute complex constructor in eval_simple"
 
   (* Collect all t from GADT expressions *)
   let rec collect_data_types : type a. a expr -> Data.Type.t list = function
@@ -362,17 +351,13 @@ end = struct
       [
         ( eval_simple data_type |> function
           | Ok x -> x
-          | Error e ->
-            Eio.traceln "%a" Error.pp e;
-            raise InvalidGADT );
+          | Error e -> raise InvalidGADT );
       ]
     | Indicator data_type ->
       [
         ( eval_simple data_type |> function
           | Ok x -> Data.Type.Tacaml x
-          | Error e ->
-            Eio.traceln "%a" Error.pp e;
-            raise InvalidGADT );
+          | Error e -> raise InvalidGADT );
       ]
     | GT (e1, e2)
     | LT (e1, e2)
@@ -490,19 +475,17 @@ module Subst = struct
       collect_variables f @ collect_variables x @ collect_variables y
       @ collect_variables z
     | Fun _ -> []
-    | LT (x, y)
-    | GT (x, y)
-    | GTE (x, y)
-    | LTE (x, y)
-    | Add (x, y)
-    | Sub (x, y)
-    | Mul (x, y)
-    | Div (x, y)
-    | EQ (x, y) ->
-      collect_variables x @ collect_variables y
-    | And (x, y)
-    | Or (x, y) ->
-      collect_variables x @ collect_variables y
+    | LT (x, y) -> collect_variables x @ collect_variables y
+    | GT (x, y) -> collect_variables x @ collect_variables y
+    | GTE (x, y) -> collect_variables x @ collect_variables y
+    | LTE (x, y) -> collect_variables x @ collect_variables y
+    | Add (x, y) -> collect_variables x @ collect_variables y
+    | Sub (x, y) -> collect_variables x @ collect_variables y
+    | Mul (x, y) -> collect_variables x @ collect_variables y
+    | Div (x, y) -> collect_variables x @ collect_variables y
+    | EQ (x, y) -> collect_variables x @ collect_variables y
+    | And (x, y) -> collect_variables x @ collect_variables y
+    | Or (x, y) -> collect_variables x @ collect_variables y
     | Not x -> collect_variables x
     | Moneyness _ -> []
     | Days_to_expiry _ -> []
@@ -528,12 +511,14 @@ module Subst = struct
     fun env -> function
       | Var (id, ty) -> (
         match ty with
-        | Float ->
-          let* res = Bindings.get id env.float_map in
-          Result.return @@ Float res
-        | Int ->
-          let* res = Bindings.get id env.int_map in
-          Result.return @@ Int res)
+        | Float -> (
+          match Bindings.get id env.float_map with
+          | Ok res -> Result.return @@ Float res
+          | Error e -> Error e)
+        | Int -> (
+          match Bindings.get id env.int_map with
+          | Ok res -> Result.return @@ Int res
+          | Error e -> Error e))
       (* Literals - no variables, return as-is *)
       | Float f -> Result.return (Float f)
       | Int i -> Result.return (Int i)
@@ -650,15 +635,40 @@ let run bars (options : Options.t) mutices strategy =
   let res = Strategy.run (Builder.top strategy) bars options mutices in
   res
 
-exception OptimizationException
-
 let opt bars options mutices (strategy : strategy) =
-  let vars =
-    Subst.collect_variables strategy.buy_trigger
-    @ Subst.collect_variables strategy.sell_trigger
-    |> Array.of_list
-  in
+  Eio.traceln "=== OPTIMIZATION DEBUG START ===";
+  Eio.traceln "Strategy name: %s" strategy.name;
+
+  let buy_vars = Subst.collect_variables strategy.buy_trigger in
+  let sell_vars = Subst.collect_variables strategy.sell_trigger in
+  let vars = buy_vars @ sell_vars |> Array.of_list in
+
+  Eio.traceln "--- COLLECTED VARIABLES ---";
+  Eio.traceln "Buy trigger variables: %d" (List.length buy_vars);
+  List.iteri
+    (fun i (id, Type.A ty) ->
+      let ty_str =
+        match ty with
+        | Type.Float -> "Float"
+        | Type.Int -> "Int"
+      in
+      Eio.traceln "  Buy[%d]: %s (%s)" i (Uuidm.to_string id) ty_str)
+    buy_vars;
+
+  Eio.traceln "Sell trigger variables: %d" (List.length sell_vars);
+  List.iteri
+    (fun i (id, Type.A ty) ->
+      let ty_str =
+        match ty with
+        | Type.Float -> "Float"
+        | Type.Int -> "Int"
+      in
+      Eio.traceln "  Sell[%d]: %s (%s)" i (Uuidm.to_string id) ty_str)
+    sell_vars;
+
   let len = Array.length vars in
+  Eio.traceln "Total unique variables: %d" len;
+
   let opt = Nlopt.create Nlopt.neldermead len in
   let f (l : float array) _grad =
     let env =
@@ -669,35 +679,41 @@ let opt bars options mutices (strategy : strategy) =
           | Type.Float ->
             { env with float_map = Bindings.add id l.(i) env.float_map }
           | Type.Int ->
-            {
-              env with
-              int_map = Bindings.add id (Int.of_float l.(i)) env.int_map;
-            })
+            let int_val = Int.of_float l.(i) in
+            { env with int_map = Bindings.add id int_val env.int_map })
         { float_map = Bindings.empty; int_map = Bindings.empty }
         vars
     in
+
+    let instantiated_buy =
+      Subst.instantiate env strategy.buy_trigger |> function
+      | Ok x -> x
+      | Error e -> raise OptimizationException
+    in
+
+    let instantiated_sell =
+      Subst.instantiate env strategy.sell_trigger |> function
+      | Ok x -> x
+      | Error e -> raise OptimizationException
+    in
+
     let strategy =
       {
         strategy with
-        buy_trigger =
-          ( Subst.instantiate env strategy.buy_trigger |> function
-            | Ok x -> x
-            | Error e ->
-              Eio.traceln "%a" Error.pp e;
-              raise OptimizationException );
-        sell_trigger =
-          ( Subst.instantiate env strategy.sell_trigger |> function
-            | Ok x -> x
-            | Error e ->
-              Eio.traceln "%a" Error.pp e;
-              raise OptimizationException );
+        buy_trigger = instantiated_buy;
+        sell_trigger = instantiated_sell;
       }
     in
+
     let res =
-      run bars options mutices strategy |> function
-      | Ok x -> x
-      | Error e ->
-        Eio.traceln "%a" Error.pp e;
+      try
+        run bars options mutices strategy |> function
+        | Ok x -> x
+        | Error e -> raise OptimizationException
+      with
+      | e ->
+        let s = Printexc.to_string e in
+        Eio.traceln "%s" s;
         raise OptimizationException
     in
     Float.sub 1.0 res
@@ -707,7 +723,88 @@ let opt bars options mutices (strategy : strategy) =
   Nlopt.set_maxeval opt 10;
   Nlopt.set_min_objective opt f;
   let start = Array.init len (fun _ -> 0.0) in
+  Eio.traceln "Optimization start %a" (Array.pp Float.pp) start;
   let res, xopt, fopt = Nlopt.optimize opt start in
   Eio.traceln "optimization res: %s" (Nlopt.string_of_result res);
   Eio.traceln "%a : %f" (Array.pp Float.pp) xopt fopt;
-  res
+  Result.return fopt
+
+(* Pretty printer for GADT expressions *)
+let rec pp_expr : type a. Format.formatter -> a expr -> unit =
+ fun fmt expr ->
+  match expr with
+  | Float f -> Format.fprintf fmt "Float(%g)" f
+  | Int i -> Format.fprintf fmt "Int(%d)" i
+  | Bool b -> Format.fprintf fmt "Bool(%b)" b
+  | Const _ -> Format.fprintf fmt "Const(?)"
+  | Fun _ -> Format.fprintf fmt "Fun(?)"
+  | Symbol () -> Format.fprintf fmt "Symbol()"
+  | Var (id, ty) ->
+    let ty_str =
+      match ty with
+      | Type.Float -> "Float"
+      | Type.Int -> "Int"
+    in
+    Format.fprintf fmt "Var(%s:%s)" (Uuidm.to_string id) ty_str
+  | Data e -> Format.fprintf fmt "Data(@[%a@])" pp_expr e
+  | Indicator e -> Format.fprintf fmt "Indicator(@[%a@])" pp_expr e
+  | App1 (f, x) -> Format.fprintf fmt "App1(@[%a,@ %a@])" pp_expr f pp_expr x
+  | App2 (f, x, y) ->
+    Format.fprintf fmt "App2(@[%a,@ %a,@ %a@])" pp_expr f pp_expr x pp_expr y
+  | App3 (f, x, y, z) ->
+    Format.fprintf fmt "App3(@[%a,@ %a,@ %a,@ %a@])" pp_expr f pp_expr x pp_expr
+      y pp_expr z
+  | GT (e1, e2) -> Format.fprintf fmt "(@[%a@ >@ %a@])" pp_expr e1 pp_expr e2
+  | LT (e1, e2) -> Format.fprintf fmt "(@[%a@ <@ %a@])" pp_expr e1 pp_expr e2
+  | GTE (e1, e2) -> Format.fprintf fmt "(@[%a@ >=@ %a@])" pp_expr e1 pp_expr e2
+  | LTE (e1, e2) -> Format.fprintf fmt "(@[%a@ <=@ %a@])" pp_expr e1 pp_expr e2
+  | EQ (e1, e2) -> Format.fprintf fmt "(@[%a@ =@ %a@])" pp_expr e1 pp_expr e2
+  | And (e1, e2) -> Format.fprintf fmt "(@[%a@ &&@ %a@])" pp_expr e1 pp_expr e2
+  | Or (e1, e2) -> Format.fprintf fmt "(@[%a@ ||@ %a@])" pp_expr e1 pp_expr e2
+  | Not e -> Format.fprintf fmt "(!@[%a@])" pp_expr e
+  | Add (e1, e2) -> Format.fprintf fmt "(@[%a@ +@ %a@])" pp_expr e1 pp_expr e2
+  | Sub (e1, e2) -> Format.fprintf fmt "(@[%a@ -@ %a@])" pp_expr e1 pp_expr e2
+  | Mul (e1, e2) -> Format.fprintf fmt "(@[%a@ *@ %a@])" pp_expr e1 pp_expr e2
+  | Div (e1, e2) -> Format.fprintf fmt "(@[%a@ /@ %a@])" pp_expr e1 pp_expr e2
+  | Moneyness (_, _) -> Format.fprintf fmt "Moneyness(?,?)"
+  | Days_to_expiry _ -> Format.fprintf fmt "Days_to_expiry(?)"
+  | Lag (e, n) -> Format.fprintf fmt "Lag(@[%a,@ %d@])" pp_expr e n
+  | CrossUp (e1, e2) ->
+    Format.fprintf fmt "CrossUp(@[%a,@ %a@])" pp_expr e1 pp_expr e2
+  | CrossDown (e1, e2) ->
+    Format.fprintf fmt "CrossDown(@[%a,@ %a@])" pp_expr e1 pp_expr e2
+
+(* Helper to print expression to string *)
+let expr_to_string : type a. a expr -> string =
+ fun expr -> Format.asprintf "%a" pp_expr expr
+
+(* Helper to print variables found in expression *)
+let debug_variables : type a. a expr -> unit =
+ fun expr ->
+  let vars = Subst.collect_variables expr in
+  Eio.traceln "=== VARIABLES IN EXPRESSION ===";
+  Eio.traceln "Expression: %s" (expr_to_string expr);
+  Eio.traceln "Variables found: %d" (List.length vars);
+  List.iteri
+    (fun i (id, Type.A ty) ->
+      let ty_str =
+        match ty with
+        | Type.Float -> "Float"
+        | Type.Int -> "Int"
+      in
+      Eio.traceln "  [%d] %s: %s" i (Uuidm.to_string id) ty_str)
+    vars;
+  Eio.traceln "================================"
+
+(* Convenience operators *)
+let ( >. ) e1 e2 = GT (e1, e2)
+let ( <. ) e1 e2 = LT (e1, e2)
+let ( >=. ) e1 e2 = GTE (e1, e2)
+let ( <=. ) e1 e2 = LTE (e1, e2)
+let ( =. ) e1 e2 = EQ (e1, e2)
+let ( &&. ) e1 e2 = And (e1, e2)
+let ( ||. ) e1 e2 = Or (e1, e2)
+let ( +. ) e1 e2 = Add (e1, e2)
+let ( -. ) e1 e2 = Sub (e1, e2)
+let ( *. ) e1 e2 = Mul (e1, e2)
+let ( /. ) e1 e2 = Div (e1, e2)
