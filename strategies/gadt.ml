@@ -528,10 +528,103 @@ module Subst = struct
         | Int ->
           let* res = Bindings.get id env.int_map in
           Result.return @@ Int res)
+      (* Literals - no variables, return as-is *)
+      | Float f -> Result.return (Float f)
+      | Int i -> Result.return (Int i)
+      | Bool b -> Result.return (Bool b)
+      | Const c -> Result.return (Const c)
+      | Fun f -> Result.return (Fun f)
+      | Symbol () -> Result.return (Symbol ())
+      (* Application nodes - recursively instantiate arguments *)
       | App1 (f, x) ->
-        let* res = instantiate env x in
-        Result.return @@ App1 (f, res)
-      | _ -> Error.fatal "not a variable"
+        let* f' = instantiate env f in
+        let* x' = instantiate env x in
+        Result.return @@ App1 (f', x')
+      | App2 (f, x, y) ->
+        let* f' = instantiate env f in
+        let* x' = instantiate env x in
+        let* y' = instantiate env y in
+        Result.return @@ App2 (f', x', y')
+      | App3 (f, x, y, z) ->
+        let* f' = instantiate env f in
+        let* x' = instantiate env x in
+        let* y' = instantiate env y in
+        let* z' = instantiate env z in
+        Result.return @@ App3 (f', x', y', z')
+      (* Data access - recursively instantiate the type expression *)
+      | Data ty ->
+        let* ty' = instantiate env ty in
+        Result.return @@ Data ty'
+      | Indicator ty ->
+        let* ty' = instantiate env ty in
+        Result.return @@ Indicator ty'
+      (* Comparison operations - recursively instantiate both operands *)
+      | GT (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ GT (e1', e2')
+      | LT (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ LT (e1', e2')
+      | GTE (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ GTE (e1', e2')
+      | LTE (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ LTE (e1', e2')
+      | EQ (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ EQ (e1', e2')
+      (* Logical operations *)
+      | And (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ And (e1', e2')
+      | Or (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ Or (e1', e2')
+      | Not e ->
+        let* e' = instantiate env e in
+        Result.return @@ Not e'
+      (* Arithmetic operations *)
+      | Add (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ Add (e1', e2')
+      | Sub (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ Sub (e1', e2')
+      | Mul (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ Mul (e1', e2')
+      | Div (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ Div (e1', e2')
+      (* Options-specific expressions - no variables to instantiate *)
+      | Moneyness (underlying, option) ->
+        Result.return @@ Moneyness (underlying, option)
+      | Days_to_expiry option -> Result.return @@ Days_to_expiry option
+      (* Lag expression - recursively instantiate the wrapped expression *)
+      | Lag (expr, periods) ->
+        let* expr' = instantiate env expr in
+        Result.return @@ Lag (expr', periods)
+      (* Crossover detection - recursively instantiate both expressions *)
+      | CrossUp (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ CrossUp (e1', e2')
+      | CrossDown (e1, e2) ->
+        let* e1' = instantiate env e1 in
+        let* e2' = instantiate env e2 in
+        Result.return @@ CrossDown (e1', e2')
 end
 
 let run bars (options : Options.t) mutices strategy =
