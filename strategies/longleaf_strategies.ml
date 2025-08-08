@@ -41,30 +41,30 @@ let of_string_res strategy_name =
             strategy_name (List.pp String.pp) all_strategy_names)
 
 (** Run a GADT strategy by name *)
-let run_gadt_strategy strategy_name bars (context : Options.t) mutices =
-  let ( let* ) = Result.( let* ) in
-  let* strategy =
-    match find_gadt_strategy strategy_name with
-    | Some s -> Result.return s
-    | None -> Error.fatal ("Unknown GADT strategy: " ^ strategy_name)
-  in
-  Gadt.run bars context mutices strategy
+(* let run_gadt_strategy strategy_name bars (context : Options.t) mutices = *)
+(*   let ( let* ) = Result.( let* ) in *)
+(*   let* strategy = *)
+(*     match find_gadt_strategy strategy_name with *)
+(*     | Some s -> Result.return s *)
+(*     | None -> Error.fatal ("Unknown GADT strategy: " ^ strategy_name) *)
+(*   in *)
+(*   Gadt.run bars context mutices strategy *)
 
 (** Based on the context, select and run the strategy. *)
-let run_strat_ bars (context : Options.t) mutices =
-  let ( let* ) = Result.( let* ) in
-  let* strategy_name = of_string_res context.flags.strategy_arg in
-  run_gadt_strategy strategy_name bars context mutices
+(* let run_strat_ bars (context : Options.t) mutices = *)
+(*   let ( let* ) = Result.( let* ) in *)
+(*   let* strategy_name = of_string_res context.flags.strategy_arg in *)
+(*   run_gadt_strategy strategy_name bars context mutices *)
 
-let run_strat bars (context : Options.t) mutices =
-  match context.flags.strategy_arg with
-  | "E0" -> Enumerate.top bars context
-  | _ -> (
-    match run_strat_ bars context mutices with
-    | Ok x -> x
-    | Error e ->
-      Eio.traceln "longleaf_strategies.ml: %a" Error.pp e;
-      Error.raise e)
+(* let run_strat bars (context : Options.t) mutices = *)
+(*   match context.flags.strategy_arg with *)
+(*   | "E0" -> Enumerate.top bars context *)
+(*   | _ -> ( *)
+(*     match run_strat_ bars context mutices with *)
+(*     | Ok x -> x *)
+(*     | Error e -> *)
+(*       Eio.traceln "longleaf_strategies.ml: %a" Error.pp e; *)
+(*       Error.raise e) *)
 
 (** Function for Cmdliner use. *)
 let conv = Cmdliner.Arg.conv (of_string_res, String.pp)

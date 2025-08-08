@@ -517,6 +517,12 @@ module Subst = struct
 
   type env = { float_map : float Bindings.t; int_map : int Bindings.t }
 
+  (* let of_l l = *)
+  (*   let init = { *)
+  (*     float_map = Bindings.empty; *)
+  (*     int_map = Bindings.empty; *)
+  (*   } in *)
+
   let rec instantiate : type a. env -> a expr -> (a expr, Error.t) result =
     let ( let* ) = Result.( let* ) in
     fun env -> function
@@ -625,6 +631,10 @@ module Subst = struct
         let* e1' = instantiate env e1 in
         let* e2' = instantiate env e2 in
         Result.return @@ CrossDown (e1', e2')
+
+  (* let apply_subst (x : 'a expr) = *)
+  (*   match collect_variables x with *)
+  (*   | [] -> *)
 end
 
 let run bars (options : Options.t) mutices strategy =
@@ -638,4 +648,66 @@ let run bars (options : Options.t) mutices strategy =
   in
   (* Collect custom indicators from the strategy *)
   let res = Strategy.run (Builder.top strategy) bars options mutices in
+  res
+
+exception OptimizationException
+
+let opt bars options mutices (strategy : strategy) =
+  let vars =
+    Subst.collect_variables strategy.buy_trigger
+    @ Subst.collect_variables strategy.sell_trigger
+    |> Array.of_list
+  in
+  let len = Array.length vars in
+  let opt = Nlopt.create Nlopt.neldermead len in
+  let f (l : float array) _grad =
+    let env =
+      let open Subst in
+      Array.foldi
+        (fun env i (id, Type.A ty) ->
+          match ty with
+          | Type.Float ->
+            { env with float_map = Bindings.add id l.(i) env.float_map }
+          | Type.Int ->
+            {
+              env with
+              int_map = Bindings.add id (Int.of_float l.(i)) env.int_map;
+            })
+        { float_map = Bindings.empty; int_map = Bindings.empty }
+        vars
+    in
+    let strategy =
+      {
+        strategy with
+        buy_trigger =
+          ( Subst.instantiate env strategy.buy_trigger |> function
+            | Ok x -> x
+            | Error e ->
+              Eio.traceln "%a" Error.pp e;
+              raise OptimizationException );
+        sell_trigger =
+          ( Subst.instantiate env strategy.sell_trigger |> function
+            | Ok x -> x
+            | Error e ->
+              Eio.traceln "%a" Error.pp e;
+              raise OptimizationException );
+      }
+    in
+    let res =
+      run bars options mutices strategy |> function
+      | Ok x -> x
+      | Error e ->
+        Eio.traceln "%a" Error.pp e;
+        raise OptimizationException
+    in
+    Float.sub 1.0 res
+  in
+  Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> -100.0);
+  Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
+  Nlopt.set_maxeval opt 10;
+  Nlopt.set_min_objective opt f;
+  let start = Array.init len (fun _ -> 0.0) in
+  let res, xopt, fopt = Nlopt.optimize opt start in
+  Eio.traceln "optimization res: %s" (Nlopt.string_of_result res);
+  Eio.traceln "%a : %f" (Array.pp Float.pp) xopt fopt;
   res
