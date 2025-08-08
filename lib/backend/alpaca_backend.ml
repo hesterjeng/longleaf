@@ -12,6 +12,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (* module Backtesting = Backtesting_backend.Make (Input) *)
   module Input = Input
 
+  let switch = Input.options.switch
+  let env = Input.options.eio_env
   let opts = Input.options
   let save_received = opts.flags.save_received
   let received_data = Bars.empty ()
@@ -121,6 +123,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
             "Error %a from Tiingo.latest, trying again after 5 seconds."
             Error.pp s;
           Unix.sleep 5;
+          (* Ticker.tick ~runtype:opts.flags.runtype env 5.0; *)
           Tiingo.latest bars symbols
       in
       let* () =

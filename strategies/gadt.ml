@@ -627,7 +627,7 @@ let run bars (options : Options.t) mutices strategy =
   let options =
     {
       options with
-      flags = { options.flags with strategy_arg = strategy.name };
+      Options.flags = { options.flags with strategy_arg = strategy.name };
       tacaml_indicators;
     }
   in
@@ -704,6 +704,7 @@ let opt bars options mutices (strategy : strategy) =
         sell_trigger = instantiated_sell;
       }
     in
+    Eio.traceln "About to run strategy within opt (from C?)";
 
     let res =
       try

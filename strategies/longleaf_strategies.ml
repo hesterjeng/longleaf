@@ -76,7 +76,7 @@ module Run = struct
     (* Use the strategy specified in flags instead of hardcoding *)
     let strategy_name = flags.strategy_arg in
     match find_gadt_strategy strategy_name with
-    | Some strategy -> Gadt.opt bars options mutices strategy
+    | Some strategy -> Gadt_atomic.opt_atomic bars options mutices strategy
     | None -> Error.fatal "Unknown strategy selected"
 
   let server env flags target mutices =

@@ -9,6 +9,7 @@ module Indicators = Longleaf_indicators.Indicators
 module Make (Backend : Backend.S) = struct
   module Input = Backend.Input
 
+  let eio_env = Input.options.eio_env
   let ( let* ) = Result.( let* )
   let options = Input.options
   let mutices : State.Mutex.t = Input.mutices
