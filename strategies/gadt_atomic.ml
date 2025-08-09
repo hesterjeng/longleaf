@@ -104,13 +104,13 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
             let instantiated_buy =
               Subst.instantiate env work.strategy.buy_trigger |> function
               | Ok x -> x
-              | Error e -> failwith "Instantiation error in buy trigger"
+              | Error _ -> failwith "Instantiation error in buy trigger"
             in
 
             let instantiated_sell =
               Subst.instantiate env work.strategy.sell_trigger |> function
               | Ok x -> x
-              | Error e -> failwith "Instantiation error in sell trigger"
+              | Error _ -> failwith "Instantiation error in sell trigger"
             in
 
             let instantiated_strategy =
@@ -124,7 +124,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
             let res =
               run bars options mutices instantiated_strategy |> function
               | Ok x -> x
-              | Error e -> failwith "Strategy execution error"
+              | Error _ -> failwith "Strategy execution error"
             in
             Success (Float.sub 1.0 res)
           with
