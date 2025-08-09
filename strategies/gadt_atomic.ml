@@ -33,30 +33,33 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
   let vars = buy_vars @ sell_vars |> Array.of_list in
 
   Eio.traceln "--- COLLECTED VARIABLES ---";
-  Eio.traceln "Buy trigger variables: %d" (List.length buy_vars);
-  List.iteri
-    (fun i (id, Type.A ty) ->
-      let ty_str =
-        match ty with
-        | Type.Float -> "Float"
-        | Type.Int -> "Int"
-      in
-      Eio.traceln "  Buy[%d]: %s (%s)" i (Uuidm.to_string id) ty_str)
-    buy_vars;
 
-  Eio.traceln "Sell trigger variables: %d" (List.length sell_vars);
-  List.iteri
-    (fun i (id, Type.A ty) ->
-      let ty_str =
-        match ty with
-        | Type.Float -> "Float"
-        | Type.Int -> "Int"
-      in
-      Eio.traceln "  Sell[%d]: %s (%s)" i (Uuidm.to_string id) ty_str)
-    sell_vars;
+  (* Eio.traceln "Buy trigger variables: %d" (List.length buy_vars); *)
+  (* List.iteri *)
+  (*   (fun i (id, Type.A ty) -> *)
+  (*     let ty_str = *)
+  (*       match ty with *)
+  (*       | Type.Float -> "Float" *)
+  (*       | Type.Int -> "Int" *)
+  (*     in *)
+  (*     Eio.traceln "  Buy[%d]: %s (%s)" i (Uuidm.to_string id) ty_str) *)
+  (*   buy_vars; *)
 
+  (* Eio.traceln "Sell trigger variables: %d" (List.length sell_vars); *)
+  (* List.iteri *)
+  (*   (fun i (id, Type.A ty) -> *)
+  (*     let ty_str = *)
+  (*       match ty with *)
+  (*       | Type.Float -> "Float" *)
+  (*       | Type.Int -> "Int" *)
+  (*     in *)
+  (*     Eio.traceln "  Sell[%d]: %s (%s)" i (Uuidm.to_string id) ty_str) *)
+  (*   sell_vars; *)
   let len = Array.length vars in
   Eio.traceln "Total unique variables: %d" len;
+
+  Eio.traceln "Buy trigger: %a" pp_expr strategy.buy_trigger;
+  Eio.traceln "Sell trigger: %a" pp_expr strategy.buy_trigger;
 
   (* Create atomic communication channels *)
   let work_request_atomic = Atomic.make None in
@@ -167,12 +170,12 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
   in
 
   let opt = Nlopt.create Nlopt.isres len in
-  Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> -100.0);
+  Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 1.0);
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
   Nlopt.set_maxeval opt 2000;
   (* Nlopt.set_population opt (len * 10); *)
   Nlopt.set_min_objective opt f;
-  let start = Array.init len (fun _ -> 0.0) in
+  let start = Array.init len (fun _ -> 10.0) in
   Eio.traceln "Optimization start %a" (Array.pp Float.pp) start;
   let res, xopt, fopt = Nlopt.optimize opt start in
   Eio.traceln "optimization res: %s" (Nlopt.string_of_result res);

@@ -31,6 +31,21 @@ let dual_sma_rsi =
        position_size = 0.5;
      }
 
+module Real = Gadt_fo.Constant
+
+let golden_cross_1 =
+  (* Classic moving average crossover strategy *)
+  register
+  @@ {
+       name = "GCONST";
+       (* Buy when fast EMA crosses above slow SMA *)
+       buy_trigger = CrossUp (Real.ema 50, Real.sma 57);
+       (* Sell when fast EMA crosses below slow SMA *)
+       sell_trigger = CrossDown (Real.ema 60, Real.sma 58);
+       max_positions = 1;
+       position_size = 1.0;
+     }
+
 let golden_cross =
   (* Classic moving average crossover strategy *)
   register
