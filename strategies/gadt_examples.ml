@@ -46,6 +46,23 @@ let golden_cross_1 =
        position_size = 1.0;
      }
 
+let smarsi0 =
+  (* Dual SMA + RSI *)
+  register
+  @@
+  let sma = Real.sma 10 in
+  let tema = Real.tema 8 in
+  let rsi = Real.rsi 4 in
+  {
+    name = "SMARSI0";
+    (* Buy when fast SMA > slow SMA and RSI < 30 (oversold) *)
+    buy_trigger = sma >. tema &&. (rsi <. Float 30.0);
+    (* Sell when fast SMA < slow SMA or RSI > 70 (overbought) *)
+    sell_trigger = sma <. tema ||. (rsi >. Float 70.0);
+    max_positions = 2;
+    position_size = 0.5;
+  }
+
 let golden_cross =
   (* Classic moving average crossover strategy *)
   register
