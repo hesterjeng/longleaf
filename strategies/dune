@@ -9,6 +9,7 @@
   containers
   containers-data
   ptime
+  nlopt
   eio_main
   iter
   cmdliner

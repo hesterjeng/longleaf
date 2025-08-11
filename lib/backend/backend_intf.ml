@@ -29,7 +29,6 @@ module type S = sig
   val received_data : Bars.t
   val get_trading_client : unit -> (Piaf.Client.t, Error.t) result
   val get_data_client : unit -> (Piaf.Client.t, Error.t) result
-  val env : Eio_unix.Stdenv.base
   val init_state : 'a -> ('a State.t, Error.t) result
   val symbols : Instrument.t list
   val shutdown : unit -> unit

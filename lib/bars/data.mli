@@ -37,6 +37,8 @@ module Type : sig
     | Tacaml of Tacaml.Indicator.t
     | Other of string
   [@@deriving variants, show { with_path = false }]
+
+  val is_int_ty : t -> bool
 end
 
 (** {1 Accessing Data} *)

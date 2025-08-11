@@ -2,6 +2,7 @@ type t = {
   fft : bool;
   compare_preloaded : bool;
   compute_live : bool;
+  compute_all_parallel : bool;
   tacaml_indicators : Tacaml.t list;
 }
 [@@deriving show]
@@ -13,6 +14,7 @@ let default runtype =
     compare_preloaded = false;
     compute_live;
     tacaml_indicators = [];
+    compute_all_parallel = true;
   }
 
 let make runtype tacaml_indicators =

@@ -12,13 +12,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (* module Backtesting = Backtesting_backend.Make (Input) *)
   module Input = Input
 
-  (* let context = Input.options.context *)
+  let switch = Input.options.switch
+  let env = Input.options.eio_env
   let opts = Input.options
-  let env = opts.eio_env
-  (* let runtype = context.runtype *)
-
-  (* let overnight = context.flags.ov *)
-  (*   (\* Input.options.overnight *\)  *)
   let save_received = opts.flags.save_received
   let received_data = Bars.empty ()
 
@@ -29,14 +25,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
         | Live -> `Live
         | _ -> `Paper
       in
-      Piaf.Client.create ~sw:opts.switch opts.eio_env
-      @@ Util.apca_api_base_url ty
+      Piaf.Client.create ~sw:switch env @@ Util.apca_api_base_url ty
     in
     match res with
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create trading client"
 
-  let tiingo_client = Tiingo_api.tiingo_client opts.eio_env opts.switch
+  let tiingo_client = Tiingo_api.tiingo_client env switch
 
   module Tiingo_client : Longleaf_apis.Client.CLIENT = struct
     let longleaf_env = opts.longleaf_env
@@ -46,9 +41,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   module Tiingo = Tiingo_api.Make (Tiingo_client)
 
   let data_client =
-    let res =
-      Piaf.Client.create ~sw:opts.switch opts.eio_env Util.apca_api_data_url
-    in
+    let res = Piaf.Client.create ~sw:switch env Util.apca_api_data_url in
     match res with
     | Ok x -> x
     | Error _ -> invalid_arg "Unable to create data client"
@@ -129,7 +122,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
           Eio.traceln
             "Error %a from Tiingo.latest, trying again after 5 seconds."
             Error.pp s;
-          Ticker.tick ~runtype:opts.flags.runtype opts.eio_env 5.0;
+          Unix.sleep 5;
+          (* Ticker.tick ~runtype:opts.flags.runtype env 5.0; *)
           Tiingo.latest bars symbols
       in
       let* () =

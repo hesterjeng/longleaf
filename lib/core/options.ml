@@ -156,8 +156,8 @@ type t = {
   tick : float;
   (* indicators_config : Indicators_config.t; *)
   tacaml_indicators : Tacaml.t list;
-  eio_env : Eio_unix.Stdenv.base; [@opaque]
   longleaf_env : Environment.t; [@opaque]
+  eio_env : Eio_unix.Stdenv.base; [@opaque]
   switch : Eio.Switch.t; [@opaque]
   target : Target.t; [@opaque]
   flags : CLI.t; (* mutices : Longleaf_mutex.t; *)

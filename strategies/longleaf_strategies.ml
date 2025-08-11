@@ -16,24 +16,7 @@ module Pmutex = Longleaf_util.Pmutex
 (** GADT Strategy Registry All strategies are now defined as Gadt.strategy
     records. To add a new strategy, simply add it to this list. *)
 let gadt_strategies : (string * Gadt.strategy) list =
-  let strategies_from_gadt =
-    [
-      ("rsi_mean_reversion", Gadt.rsi_mean_reversion);
-      ("macd_bollinger_momentum", Gadt.macd_bollinger_momentum);
-      ("candlestick_patterns", Gadt.candlestick_patterns_strategy);
-      ("listener", Listener.listener_strategy);
-    ]
-  in
-  let strategies_from_examples =
-    List.map (fun s -> (s.Gadt.name, s)) Gadt_examples.all_strategies
-  in
-  let strategies_from_crossover_candlestick =
-    List.map
-      (fun s -> (s.Gadt.name, s))
-      Crossover_candlestick_strategies.crossover_candlestick_strategies
-  in
-  strategies_from_gadt @ strategies_from_examples
-  @ strategies_from_crossover_candlestick
+  List.map (fun s -> (s.Gadt.name, s)) Gadt_examples.all_strategies
 
 (** Get all available strategy names *)
 let all_strategy_names = List.map fst gadt_strategies
@@ -56,32 +39,6 @@ let of_string_res strategy_name =
          (Format.asprintf
             "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@."
             strategy_name (List.pp String.pp) all_strategy_names)
-
-(** Run a GADT strategy by name *)
-let run_gadt_strategy strategy_name bars (context : Options.t) mutices =
-  let ( let* ) = Result.( let* ) in
-  let* strategy =
-    match find_gadt_strategy strategy_name with
-    | Some s -> Result.return s
-    | None -> Error.fatal ("Unknown GADT strategy: " ^ strategy_name)
-  in
-  Gadt.run bars context mutices strategy
-
-(** Based on the context, select and run the strategy. *)
-let run_strat_ bars (context : Options.t) mutices =
-  let ( let* ) = Result.( let* ) in
-  let* strategy_name = of_string_res context.flags.strategy_arg in
-  run_gadt_strategy strategy_name bars context mutices
-
-let run_strat bars (context : Options.t) mutices =
-  match context.flags.strategy_arg with
-  | "E0" -> Enumerate.top bars context
-  | _ -> (
-    match run_strat_ bars context mutices with
-    | Ok x -> x
-    | Error e ->
-      Eio.traceln "longleaf_strategies.ml: %a" Error.pp e;
-      Error.raise e)
 
 (** Function for Cmdliner use. *)
 let conv = Cmdliner.Arg.conv (of_string_res, String.pp)
@@ -117,10 +74,22 @@ module Run = struct
         Result.return bars
     in
     (* Use the strategy specified in flags instead of hardcoding *)
-    let strategy_name = flags.strategy_arg in
-    match find_gadt_strategy strategy_name with
-    | Some strategy -> Gadt.run bars options mutices strategy
-    | None -> Error.fatal "Unknown strategy selected"
+    let* strategy =
+      match find_gadt_strategy flags.strategy_arg with
+      | Some strategy ->
+        Result.return strategy
+        (* Gadt.run bars options mutices strategy *)
+        (* Gadt_atomic.opt_atomic bars options mutices strategy *)
+      | None -> Error.fatal "Unknown strategy selected"
+    in
+    match flags.runtype with
+    | Longleaf_core.Runtype.Live
+    | Paper ->
+      Eio.traceln "Using Gadt.run";
+      Gadt.run bars options mutices strategy
+    | _ ->
+      Eio.traceln "Using Gadt_atomic.opt_atomic";
+      Gadt_atomic.opt_atomic bars options mutices strategy
 
   let server env flags target mutices =
     let domain_mgr = Eio.Stdenv.domain_mgr env in

@@ -1,4 +1,5 @@
 _build/
+notes.org
 .envrc
 server.exe
 elisp/flycheck_top.el
