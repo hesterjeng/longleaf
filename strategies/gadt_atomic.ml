@@ -172,10 +172,12 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
   let opt = Nlopt.create Nlopt.neldermead len in
   Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 1.0);
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
-  Nlopt.set_maxeval opt 2000;
+  Nlopt.set_maxeval opt 100;
   (* Nlopt.set_population opt (len * 10); *)
   Nlopt.set_min_objective opt f;
-  let start = Array.init len (fun _ -> 10.0) in
+  let start =
+    Array.init len (fun _ -> Float.random_range 1.0 100.0 Util.random_state)
+  in
   Eio.traceln "Optimization start %a" (Array.pp Float.pp) start;
   let res, xopt, fopt = Nlopt.optimize opt start in
   Eio.traceln "optimization res: %s" (Nlopt.string_of_result res);
