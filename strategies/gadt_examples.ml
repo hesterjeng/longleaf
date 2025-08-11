@@ -7,6 +7,21 @@ let register x =
   List.Ref.push all_strategies x;
   x
 
+(** A data collection listener strategy that never buys or sells *)
+let listener_strategy =
+  register
+  @@ {
+       name = "Listener";
+       buy_trigger = Bool false;
+       (* Never buy *)
+       sell_trigger = Bool false;
+       (* Never sell *)
+       max_positions = 0;
+       (* No positions allowed *)
+       position_size = 0.0;
+       (* No position sizing needed *)
+     }
+
 let stupid =
   register
   @@ {

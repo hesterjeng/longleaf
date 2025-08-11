@@ -74,10 +74,22 @@ module Run = struct
         Result.return bars
     in
     (* Use the strategy specified in flags instead of hardcoding *)
-    let strategy_name = flags.strategy_arg in
-    match find_gadt_strategy strategy_name with
-    | Some strategy -> Gadt_atomic.opt_atomic bars options mutices strategy
-    | None -> Error.fatal "Unknown strategy selected"
+    let* strategy =
+      match find_gadt_strategy flags.strategy_arg with
+      | Some strategy ->
+        Result.return strategy
+        (* Gadt.run bars options mutices strategy *)
+        (* Gadt_atomic.opt_atomic bars options mutices strategy *)
+      | None -> Error.fatal "Unknown strategy selected"
+    in
+    match flags.runtype with
+    | Longleaf_core.Runtype.Live
+    | Paper ->
+      Eio.traceln "Using Gadt.run";
+      Gadt.run bars options mutices strategy
+    | _ ->
+      Eio.traceln "Using Gadt_atomic.opt_atomic";
+      Gadt_atomic.opt_atomic bars options mutices strategy
 
   let server env flags target mutices =
     let domain_mgr = Eio.Stdenv.domain_mgr env in
