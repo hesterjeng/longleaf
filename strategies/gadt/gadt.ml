@@ -12,7 +12,7 @@ module Options = Longleaf_core.Options
 module Template = Longleaf_template
 
 exception OptimizationException
-exception InvalidGADT
+exception InvalidGADT of Error.t
 
 type const = VFloat of float | VInt of int
 (* type env = (Uuidm.t, _ const) List.Assoc.t *)
@@ -337,7 +337,10 @@ end = struct
 
   (* Collect all t from GADT expressions *)
   let rec collect_data_types : type a. a expr -> Data.Type.t list = function
-    | Var _ -> raise InvalidGADT
+    | Var _ ->
+      raise
+      @@ InvalidGADT
+           (`FatalError "Encountered variable inside gadt for evaluation")
     | Const _
     | App1 _
     | App2 _
@@ -352,13 +355,13 @@ end = struct
       [
         ( eval_simple data_type |> function
           | Ok x -> x
-          | Error e -> raise InvalidGADT );
+          | Error e -> raise @@ InvalidGADT e );
       ]
     | Indicator data_type ->
       [
         ( eval_simple data_type |> function
           | Ok x -> Data.Type.Tacaml x
-          | Error e -> raise InvalidGADT );
+          | Error e -> raise @@ InvalidGADT e );
       ]
     | GT (e1, e2)
     | LT (e1, e2)
@@ -636,100 +639,100 @@ let run bars (options : Options.t) mutices strategy =
   let res = Template.run (Builder.top strategy) bars options mutices in
   res
 
-let opt bars options mutices (strategy : strategy) =
-  Eio.traceln "=== OPTIMIZATION DEBUG START ===";
-  Eio.traceln "Strategy name: %s" strategy.name;
+(* let opt bars options mutices (strategy : strategy) = *)
+(*   Eio.traceln "=== OPTIMIZATION DEBUG START ==="; *)
+(*   Eio.traceln "Strategy name: %s" strategy.name; *)
 
-  let buy_vars = Subst.collect_variables strategy.buy_trigger in
-  let sell_vars = Subst.collect_variables strategy.sell_trigger in
-  let vars = buy_vars @ sell_vars |> Array.of_list in
+(*   let buy_vars = Subst.collect_variables strategy.buy_trigger in *)
+(*   let sell_vars = Subst.collect_variables strategy.sell_trigger in *)
+(*   let vars = buy_vars @ sell_vars |> Array.of_list in *)
 
-  Eio.traceln "--- COLLECTED VARIABLES ---";
-  Eio.traceln "Buy trigger variables: %d" (List.length buy_vars);
-  List.iteri
-    (fun i (id, Type.A ty) ->
-      let ty_str =
-        match ty with
-        | Type.Float -> "Float"
-        | Type.Int -> "Int"
-      in
-      Eio.traceln "  Buy[%d]: %s (%s)" i (Uuidm.to_string id) ty_str)
-    buy_vars;
+(*   Eio.traceln "--- COLLECTED VARIABLES ---"; *)
+(*   Eio.traceln "Buy trigger variables: %d" (List.length buy_vars); *)
+(*   List.iteri *)
+(*     (fun i (id, Type.A ty) -> *)
+(*       let ty_str = *)
+(*         match ty with *)
+(*         | Type.Float -> "Float" *)
+(*         | Type.Int -> "Int" *)
+(*       in *)
+(*       Eio.traceln "  Buy[%d]: %s (%s)" i (Uuidm.to_string id) ty_str) *)
+(*     buy_vars; *)
 
-  Eio.traceln "Sell trigger variables: %d" (List.length sell_vars);
-  List.iteri
-    (fun i (id, Type.A ty) ->
-      let ty_str =
-        match ty with
-        | Type.Float -> "Float"
-        | Type.Int -> "Int"
-      in
-      Eio.traceln "  Sell[%d]: %s (%s)" i (Uuidm.to_string id) ty_str)
-    sell_vars;
+(*   Eio.traceln "Sell trigger variables: %d" (List.length sell_vars); *)
+(*   List.iteri *)
+(*     (fun i (id, Type.A ty) -> *)
+(*       let ty_str = *)
+(*         match ty with *)
+(*         | Type.Float -> "Float" *)
+(*         | Type.Int -> "Int" *)
+(*       in *)
+(*       Eio.traceln "  Sell[%d]: %s (%s)" i (Uuidm.to_string id) ty_str) *)
+(*     sell_vars; *)
 
-  let len = Array.length vars in
-  Eio.traceln "Total unique variables: %d" len;
+(*   let len = Array.length vars in *)
+(*   Eio.traceln "Total unique variables: %d" len; *)
 
-  let opt = Nlopt.create Nlopt.neldermead len in
-  let f (l : float array) _grad =
-    let env =
-      let open Subst in
-      Array.foldi
-        (fun env i (id, Type.A ty) ->
-          match ty with
-          | Type.Float ->
-            { env with float_map = Bindings.add id l.(i) env.float_map }
-          | Type.Int ->
-            let int_val = Int.of_float l.(i) in
-            { env with int_map = Bindings.add id int_val env.int_map })
-        { float_map = Bindings.empty; int_map = Bindings.empty }
-        vars
-    in
+(*   let opt = Nlopt.create Nlopt.neldermead len in *)
+(*   let f (l : float array) _grad = *)
+(*     let env = *)
+(*       let open Subst in *)
+(*       Array.foldi *)
+(*         (fun env i (id, Type.A ty) -> *)
+(*           match ty with *)
+(*           | Type.Float -> *)
+(*             { env with float_map = Bindings.add id l.(i) env.float_map } *)
+(*           | Type.Int -> *)
+(*             let int_val = Int.of_float l.(i) in *)
+(*             { env with int_map = Bindings.add id int_val env.int_map }) *)
+(*         { float_map = Bindings.empty; int_map = Bindings.empty } *)
+(*         vars *)
+(*     in *)
 
-    let instantiated_buy =
-      Subst.instantiate env strategy.buy_trigger |> function
-      | Ok x -> x
-      | Error e -> raise OptimizationException
-    in
+(*     let instantiated_buy = *)
+(*       Subst.instantiate env strategy.buy_trigger |> function *)
+(*       | Ok x -> x *)
+(*       | Error e -> raise OptimizationException *)
+(*     in *)
 
-    let instantiated_sell =
-      Subst.instantiate env strategy.sell_trigger |> function
-      | Ok x -> x
-      | Error e -> raise OptimizationException
-    in
+(*     let instantiated_sell = *)
+(*       Subst.instantiate env strategy.sell_trigger |> function *)
+(*       | Ok x -> x *)
+(*       | Error e -> raise OptimizationException *)
+(*     in *)
 
-    let strategy =
-      {
-        strategy with
-        buy_trigger = instantiated_buy;
-        sell_trigger = instantiated_sell;
-      }
-    in
-    Eio.traceln "About to run strategy within opt (from C?)";
+(*     let strategy = *)
+(*       { *)
+(*         strategy with *)
+(*         buy_trigger = instantiated_buy; *)
+(*         sell_trigger = instantiated_sell; *)
+(*       } *)
+(*     in *)
+(*     Eio.traceln "About to run strategy within opt (from C?)"; *)
 
-    let res =
-      try
-        run bars options mutices strategy |> function
-        | Ok x -> x
-        | Error e -> raise OptimizationException
-      with
-      | e ->
-        let s = Printexc.to_string e in
-        Eio.traceln "%s" s;
-        raise OptimizationException
-    in
-    Float.sub 1.0 res
-  in
-  Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> -100.0);
-  Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
-  Nlopt.set_maxeval opt 10;
-  Nlopt.set_min_objective opt f;
-  let start = Array.init len (fun _ -> 0.0) in
-  Eio.traceln "Optimization start %a" (Array.pp Float.pp) start;
-  let res, xopt, fopt = Nlopt.optimize opt start in
-  Eio.traceln "optimization res: %s" (Nlopt.string_of_result res);
-  Eio.traceln "%a : %f" (Array.pp Float.pp) xopt fopt;
-  Result.return fopt
+(*     let res = *)
+(*       try *)
+(*         run bars options mutices strategy |> function *)
+(*         | Ok x -> x *)
+(*         | Error e -> raise OptimizationException *)
+(*       with *)
+(*       | e -> *)
+(*         let s = Printexc.to_string e in *)
+(*         Eio.traceln "%s" s; *)
+(*         raise OptimizationException *)
+(*     in *)
+(*     Float.sub 1.0 res *)
+(*   in *)
+(*   Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> -100.0); *)
+(*   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0); *)
+(*   Nlopt.set_maxeval opt 10; *)
+(*   Nlopt.set_min_objective opt f; *)
+(*   let start = Array.init len (fun _ -> 0.0) in *)
+(*   Eio.traceln "Optimization start %a" (Array.pp Float.pp) start; *)
+(*   let res, xopt, fopt = Nlopt.optimize opt start in *)
+(*   Eio.traceln "optimization res: %s" (Nlopt.string_of_result res); *)
+(*   Eio.traceln "%a : %f" (Array.pp Float.pp) xopt fopt; *)
+(*   Result.return fopt *)
 
 (* Pretty printer for GADT expressions *)
 let rec pp_expr : type a. Format.formatter -> a expr -> unit =
