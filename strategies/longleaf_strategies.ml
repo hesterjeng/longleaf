@@ -12,6 +12,8 @@ module Options = Longleaf_core.Options
 module Astar = Longleaf_util.Astar
 module Error = Longleaf_core.Error
 module Pmutex = Longleaf_util.Pmutex
+module Gadt = Longleaf_gadt.Gadt
+module Gadt_examples = Longleaf_gadt.Gadt_examples
 
 (** GADT Strategy Registry All strategies are now defined as Gadt.strategy
     records. To add a new strategy, simply add it to this list. *)
@@ -59,7 +61,7 @@ module Run = struct
     (* Load target bars with eio_env if needed *)
     let ( let* ) = Result.( let* ) in
     Eio.Switch.run @@ fun sw ->
-    let options = Strategy.mk_options sw eio_env flags target [] in
+    let options = Longleaf_template.mk_options sw eio_env flags target [] in
     let* bars =
       match target with
       | Longleaf_core.Target.File s ->
@@ -89,7 +91,7 @@ module Run = struct
       Gadt.run bars options mutices strategy
     | _ ->
       Eio.traceln "Using Gadt_atomic.opt_atomic";
-      Gadt_atomic.opt_atomic bars options mutices strategy
+      Longleaf_gadt.Gadt_atomic.opt_atomic bars options mutices strategy
 
   let server env flags target mutices =
     let domain_mgr = Eio.Stdenv.domain_mgr env in

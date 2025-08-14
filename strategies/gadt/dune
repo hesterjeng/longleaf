@@ -1,14 +1,16 @@
 (library
- (name longleaf_server)
+ (name longleaf_gadt)
  (modules :standard)
- (public_name longleaf-lib.server)
+ (public_name longleaf-strategies.gadt)
  (instrumentation
   (backend landmarks))
  (libraries
   longleaf_core
+  nlopt
   longleaf_util
   longleaf_indicators
   longleaf_state
+  longleaf_template
   fmt
   containers
   containers-data

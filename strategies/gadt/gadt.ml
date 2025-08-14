@@ -9,6 +9,7 @@ module Order = Longleaf_core.Order
 module Data = Bars.Data
 module Time = Longleaf_core.Time
 module Options = Longleaf_core.Options
+module Template = Longleaf_template
 
 exception OptimizationException
 exception InvalidGADT
@@ -407,7 +408,7 @@ end = struct
 end
 
 module Builder : sig
-  val top : strategy -> Strategy.builder
+  val top : strategy -> Template.builder
 end = struct
   (* Helper function to evaluate strategy triggers *)
   let eval_strategy_signal (strategy_expr : bool expr) (state : _ State.t)
@@ -424,7 +425,7 @@ end = struct
 
   (* Convert GADT strategy to Template-compatible modules *)
   let gadt_to_buy_trigger (buy_expr : bool expr) (max_positions : int) =
-    let module Buy_input : Template.Buy_trigger.INPUT = struct
+    let module Buy_input : Longleaf_template.Buy_trigger.INPUT = struct
       let pass state symbol = eval_strategy_signal buy_expr state symbol
       let score _state _symbol = Result.return 1.0
       let num_positions = max_positions
@@ -446,7 +447,7 @@ end = struct
     let module StrategyBuilder =
       Template.Make ((val buy_trigger)) ((val sell_trigger))
     in
-    (module StrategyBuilder : Strategy.BUILDER)
+    (module StrategyBuilder : Template.BUILDER)
 end
 
 module Subst = struct
@@ -632,7 +633,7 @@ let run bars (options : Options.t) mutices strategy =
     }
   in
   (* Collect custom indicators from the strategy *)
-  let res = Strategy.run (Builder.top strategy) bars options mutices in
+  let res = Template.run (Builder.top strategy) bars options mutices in
   res
 
 let opt bars options mutices (strategy : strategy) =

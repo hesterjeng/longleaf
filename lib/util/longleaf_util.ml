@@ -11,6 +11,7 @@ module Astar = Astar
 module Work_pool = Work_pool
 module Pmutex = Pmutex
 module Json = Json
+module Ticker_collections = Ticker_collections
 
 let get_next_page_token (x : Yojson.Safe.t) =
   Option.(

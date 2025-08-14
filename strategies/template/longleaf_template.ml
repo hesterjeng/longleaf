@@ -201,3 +201,35 @@ module Make
     let init_state = init_state () in
     SU.run ~init_state step
 end
+
+let mk_options switch eio_env flags target tacaml_indicators : Options.t =
+  let module Ticker_collections = Longleaf_util.Ticker_collections in
+  let longleaf_env = Environment.make () in
+  (* let mutices = Server.Longleaf_mutex.create () in *)
+  {
+    symbols = Ticker_collections.sp100;
+    eio_env;
+    longleaf_env;
+    switch;
+    flags;
+    tick = 600.0;
+    target;
+    tacaml_indicators;
+  }
+
+module type BUILDER = functor (_ : Backend.S) -> Longleaf_core.Strategy.S
+
+type builder = (module BUILDER)
+
+(** Helper function to reduce code duplication. *)
+let run (module Strat : BUILDER) bars options mutices =
+  (* let options = run_options context in *)
+  let ( let* ) = Result.( let* ) in
+  let* backend = Backend.make mutices bars options in
+  let module Backend = (val backend) in
+  let module S = Strat (Backend) in
+  Eio.traceln "Applied strategy functor to backend, running %s."
+    options.flags.strategy_arg;
+  let res = S.run () in
+  Backend.shutdown ();
+  Result.return res

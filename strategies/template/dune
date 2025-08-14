@@ -1,29 +1,29 @@
 (library
- (name longleaf_strategies)
+ (name longleaf_template)
  (modules :standard)
- (public_name longleaf-strategies)
+ (public_name longleaf-strategies.template)
  (instrumentation
   (backend landmarks))
  (libraries
+  longleaf_core
+  longleaf_util
+  longleaf_indicators
+  longleaf_backend
+  longleaf_state
   fmt
-  longleaf_template
   containers
-  longleaf_gadt
   containers-data
   ptime
   eio_main
-  iter
-  cmdliner
-  landmarks
-  tacaml
-  longleaf-lib
-  piaf)
+  piaf
+  yojson)
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv ppx_variants_conv ppx_fields_conv)))
-
-; landmarks-ppx
-; --auto)))
-;
+  (pps
+   ppx_deriving.std
+   ppx_yojson_conv
+   ppx_variants_conv
+   ppx_fields_conv
+   ppx_hash)))
 
 (env
  (_
@@ -35,8 +35,10 @@
    -a+8+49+33
    -open
    Containers
-   ; -open
-   ; Longleaf_lib
+   -open
+   Longleaf_core
+   -open
+   Longleaf_util
    -open
    Ppx_yojson_conv_lib.Yojson_conv.Primitives
    -strict-sequence
