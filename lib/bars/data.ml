@@ -283,7 +283,7 @@ let to_items (x : t) =
         let item = item_of_column x i in
         aux (i + 1) @@ (item :: acc)
     in
-    aux 0 []
+    aux 0 [] |> List.rev
   with
   | NaNInData (i, ty) ->
     let msg = Format.asprintf "NaN in data %a %d" Type.pp ty i in
@@ -443,7 +443,11 @@ let is_sorted (x : t) =
         let* prev = Row.get_time row (i - 1) in
         match Ptime.compare curr prev with
         | 1 -> Ok ()
-        | _ -> Error.fatal "Bad timestamp comparison in Data.sort")
+        | _ ->
+          Eio.traceln "%a" Time.pp prev;
+          Eio.traceln "%a" Time.pp curr;
+          Error.fatal
+          @@ Format.asprintf "Bad timestamp comparison in Data.sort %d" i)
       (Ok ())
     @@ Seq.take (length x - 1) (Seq.ints 1)
   in
