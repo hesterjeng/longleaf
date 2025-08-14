@@ -1,0 +1,44 @@
+(library
+ (name longleaf_server)
+ (modules :standard)
+ (public_name longleaf-lib.server)
+ (instrumentation
+  (backend landmarks))
+ (libraries
+  longleaf_core
+  longleaf_util
+  longleaf_indicators
+  longleaf_state
+  fmt
+  containers
+  containers-data
+  ptime
+  eio_main
+  piaf
+  yojson)
+ (preprocess
+  (pps
+   ppx_deriving.std
+   ppx_yojson_conv
+   ppx_variants_conv
+   ppx_fields_conv
+   ppx_hash)))
+
+(env
+ (_
+  (flags
+   :standard
+   -w
+   -32
+   -warn-error
+   -a+8+49+33
+   -open
+   Containers
+   -open
+   Longleaf_core
+   -open
+   Longleaf_util
+   -open
+   Ppx_yojson_conv_lib.Yojson_conv.Primitives
+   -strict-sequence
+   -safe-string)))
