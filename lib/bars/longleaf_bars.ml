@@ -76,6 +76,11 @@ let get (x : t) instrument =
   | Some x -> Result.return x
   | None -> Error.missing_data "Missing data for instrument in V2 bars"
 
+let pp_lens : t Format.printer =
+ fun fmt x ->
+  let str = fold x [] (fun inst data acc -> (inst, Data.length data) :: acc) in
+  Format.fprintf fmt "%a" (List.pp (Pair.pp Instrument.pp Int.pp)) str
+
 let length (x : t) =
   let ( let* ) = Result.( let* ) in
   fold x (Ok 0) @@ fun _ ph acc ->
@@ -84,7 +89,11 @@ let length (x : t) =
   match acc with
   | 0 -> Ok len
   | n when len = n -> Ok acc
-  | _ -> Error.fatal "Mismatched price history v2 matrices in Bars v2"
+  | res ->
+    Eio.traceln "%a" pp_lens x;
+    Error.fatal
+    @@ Format.asprintf "Mismatched price history v2 matrices in Bars v2 (%d %d)"
+         res len
 
 let current (x : t) =
   let ( let* ) = Result.( let* ) in
