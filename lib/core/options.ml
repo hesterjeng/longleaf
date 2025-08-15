@@ -11,6 +11,7 @@ module CLI = struct
     precompute_indicators_arg : bool;
     compare_preloaded : bool;
     start : int;
+    random_drop_chance : int;
   }
   [@@deriving show]
 
@@ -110,6 +111,10 @@ module CLI = struct
     let start_arg =
       let doc = "Starting index for backtest" in
       Cmdliner.Arg.(value & opt int 0 & info [ "i"; "index" ] ~doc)
+
+    let random_drop_chance =
+      let doc = "Chance (with int %) that an order will be ignored" in
+      Cmdliner.Arg.(value & opt int 0 & info [ "drop-chance" ] ~doc)
   end
 
   let cli_term =
@@ -124,7 +129,8 @@ module CLI = struct
     and+ print_tick_arg = Args.print_tick_arg
     and+ precompute_indicators_arg = Args.precompute_indicators_arg
     and+ compare_preloaded = Args.compare_preload
-    and+ start = Args.start_arg in
+    and+ start = Args.start_arg
+    and+ random_drop_chance = Args.random_drop_chance in
     {
       runtype;
       stacktrace;
@@ -137,6 +143,7 @@ module CLI = struct
       precompute_indicators_arg;
       compare_preloaded;
       start;
+      random_drop_chance;
     }
 
   module Full = struct
