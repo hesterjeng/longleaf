@@ -71,7 +71,7 @@ module Make (Tiingo : Client.CLIENT) = struct
     let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
     get ~headers ~endpoint
 
-  let latest bars tickers =
+  let latest bars tickers tick =
     let ( let* ) = Result.( let* ) in
     let symbols = List.map Instrument.symbol tickers |> String.concat "," in
     let endpoint =
@@ -88,7 +88,7 @@ module Make (Tiingo : Client.CLIENT) = struct
         (fun acc _ tiingo_item ->
           let* () = acc in
           let* data = Bars.get bars tiingo_item.ticker in
-          let current_idx = Data.current data in
+          let current_idx = tick in
           (* Directly set data fields from tiingo item *)
           Data.set data Data.Type.Time current_idx
             (Ptime.to_float_s tiingo_item.timestamp);

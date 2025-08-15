@@ -62,7 +62,7 @@ let pp fmt t =
 
 let show t = Format.asprintf "%a" pp t
 let cash t = t.cash
-let time t = Bars.timestamp t.bars
+let time t = Bars.timestamp t.bars t.current_tick
 let positions x = x.positions
 
 (* let symbols x = List.map (fun (x : Order.t) -> x.symbol) @@ positions x *)

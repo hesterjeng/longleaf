@@ -75,7 +75,6 @@ type t = {
   data : data_matrix;
   int_data : int_matrix;
   index : Index.t;
-  current : int;
   size : int;
   indicators_computed : bool;
   orders : Order.t list array;
@@ -84,7 +83,6 @@ type t = {
 type data = t
 
 let size x = x.size
-let current x = x.current
 
 let get_ source row i =
   try Array2.get source row i with
@@ -242,20 +240,6 @@ let pp : t Format.printer =
 (*   Format.fprintf fmt "%a" (Array.pp Float.pp) arr *)
 
 let length x = Array2.dim2 x.data
-let current x = x.current
-
-let get_top (res : t) (x : Type.t) =
-  let res = get res x @@ res.current in
-  res
-
-let get_top_int (res : t) (x : Type.t) =
-  assert (res.current >= 0);
-  assert (res.current < res.size);
-  match x with
-  | Tacaml (I _) ->
-    let row = Index.get res.index x in
-    Int32.to_int @@ get_ res.int_data row res.current
-  | _ -> invalid_arg "get_top_int: not an integer indicator"
 
 let item_of_column x i =
   let open Item in
@@ -297,7 +281,6 @@ let make size : t =
     int_data =
       Array2.init Bigarray.int32 Bigarray.c_layout 70 size (fun _ _ ->
           Int32.zero);
-    current = 0;
     index = Index.make ();
     size;
     indicators_computed = false;
@@ -310,10 +293,7 @@ let copy (x : t) =
   Array2.blit x.int_data r.int_data;
   Array.blit x.orders 0 r.orders 0 x.size;
   {
-    (* r with *)
-    r
-    with
-    current = x.current;
+    r with
     indicators_computed = x.indicators_computed;
     index = Index.copy x.index;
   }
@@ -346,7 +326,6 @@ let grow (x : t) =
     data = new_data;
     int_data = new_int_data;
     index = Index.copy x.index;
-    current = x.current;
     size = new_size;
     indicators_computed = x.indicators_computed;
     orders = new_orders;
@@ -484,8 +463,6 @@ let yojson_of_t (x : t) : Yojson.Safe.t =
   in
   let l = List.map Item.yojson_of_t items in
   `List l
-
-let set_current x current = { x with current }
 
 (* Order management functions *)
 let add_order (data : t) (tick : int) (order : Order.t) =

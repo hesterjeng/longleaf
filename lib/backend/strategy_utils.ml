@@ -137,7 +137,6 @@ module Make (Backend : Backend.S) = struct
     let ( let* ) = Result.( let* ) in
     let bars = State.bars state in
     let res = State.increment_tick state in
-    Bars.set_current bars @@ State.tick res;
     let* () = Backend.update_bars Backend.symbols bars @@ State.tick res in
     let* () =
       match Input.options.flags.runtype with
@@ -163,7 +162,6 @@ module Make (Backend : Backend.S) = struct
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
-      Bars.set_current bars tick;
       Eio.traceln "Bars initialize: %a" Bars.pp bars;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       let* () =
@@ -179,7 +177,7 @@ module Make (Backend : Backend.S) = struct
           State.grow state
         | _ -> state
       in
-      Eio.traceln "Running...";
+      Eio.traceln "Finished with initialization: %d..." (State.tick state);
       Result.return @@ State.set state Listening
     | Listening -> (
       if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;

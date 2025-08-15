@@ -16,9 +16,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let* bars =
       match Input.target with
       | None -> Error.fatal "No target for backtest"
-      | Some b ->
-        Bars.set_current b Input.options.flags.start;
-        Result.return b
+      | Some b -> Result.return b
     in
     let config =
       Indicators_config.make Input.options.flags.runtype

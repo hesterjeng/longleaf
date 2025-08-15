@@ -101,7 +101,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let last_data_bar =
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
-  let latest_bars (symbols : Instrument.t list) bars _ =
+  let latest_bars (symbols : Instrument.t list) bars tick =
     let ( let* ) = Result.( let* ) in
     (* let* account = Trading_api.Accounts.get_account () in *)
     (* let backend_cash = Portfolio.get_cash in *)
@@ -116,7 +116,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Result.return ()
     | _ ->
       let* () =
-        match Tiingo.latest bars symbols with
+        match Tiingo.latest bars symbols tick with
         | Ok x -> Result.return x
         | Error s ->
           Eio.traceln
@@ -124,7 +124,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
             Error.pp s;
           Unix.sleep 5;
           (* Ticker.tick ~runtype:opts.flags.runtype env 5.0; *)
-          Tiingo.latest bars symbols
+          Tiingo.latest bars symbols tick
       in
       let* () =
         if save_received then
