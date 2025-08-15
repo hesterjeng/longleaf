@@ -6,20 +6,18 @@ module Market_data_api = Longleaf_apis.Market_data_api
 module Bars = Longleaf_bars
 module Indicators = Longleaf_indicators
 
-let make_backend_input mutices (bars : Bars.t) (options : Options.t) =
+let make_backend_input mutices (target : Bars.t option) (options : Options.t) =
   (module struct
     let options = options
     let mutices = mutices
-
-    (* let bars = bars *)
-    let target = Some bars
+    let target = target
   end : BACKEND_INPUT)
 
-let make mutices bars (options : Options.t) =
+let make mutices (bars : Bars.t) (options : Options.t) =
   let ( let* ) = Result.( let* ) in
 
   (* Add custom indicators to the indicator config *)
-  let backend_input = make_backend_input mutices bars options in
+  let backend_input = make_backend_input mutices (Some bars) options in
   let module Input = (val backend_input) in
   let* res =
     match options.flags.runtype with
