@@ -64,7 +64,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let* account_status = Trading_api.Accounts.get_account () in
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
       account_status;
-    let _account_cash = account_status.cash in
+    let account_cash = account_status.cash in
     let* bars =
       match Input.target with
       | None -> Error.fatal "No historical data for alpaca backend"
@@ -74,7 +74,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Indicators_config.make Input.options.flags.runtype
         Input.options.tacaml_indicators
     in
-    State.make 0 bars content config
+    State.make 0 bars content config account_cash
 
   let next_market_open () =
     let ( let* ) = Result.( let* ) in

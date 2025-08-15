@@ -10,7 +10,7 @@ type 'a res = ('a, Error.t) result
 val current : 'a t -> Mode.t
 
 (* Create a new state with index, data, and content *)
-val make : int -> Bars.t -> 'a -> Indicators_config.t -> 'a t res
+val make : int -> Bars.t -> 'a -> Indicators_config.t -> float -> 'a t res
 
 (* Print basic info about the state *)
 val pp : 'a t Format.printer
@@ -56,6 +56,7 @@ val place_order : 'a t -> Order.t -> 'a t res
 (* Current tick of the state machine (corresponds to the Bars.t index) *)
 val tick : 'a t -> int
 val increment_tick : 'a t -> 'a t
+val set_tick : 'a t -> int -> 'a t
 val set : 'a t -> Mode.t -> 'a t
 val grow : 'a t -> 'a t
 
