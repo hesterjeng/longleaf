@@ -510,6 +510,18 @@ module Subst = struct
   (*     int_map = Bindings.empty; *)
   (*   } in *)
 
+  let env_of_arr params (arr : (Uuidm.t * Type.shadow) array) =
+    Array.foldi
+      (fun env i (id, Type.A ty) ->
+        match ty with
+        | Type.Float ->
+          { env with float_map = Bindings.add id params.(i) env.float_map }
+        | Type.Int ->
+          let int_val = Int.of_float params.(i) in
+          { env with int_map = Bindings.add id int_val env.int_map })
+      { float_map = Bindings.empty; int_map = Bindings.empty }
+      arr
+
   let rec instantiate : type a. env -> a expr -> (a expr, Error.t) result =
     let ( let* ) = Result.( let* ) in
     fun env -> function
