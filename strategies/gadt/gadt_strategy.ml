@@ -21,8 +21,8 @@ end = struct
     let ( let* ) = Result.( let* ) in
     (* Bounds checking *)
     match expr with
-    | Const x -> Result.return x
-    | Fun f -> Result.return f
+    | Const (x, _) -> Result.return x
+    | Fun (_, f) -> Result.return f
     | ContextModifier (_, _, expr) -> eval expr
     | App1 (f, x) ->
       let* f = eval f in
