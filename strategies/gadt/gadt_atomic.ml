@@ -33,28 +33,6 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
   let vars = buy_vars @ sell_vars |> Array.of_list in
 
   Eio.traceln "--- COLLECTED VARIABLES ---";
-
-  (* Eio.traceln "Buy trigger variables: %d" (List.length buy_vars); *)
-  (* List.iteri *)
-  (*   (fun i (id, Type.A ty) -> *)
-  (*     let ty_str = *)
-  (*       match ty with *)
-  (*       | Type.Float -> "Float" *)
-  (*       | Type.Int -> "Int" *)
-  (*     in *)
-  (*     Eio.traceln "  Buy[%d]: %s (%s)" i (Uuidm.to_string id) ty_str) *)
-  (*   buy_vars; *)
-
-  (* Eio.traceln "Sell trigger variables: %d" (List.length sell_vars); *)
-  (* List.iteri *)
-  (*   (fun i (id, Type.A ty) -> *)
-  (*     let ty_str = *)
-  (*       match ty with *)
-  (*       | Type.Float -> "Float" *)
-  (*       | Type.Int -> "Int" *)
-  (*     in *)
-  (*     Eio.traceln "  Sell[%d]: %s (%s)" i (Uuidm.to_string id) ty_str) *)
-  (*   sell_vars; *)
   let len = Array.length vars in
   Eio.traceln "Total unique variables: %d" len;
 
@@ -126,7 +104,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
               | Ok x -> x
               | Error _ -> failwith "Strategy execution error"
             in
-            Success (Float.sub 1.0 res)
+            Success res
           with
           | e ->
             let s = Printexc.to_string e in
@@ -174,7 +152,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
   Nlopt.set_maxeval opt 100;
   (* Nlopt.set_population opt (len * 10); *)
-  Nlopt.set_min_objective opt f;
+  Nlopt.set_max_objective opt f;
   let start =
     Array.init len (fun _ -> Float.random_range 1.0 100.0 Util.random_state)
   in
