@@ -3,11 +3,12 @@ module Options = Longleaf_core.Options
 module Error = Longleaf_core.Error
 module Gadt = Longleaf_gadt.Gadt
 module Gadt_examples = Longleaf_gadt.Gadt_examples
+module Gadt_strategy = Longleaf_gadt.Gadt_strategy
 
 (** GADT Strategy Registry All strategies are now defined as Gadt.strategy
     records. To add a new strategy, simply add it to this list. *)
-let gadt_strategies : (string * Gadt.strategy) list =
-  List.map (fun s -> (s.Gadt.name, s)) Gadt_examples.all_strategies
+let gadt_strategies : (string * Gadt_strategy.t) list =
+  List.map (fun s -> (s.Gadt_strategy.name, s)) Gadt_examples.all_strategies
 
 (** Get all available strategy names *)
 let all_strategy_names = List.map fst gadt_strategies
@@ -77,7 +78,7 @@ module Run = struct
     | Longleaf_core.Runtype.Live
     | Paper ->
       Eio.traceln "Using Gadt.run";
-      Gadt.run bars options mutices strategy
+      Gadt_strategy.run bars options mutices strategy
     | _ ->
       Eio.traceln "Using Gadt_atomic.opt_atomic";
       Longleaf_gadt.Gadt_atomic.opt_atomic bars options mutices strategy

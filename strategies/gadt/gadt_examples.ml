@@ -1,7 +1,8 @@
 open Gadt_fo.Variable
 open Gadt
+open Gadt_strategy
 
-let all_strategies : Gadt.strategy List.Ref.t = List.Ref.create ()
+let all_strategies : Gadt_strategy.t List.Ref.t = List.Ref.create ()
 
 let register x =
   List.Ref.push all_strategies x;

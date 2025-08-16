@@ -18,7 +18,7 @@ exception OptimizationException
 (* Communication types for atomic domain approach *)
 type work_request = {
   params : float array;
-  strategy : strategy;
+  strategy : Gadt_strategy.t;
   vars : (Uuidm.t * Type.shadow) array;
 }
 
@@ -53,7 +53,9 @@ module Worker = struct
             }
           in
           let* res =
-            try run bars options mutices instantiated_strategy with
+            try
+              Gadt_strategy.run bars options mutices instantiated_strategy
+            with
             | e ->
               let e = Printexc.to_string e in
               Error.fatal @@ "[error: gadt_atomic]" ^ e
@@ -95,7 +97,7 @@ module Worker = struct
     wait_for_result ()
 end
 
-let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
+let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   let ( let* ) = Result.( let* ) in
   Eio.traceln "=== ATOMIC OPTIMIZATION DEBUG START ===";
   Eio.traceln "Strategy name: %s" strategy.name;
@@ -108,8 +110,8 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
   let len = Array.length vars in
   Eio.traceln "Total unique variables: %d" len;
 
-  Eio.traceln "Buy trigger: %a" pp_expr strategy.buy_trigger;
-  Eio.traceln "Sell trigger: %a" pp_expr strategy.sell_trigger;
+  Eio.traceln "Buy trigger: %a" Gadt.pp strategy.buy_trigger;
+  Eio.traceln "Sell trigger: %a" Gadt.pp strategy.sell_trigger;
 
   (* Create atomic communication channels *)
   let work_request_atomic = Atomic.make None in
