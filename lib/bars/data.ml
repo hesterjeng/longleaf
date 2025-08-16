@@ -87,7 +87,7 @@ let size x = x.size
 let get_ source row i =
   try Array2.get source row i with
   | e ->
-    Eio.traceln "data.ml.get_: Index out of bounds!";
+    Eio.traceln "data.ml.get_: Index out of bounds! %d" i;
     raise e
 
 let set_ source row i value =

@@ -147,7 +147,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : strategy) =
     wait_for_result ()
   in
 
-  let opt = Nlopt.create Nlopt.neldermead len in
+  let opt = Nlopt.create Nlopt.isres len in
   Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 1.0);
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
   Nlopt.set_maxeval opt 100;
