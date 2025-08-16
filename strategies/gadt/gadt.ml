@@ -15,7 +15,7 @@ type const = VFloat of float | VInt of int
 (* type env = (Uuidm.t, _ const) List.Assoc.t *)
 
 module Type = struct
-  type _ t = Float : float t | Int : int t
+  type _ t = Float : float t | Int : int t | Data : Data.Type.t t
   type shadow = A : _ t -> shadow
 
   let shadow x = A x
@@ -25,27 +25,27 @@ type context = { instrument : Instrument.t; data : Data.t; index : int }
 
 (* GADT AST with phantom types for compile-time type safety *)
 type _ t =
-  | Const : 'a -> 'a t
+  | Const : 'a * 'a Type.t -> 'a t
   (* Type-safe data access *)
   | Data : Data.Type.t t -> float t
   (* | Indicator : Tacaml.Indicator.t t -> float t *)
   | App1 : ('a -> 'b) t * 'a t -> 'b t
   | App2 : ('a -> 'b -> 'c) t * 'a t * 'b t -> 'c t
   | App3 : ('a -> 'b -> 'c -> 'd) t * 'a t * 'b t * 'c t -> 'd t
-  | Fun : ('a -> 'b) -> ('a -> 'b) t
+  | Fun : string * ('a -> 'b) -> ('a -> 'b) t
   | ContextModifier : 'a t * (context -> 'a -> context) * 'b t -> 'b t
   | Var : Uuidm.t * 'a Type.t -> 'a t
   | Symbol : unit -> Instrument.t t
 
-let data x = Data x
-let const x = Const x
-let close = data @@ const @@ Data.Type.Close
-let volume = data @@ const @@ Data.Type.Volume
-let index = data @@ const @@ Data.Type.Index
-let last = data @@ const @@ Data.Type.Last
-let open_ = data @@ const @@ Data.Type.Open
-let high = data @@ const @@ Data.Type.High
-let low = data @@ const @@ Data.Type.Low
+let data x = Data (Const (x, Data))
+
+let close = data Data.Type.Close
+let volume = data @@  Data.Type.Volume
+let index = data @@  Data.Type.Index
+let last = data @@  Data.Type.Last
+let open_ = data @@  Data.Type.Open
+let high = data @@  Data.Type.High
+let low = data @@  Data.Type.Low
 
 (* Type-safe evaluation *)
 let rec eval : type a. context -> a t -> (a, Error.t) result =
@@ -58,8 +58,8 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
          index (Data.length data))
   else
     match t with
-    | Const x -> Result.return x
-    | Fun f -> Result.return f
+    | Const (x,_) -> Result.return x
+    | Fun (_,f) -> Result.return f
     | ContextModifier (x, f, expr) ->
       let* arg = eval context x in
       let context = f context arg in
@@ -137,6 +137,7 @@ module Subst = struct
     Array.foldi
       (fun env i (id, Type.A ty) ->
         match ty with
+          | Type.Data -> invalid_arg "Type.Data NYI (gadt.ml)"
         | Type.Float ->
           { env with float_map = Bindings.add id params.(i) env.float_map }
         | Type.Int ->
@@ -150,16 +151,19 @@ module Subst = struct
     fun env -> function
       | Var (id, ty) -> (
         match ty with
+          | Data -> (
+              invalid_arg "NYI Instantiate Data variable"
+            )
         | Float -> (
           match Bindings.get id env.float_map with
-          | Ok res -> Result.return @@ Const res
+          | Ok res -> Result.return @@ Const (res, Float)
           | Error e -> Error e)
         | Int -> (
           match Bindings.get id env.int_map with
-          | Ok res -> Result.return @@ Const res
+          | Ok res -> Result.return @@ Const (res, Int)
           | Error e -> Error e))
-      | Const c -> Result.return (Const c)
-      | Fun f -> Result.return (Fun f)
+      | Const _ as x -> Result.return x
+      | Fun _ as x -> Result.return x
       | Symbol () -> Result.return (Symbol ())
       | App1 (f, x) ->
         let* f' = instantiate env f in
@@ -203,8 +207,9 @@ let rec pp : type a. Format.formatter -> a t -> unit =
   | Var (id, ty) ->
     let ty_str =
       match ty with
-      | Type.Float -> "Float"
-      | Type.Int -> "Int"
+      | Type.Data -> "Data.Type.t Var"
+      | Type.Float -> "Float Var"
+      | Type.Int -> "Int Var"
     in
     Format.fprintf fmt "Var(%s:%s)" (Uuidm.to_string id) ty_str
   | Data e -> Format.fprintf fmt "Data(@[%a@])" pp e
@@ -230,6 +235,7 @@ let debug_variables : type a. a t -> unit =
         match ty with
         | Type.Float -> "Float"
         | Type.Int -> "Int"
+        | Type.Data -> "Data"
       in
       Eio.traceln "  [%d] %s: %s" i (Uuidm.to_string id) ty_str)
     vars;
@@ -256,7 +262,7 @@ let not_ e = App1 (Fun not, e)
 (* Lag function: access data N periods ago *)
 let lag expr periods =
   ContextModifier
-    ( Const periods,
+    ( Const (periods, Int),
       (fun ctx periods -> { ctx with index = ctx.index - periods }),
       expr )
 
@@ -280,5 +286,5 @@ exception SpecialFunction of string
 
 let moneyness_fn = fun _ _ -> raise (SpecialFunction "moneyness")
 let days_to_expiry_fn = fun _ -> raise (SpecialFunction "days_to_expiry")
-let moneyness underlying option = App2 (Fun moneyness_fn, underlying, option)
-let days_to_expiry option = App1 (Fun days_to_expiry_fn, option)
+let moneyness underlying option = App2 (Fun ("moneyness", moneyness_fn), underlying, option)
+let days_to_expiry option = App1 (Fun ("dte", days_to_expiry_fn), option)
