@@ -166,5 +166,6 @@ let run bars (options : Options.t) mutices strategy =
     }
   in
   (* Collect custom indicators from the strategy *)
+  Eio.traceln "Entering Longleaf_template.run" ;
   let res = Longleaf_template.run (Builder.top strategy) bars options mutices in
   res
