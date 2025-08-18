@@ -64,7 +64,9 @@ let calculate ?i (indicator : Tacaml.t) (data : Data.t) =
   let* output = Output.of_data indicator data in
   let* _ =
     try Tacaml.calculate ?i indicator input output with
-    | _ -> Error.fatal "Problem during Tacaml calculation"
+    | e ->
+      let s = Printexc.to_string e in
+      Error.fatal @@ "Problem during Tacaml calculation: " ^ s
   in
   (* Eio.traceln "talib_binding.calculate: %d %d" a b; *)
   Result.return ()
