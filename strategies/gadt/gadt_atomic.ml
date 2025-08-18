@@ -133,7 +133,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   let opt = Nlopt.create Nlopt.isres len in
   Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 2.0);
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
-  Nlopt.set_maxeval opt 100;
+  Nlopt.set_maxeval opt 10;
   (* Nlopt.set_population opt (len * 10); *)
   Nlopt.set_max_objective opt
     (Worker.f strategy vars work_request_atomic work_result_atomic);

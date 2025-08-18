@@ -19,7 +19,13 @@ let rec find_gadt_strategy name = function
   | (n, strategy) :: _ when String.equal n name -> Some strategy
   | _ :: rest -> find_gadt_strategy name rest
 
-let find_gadt_strategy name = find_gadt_strategy name gadt_strategies
+let find_gadt_strategy name =
+  match name with
+  | "random"
+  | "Random"
+  | "R0" ->
+    Some (Gadt_strategy.random ())
+  | _ -> find_gadt_strategy name gadt_strategies
 
 (** Function for Cmdliner use. *)
 let of_string_res strategy_name =

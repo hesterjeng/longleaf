@@ -12,10 +12,19 @@ type t = {
   position_size : float;
 }
 
-let buy_conj (x : t) y = { x with buy_trigger = Gadt.(x.buy_trigger &&. y) }
-let sell_conj (x : t) y = { x with sell_trigger = Gadt.(x.sell_trigger &&. y) }
-let buy_disj (x : t) y = { x with buy_trigger = Gadt.(x.buy_trigger ||. y) }
-let sell_disj (x : t) y = { x with sell_trigger = Gadt.(x.sell_trigger ||. y) }
+let buy_conj y (x : t) = { x with buy_trigger = Gadt.(x.buy_trigger &&. y) }
+let sell_conj y (x : t) = { x with sell_trigger = Gadt.(x.sell_trigger &&. y) }
+let buy_disj y (x : t) = { x with buy_trigger = Gadt.(x.buy_trigger ||. y) }
+let sell_disj y (x : t) = { x with sell_trigger = Gadt.(x.sell_trigger ||. y) }
+
+let random () =
+  let buy_trigger, sell_trigger = (Groups.rand (), Groups.rand ()) in
+  let name =
+    "Sealab_" ^ (Uuidm.v4_gen Longleaf_util.random_state () |> Uuidm.to_string)
+  in
+  let max_positions = 4 in
+  let position_size = 0.25 in
+  { name; buy_trigger; sell_trigger; max_positions; position_size }
 
 module CollectIndicators : sig
   val top : t -> Tacaml.t list

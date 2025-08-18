@@ -2,7 +2,7 @@ open Gadt
 module I = Tacaml.Indicator.Raw
 
 let var ty = Var (Uuidm.v4_gen Util.random_state (), ty)
-let tacaml x = Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x), x))
+let tacaml x () = Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x), x))
 
 module Variable = struct
   (* Single argument indicators *)

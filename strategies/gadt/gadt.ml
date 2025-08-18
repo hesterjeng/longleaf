@@ -16,6 +16,7 @@ type const = VFloat of float | VInt of int
 
 module Type = struct
   type _ t =
+    | Bool : bool t
     | Float : float t
     | Int : int t
     | Data : Data.Type.t t
@@ -141,6 +142,7 @@ module Subst = struct
     Array.foldi
       (fun env i (id, Type.A ty) ->
         match ty with
+        | Type.Bool -> invalid_arg "Gadt.env_of_arr Type.Bool"
         | Type.Data -> invalid_arg "Type.Data NYI (gadt.ml)"
         | Type.Tacaml -> invalid_arg "Type.Tacaml NYI (gadt.ml)"
         | Type.Float ->
@@ -156,6 +158,7 @@ module Subst = struct
     fun env -> function
       | Var (id, ty) -> (
         match ty with
+        | Bool -> invalid_arg "NYI Instnatiate bool"
         | Data -> invalid_arg "NYI Instantiate Data variable"
         | Tacaml -> invalid_arg "NYI Instantiate Tacaml variable"
         | Float -> (
@@ -211,6 +214,7 @@ let rec pp : type a. Format.formatter -> a t -> unit =
   | Var (id, ty) ->
     let ty_str =
       match ty with
+      | Type.Bool -> "Bool Var"
       | Type.Data -> "Data.Type.t Var"
       | Type.Tacaml -> "Tacaml.Indicator.t Var"
       | Type.Float -> "Float Var"
@@ -240,6 +244,7 @@ let debug_variables : type a. a t -> unit =
         match ty with
         | Type.Float -> "Float"
         | Type.Int -> "Int"
+        | Type.Bool -> "Data"
         | Type.Data -> "Data"
         | Type.Tacaml -> "Tacaml"
       in
@@ -259,6 +264,16 @@ let ( +. ) e1 e2 = App2 (Fun ("+.", ( +. )), e1, e2)
 let ( -. ) e1 e2 = App2 (Fun ("-.", ( -. )), e1, e2)
 let ( *. ) e1 e2 = App2 (Fun ("*.", ( *. )), e1, e2)
 let ( /. ) e1 e2 = App2 (Fun ("/.", ( /. )), e1, e2)
+
+let conjunction (l : bool t list) =
+  match l with
+  | [] -> Const (true, Type.Bool)
+  | x :: xs -> List.fold_left (fun acc gadt -> acc &&. gadt) x xs
+
+let disjunction (l : bool t list) =
+  match l with
+  | [] -> Const (false, Type.Bool)
+  | x :: xs -> List.fold_left (fun acc gadt -> acc &&. gadt) x xs
 
 (* Additional operators *)
 let not_ e = App1 (Fun ("not", not), e)
