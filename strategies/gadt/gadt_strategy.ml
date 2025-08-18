@@ -12,6 +12,11 @@ type t = {
   position_size : float;
 }
 
+let buy_conj (x : t) y = { x with buy_trigger = Gadt.(x.buy_trigger &&. y) }
+let sell_conj (x : t) y = { x with sell_trigger = Gadt.(x.sell_trigger &&. y) }
+let buy_disj (x : t) y = { x with buy_trigger = Gadt.(x.buy_trigger ||. y) }
+let sell_disj (x : t) y = { x with sell_trigger = Gadt.(x.sell_trigger ||. y) }
+
 module CollectIndicators : sig
   val top : t -> Tacaml.t list
 end = struct
