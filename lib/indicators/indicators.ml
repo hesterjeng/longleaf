@@ -62,7 +62,12 @@ module Calc = struct
           (fun _ indicator ->
             match indicator with
             | Tacaml ind ->
-              let* () = Talib_binding.calculate ?i ind data in
+              let* () =
+                try Talib_binding.calculate ?i ind data with
+                | e ->
+                  Eio.traceln "Error during indicator computation!";
+                  Error.fatal @@ Printexc.to_string e
+              in
               Result.return ())
           () indicators
       in
@@ -73,24 +78,15 @@ module Calc = struct
       let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
       Eio.Switch.run (fun sw ->
           let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
-          let results =
-            Util.Work_pool.Work_pool.parallel_map_result ~pool ~clock
-              ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
-          in
-
-          (* Check if any computation failed *)
-          List.fold_left
-            (fun acc result ->
-              match (acc, result) with
-              | Ok (), Ok (Ok ()) -> Ok ()
-              | Ok (), Ok (Error e) -> Error e
-              | Error e, _ -> Error e
-              | _, Error exn -> Error (`FatalError (Printexc.to_string exn)))
-            (Ok ()) results)
+          Util.Work_pool.Work_pool.parallel_map ~pool ~clock
+            ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
+          |> Result.map_l Fun.id
+          |> Result.map @@ fun _ -> ())
     in
     let end_total = Unix.gettimeofday () in
-    Eio.traceln "Total indicator computation took %.3fs"
-      (end_total -. start_total);
+    Eio.traceln "%a Total indicator computation took %.3fs"
+      (Result.pp' Format.cut Error.pp)
+      result (end_total -. start_total);
     result
 
   let compute_all eio_env (config : Config.t) bars =

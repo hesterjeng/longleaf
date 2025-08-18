@@ -10,11 +10,8 @@ end
 
 type t
 (** The main data type for the time-series data. It contains the data matrix,
-    the current index, the size of the data, and a flag indicating whether
-    indicators have been computed. *)
-
-val current : t -> int
-val set_current : t -> int -> t
+    the size of the data, and a flag indicating whether indicators have been
+    computed. *)
 
 type data = t
 
@@ -135,22 +132,11 @@ val pp : t Format.printer
 val length : t -> int
 (** [length x] returns the number of data points in the data matrix. *)
 
-val current : t -> int
-(** [current x] returns the current index in the data matrix. *)
-
 (** {1 Modifying Data} *)
 
 val set : t -> Type.t -> int -> float -> unit
 (** [set res x i value] sets the value of the data field [x] at index [i] to
     [value]. *)
-
-val get_top : t -> Type.t -> float
-(** [get_top res x] returns the value of the data field [x] at the current
-    index. *)
-
-val get_top_int : t -> Type.t -> int
-(** [get_top_int res x] returns the integer value of the data field [x] at the
-    current index. Only works for integer indicators (Tacaml (I _)). *)
 
 (** {1 Conversions} *)
 

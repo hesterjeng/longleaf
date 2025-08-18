@@ -34,6 +34,7 @@ let empty runtype (indicators : Tacaml.t list) : unit t =
 
 let set x mode = { x with current_state = mode }
 let increment_tick x = { x with current_tick = x.current_tick + 1 }
+let set_tick x current_tick = { x with current_tick }
 let bars x = x.bars
 let cost_basis x = Positions.cost_basis x.positions
 
@@ -42,7 +43,7 @@ type 'a res = ('a, Error.t) result
 let current t = t.current_state
 let config x = x.config
 
-let make current_tick bars content indicator_config =
+let make current_tick bars content indicator_config cash =
   let config = Config.{ placeholder = true; indicator_config } in
   Result.return
     {
@@ -52,7 +53,7 @@ let make current_tick bars content indicator_config =
       orders_placed = 0;
       content;
       config;
-      cash = 100000.0;
+      cash;
       positions = Positions.empty;
     }
 
@@ -62,7 +63,7 @@ let pp fmt t =
 
 let show t = Format.asprintf "%a" pp t
 let cash t = t.cash
-let time t = Bars.timestamp t.bars
+let time t = Bars.timestamp t.bars t.current_tick
 let positions x = x.positions
 
 (* let symbols x = List.map (fun (x : Order.t) -> x.symbol) @@ positions x *)

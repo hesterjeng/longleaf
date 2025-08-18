@@ -2,8 +2,6 @@ module type S = Backend_intf.S
 
 module Bars = Longleaf_bars
 
-(* val make_bars : Options.t -> (Bars.t * Bars.t option, Error.t) result *)
-
 val make :
   Longleaf_state.Mutex.t ->
   Bars.t ->

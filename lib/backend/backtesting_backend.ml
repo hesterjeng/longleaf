@@ -16,15 +16,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let* bars =
       match Input.target with
       | None -> Error.fatal "No target for backtest"
-      | Some b ->
-        Bars.set_current b Input.options.flags.start;
-        Result.return b
+      | Some b -> Result.return b
     in
     let config =
       Indicators_config.make Input.options.flags.runtype
         Input.options.tacaml_indicators
     in
-    State.make Input.options.flags.start bars content config
+    State.make Input.options.flags.start bars content config 100000.0
 
   let opts = Input.options
 
@@ -39,7 +37,24 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   (* let overnight = Input.options.overnight *)
   let save_received = opts.flags.save_received
-  let place_order = State.place_order
+
+  let place_order state order =
+    let ( let+ ) = Result.( let+ ) in
+    match Input.options.flags.random_drop_chance with
+    | 0 -> State.place_order state order
+    | n ->
+      assert (n >= 0);
+      assert (n <= 100);
+      let ratio = Float.(of_int n / 100.0) in
+      let flip = Random.float_range 0.0 1.0 @@ Longleaf_util.random_state in
+      if flip >=. ratio then State.place_order state order
+      else
+        let+ time = State.time state in
+        let tick = State.tick state in
+        Eio.traceln "[%a %d] Not placing an order due to random chance" Time.pp
+          time tick;
+        state
+
   let received_data = Bars.empty ()
   let target = Input.target
 

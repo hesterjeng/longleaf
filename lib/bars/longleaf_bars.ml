@@ -76,6 +76,11 @@ let get (x : t) instrument =
   | Some x -> Result.return x
   | None -> Error.missing_data "Missing data for instrument in V2 bars"
 
+let pp_lens : t Format.printer =
+ fun fmt x ->
+  let str = fold x [] (fun inst data acc -> (inst, Data.length data) :: acc) in
+  Format.fprintf fmt "%a" (List.pp (Pair.pp Instrument.pp Int.pp)) str
+
 let length (x : t) =
   let ( let* ) = Result.( let* ) in
   fold x (Ok 0) @@ fun _ ph acc ->
@@ -84,23 +89,16 @@ let length (x : t) =
   match acc with
   | 0 -> Ok len
   | n when len = n -> Ok acc
-  | _ -> Error.fatal "Mismatched price history v2 matrices in Bars v2"
+  | res ->
+    Eio.traceln "%a" pp_lens x;
+    Error.fatal
+    @@ Format.asprintf "Mismatched price history v2 matrices in Bars v2 (%d %d)"
+         res len
 
-let current (x : t) =
-  let ( let* ) = Result.( let* ) in
-  fold x (Ok 0) @@ fun _ ph acc ->
-  let* acc = acc in
-  let cur = Data.current ph in
-  match acc with
-  | 0 -> Ok cur
-  | n when cur = n -> Ok acc
-  | _ -> Error.fatal "Mismatched price history current v2 matrices in Bars v2"
-
-let timestamp (x : t) =
+let timestamp (x : t) (tick : int) =
   let res =
     fold x None @@ fun _symbol data acc ->
-    let current = Data.current data in
-    let timestamp = Data.get data Time current in
+    let timestamp = Data.get data Time tick in
     match acc with
     | None -> Some timestamp
     | Some prev ->
@@ -149,12 +147,10 @@ let pp : t Format.printer =
   let ok =
     let ( let* ) = Result.( let* ) in
     let* length = length x in
-    let* current = current x in
-    Result.return @@ (length, current)
+    Result.return length
   in
   match ok with
-  | Ok (len, cur) ->
-    Format.fprintf fmt " { Bars.length = %d; current = %d; _ }" len cur
+  | Ok len -> Format.fprintf fmt " { Bars.length = %d; _ }" len
   | Error e -> Format.fprintf fmt "%a Illegal Bars!" Error.pp e
 
 let pp_stats = pp
@@ -226,22 +222,6 @@ let combine (l : t list) : (t, Error.t) result =
       (Ok Seq.empty) keys
   in
   Result.return @@ Hashtbl.of_seq assoc_seq
-
-let set_current bars i =
-  (fun f -> Hashtbl.filter_map_inplace f bars) @@ fun _ data ->
-  Option.return @@ Data.set_current data i
-
-let get_current (bars : t) =
-  let ( let* ) = Result.( let* ) in
-  fold bars (Ok 0) @@ fun _ data acc ->
-  let* acc = acc in
-  match acc with
-  | 0 -> Result.return @@ Data.current data
-  | n when n > 0 -> (
-    match n = Data.current data with
-    | true -> Ok n
-    | false -> Error.fatal "Current mismatch in bars.ml")
-  | _ -> Error.fatal "Bad bars length in bars.ml"
 
 let of_seq = Hashtbl.of_seq
 let of_list l = of_seq @@ Seq.of_list l

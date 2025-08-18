@@ -137,7 +137,6 @@ module Make (Backend : Backend.S) = struct
     let ( let* ) = Result.( let* ) in
     let bars = State.bars state in
     let res = State.increment_tick state in
-    Bars.set_current bars @@ State.tick res;
     let* () = Backend.update_bars Backend.symbols bars @@ State.tick res in
     let* () =
       match Input.options.flags.runtype with
@@ -153,8 +152,6 @@ module Make (Backend : Backend.S) = struct
 
   let handle_nonlogical_state (state : _ State.t) =
     let ( let* ) = Result.( let* ) in
-    (* Eio.traceln "There are %d bindings in state.bars" *)
-    (*   (Bars.Hashtbl.length state.bars); *)
     let bars = State.bars state in
     let tick = State.tick state in
     match State.current state with
@@ -163,23 +160,25 @@ module Make (Backend : Backend.S) = struct
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
-      Bars.set_current bars tick;
       Eio.traceln "Bars initialize: %a" Bars.pp bars;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       let* () =
         let indicator_config = (State.config state).indicator_config in
         Indicators.Calc.compute_all eio_env indicator_config @@ State.bars state
       in
-      let state =
+      let* state =
         (* If we are in live or paper, we need to grow the bars to have somewhere \ *)
         (* to put the received data. *)
         match Input.options.flags.runtype with
         | Live
         | Paper ->
-          State.grow state
-        | _ -> state
+          let* bars_length = Bars.length @@ State.bars state in
+          let state = State.set_tick state (bars_length - 1) in
+          Eio.traceln "Initialize state: %a" State.pp state;
+          Result.return state
+        | _ -> Result.return state
       in
-      Eio.traceln "Running...";
+      Eio.traceln "Finished with initialization: %d..." (State.tick state);
       Result.return @@ State.set state Listening
     | Listening -> (
       if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
@@ -188,6 +187,7 @@ module Make (Backend : Backend.S) = struct
       let* length = Bars.length bars in
       match listened with
       | Continue when tick >= length - 1 ->
+        Eio.traceln "Liquidating due to end of data";
         Result.return @@ State.set state Liquidate
       | Continue ->
         let* state = update_continue state in
