@@ -216,7 +216,8 @@ let rec pp : type a. Format.formatter -> a t -> unit =
     | Type.Int -> Format.fprintf fmt "%d" x (* Format.fprintf fmt "Const(?)" *))
   | Fun (f, _) -> Format.fprintf fmt "%s" f
   | Symbol () -> Format.fprintf fmt "Symbol()"
-  | ContextModifier _ -> Format.fprintf fmt "ContextModifier()"
+  | ContextModifier (f, _, z) ->
+    Format.fprintf fmt "ContextModifier(%a,%a)" pp f pp z
   | Var (id, ty) ->
     let ty_str =
       match ty with
@@ -229,10 +230,19 @@ let rec pp : type a. Format.formatter -> a t -> unit =
     Format.fprintf fmt "Var(%s:%s)" (Uuidm.to_string id) ty_str
   | Data e -> Format.fprintf fmt "(@[%a@])" pp e
   (* | Indicator e -> Format.fprintf fmt "Indicator(@[%a@])" pp e *)
-  | App1 (f, x) -> Format.fprintf fmt "(@[%a,@ %a@])" pp f pp x
-  | App2 (f, x, y) -> Format.fprintf fmt "(@[%a@ %a@ %a@])" pp f pp x pp y
+  | App1 (Fun ("tacaml", _), x) -> Format.fprintf fmt "@[%a@]" pp x
+  | App2 (Fun ("&&.", _), x, y) ->
+    Format.fprintf fmt "(@[%a@ &&.@ %a@])" pp x pp y
+  | App2 (Fun ("||", _), x, y) ->
+    Format.fprintf fmt "(@[%a@ ||.@ %a@])" pp x pp y
+  | App2 (Fun ("<.", _), x, y) ->
+    Format.fprintf fmt "(@[%a@ <.@ %a@])" pp x pp y
+  | App2 (Fun (">.", _), x, y) ->
+    Format.fprintf fmt "(@[%a@ >.@ %a@])" pp x pp y
+  | App1 (f, x) -> Format.fprintf fmt "@[%a@ %a@]" pp f pp x
+  | App2 (f, x, y) -> Format.fprintf fmt "@[%a@ %a@ %a@]" pp f pp x pp y
   | App3 (f, x, y, z) ->
-    Format.fprintf fmt "(@[%a@ %a@ %a@ %a@]))" pp f pp x pp y pp z
+    Format.fprintf fmt "@[%a@ %a@ %a@ %a@]" pp f pp x pp y pp z
 
 (* Helper to print expression to string *)
 let to_string : type a. a t -> string = fun expr -> Format.asprintf "%a" pp expr

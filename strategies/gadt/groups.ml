@@ -875,9 +875,9 @@ let random_of_int i state =
   | false -> Comparator.random state
 
 let random_len state =
-  let len = Int.random_range 2 4 state in
+  (* let len = Int.random_range 2 2 state in *)
   let gen () = random_of_int (Random.bool ()) state in
-  List.init len (fun _ -> gen ()) |> Gadt.conjunction
+  List.init 2 (fun _ -> gen ()) |> Gadt.conjunction
 (* List.random_len (Random.map random_of_int) *)
 
 let rand () = random_len Longleaf_util.random_state
