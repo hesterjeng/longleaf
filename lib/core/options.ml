@@ -117,6 +117,22 @@ module CLI = struct
       Cmdliner.Arg.(value & opt int 0 & info [ "drop-chance" ] ~doc)
   end
 
+  let default =
+    {
+      runtype = Runtype.Invalid;
+      stacktrace = false;
+      strategy_arg = "";
+      no_gui = false;
+      save_received = false;
+      save_to_file = false;
+      nowait_market_open = false;
+      print_tick_arg = false;
+      precompute_indicators_arg = false;
+      compare_preloaded = false;
+      start = 0;
+      random_drop_chance = 0;
+    }
+
   let term =
     let open Cmdliner.Term.Syntax in
     let+ runtype = Args.runtype_arg
