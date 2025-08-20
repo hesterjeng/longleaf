@@ -1,147 +1,239 @@
-// Longleaf C&C Dashboard
-// Initialize everything when DOM loads
-document.addEventListener('DOMContentLoaded', function() {
-  injectStyles();
-  createDashboard();
-});
+// Longleaf C&C Dashboard - Refactored
+// ===================================
 
-// Inject CSS styles into the page
-function injectStyles() {
-  const style = document.createElement('style');
-  style.textContent = `
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #f5f7fa;
-    }
-    .dashboard {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    .header {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-    .panel {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
-    .panel-header {
-      background: #f8f9fa;
-      padding: 15px 20px;
-      border-bottom: 1px solid #e9ecef;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .panel-content {
-      padding: 20px;
-    }
-    .btn {
-      background: #007bff;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-      margin: 2px;
-      font-size: 14px;
-    }
-    .btn:hover {
-      background: #0056b3;
-    }
-    .btn:disabled {
-      background: #6c757d;
-      cursor: not-allowed;
-    }
-    .btn-sm {
-      padding: 4px 8px;
-      font-size: 12px;
-    }
-    .btn-success {
-      background: #28a745;
-    }
-    .btn-success:hover {
-      background: #1e7e34;
-    }
-    pre {
-      background: #f8f9fa;
-      padding: 15px;
-      border-radius: 4px;
-      overflow-x: auto;
-      font-size: 12px;
-      margin: 0;
-      border: 1px solid #e9ecef;
-    }
-    .form-group {
-      margin-bottom: 15px;
-    }
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 500;
-    }
-    select, input {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #ced4da;
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
-    .text-success {
-      color: #28a745;
-    }
-    .text-danger {
-      color: #dc3545;
-    }
-    .loading {
-      color: #6c757d;
-      font-style: italic;
-    }
-    .status-indicator {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 8px;
-      vertical-align: middle;
-    }
-    .status-connected {
-      background: #28a745;
-    }
-    .status-disconnected {
-      background: #dc3545;
-    }
-    .endpoint-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 15px;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-// Create the dashboard HTML and attach Alpine.js
-function createDashboard() {
-  const app = document.getElementById('app');
+// Constants and Configuration
+const CONFIG = {
+  ENDPOINTS: {
+    STATUS: '/status',
+    SETTINGS: '/settings', 
+    STRATEGIES: '/strategies',
+    DATA: '/data',
+    OPTIONS: '/options',
+    SET_STRATEGY: '/set_strategy',
+    SET_STATUS: '/set_status',
+    SET_TARGET: '/set_target'
+  },
   
-  app.innerHTML = `
-    <div class="dashboard" x-data="dashboard()" x-init="init()">
-      
-      <!-- Header -->
+  STATUS_OPTIONS: ['Ready', 'Started', 'Error'],
+  
+  MESSAGES: {
+    LOADING: 'Loading...',
+    TESTING: 'Testing endpoint...',
+    SETTING: 'Setting...',
+    SELECT_STRATEGY: 'Please select a strategy',
+    SELECT_STATUS: 'Please select a status', 
+    SELECT_TARGET: 'Please select a data file'
+  }
+};
+
+// Utility Functions
+// ================
+
+const Utils = {
+  // Generic API call handler
+  async apiCall(endpoint, options = {}) {
+    const config = {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    };
+    
+    const startTime = performance.now();
+    const response = await fetch(endpoint, config);
+    const duration = Math.round(performance.now() - startTime);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get('content-type') || 'unknown';
+    
+    let content;
+    if (contentType.includes('application/json')) {
+      content = await response.json();
+    } else {
+      content = await response.text();
+    }
+    
+    return { content, contentType, duration, status: response.status };
+  },
+
+  // Create result state object
+  createResultState() {
+    return {
+      loading: false,
+      success: null,
+      error: null
+    };
+  },
+
+  // Create data state object  
+  createDataState() {
+    return {
+      loading: false,
+      data: null,
+      error: null
+    };
+  },
+
+  // Format API test result
+  formatTestResult(method, endpoint, body, result, error) {
+    const lines = [`${method} ${endpoint}`];
+    
+    if (body) {
+      lines.push(`Body: ${JSON.stringify(body)}`);
+    }
+    
+    if (error) {
+      lines.push(`Error: ${error.message}`);
+    } else {
+      lines.push(
+        `Status: ${result.status}`,
+        `Content-Type: ${result.contentType}`,
+        `Response Time: ${result.duration}ms`,
+        '',
+        typeof result.content === 'object' 
+          ? JSON.stringify(result.content, null, 2) 
+          : result.content
+      );
+    }
+    
+    return lines.join('\n');
+  }
+};
+
+// CSS Styles
+// ==========
+
+const STYLES = `
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: #f5f7fa;
+  }
+  
+  .dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .header {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+  
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+  
+  .panel-header {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .panel-content {
+    padding: 20px;
+  }
+  
+  .btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 2px;
+    font-size: 14px;
+  }
+  
+  .btn:hover { background: #0056b3; }
+  .btn:disabled { background: #6c757d; cursor: not-allowed; }
+  .btn-sm { padding: 4px 8px; font-size: 12px; }
+  .btn-success { background: #28a745; }
+  .btn-success:hover { background: #1e7e34; }
+  
+  pre {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 12px;
+    margin: 0;
+    border: 1px solid #e9ecef;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+  }
+  
+  select, input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  
+  .text-success { color: #28a745; }
+  .text-danger { color: #dc3545; }
+  .loading { color: #6c757d; font-style: italic; }
+  
+  .status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  
+  .status-connected { background: #28a745; }
+  .status-disconnected { background: #dc3545; }
+  
+  .endpoint-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  
+  .status-display {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+`;
+
+// HTML Generation Functions
+// ========================
+
+const HTMLGen = {
+  header() {
+    return `
       <div class="header">
         <h1>
           <span class="status-indicator" :class="connected ? 'status-connected' : 'status-disconnected'"></span>
@@ -149,160 +241,180 @@ function createDashboard() {
         </h1>
         <p>Command & Control Dashboard for algorithmic trading operations</p>
       </div>
+    `;
+  },
 
-      <!-- Main Grid -->
-      <div class="grid">
-        
-        <!-- Server Status -->
-        <div class="panel">
-          <div class="panel-header">
-            <h3>Server Status</h3>
-            <button class="btn btn-sm" @click="fetchStatus()">Refresh</button>
-          </div>
-          <div class="panel-content">
-            <div x-show="status.loading" class="loading">Loading...</div>
-            <div x-show="status.error" class="text-danger" x-text="status.error"></div>
-            <div x-show="status.data && !status.loading">
-              <pre x-text="status.data"></pre>
-            </div>
-          </div>
-        </div>
-
-        <!-- Current Settings -->
-        <div class="panel">
-          <div class="panel-header">
-            <h3>Current Settings</h3>
-            <button class="btn btn-sm" @click="fetchSettings()">Refresh</button>
-          </div>
-          <div class="panel-content">
-            <div x-show="settings.loading" class="loading">Loading...</div>
-            <div x-show="settings.error" class="text-danger" x-text="settings.error"></div>
-            <div x-show="settings.data && !settings.loading">
-              <pre x-text="JSON.stringify(settings.data, null, 2)"></pre>
-            </div>
-          </div>
-        </div>
-
-        <!-- Available Strategies -->
-        <div class="panel">
-          <div class="panel-header">
-            <h3>Available Strategies</h3>
-            <button class="btn btn-sm" @click="fetchStrategies()">Refresh</button>
-          </div>
-          <div class="panel-content">
-            <div x-show="strategies.loading" class="loading">Loading...</div>
-            <div x-show="strategies.error" class="text-danger" x-text="strategies.error"></div>
-            <div x-show="strategies.data && !strategies.loading">
-              <div x-text="\`\${strategies.data.length} strategies available\`" class="text-success"></div>
-              <pre x-text="JSON.stringify(strategies.data, null, 2)"></pre>
-            </div>
-          </div>
-        </div>
-
-        <!-- Data Files -->
-        <div class="panel">
-          <div class="panel-header">
-            <h3>Data Files</h3>
-            <button class="btn btn-sm" @click="fetchData()">Refresh</button>
-          </div>
-          <div class="panel-content">
-            <div x-show="dataFiles.loading" class="loading">Loading...</div>
-            <div x-show="dataFiles.error" class="text-danger" x-text="dataFiles.error"></div>
-            <div x-show="dataFiles.data && !dataFiles.loading">
-              <div x-text="\`\${dataFiles.data.length} data files found\`" class="text-success"></div>
-              <pre x-text="JSON.stringify(dataFiles.data, null, 2)"></pre>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Strategy Control -->
+  dataPanel(id, title, dataKey) {
+    return `
       <div class="panel">
         <div class="panel-header">
-          <h3>Strategy Control</h3>
+          <h3>${title}</h3>
+          <button class="btn btn-sm" @click="fetch${dataKey}()">Refresh</button>
+        </div>
+        <div class="panel-content">
+          <div x-show="${id}.loading" class="loading">${CONFIG.MESSAGES.LOADING}</div>
+          <div x-show="${id}.error" class="text-danger" x-text="${id}.error"></div>
+          <div x-show="${id}.data && !${id}.loading">
+            ${id === 'status' ? this.statusDisplay() : this.dataDisplay(id)}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  statusDisplay() {
+    return `
+      <div x-show="status.data && typeof status.data === 'object'" class="text-success status-display">
+        Current Status: <span x-text="status.data.status || 'Unknown'"></span>
+      </div>
+      <pre x-text="JSON.stringify(status.data, null, 2)"></pre>
+    `;
+  },
+
+  dataDisplay(id) {
+    if (id === 'strategies' || id === 'dataFiles') {
+      return `
+        <div x-text="\`\${${id}.data.length} ${id === 'strategies' ? 'strategies' : 'data files'} available\`" class="text-success"></div>
+        <pre x-text="JSON.stringify(${id}.data, null, 2)"></pre>
+      `;
+    }
+    return `<pre x-text="JSON.stringify(${id}.data, null, 2)"></pre>`;
+  },
+
+  controlPanel(title, selectId, options, actionFn, resultKey) {
+    return `
+      <div class="panel">
+        <div class="panel-header">
+          <h3>${title}</h3>
         </div>
         <div class="panel-content">
           <div class="form-group">
-            <label>Select Strategy:</label>
-            <select x-model="selectedStrategy" :disabled="strategies.loading || !strategies.data">
-              <option value="">-- Select Strategy --</option>
-              <template x-for="strategy in strategies.data" :key="strategy">
-                <option :value="strategy" x-text="strategy"></option>
-              </template>
-            </select>
+            <label>Select ${title.replace(' Control', '')}:</label>
+            ${this.selectDropdown(selectId, options)}
           </div>
-          <button class="btn btn-success" @click="setStrategy()" :disabled="!selectedStrategy || strategyResult.loading">
-            <span x-show="strategyResult.loading">Setting...</span>
-            <span x-show="!strategyResult.loading">Set Strategy</span>
+          <button class="btn btn-success" @click="${actionFn}()" :disabled="!${selectId} || ${resultKey}.loading">
+            <span x-show="${resultKey}.loading">${CONFIG.MESSAGES.SETTING}</span>
+            <span x-show="!${resultKey}.loading">Set ${title.replace(' Control', '')}</span>
           </button>
-          <div x-show="strategyResult.success" class="text-success" x-text="strategyResult.success"></div>
-          <div x-show="strategyResult.error" class="text-danger" x-text="strategyResult.error"></div>
+          <div x-show="${resultKey}.success" class="text-success" x-text="${resultKey}.success"></div>
+          <div x-show="${resultKey}.error" class="text-danger" x-text="${resultKey}.error"></div>
         </div>
       </div>
+    `;
+  },
 
-      <!-- API Testing -->
+  selectDropdown(selectId, options) {
+    if (options.static) {
+      const opts = options.values.map(val => `<option value="${val}">${val}</option>`).join('');
+      return `
+        <select x-model="${selectId}">
+          <option value="">-- Select ${options.placeholder} --</option>
+          ${opts}
+        </select>
+      `;
+    } else {
+      return `
+        <select x-model="${selectId}" :disabled="${options.dataSource}.loading || !${options.dataSource}.data">
+          <option value="">-- Select ${options.placeholder} --</option>
+          <template x-for="item in ${options.dataSource}.data" :key="item">
+            <option :value="item" x-text="item"></option>
+          </template>
+        </select>
+      `;
+    }
+  },
+
+  apiTestingPanel() {
+    return `
       <div class="panel">
         <div class="panel-header">
           <h3>API Endpoint Testing</h3>
         </div>
         <div class="panel-content">
           <div class="endpoint-buttons">
-            <button class="btn btn-sm" @click="testEndpoint('/status')">GET /status</button>
-            <button class="btn btn-sm" @click="testEndpoint('/settings')">GET /settings</button>
-            <button class="btn btn-sm" @click="testEndpoint('/strategies')">GET /strategies</button>
-            <button class="btn btn-sm" @click="testEndpoint('/data')">GET /data</button>
-            <button class="btn btn-sm" @click="testEndpoint('/options')">GET /options</button>
+            <button class="btn btn-sm" @click="testEndpoint('GET', '${CONFIG.ENDPOINTS.STATUS}')">GET /status</button>
+            <button class="btn btn-sm" @click="testEndpoint('GET', '${CONFIG.ENDPOINTS.SETTINGS}')">GET /settings</button>
+            <button class="btn btn-sm" @click="testEndpoint('GET', '${CONFIG.ENDPOINTS.STRATEGIES}')">GET /strategies</button>
+            <button class="btn btn-sm" @click="testEndpoint('GET', '${CONFIG.ENDPOINTS.DATA}')">GET /data</button>
+            <button class="btn btn-sm" @click="testEndpoint('GET', '${CONFIG.ENDPOINTS.OPTIONS}')">GET /options</button>
+            <button class="btn btn-sm" @click="testEndpoint('POST', '${CONFIG.ENDPOINTS.SET_STATUS}', 'Ready')">POST /set_status</button>
+            <button class="btn btn-sm" @click="testEndpoint('POST', '${CONFIG.ENDPOINTS.SET_TARGET}', 'test.json')">POST /set_target</button>
           </div>
-          <div x-show="apiTest.loading" class="loading">Testing endpoint...</div>
+          <div x-show="apiTest.loading" class="loading">${CONFIG.MESSAGES.TESTING}</div>
           <div x-show="apiTest.result">
             <pre x-text="apiTest.result"></pre>
           </div>
         </div>
       </div>
+    `;
+  }
+};
 
+// Dashboard Creation
+// =================
+
+function injectStyles() {
+  const style = document.createElement('style');
+  style.textContent = STYLES;
+  document.head.appendChild(style);
+}
+
+function createDashboard() {
+  const app = document.getElementById('app');
+  
+  app.innerHTML = `
+    <div class="dashboard" x-data="dashboard()" x-init="init()">
+      ${HTMLGen.header()}
+      
+      <!-- Main Data Grid -->
+      <div class="grid">
+        ${HTMLGen.dataPanel('status', 'Server Status', 'Status')}
+        ${HTMLGen.dataPanel('settings', 'Current Settings', 'Settings')}
+        ${HTMLGen.dataPanel('strategies', 'Available Strategies', 'Strategies')}
+        ${HTMLGen.dataPanel('dataFiles', 'Data Files', 'Data')}
+      </div>
+
+      <!-- Controls Grid -->
+      <div class="grid">
+        ${HTMLGen.controlPanel('Strategy Control', 'selectedStrategy', 
+          { dataSource: 'strategies', placeholder: 'Strategy' }, 
+          'setControl', 'strategyResult')}
+        ${HTMLGen.controlPanel('Status Control', 'selectedStatus', 
+          { static: true, values: CONFIG.STATUS_OPTIONS, placeholder: 'Status' }, 
+          'setControl', 'statusResult')}
+        ${HTMLGen.controlPanel('Target Control', 'selectedTarget', 
+          { dataSource: 'dataFiles', placeholder: 'Data File' }, 
+          'setControl', 'targetResult')}
+      </div>
+
+      ${HTMLGen.apiTestingPanel()}
     </div>
   `;
 }
 
-// Alpine.js Dashboard Data
+// Alpine.js Dashboard Logic
+// ========================
+
 function dashboard() {
   return {
     // Connection status
     connected: false,
 
-    // Data states for each endpoint
-    status: {
-      loading: false,
-      data: null,
-      error: null
-    },
-    
-    settings: {
-      loading: false,
-      data: null,
-      error: null
-    },
-    
-    strategies: {
-      loading: false,
-      data: null,
-      error: null
-    },
-    
-    dataFiles: {
-      loading: false,
-      data: null,
-      error: null
-    },
+    // Data states
+    status: Utils.createDataState(),
+    settings: Utils.createDataState(),
+    strategies: Utils.createDataState(),
+    dataFiles: Utils.createDataState(),
 
-    // Strategy control
+    // Control selections
     selectedStrategy: '',
-    strategyResult: {
-      loading: false,
-      success: null,
-      error: null
-    },
+    selectedStatus: '',
+    selectedTarget: '',
+
+    // Control results
+    strategyResult: Utils.createResultState(),
+    statusResult: Utils.createResultState(),
+    targetResult: Utils.createResultState(),
 
     // API testing
     apiTest: {
@@ -310,13 +422,12 @@ function dashboard() {
       result: null
     },
 
-    // Initialize dashboard
+    // Initialization
     async init() {
       console.log('Initializing Longleaf C&C Dashboard...');
       await this.loadAllData();
     },
 
-    // Load all data on startup
     async loadAllData() {
       await Promise.all([
         this.fetchStatus(),
@@ -326,24 +437,14 @@ function dashboard() {
       ]);
     },
 
-    // Generic fetch helper
-    async fetchEndpoint(endpoint, stateKey, isJson = true) {
+    // Generic data fetching
+    async fetchFromEndpoint(endpoint, stateKey) {
       this[stateKey].loading = true;
       this[stateKey].error = null;
       
       try {
-        const response = await fetch(endpoint);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        if (isJson) {
-          this[stateKey].data = await response.json();
-        } else {
-          this[stateKey].data = await response.text();
-        }
-        
+        const result = await Utils.apiCall(endpoint);
+        this[stateKey].data = result.content;
         this.connected = true;
       } catch (error) {
         console.error(`Error fetching ${endpoint}:`, error);
@@ -354,102 +455,94 @@ function dashboard() {
       }
     },
 
-    // Fetch server status
-    async fetchStatus() {
-      await this.fetchEndpoint('/status', 'status', false);
-    },
+    // Specific fetch methods
+    async fetchStatus() { await this.fetchFromEndpoint(CONFIG.ENDPOINTS.STATUS, 'status'); },
+    async fetchSettings() { await this.fetchFromEndpoint(CONFIG.ENDPOINTS.SETTINGS, 'settings'); },
+    async fetchStrategies() { await this.fetchFromEndpoint(CONFIG.ENDPOINTS.STRATEGIES, 'strategies'); },
+    async fetchData() { await this.fetchFromEndpoint(CONFIG.ENDPOINTS.DATA, 'dataFiles'); },
 
-    // Fetch current settings
-    async fetchSettings() {
-      await this.fetchEndpoint('/settings', 'settings', true);
-    },
-
-    // Fetch available strategies
-    async fetchStrategies() {
-      await this.fetchEndpoint('/strategies', 'strategies', true);
-    },
-
-    // Fetch data files
-    async fetchData() {
-      await this.fetchEndpoint('/data', 'dataFiles', true);
-    },
-
-    // Set strategy via POST
-    async setStrategy() {
-      if (!this.selectedStrategy) {
-        this.strategyResult.error = 'Please select a strategy';
-        return;
+    // Generic control setter
+    async setControl() {
+      // Determine which control based on what's selected
+      let endpoint, value, resultKey, refreshFn, validationMsg;
+      
+      if (this.selectedStrategy) {
+        endpoint = CONFIG.ENDPOINTS.SET_STRATEGY;
+        value = this.selectedStrategy;
+        resultKey = 'strategyResult';
+        refreshFn = () => this.fetchSettings();
+        validationMsg = CONFIG.MESSAGES.SELECT_STRATEGY;
+      } else if (this.selectedStatus) {
+        endpoint = CONFIG.ENDPOINTS.SET_STATUS;
+        value = this.selectedStatus;
+        resultKey = 'statusResult';
+        refreshFn = () => this.fetchStatus();
+        validationMsg = CONFIG.MESSAGES.SELECT_STATUS;
+      } else if (this.selectedTarget) {
+        endpoint = CONFIG.ENDPOINTS.SET_TARGET;
+        value = this.selectedTarget;
+        resultKey = 'targetResult';
+        refreshFn = () => this.fetchSettings();
+        validationMsg = CONFIG.MESSAGES.SELECT_TARGET;
+      } else {
+        return; // No control selected
       }
 
-      this.strategyResult.loading = true;
-      this.strategyResult.error = null;
-      this.strategyResult.success = null;
+      await this.executeControlSet(endpoint, value, resultKey, refreshFn);
+    },
+
+    async executeControlSet(endpoint, value, resultKey, refreshFn) {
+      this[resultKey].loading = true;
+      this[resultKey].error = null;
+      this[resultKey].success = null;
 
       try {
-        const response = await fetch('/set_strategy', {
+        const result = await Utils.apiCall(endpoint, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(this.selectedStrategy)
+          body: JSON.stringify(value)
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const result = await response.text();
-        this.strategyResult.success = result;
+        this[resultKey].success = typeof result.content === 'string' 
+          ? result.content 
+          : 'Success';
         
-        // Refresh settings to show the update
-        await this.fetchSettings();
+        await refreshFn();
         
       } catch (error) {
-        console.error('Error setting strategy:', error);
-        this.strategyResult.error = error.message;
+        console.error(`Error setting control:`, error);
+        this[resultKey].error = error.message;
       } finally {
-        this.strategyResult.loading = false;
+        this[resultKey].loading = false;
       }
     },
 
-    // Test any endpoint
-    async testEndpoint(endpoint) {
+    // API endpoint testing
+    async testEndpoint(method, endpoint, body = null) {
       this.apiTest.loading = true;
       this.apiTest.result = null;
 
       try {
-        const startTime = performance.now();
-        const response = await fetch(endpoint);
-        const endTime = performance.now();
-        const duration = Math.round(endTime - startTime);
+        const options = method === 'POST' && body ? {
+          method: 'POST',
+          body: JSON.stringify(body)
+        } : { method };
 
-        const contentType = response.headers.get('content-type') || 'unknown';
+        const result = await Utils.apiCall(endpoint, options);
+        this.apiTest.result = Utils.formatTestResult(method, endpoint, body, result);
         
-        let content;
-        if (contentType.includes('application/json')) {
-          content = await response.json();
-          content = JSON.stringify(content, null, 2);
-        } else {
-          content = await response.text();
-        }
-
-        this.apiTest.result = [
-          `GET ${endpoint}`,
-          `Status: ${response.status} ${response.statusText}`,
-          `Content-Type: ${contentType}`,
-          `Response Time: ${duration}ms`,
-          ``,
-          content
-        ].join('\n');
-
       } catch (error) {
-        this.apiTest.result = [
-          `GET ${endpoint}`,
-          `Error: ${error.message}`
-        ].join('\n');
+        this.apiTest.result = Utils.formatTestResult(method, endpoint, body, null, error);
       } finally {
         this.apiTest.loading = false;
       }
     }
-  }
+  };
 }
+
+// Initialize Dashboard
+// ===================
+
+document.addEventListener('DOMContentLoaded', function() {
+  injectStyles();
+  createDashboard();
+});
