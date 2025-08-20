@@ -17,8 +17,8 @@ module Make (Input : INPUT) = struct
     let rec aux paths minimum =
       match paths with
       | [] -> minimum
-      | path :: xs -> (
-        match path.f <=. minimum.f with
+      | path :: xs ->
+        (match path.f <=. minimum.f with
         | true -> aux xs path
         | false -> aux xs minimum)
     in

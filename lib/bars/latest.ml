@@ -41,9 +41,9 @@ let timestamp (x : t) =
     | None ->
       let* t = Column.timestamp item in
       Result.return @@ Option.return t
-    | Some prev_time -> (
+    | Some prev_time ->
       let* current_timestamp = Column.timestamp item in
-      match Ptime.compare prev_time current_timestamp with
+      (match Ptime.compare prev_time current_timestamp with
       | 0 -> Result.return prev
       | -1
       | 1 ->

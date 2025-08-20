@@ -23,10 +23,10 @@ let int (x : t) =
 
 let float_of_string (x : t) =
   match x with
-  | `String f -> (
-    Float.of_string_opt f |> function
+  | `String f ->
+    Float.of_string_opt f |> ( function
     | Some x -> Ok x
-    | None -> Error "Unable to convert float to string")
+    | None -> Error "Unable to convert float to string" )
   | _ -> Error "Expected float"
 
 let string (x : t) =

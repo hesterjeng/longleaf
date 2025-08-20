@@ -156,17 +156,17 @@ module Subst = struct
   let rec instantiate : type a. env -> a t -> (a t, Error.t) result =
     let ( let* ) = Result.( let* ) in
     fun env -> function
-      | Var (id, ty) -> (
-        match ty with
+      | Var (id, ty) ->
+        (match ty with
         | Bool -> invalid_arg "NYI Instnatiate bool"
         | Data -> invalid_arg "NYI Instantiate Data variable"
         | Tacaml -> invalid_arg "NYI Instantiate Tacaml variable"
-        | Float -> (
-          match Bindings.get id env.float_map with
+        | Float ->
+          (match Bindings.get id env.float_map with
           | Ok res -> Result.return @@ Const (res, Float)
           | Error e -> Error e)
-        | Int -> (
-          match Bindings.get id env.int_map with
+        | Int ->
+          (match Bindings.get id env.int_map with
           | Ok res -> Result.return @@ Const (res, Int)
           | Error e -> Error e))
       | Const _ as x -> Result.return x
@@ -207,8 +207,8 @@ end
 let rec pp : type a. Format.formatter -> a t -> unit =
  fun fmt expr ->
   match expr with
-  | Const (x, s) -> (
-    match s with
+  | Const (x, s) ->
+    (match s with
     | Type.Bool -> Format.fprintf fmt "%b" x
     | Type.Data -> Format.fprintf fmt "%a" Data.Type.pp x
     | Type.Tacaml -> Format.fprintf fmt "%a" Tacaml.Indicator.pp x

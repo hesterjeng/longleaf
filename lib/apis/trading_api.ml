@@ -161,8 +161,8 @@ module Make (Alpaca : Client.CLIENT) = struct
       in
       let response = post ~headers ~body ~endpoint in
       match Response.status response with
-      | `OK -> (
-        Response.body response |> Piaf.Body.to_string |> function
+      | `OK ->
+        Response.body response |> Piaf.Body.to_string |> ( function
         | Ok x ->
           let json = Yojson.Safe.from_string x in
           Eio.traceln "@[response from create_market_order:@[%a@]@.@]@."
@@ -178,7 +178,7 @@ module Make (Alpaca : Client.CLIENT) = struct
             Piaf.Error.pp_hum e;
           Result.fail
           @@ `FatalError
-               "Error converting create_market_order response body to string")
+               "Error converting create_market_order response body to string" )
       | s ->
         Eio.traceln "@[[error] Status %a in create_market_order@]@."
           Status.pp_hum s;

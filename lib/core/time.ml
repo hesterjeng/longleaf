@@ -32,11 +32,10 @@ let to_ymd (x : t) =
 let of_string x =
   match Ptime.of_rfc3339 x with
   | Ok (t, _, _) -> t
-  | Error _ -> (
+  | Error _ ->
     let tz_added = x ^ "Z" in
-    try Ptime.of_rfc3339 tz_added |> Result.get_exn |> fun (t, _, _) -> t with
-    | _ -> invalid_arg @@ Format.asprintf "Invalid time in my time module? %s" x
-    )
+    (try Ptime.of_rfc3339 tz_added |> Result.get_exn |> fun (t, _, _) -> t with
+    | _ -> invalid_arg @@ Format.asprintf "Invalid time in my time module? %s" x)
 
 let equal = Ptime.equal
 let to_string x = Ptime.to_rfc3339 x

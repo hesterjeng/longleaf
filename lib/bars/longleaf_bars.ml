@@ -107,8 +107,8 @@ let timestamp (x : t) (tick : int) =
   in
   match res with
   | None -> Error.fatal "Could not get Bars.timestamp"
-  | Some t -> (
-    match Ptime.of_float_s t with
+  | Some t ->
+    (match Ptime.of_float_s t with
     | Some s -> Result.return s
     | None -> Error.fatal "Error converting timestamp in Bars.timestamp")
 (* Ptime.of_float_s res *)
@@ -252,3 +252,8 @@ let print_to_file ?(filename : string option) bars prefix =
   in
   let filename = Format.sprintf "data/%s_%s.json" prefix tail in
   print_to_file_direct bars filename
+
+(* List the json files in the data directory *)
+let files () =
+  Sys.readdir "data" |> Array.to_list
+  |> List.filter @@ fun x -> String.equal (Filename.extension x) ".json"

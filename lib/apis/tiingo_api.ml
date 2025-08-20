@@ -23,8 +23,8 @@ let item_of_yojson x =
   match x with
   | `Null ->
     Result.fail @@ `JsonError "tiingo_api: received null in item_of_yojson"
-  | _ -> (
-    try Result.return @@ item_of_yojson x with
+  | _ ->
+    (try Result.return @@ item_of_yojson x with
     | s ->
       Eio.traceln "[tiingo_api] %a" Yojson.Safe.pp x;
       let e = Printexc.to_string s in
@@ -114,8 +114,8 @@ module Make (Tiingo : Client.CLIENT) = struct
       match List.Assoc.get ~eq:String.equal key fields with
       | Some (`Float f) -> Ok f
       | Some (`Int i) -> Ok (Float.of_int i)
-      | Some (`String s) -> (
-        match Float.of_string_opt s with
+      | Some (`String s) ->
+        (match Float.of_string_opt s with
         | Some f -> Ok f
         | None -> Error.fatal "Invalid float")
       | _ -> Error.fatal "Missing or invalid field"
@@ -123,8 +123,8 @@ module Make (Tiingo : Client.CLIENT) = struct
     let parse_time_field (fields : (string * Yojson.Safe.t) list) (key : string)
         =
       match List.Assoc.get ~eq:String.equal key fields with
-      | Some (`String s) -> (
-        try Ok (Time.of_string s) with
+      | Some (`String s) ->
+        (try Ok (Time.of_string s) with
         | _ -> Error.fatal "Invalid timestamp")
       | _ -> Error.fatal "Missing or invalid timestamp field"
 
