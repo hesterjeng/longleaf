@@ -13,7 +13,7 @@ module CLI = struct
     start : int;
     random_drop_chance : int;
   }
-  [@@deriving show]
+  [@@deriving show, yojson]
 
   type cli = t
 
@@ -117,7 +117,7 @@ module CLI = struct
       Cmdliner.Arg.(value & opt int 0 & info [ "drop-chance" ] ~doc)
   end
 
-  let cli_term =
+  let term =
     let open Cmdliner.Term.Syntax in
     let+ runtype = Args.runtype_arg
     and+ stacktrace = Args.stacktrace_arg
@@ -151,7 +151,7 @@ module CLI = struct
 
     let term =
       let open Cmdliner.Term.Syntax in
-      let+ cli = cli_term
+      let+ cli = term
       and+ target = Args.target_arg
       and+ output = Args.output_file_arg in
       { cli; target; output }

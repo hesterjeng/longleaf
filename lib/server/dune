@@ -15,8 +15,8 @@
   ptime
   eio_main
   piaf
-  lwt_eio
-  dream
+  ; lwt_eio
+  ; dream
   yojson)
  (preprocess
   (pps

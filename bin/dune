@@ -1,5 +1,5 @@
 (executables
- (names longleaf longleaf_downloader longleaf_shutdown server)
+ (names longleaf longleaf_downloader longleaf_shutdown longleaf_server)
  (public_names
   longleaf
   longleaf_downloader
@@ -20,6 +20,8 @@
   longleaf-lib
   longleaf-strategies
   landmarks
+  lwt_eio
+  dream
   eio_main)
  ; (preprocess
  ;  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
@@ -29,4 +31,4 @@
 (env
  (dev
   (flags
-   (:standard -w +a-4-40-58-42-44-48-70-66@8 -open Containers))))
+   (:standard -w +a-4-40-58-42-44-48-70-66@8 -open Containers -open Longleaf))))
