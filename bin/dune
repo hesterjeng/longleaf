@@ -1,10 +1,10 @@
 (executables
- (names longleaf longleaf_downloader longleaf_shutdown longleaf_daemon)
+ (names longleaf longleaf_downloader longleaf_shutdown server)
  (public_names
   longleaf
   longleaf_downloader
   longleaf_shutdown
-  longleaf_daemon)
+  longleaf_server)
  (package longleaf-strategies)
  (instrumentation
   (backend landmarks))
@@ -19,13 +19,12 @@
   yojson
   longleaf-lib
   longleaf-strategies
-  bin_prot
   landmarks
   eio_main)
  ; (preprocess
  ;  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto ppx_bin_prot)))
+  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
 
 (env
  (dev

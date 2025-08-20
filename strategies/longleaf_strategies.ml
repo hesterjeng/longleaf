@@ -51,7 +51,8 @@ module Run = struct
   let run_server eio_env (flags : Options.CLI.t) mutices () =
     match flags.no_gui with
     | true -> ()
-    | false -> Longleaf_server.Server.top ~mutices eio_env
+    | false -> invalid_arg "GUI disabled"
+  (* Longleaf_server.Server.top ~mutices eio_env *)
 
   let run_strategy eio_env flags target mutices () =
     (* Load target bars with eio_env if needed *)
