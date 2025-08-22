@@ -338,7 +338,7 @@ const HTMLGen = {
             <button class="btn btn-sm" @click="testEndpoint('GET', '${CONFIG.ENDPOINTS.DATA}')">GET /data</button>
             <button class="btn btn-sm" @click="testEndpoint('GET', '${CONFIG.ENDPOINTS.OPTIONS}')">GET /options</button>
             <button class="btn btn-sm" @click="testEndpoint('POST', '${CONFIG.ENDPOINTS.SET_STATUS}', 'Ready')">POST /set_status</button>
-            <button class="btn btn-sm" @click="testEndpoint('POST', '${CONFIG.ENDPOINTS.SET_TARGET}', 'test.json')">POST /set_target</button>
+            <button class="btn btn-sm" @click="testEndpoint('POST', '${CONFIG.ENDPOINTS.SET_TARGET}', {'File': 'test.json'})">POST /set_target</button>
           </div>
           <div x-show="apiTest.loading" class="loading">${CONFIG.MESSAGES.TESTING}</div>
           <div x-show="apiTest.result">
@@ -480,7 +480,7 @@ function dashboard() {
         validationMsg = CONFIG.MESSAGES.SELECT_STATUS;
       } else if (this.selectedTarget) {
         endpoint = CONFIG.ENDPOINTS.SET_TARGET;
-        value = this.selectedTarget;
+        value = { "File": this.selectedTarget };
         resultKey = 'targetResult';
         refreshFn = () => this.fetchSettings();
         validationMsg = CONFIG.MESSAGES.SELECT_TARGET;

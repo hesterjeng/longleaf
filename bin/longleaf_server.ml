@@ -57,7 +57,9 @@ let post =
           List.mem ~eq:String.equal s files
       in
       match ok with
-      | true -> Dream.respond ~status:`OK "settings.cli_vars.strategy_arg set"
+      | true ->
+        Settings.settings.target <- target;
+        Dream.respond ~status:`OK "settings.cli_vars.strategy_arg set"
       | false ->
         Dream.respond ~status:`Not_Acceptable "Could not find data file" );
     ( Dream.post "set_strategy" @@ fun request ->
