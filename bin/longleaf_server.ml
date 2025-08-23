@@ -40,28 +40,41 @@ let post =
   [
     (Dream.post "set_options" @@ fun _ -> Dream.html "Set options...");
     ( Dream.post "set_status" @@ fun request ->
-      let* body = Dream.body request in
-      let status = Yojson.Safe.from_string body |> Settings.status_of_yojson in
-      Settings.settings.status <- status;
-      Dream.html "Set options..." );
+      try
+        let* body = Dream.body request in
+        let status =
+          Yojson.Safe.from_string body |> Settings.status_of_yojson
+        in
+        Settings.settings.status <- status;
+        Dream.html "Set status..."
+      with
+      | e -> Dream.respond ~status:`Not_Acceptable @@ Printexc.to_string e );
     ( Dream.post "set_target" @@ fun request ->
       let* target_str = Dream.body request in
       let target =
-        Core.Target.t_of_yojson @@ Yojson.Safe.from_string target_str
+        let ( let* ) = Result.( let* ) in
+        let* target =
+          try
+            Result.return @@ Core.Target.t_of_yojson
+            @@ Yojson.Safe.from_string target_str
+          with
+          | _ -> Error.json "Problem converting target string"
+        in
+        let* target =
+          match target with
+          | Download -> Result.return target
+          | File s ->
+            let files = Bars.files () in
+            if List.mem ~eq:String.equal s files then Result.return target
+            else Error.fatal "Unable to find target file"
+        in
+        Result.return target
       in
-      let ok =
-        match target with
-        | Download -> true
-        | File s ->
-          let files = Bars.files () in
-          List.mem ~eq:String.equal s files
-      in
-      match ok with
-      | true ->
+      match target with
+      | Ok target ->
         Settings.settings.target <- target;
         Dream.respond ~status:`OK "settings.cli_vars.strategy_arg set"
-      | false ->
-        Dream.respond ~status:`Not_Acceptable "Could not find data file" );
+      | Error e -> Dream.respond ~status:`Not_Acceptable @@ Error.show e );
     ( Dream.post "set_strategy" @@ fun request ->
       let* strategy_arg = Dream.body request in
       let strategies_loaded = Longleaf_strategies.all_strategy_names in

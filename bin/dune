@@ -21,6 +21,7 @@
   longleaf-strategies
   landmarks
   lwt_eio
+  eliom
   dream
   eio_main)
  ; (preprocess
