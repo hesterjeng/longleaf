@@ -15,6 +15,7 @@
   ptime
   eio_main
   piaf
+  tyxml
   ; lwt_eio
   ; dream
   yojson)

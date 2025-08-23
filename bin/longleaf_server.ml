@@ -32,7 +32,11 @@ let get =
     ( Dream.get "/strategies" @@ fun _ ->
       List.map (fun x -> `String x) Longleaf_strategies.all_strategy_names
       |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
-    Dream.get "/" @@ Dream.from_filesystem "static" "index.html";
+    ( Dream.get "/" @@ fun _ ->
+      let html =
+        Format.asprintf "%a" (Tyxml.Html.pp_elt ()) Longleaf_server__Index.page
+      in
+      Dream.html html );
   ]
 
 let post =
