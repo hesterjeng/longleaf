@@ -1,6 +1,7 @@
 module Error = Core.Error
 module Cmd = Cmdliner.Cmd
 module CLI = Core.Options.CLI
+               module Instrument = Longleaf_core.Instrument
 
 module Settings = struct
   type status = Ready | Started | Error [@@deriving show, yojson]
@@ -15,6 +16,7 @@ module Settings = struct
   let settings =
     { cli_vars = Core.Options.CLI.default; target = Download; status = Ready }
 end
+
 
 let get =
   [
@@ -32,6 +34,37 @@ let get =
     ( Dream.get "/strategies" @@ fun _ ->
       List.map (fun x -> `String x) Longleaf_strategies.all_strategy_names
       |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
+    ( Dream.get "/symbols" @@ fun _ ->
+      (* Get symbols from current target data *)
+      match Settings.settings.target with
+      | Download -> Dream.json @@ Yojson.Safe.to_string @@
+        `List []
+      | File _ ->
+        (try
+           invalid_arg "symbols endpoint nyi"
+        with
+        | e -> Dream.respond ~status:`Not_Found (Printf.sprintf "Error loading symbols: %s" (Printexc.to_string e))) );
+    ( Dream.get "/data/:symbol/json" @@ fun request ->
+      let symbol_str = Dream.param request "symbol" in
+      try
+        let _symbol = Instrument.of_string symbol_str in
+        match Settings.settings.target with
+        | Download ->
+          Dream.respond ~status:`Not_Found "No data loaded for charting"
+        | File _ ->
+          Dream.respond ~status:`Not_Found symbol_str
+          (* let bars = Bars.of_file filename in *)
+          (* (\* Create a simple mock state for plotting - this is a simplified version *\) *)
+          (* let mock_indicators_config = Indicators_config.{ tacaml_indicators = [] } in *)
+          (* let mock_state = match State.make 0 bars () mock_indicators_config 10000.0 with *)
+          (*   | Ok state -> state *)
+          (*   | Error e -> failwith (Error.show e) *)
+          (* in *)
+          (* (match Longleaf_server__Plotly.of_state mock_state symbol with *)
+          (* | Some json -> Dream.json (Yojson.Safe.to_string json) *)
+          (* | None -> Dream.respond ~status:`Not_Found "Error generating chart") *)
+      with
+      | e -> Dream.respond ~status:`Bad_Request (Printf.sprintf "Error: %s" (Printexc.to_string e)) );
     ( Dream.get "/" @@ fun _ ->
       let html =
         Format.asprintf "%a" (Tyxml.Html.pp_elt ()) Longleaf_server__Index.page
@@ -82,9 +115,9 @@ let post =
       | Error e -> Dream.respond ~status:`Not_Acceptable @@ Error.show e );
     ( Dream.post "/set_strategy" @@ fun request ->
       let* body = Dream.body request in
-      let strategy_arg = 
-        try Yojson.Safe.from_string body |> Yojson.Safe.Util.to_string
-        with _ -> body (* fallback to raw string *)
+      let strategy_arg =
+        try Yojson.Safe.from_string body |> Yojson.Safe.Util.to_string with
+        | _ -> body (* fallback to raw string *)
       in
       let strategies_loaded = Longleaf_strategies.all_strategy_names in
       match List.mem strategy_arg strategies_loaded with
