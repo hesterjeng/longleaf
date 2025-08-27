@@ -75,7 +75,6 @@ let get =
 let post =
   let ( let* ) = Lwt.Syntax.( let* ) in
   [
-    (Dream.post "/set_options" @@ fun _ -> Dream.html "Set options...");
     ( Dream.post "/set_status" @@ fun request ->
       try
         let* body = Dream.body request in
@@ -129,6 +128,31 @@ let post =
       | false ->
         Dream.respond ~status:`Not_Acceptable
           "Could not find strategy in data directory" );
+    ( Dream.post "/set_runtype" @@ fun request ->
+      let* body = Dream.body request in
+        try let r = Yojson.Safe.from_string body
+          |> Core.Runtype.t_of_yojson in
+        let cli = { Settings.settings.cli_vars with runtype = r } in
+        Settings.settings.cli_vars <- cli;
+        Dream.respond ~status:`OK "settings.cli_vars.strategy_arg set"
+
+        with
+        | _ ->
+        Dream.respond ~status:`Not_Acceptable
+          "Could not find strategy in data directory"
+    );
+    ( Dream.post "/set_cli" @@ fun request ->
+      let* body = Dream.body request in
+        try let r = Yojson.Safe.from_string body
+          |> Core.Options.CLI.t_of_yojson in
+        Settings.settings.cli_vars <- r;
+        Dream.respond ~status:`OK "settings.cli_vars.cli_arg set"
+
+        with
+        | _ ->
+        Dream.respond ~status:`Not_Acceptable
+          "Could not find strategy in data directory"
+    );
   ]
 
 let handler : Dream.handler = Dream.router @@ get @ post

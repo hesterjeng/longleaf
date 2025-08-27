@@ -7,6 +7,10 @@
 @install:
     @dune build;
     @dune install;
+    @cd react && npm install;
 
 @dashboard:
     @streamlit run streamlit/new_dashboard.py
+
+@react:
+    @cd react && npm start
