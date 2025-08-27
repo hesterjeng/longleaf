@@ -1,45 +1,8 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React from 'react';
 
-const StrategiesTab = ({ serverData, refreshData }) => {
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
-
-  const { strategies } = serverData;
-
-  const showMessage = (msg, type = 'info') => {
-    setMessage({ text: msg, type });
-    setTimeout(() => setMessage(null), 5000);
-  };
-
-  const selectStrategy = async (strategy) => {
-    setLoading(true);
-    try {
-      const response = await axios.post(
-        '/set_strategy',
-        `"${strategy}"`,
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 5000
-        }
-      );
-
-      if (response.status === 406) {
-        showMessage(`Server rejected request (406): ${response.data}`, 'danger');
-      } else {
-        showMessage(`Strategy selected: ${strategy}`, 'success');
-        refreshData();
-      }
-    } catch (error) {
-      if (error.response?.status === 406) {
-        showMessage(`Server error (406 Not Acceptable): ${error.response.data}`, 'danger');
-      } else {
-        showMessage(`Failed to select strategy: ${error.message}`, 'danger');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+const StrategiesTab = ({ serverData }) => {
+  const { strategies, settings } = serverData;
+  const currentStrategy = settings?.cli_vars?.strategy_arg || null;
 
   const renderDevelopmentGuide = () => (
     <details className="expandable">
@@ -87,56 +50,48 @@ module Make : Strategy.BUILDER = Template.Make (Buy_inp) (Sell)`}
     <div>
       <h2>🧠 Available Strategies</h2>
 
-      {message && (
-        <div className={`alert alert-${message.type}`}>
-          {message.text}
-        </div>
-      )}
+      <div className="card">
+        <h3>Current Strategy</h3>
+        {currentStrategy ? (
+          <div className="alert alert-success">
+            <strong>🎯 Active Strategy:</strong> <code>{currentStrategy}</code>
+          </div>
+        ) : (
+          <div className="alert alert-warning">
+            <strong>⚠️ No strategy selected</strong>
+          </div>
+        )}
+        <p className="text-muted">
+          <strong>💡 To change the strategy:</strong> Use the <strong>Control</strong> tab → <strong>Complete CLI Settings</strong> form
+        </p>
+      </div>
 
       {strategies && strategies.length > 0 ? (
-        <div>
-          <div className="card">
-            <h3>Strategy List</h3>
-            
-            <div className="file-list">
-              {strategies.map((strategy, index) => (
-                <div key={strategy} className="file-item">
-                  <div style={{ flex: 1 }}>
-                    <strong>{index + 1}.</strong> <code>{strategy}</code>
-                  </div>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => selectStrategy(strategy)}
-                    disabled={loading}
-                  >
-                    Select
-                  </button>
+        <div className="card">
+          <h3>Available Strategies ({strategies.length})</h3>
+          
+          <div className="file-list">
+            {strategies.map((strategy, index) => (
+              <div key={strategy} className="file-item">
+                <div style={{ flex: 1 }}>
+                  <strong>{index + 1}.</strong> <code>{strategy}</code>
+                  {currentStrategy === strategy && (
+                    <span style={{ marginLeft: '10px', color: '#28a745', fontWeight: 'bold' }}>
+                      ✅ ACTIVE
+                    </span>
+                  )}
                 </div>
-              ))}
-            </div>
-
-            <div className="alert alert-info" style={{ marginTop: '20px' }}>
-              Total strategies: {strategies.length}
-            </div>
+              </div>
+            ))}
           </div>
-
-          {renderDevelopmentGuide()}
         </div>
       ) : (
-        <div>
-          <div className="alert alert-warning">
-            No strategies found
-          </div>
-          
-          {renderDevelopmentGuide()}
+        <div className="alert alert-warning">
+          No strategies found
         </div>
       )}
-
-      {loading && (
-        <div className="loading">
-          <div className="spinner"></div>
-        </div>
-      )}
+      
+      {renderDevelopmentGuide()}
     </div>
   );
 };

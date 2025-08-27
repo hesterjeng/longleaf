@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget, formatError } from '../utils/oclFormat';
+import { updateServerStatus, updateCLI, updateTarget } from '../utils/api';
 
 const ControlTab = ({ serverData, refreshData }) => {
   const [loading, setLoading] = useState(false);
@@ -38,18 +39,11 @@ const ControlTab = ({ serverData, refreshData }) => {
   // Update CLI and target settings when serverData changes
   useEffect(() => {
     if (serverData.settings?.cli_vars) {
-      setCLISettings(serverData.settings.cli_vars);
+      setCLISettings(parseOCamlCLI(serverData.settings.cli_vars));
     }
     
     if (serverData.settings?.target) {
-      const target = serverData.settings.target;
-      if (Array.isArray(target)) {
-        if (target.length === 1 && target[0] === 'Download') {
-          setTargetSettings({ type: 'Download', file: '' });
-        } else if (target.length === 2 && target[0] === 'File') {
-          setTargetSettings({ type: 'File', file: target[1] });
-        }
-      }
+      setTargetSettings(parseTarget(serverData.settings.target));
     }
   }, [serverData.settings]);
 
@@ -61,27 +55,11 @@ const ControlTab = ({ serverData, refreshData }) => {
   const setServerStatus = async (status) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        '/set_status',
-        JSON.stringify([status]),
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 5000
-        }
-      );
-
-      if (response.status === 406) {
-        showMessage(`Server rejected request (406): ${response.data}`, 'danger');
-      } else {
-        showMessage(`Server ${status.toLowerCase()} successfully`, 'success');
-        refreshData();
-      }
+      await updateServerStatus(status);
+      showMessage(`Server ${status.toLowerCase()} successfully`, 'success');
+      refreshData();
     } catch (error) {
-      if (error.response?.status === 406) {
-        showMessage(`Server error (406 Not Acceptable): ${error.response.data}`, 'danger');
-      } else {
-        showMessage(`Request failed: ${error.message}`, 'danger');
-      }
+      showMessage(formatError(error, `set server status to ${status}`), 'danger');
     } finally {
       setLoading(false);
     }
@@ -90,35 +68,12 @@ const ControlTab = ({ serverData, refreshData }) => {
   const setTarget = async (target) => {
     setLoading(true);
     try {
-      let jsonData;
-      if (typeof target === 'string') {
-        jsonData = `"${target}"`;
-      } else {
-        jsonData = JSON.stringify(target);
-      }
-
-      const response = await axios.post(
-        '/set_target',
-        jsonData,
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 5000
-        }
-      );
-
-      if (response.status === 406) {
-        showMessage(`Server rejected request (406): ${response.data}`, 'danger');
-      } else {
-        const targetDisplay = Array.isArray(target) ? target.join(' -> ') : target;
-        showMessage(`Target set to: ${targetDisplay}`, 'success');
-        refreshData();
-      }
+      await updateTarget(target);
+      const targetDisplay = Array.isArray(target) ? target.join(' -> ') : target;
+      showMessage(`Target set to: ${targetDisplay}`, 'success');
+      refreshData();
     } catch (error) {
-      if (error.response?.status === 406) {
-        showMessage(`Server error (406 Not Acceptable): ${error.response.data}`, 'danger');
-      } else {
-        showMessage(`Request failed: ${error.message}`, 'danger');
-      }
+      showMessage(formatError(error, 'set target'), 'danger');
     } finally {
       setLoading(false);
     }
@@ -127,27 +82,11 @@ const ControlTab = ({ serverData, refreshData }) => {
   const setCLI = async (cliData) => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        '/set_cli',
-        JSON.stringify(cliData),
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 5000
-        }
-      );
-
-      if (response.status === 406) {
-        showMessage(`Server rejected request (406): ${response.data}`, 'danger');
-      } else {
-        showMessage('CLI settings updated successfully', 'success');
-        refreshData();
-      }
+      await updateCLI(toOCamlCLI(cliData));
+      showMessage('CLI settings updated successfully', 'success');
+      refreshData();
     } catch (error) {
-      if (error.response?.status === 406) {
-        showMessage(`Server error (406 Not Acceptable): ${error.response.data}`, 'danger');
-      } else {
-        showMessage(`Failed to update CLI settings: ${error.message}`, 'danger');
-      }
+      showMessage(formatError(error, 'update CLI settings'), 'danger');
     } finally {
       setLoading(false);
     }
@@ -164,16 +103,8 @@ const ControlTab = ({ serverData, refreshData }) => {
     e.preventDefault();
     
     try {
-      // First update CLI settings
       await setCLI(cliSettings);
-      
-      // Then update target if it has changed
-      const targetArray = targetSettings.type === 'Download' 
-        ? ['Download']
-        : ['File', targetSettings.file];
-        
-      await setTarget(targetArray);
-      
+      await setTarget(toOCamlTarget(targetSettings));
     } catch (error) {
       // Error handling is done in individual functions
     }
@@ -217,6 +148,7 @@ const ControlTab = ({ serverData, refreshData }) => {
           </button>
         </div>
       </div>
+
 
 
       <div className="card">

@@ -1,7 +1,52 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { parseOCamlVariant, getTargetDisplay, formatError } from '../utils/oclFormat';
+import { executeStrategy } from '../utils/api';
 
 const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
   const { status, settings } = serverData;
+  const [executing, setExecuting] = useState(false);
+  const [executeResult, setExecuteResult] = useState(null);
+  const [executeError, setExecuteError] = useState(null);
+
+  // Monitor status changes to detect completion
+  React.useEffect(() => {
+    if (executing) {
+      if (status === 'Ready' && executeResult === null && executeError === null) {
+        // Execution completed successfully - we'd need to get the result from somewhere
+        setExecuteResult('Strategy execution completed');
+        setExecuting(false);
+      } else if (status === 'Error') {
+        // Execution failed
+        setExecuteError('Strategy execution failed - check server logs');
+        setExecuting(false);
+      }
+      // If status is 'Started', keep executing state
+    }
+  }, [status, executing, executeResult, executeError]);
+
+  const executeStrategyHandler = async () => {
+    setExecuting(true);
+    setExecuteResult(null);
+    setExecuteError(null);
+    
+    try {
+      // Fire and forget - don't wait for completion
+      executeStrategy().catch(error => {
+        // Only handle immediate errors (not timeout)
+        if (!error.code || error.code !== 'ECONNABORTED') {
+          setExecuteError(formatError(error, 'execute strategy'));
+          setExecuting(false);
+        }
+      });
+      
+      // Start polling status immediately
+      refreshData();
+      
+    } catch (error) {
+      setExecuteError(formatError(error, 'execute strategy'));
+      setExecuting(false);
+    }
+  };
 
   const renderStatusDisplay = (statusData) => {
     if (!statusData) {
@@ -37,19 +82,7 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
 
     const cliVars = settingsData.cli_vars || {};
     const target = settingsData.target;
-
-    let targetDisplay = '';
-    if (Array.isArray(target)) {
-      if (target.length === 1 && target[0] === 'Download') {
-        targetDisplay = 'Download';
-      } else if (target.length === 2 && target[0] === 'File') {
-        targetDisplay = `File: ${target[1]}`;
-      } else {
-        targetDisplay = target.join(' ');
-      }
-    } else {
-      targetDisplay = String(target || 'None');
-    }
+    const targetDisplay = getTargetDisplay(target);
 
     return (
       <div>
@@ -60,7 +93,7 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
             <h5>🎯 Core Settings</h5>
             <table style={{ width: '100%', fontSize: '14px' }}>
               <tbody>
-                <tr><td><strong>Run Type:</strong></td><td><code>{cliVars.runtype || 'Not set'}</code></td></tr>
+                <tr><td><strong>Run Type:</strong></td><td><code>{parseOCamlVariant(cliVars.runtype) || 'Not set'}</code></td></tr>
                 <tr><td><strong>Strategy:</strong></td><td><code>{cliVars.strategy_arg || 'Not set'}</code></td></tr>
                 <tr><td><strong>Target:</strong></td><td><code>{targetDisplay}</code></td></tr>
                 <tr><td><strong>Start Index:</strong></td><td><code>{cliVars.start || 0}</code></td></tr>
@@ -142,6 +175,57 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
         
         <div className="card">
           {renderSettingsDisplay(settings)}
+          
+          <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+            <h4>🚀 Strategy Execution</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
+              <button
+                className="btn"
+                onClick={executeStrategyHandler}
+                disabled={executing || loading}
+                style={{
+                  backgroundColor: '#dc3545',
+                  borderColor: '#dc3545',
+                  color: 'white',
+                  fontSize: '16px',
+                  padding: '10px 20px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {executing ? '⏳ Executing...' : '🚀 Execute Strategy'}
+              </button>
+              {(executeResult !== null || executeError) && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setExecuteResult(null);
+                    setExecuteError(null);
+                  }}
+                  style={{ fontSize: '12px' }}
+                >
+                  🗑️ Clear Result
+                </button>
+              )}
+            </div>
+            
+            {executeResult !== null && (
+              <div className="alert alert-success">
+                <strong>✅ Execution Result:</strong>
+                <div style={{ marginTop: '8px', fontFamily: 'monospace', fontSize: '14px' }}>
+                  {executeResult}
+                </div>
+              </div>
+            )}
+            
+            {executeError && (
+              <div className="alert alert-danger">
+                <strong>❌ Execution Error:</strong>
+                <div style={{ marginTop: '8px', fontSize: '14px' }}>
+                  {executeError}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

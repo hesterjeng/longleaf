@@ -21,6 +21,21 @@ end
 let get =
   [
     Dream.get "/static/**" @@ Dream.static "static";
+    ( Dream.get "/execute" @@ fun _ ->
+      let s = Settings.settings in
+      s.status <- Started;
+      let r = Longleaf_strategies.Run.top s.cli_vars s.target in
+      match r with
+      |
+        Ok c ->
+        (
+      s.status <- Ready;
+        Dream.json @@ Yojson.Safe.to_string @@ `Float c)
+      | Error e ->
+(
+      s.status <- Error;
+          Dream.respond ~status:`Not_Found @@ Error.show e)
+    );
     ( Dream.get "/status" @@ fun _ ->
       Settings.yojson_of_status Settings.settings.status
       |> Yojson.Safe.to_string |> Dream.json );
@@ -146,7 +161,7 @@ let post =
         try let r = Yojson.Safe.from_string body
           |> Core.Options.CLI.t_of_yojson in
         Settings.settings.cli_vars <- r;
-        Dream.respond ~status:`OK "settings.cli_vars.cli_arg set"
+        Dream.respond ~status:`OK "settings.cli_vars._arg set"
 
         with
         | _ ->

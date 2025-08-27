@@ -1,45 +1,10 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React from 'react';
+import { getActiveDataFile } from '../utils/oclFormat';
 
-const DataTab = ({ serverData, refreshData }) => {
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
+const DataTab = ({ serverData }) => {
+  const { dataFiles, settings } = serverData;
 
-  const { dataFiles } = serverData;
-
-  const showMessage = (msg, type = 'info') => {
-    setMessage({ text: msg, type });
-    setTimeout(() => setMessage(null), 5000);
-  };
-
-  const selectFile = async (filePath) => {
-    setLoading(true);
-    try {
-      const response = await axios.post(
-        '/set_target',
-        JSON.stringify(['File', filePath]),
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 5000
-        }
-      );
-
-      if (response.status === 406) {
-        showMessage(`Server rejected request (406): ${response.data}`, 'danger');
-      } else {
-        showMessage(`Target set to: ${filePath}`, 'success');
-        refreshData();
-      }
-    } catch (error) {
-      if (error.response?.status === 406) {
-        showMessage(`Server error (406 Not Acceptable): ${error.response.data}`, 'danger');
-      } else {
-        showMessage(`Failed to set target: ${error.message}`, 'danger');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const currentTarget = getActiveDataFile(settings?.target);
 
   const renderInstructions = () => (
     <details className="expandable">
@@ -69,56 +34,48 @@ longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 \\
     <div>
       <h2>📁 Data Files</h2>
 
-      {message && (
-        <div className={`alert alert-${message.type}`}>
-          {message.text}
-        </div>
-      )}
+      <div className="card">
+        <h3>Current Target</h3>
+        {currentTarget ? (
+          <div className="alert alert-success">
+            <strong>📄 Active Data File:</strong> <code>{currentTarget}</code>
+          </div>
+        ) : (
+          <div className="alert alert-info">
+            <strong>📥 Target:</strong> Download (live data)
+          </div>
+        )}
+        <p className="text-muted">
+          <strong>💡 To change the target:</strong> Use the <strong>Control</strong> tab → <strong>Complete CLI Settings</strong> form
+        </p>
+      </div>
 
       {dataFiles && dataFiles.length > 0 ? (
-        <div>
-          <div className="card">
-            <h3>Available Data Files</h3>
-            
-            <div className="file-list">
-              {dataFiles.map((filePath, index) => (
-                <div key={filePath} className="file-item">
-                  <div style={{ flex: 1 }}>
-                    <strong>{index + 1}.</strong> <code>{filePath}</code>
-                  </div>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => selectFile(filePath)}
-                    disabled={loading}
-                  >
-                    Select
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="alert alert-info" style={{ marginTop: '20px' }}>
-              Total data files: {dataFiles.length}
-            </div>
-          </div>
+        <div className="card">
+          <h3>Available Data Files ({dataFiles.length})</h3>
           
-          {renderInstructions()}
+          <div className="file-list">
+            {dataFiles.map((filePath, index) => (
+              <div key={filePath} className="file-item">
+                <div style={{ flex: 1 }}>
+                  <strong>{index + 1}.</strong> <code>{filePath}</code>
+                  {currentTarget === filePath && (
+                    <span style={{ marginLeft: '10px', color: '#28a745', fontWeight: 'bold' }}>
+                      ✅ ACTIVE
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
-        <div>
-          <div className="alert alert-warning">
-            No data files found
-          </div>
-          
-          {renderInstructions()}
+        <div className="alert alert-warning">
+          No data files found
         </div>
       )}
-
-      {loading && (
-        <div className="loading">
-          <div className="spinner"></div>
-        </div>
-      )}
+      
+      {renderInstructions()}
     </div>
   );
 };
