@@ -96,7 +96,8 @@ let post =
             Result.return @@ Core.Target.t_of_yojson
             @@ Yojson.Safe.from_string target_str
           with
-          | _ -> Error.json "Problem converting target string"
+          | _ -> Error.json @@"Problem converting target string" ^ target_str
+
         in
         let* target =
           match target with

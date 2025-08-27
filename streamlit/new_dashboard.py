@@ -106,29 +106,66 @@ def fetch_chart_data(server_url, symbol):
 def set_server_status(server_url, status):
     """Set server status"""
     try:
-        response = requests.post(f"{server_url}/set_status", json=status, timeout=5)
+        # OCaml yojson variant: Ready/Started/Error serialize as ["Ready"], ["Started"], ["Error"]
+        json_data = json.dumps([status])
+        response = requests.post(f"{server_url}/set_status", 
+                               data=json_data, 
+                               headers={"Content-Type": "application/json"},
+                               timeout=5)
+        if response.status_code == 406:
+            return False, f"Server rejected request (406): {response.text}"
         response.raise_for_status()
         return True, response.text
+    except requests.exceptions.RequestException as e:
+        if hasattr(e.response, 'status_code') and e.response.status_code == 406:
+            return False, f"Server error (406 Not Acceptable): {e.response.text}"
+        return False, f"Request failed: {str(e)}"
     except Exception as e:
-        return False, str(e)
+        return False, f"Unexpected error: {str(e)}"
 
 def set_target(server_url, target):
     """Set target (Download or File path)"""
     try:
-        response = requests.post(f"{server_url}/set_target", json=target, timeout=5)
+        # Send target as JSON string in request body
+        if isinstance(target, str):
+            json_data = f'"{target}"'
+        else:
+            json_data = json.dumps(target)
+        
+        response = requests.post(f"{server_url}/set_target", 
+                               data=json_data, 
+                               headers={"Content-Type": "application/json"},
+                               timeout=5)
+        if response.status_code == 406:
+            return False, f"Server rejected request (406): {response.text}"
         response.raise_for_status()
         return True, response.text
+    except requests.exceptions.RequestException as e:
+        if hasattr(e.response, 'status_code') and e.response.status_code == 406:
+            return False, f"Server error (406 Not Acceptable): {e.response.text}"
+        return False, f"Request failed: {str(e)}"
     except Exception as e:
-        return False, str(e)
+        return False, f"Unexpected error: {str(e)}"
 
 def set_strategy(server_url, strategy):
     """Set strategy"""
     try:
-        response = requests.post(f"{server_url}/set_strategy", json=strategy, timeout=5)
+        # Send strategy as JSON string in request body
+        json_data = f'"{strategy}"'
+        response = requests.post(f"{server_url}/set_strategy", 
+                               data=json_data, 
+                               headers={"Content-Type": "application/json"},
+                               timeout=5)
+        if response.status_code == 406:
+            return False, f"Server rejected request (406): {response.text}"
         response.raise_for_status()
         return True, response.text
+    except requests.exceptions.RequestException as e:
+        if hasattr(e.response, 'status_code') and e.response.status_code == 406:
+            return False, f"Server error (406 Not Acceptable): {e.response.text}"
+        return False, f"Request failed: {str(e)}"
     except Exception as e:
-        return False, str(e)
+        return False, f"Unexpected error: {str(e)}"
 
 def render_status_display(status_data):
     """Render server status display"""
@@ -416,7 +453,8 @@ if server_online:
         
         if target_type == "Download":
             if st.button("Set Download Target"):
-                success, message = set_target(server_url, "Download")
+                # OCaml yojson variant: Download serializes as ["Download"]
+                success, message = set_target(server_url, ["Download"])
                 if success:
                     st.success("Target set to Download")
                     st.rerun()
@@ -427,7 +465,8 @@ if server_online:
             if data_files:
                 selected_file = st.selectbox("Select Data File", data_files)
                 if st.button("Set File Target"):
-                    success, message = set_target(server_url, {"File": selected_file})
+                    # OCaml yojson variant: File "path" serializes as ["File", "path"]
+                    success, message = set_target(server_url, ["File", selected_file])
                     if success:
                         st.success(f"Target set to file: {selected_file}")
                         st.rerun()
@@ -466,7 +505,8 @@ if server_online:
                     st.write(f"**{i}.** `{file_path}`")
                 with col2:
                     if st.button(f"Select", key=f"select_file_{i}"):
-                        success, message = set_target(server_url, {"File": file_path})
+                        # OCaml yojson variant: File "path" serializes as ["File", "path"]
+                        success, message = set_target(server_url, ["File", file_path])
                         if success:
                             st.success(f"Target set to: {file_path}")
                             st.rerun()
