@@ -264,17 +264,17 @@ const HTMLGen = {
 
   statusDisplay() {
     return `
-      <div x-show="status.data && typeof status.data === 'object'" class="text-success status-display">
-        Current Status: <span x-text="status.data.status || 'Unknown'"></span>
+      <div x-show="status.data" class="text-success status-display">
+        Current Status: <span x-text="Array.isArray(status.data) ? status.data[0] : (status.data || 'Unknown')"></span>
       </div>
-      <pre x-text="JSON.stringify(status.data, null, 2)"></pre>
+      <pre x-show="status.data" x-text="JSON.stringify(status.data, null, 2)"></pre>
     `;
   },
 
   dataDisplay(id) {
     if (id === 'strategies' || id === 'dataFiles') {
       return `
-        <div x-text="\`\${${id}.data.length} ${id === 'strategies' ? 'strategies' : 'data files'} available\`" class="text-success"></div>
+        <div x-show="${id}.data && Array.isArray(${id}.data)" x-text="\`\${${id}.data.length} ${id === 'strategies' ? 'strategies' : 'data files'} available\`" class="text-success"></div>
         <pre x-text="JSON.stringify(${id}.data, null, 2)"></pre>
       `;
     }

@@ -42,10 +42,11 @@ let get =
 let post =
   let ( let* ) = Lwt.Syntax.( let* ) in
   [
-    (Dream.post "set_options" @@ fun _ -> Dream.html "Set options...");
-    ( Dream.post "set_status" @@ fun request ->
+    (Dream.post "/set_options" @@ fun _ -> Dream.html "Set options...");
+    ( Dream.post "/set_status" @@ fun request ->
       try
         let* body = Dream.body request in
+        Dream.log "%s" body;
         let status =
           Yojson.Safe.from_string body |> Settings.status_of_yojson
         in
@@ -53,7 +54,7 @@ let post =
         Dream.html "Set status..."
       with
       | e -> Dream.respond ~status:`Not_Acceptable @@ Printexc.to_string e );
-    ( Dream.post "set_target" @@ fun request ->
+    ( Dream.post "/set_target" @@ fun request ->
       let* target_str = Dream.body request in
       let target =
         let ( let* ) = Result.( let* ) in
@@ -79,8 +80,12 @@ let post =
         Settings.settings.target <- target;
         Dream.respond ~status:`OK "settings.cli_vars.strategy_arg set"
       | Error e -> Dream.respond ~status:`Not_Acceptable @@ Error.show e );
-    ( Dream.post "set_strategy" @@ fun request ->
-      let* strategy_arg = Dream.body request in
+    ( Dream.post "/set_strategy" @@ fun request ->
+      let* body = Dream.body request in
+      let strategy_arg = 
+        try Yojson.Safe.from_string body |> Yojson.Safe.Util.to_string
+        with _ -> body (* fallback to raw string *)
+      in
       let strategies_loaded = Longleaf_strategies.all_strategy_names in
       match List.mem strategy_arg strategies_loaded with
       | true ->
