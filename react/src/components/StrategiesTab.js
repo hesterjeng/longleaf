@@ -1,25 +1,29 @@
 import React from 'react';
+import { Card, Alert, Typography, Tag, Collapse, List } from 'antd';
+import { CheckCircleOutlined } from '@ant-design/icons';
+
+const { Title, Text, Paragraph } = Typography;
+const { Panel } = Collapse;
 
 const StrategiesTab = ({ serverData }) => {
   const { strategies, settings } = serverData;
   const currentStrategy = settings?.cli_vars?.strategy_arg || null;
 
   const renderDevelopmentGuide = () => (
-    <details className="expandable">
-      <summary className="expandable-header">
-        📖 Strategy Development Guide
-      </summary>
-      <div className="expandable-content">
-        <p><strong>Strategies</strong> are trading algorithms implemented in OCaml using the Longleaf framework.</p>
+    <Collapse>
+      <Panel header="Strategy Development Guide" key="1">
+        <Paragraph>
+          <Text strong>Strategies</Text> are trading algorithms implemented in OCaml using the Longleaf framework.
+        </Paragraph>
 
-        <h4>Key Components:</h4>
+        <Title level={5}>Key Components:</Title>
         <ul>
-          <li><strong>Buy Trigger</strong>: Defines entry conditions</li>
-          <li><strong>Sell Trigger</strong>: Defines exit conditions</li>
-          <li><strong>Template System</strong>: Use <code>Template.Make</code> functor for consistency</li>
+          <li><Text strong>Buy Trigger</Text>: Defines entry conditions</li>
+          <li><Text strong>Sell Trigger</Text>: Defines exit conditions</li>
+          <li><Text strong>Template System</Text>: Use <code>Template.Make</code> functor for consistency</li>
         </ul>
 
-        <h4>Development Workflow:</h4>
+        <Title level={5}>Development Workflow:</Title>
         <ol>
           <li>Create strategy file in <code>strategies/</code> directory</li>
           <li>Implement using Template.Make functor</li>
@@ -28,8 +32,8 @@ const StrategiesTab = ({ serverData }) => {
           <li>Deploy to paper/live trading</li>
         </ol>
 
-        <h4>Example Strategy Structure:</h4>
-        <pre className="code-block">
+        <Title level={5}>Example Strategy Structure:</Title>
+        <pre style={{ background: '#f5f5f5', padding: '16px', borderRadius: '6px' }}>
 {`module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass state symbol = (* entry logic *)
   let score state symbol = (* ranking logic *)
@@ -42,53 +46,59 @@ end
 
 module Make : Strategy.BUILDER = Template.Make (Buy_inp) (Sell)`}
         </pre>
-      </div>
-    </details>
+      </Panel>
+    </Collapse>
   );
 
   return (
     <div>
-      <h2>🧠 Available Strategies</h2>
+      <Title level={2}>Available Strategies</Title>
 
-      <div className="card">
-        <h3>Current Strategy</h3>
+      <Card title="Current Strategy" style={{ marginBottom: '16px' }}>
         {currentStrategy ? (
-          <div className="alert alert-success">
-            <strong>🎯 Active Strategy:</strong> <code>{currentStrategy}</code>
-          </div>
+          <Alert
+            type="success"
+            message={<span><Text strong>Active Strategy:</Text> <code>{currentStrategy}</code></span>}
+            showIcon
+          />
         ) : (
-          <div className="alert alert-warning">
-            <strong>⚠️ No strategy selected</strong>
-          </div>
+          <Alert
+            type="warning"
+            message="No strategy selected"
+            showIcon
+          />
         )}
-        <p className="text-muted">
-          <strong>💡 To change the strategy:</strong> Use the <strong>Control</strong> tab → <strong>Complete CLI Settings</strong> form
-        </p>
-      </div>
+        <Text type="secondary" style={{ marginTop: '12px', display: 'block' }}>
+          <Text strong>To change the strategy:</Text> Use the <Text strong>Control</Text> tab → <Text strong>Complete CLI Settings</Text> form
+        </Text>
+      </Card>
 
       {strategies && strategies.length > 0 ? (
-        <div className="card">
-          <h3>Available Strategies ({strategies.length})</h3>
-          
-          <div className="file-list">
-            {strategies.map((strategy, index) => (
-              <div key={strategy} className="file-item">
-                <div style={{ flex: 1 }}>
-                  <strong>{index + 1}.</strong> <code>{strategy}</code>
+        <Card title={`Available Strategies (${strategies.length})`} style={{ marginBottom: '16px' }}>
+          <List
+            dataSource={strategies}
+            renderItem={(strategy, index) => (
+              <List.Item>
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>
+                    <Text strong>{index + 1}.</Text> <code>{strategy}</code>
+                  </span>
                   {currentStrategy === strategy && (
-                    <span style={{ marginLeft: '10px', color: '#28a745', fontWeight: 'bold' }}>
-                      ✅ ACTIVE
-                    </span>
+                    <Tag icon={<CheckCircleOutlined />} color="success">
+                      ACTIVE
+                    </Tag>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              </List.Item>
+            )}
+          />
+        </Card>
       ) : (
-        <div className="alert alert-warning">
-          No strategies found
-        </div>
+        <Alert
+          type="warning"
+          message="No strategies found"
+          style={{ marginBottom: '16px' }}
+        />
       )}
       
       {renderDevelopmentGuide()}

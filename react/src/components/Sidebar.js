@@ -1,4 +1,8 @@
 import React from 'react';
+import { Card, Input, Button, Badge, Typography, Divider } from 'antd';
+import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+
+const { Title, Paragraph, Text } = Typography;
 
 const Sidebar = ({ serverUrl, setServerUrl, serverOnline, checkServerConnection }) => {
   const handleUrlChange = (e) => {
@@ -6,54 +10,59 @@ const Sidebar = ({ serverUrl, setServerUrl, serverOnline, checkServerConnection 
   };
 
   return (
-    <div className="sidebar">
-      <h3>🔧 Server Controls</h3>
+    <div style={{ padding: '16px' }}>
+      <Card title="Server Controls" size="small" style={{ marginBottom: '16px' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <Text strong>Server URL</Text>
+          <Input
+            value={serverUrl}
+            onChange={handleUrlChange}
+            placeholder="http://localhost:8080"
+            style={{ marginTop: '8px' }}
+          />
+          <Text type="secondary" style={{ fontSize: '12px' }}>Longleaf server URL</Text>
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <Badge 
+            status={serverOnline ? 'success' : 'error'}
+            text={serverOnline ? 'Server Online' : 'Server Offline'}
+          />
+        </div>
+
+        <Button 
+          type="primary"
+          icon={<ReloadOutlined />}
+          onClick={checkServerConnection}
+          block
+        >
+          Check Connection
+        </Button>
+      </Card>
       
-      <div className="form-group">
-        <label htmlFor="server-url">Server URL</label>
-        <input
-          id="server-url"
-          type="text"
-          className="form-control"
-          value={serverUrl}
-          onChange={handleUrlChange}
-          placeholder="http://localhost:8080"
-        />
-        <small>Longleaf server URL</small>
-      </div>
+      <Card title="Instructions" size="small">
+        <div>
+          <Paragraph>
+            <Text strong>Quick Start:</Text>
+          </Paragraph>
+          <ol>
+            <li>Ensure server is running</li>
+            <li>Check server status in Overview tab</li>
+            <li>Set target data file in Control tab</li>
+            <li>Select trading strategy</li>
+            <li>Start server when ready</li>
+          </ol>
 
-      <div className={`status-indicator ${serverOnline ? 'status-online' : 'status-offline'}`}>
-        {serverOnline ? '🟢 Server Online' : '🔴 Server Offline'}
-      </div>
-
-      <button 
-        className="btn btn-primary" 
-        onClick={checkServerConnection}
-        style={{ width: '100%', marginTop: '10px' }}
-      >
-        🔄 Check Connection
-      </button>
-
-      <hr />
-      
-      <h4>📖 Instructions</h4>
-      <div className="instructions">
-        <p><strong>Quick Start:</strong></p>
-        <ol>
-          <li>Ensure server is running</li>
-          <li>Check server status in Overview tab</li>
-          <li>Set target data file in Control tab</li>
-          <li>Select trading strategy</li>
-          <li>Start server when ready</li>
-        </ol>
-
-        <p><strong>Status Meanings:</strong></p>
-        <ul>
-          <li>🟢 <strong>Ready</strong>: Server ready for commands</li>
-          <li>🔵 <strong>Started</strong>: Server is running strategy</li>
-          <li>🔴 <strong>Error</strong>: Server encountered an error</li>
-        </ul>
-      </div>
+          <Paragraph>
+            <Text strong>Status Meanings:</Text>
+          </Paragraph>
+          <ul>
+            <li><Text strong>Ready</Text>: Server ready for commands</li>
+            <li><Text strong>Started</Text>: Server is running strategy</li>
+            <li><Text strong>Error</Text>: Server encountered an error</li>
+          </ul>
+        </div>
+      </Card>
     </div>
   );
 };

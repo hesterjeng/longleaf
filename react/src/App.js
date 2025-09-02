@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { Layout, Tabs, Alert, Typography } from 'antd';
 import Sidebar from './components/Sidebar';
 import OverviewTab from './components/OverviewTab';
 import ChartTab from './components/ChartTab';
-import ControlTab from './components/ControlTab';
 import DataTab from './components/DataTab';
 import StrategiesTab from './components/StrategiesTab';
+
+const { Header, Sider, Content } = Layout;
+const { Title, Text } = Typography;
 
 const App = () => {
   const [serverUrl, setServerUrl] = useState('http://localhost:8080');
   const [serverOnline, setServerOnline] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
   const [serverData, setServerData] = useState({
     status: null,
     settings: null,
@@ -80,83 +82,71 @@ const App = () => {
     fetchAllData();
   }, [fetchAllData]);
 
-  const tabs = [
-    { id: 'overview', label: '📊 Overview' },
-    { id: 'charts', label: '📈 Charts' },
-    { id: 'control', label: '🎛️ Control' },
-    { id: 'data', label: '📁 Data Files' },
-    { id: 'strategies', label: '🧠 Strategies' }
+  const tabItems = [
+    {
+      key: 'overview',
+      label: 'Overview & Control',
+      children: <OverviewTab serverData={serverData} refreshData={refreshData} loading={loading} lastUpdate={lastUpdate} />
+    },
+    {
+      key: 'charts', 
+      label: 'Charts',
+      children: <ChartTab serverData={serverData} refreshData={refreshData} loading={loading} />
+    },
+    {
+      key: 'data',
+      label: 'Data Files',
+      children: <DataTab serverData={serverData} refreshData={refreshData} loading={loading} />
+    },
+    {
+      key: 'strategies',
+      label: 'Strategies',
+      children: <StrategiesTab serverData={serverData} refreshData={refreshData} loading={loading} />
+    }
   ];
 
-  const renderTabContent = () => {
-    const commonProps = {
-      serverData,
-      refreshData,
-      loading
-    };
-
-    switch (activeTab) {
-      case 'overview':
-        return <OverviewTab {...commonProps} lastUpdate={lastUpdate} />;
-      case 'charts':
-        return <ChartTab {...commonProps} />;
-      case 'control':
-        return <ControlTab {...commonProps} />;
-      case 'data':
-        return <DataTab {...commonProps} />;
-      case 'strategies':
-        return <StrategiesTab {...commonProps} />;
-      default:
-        return <OverviewTab {...commonProps} lastUpdate={lastUpdate} />;
-    }
-  };
 
   return (
-    <div className="app">
-      <Sidebar
-        serverUrl={serverUrl}
-        setServerUrl={setServerUrl}
-        serverOnline={serverOnline}
-        checkServerConnection={checkServerConnection}
-      />
+    <Layout style={{ minHeight: '100vh' }}>
+      <Sider width={300} theme="light" style={{ borderRight: '1px solid #f0f0f0' }}>
+        <Sidebar
+          serverUrl={serverUrl}
+          setServerUrl={setServerUrl}
+          serverOnline={serverOnline}
+          checkServerConnection={checkServerConnection}
+        />
+      </Sider>
       
-      <div className="main-content">
-        <div className="header">
-          <h1>🍃 Longleaf Control Dashboard</h1>
-          <p>Algorithmic Trading Platform Control Interface</p>
-        </div>
+      <Layout>
+        <Header style={{ background: '#fff', padding: '16px 24px', borderBottom: '1px solid #f0f0f0', height: 'auto' }}>
+          <Title level={2} style={{ margin: '0 0 4px 0' }}>Longleaf Control Dashboard</Title>
+          <Text type="secondary">Algorithmic Trading Platform Control Interface</Text>
+        </Header>
 
-        <div className="tabs">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              className={`tab ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="tab-content">
+        <Content style={{ padding: '24px' }}>
           {serverOnline ? (
-            renderTabContent()
+            <Tabs items={tabItems} defaultActiveKey="overview" />
           ) : (
-            <div className="card">
-              <div className="alert alert-danger">
-                <strong>🔴 Cannot connect to server.</strong> Please check:
-                <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
-                  <li>Server is running: <code>longleaf_server</code></li>
-                  <li>Correct URL (default: http://localhost:8080)</li>
-                  <li>Network connectivity</li>
-                  <li>Firewall settings</li>
-                </ul>
-              </div>
-            </div>
+            <Alert
+              type="error"
+              showIcon
+              message="Cannot connect to server"
+              description={
+                <div>
+                  <p>Please check:</p>
+                  <ul>
+                    <li>Server is running: <code>longleaf_server</code></li>
+                    <li>Correct URL (default: http://localhost:8080)</li>
+                    <li>Network connectivity</li>
+                    <li>Firewall settings</li>
+                  </ul>
+                </div>
+              }
+            />
           )}
-        </div>
-      </div>
-    </div>
+        </Content>
+      </Layout>
+    </Layout>
   );
 };
 

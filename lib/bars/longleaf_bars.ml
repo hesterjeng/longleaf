@@ -257,3 +257,4 @@ let print_to_file ?(filename : string option) bars prefix =
 let files () =
   Sys.readdir "data" |> Array.to_list
   |> List.filter @@ fun x -> String.equal (Filename.extension x) ".json"
+  (* |> List.map @@ fun x -> "data/" ^ x *)

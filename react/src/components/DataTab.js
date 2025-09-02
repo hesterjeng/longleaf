@@ -1,5 +1,10 @@
 import React from 'react';
+import { Card, Alert, Typography, Tag, Collapse, List } from 'antd';
+import { CheckCircleOutlined, FileOutlined } from '@ant-design/icons';
 import { getActiveDataFile } from '../utils/oclFormat';
+
+const { Title, Text, Paragraph } = Typography;
+const { Panel } = Collapse;
 
 const DataTab = ({ serverData }) => {
   const { dataFiles, settings } = serverData;
@@ -7,72 +12,79 @@ const DataTab = ({ serverData }) => {
   const currentTarget = getActiveDataFile(settings?.target);
 
   const renderInstructions = () => (
-    <details className="expandable">
-      <summary className="expandable-header">
-        📖 Data File Instructions
-      </summary>
-      <div className="expandable-content">
-        <p><strong>Data files</strong> are historical market data files used for backtesting and analysis.</p>
+    <Collapse>
+      <Panel header="Data File Instructions" key="1">
+        <Paragraph>
+          <Text strong>Data files</Text> are historical market data files used for backtesting and analysis.
+        </Paragraph>
         
         <ul>
           <li>Files are typically JSON format containing OHLCV data</li>
-          <li>Use the <strong>longleaf_downloader</strong> tool to create data files</li>
+          <li>Use the <Text strong>longleaf_downloader</Text> tool to create data files</li>
           <li>Select a file to set it as the target for backtesting</li>
         </ul>
 
-        <h4>Example commands:</h4>
-        <pre className="code-block">
+        <Title level={5}>Example commands:</Title>
+        <pre style={{ background: '#f5f5f5', padding: '16px', borderRadius: '6px' }}>
 {`# Download data for backtesting
 longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 \\
     --interval=10 --timeframe=minute data/24.json`}
         </pre>
-      </div>
-    </details>
+      </Panel>
+    </Collapse>
   );
 
   return (
     <div>
-      <h2>📁 Data Files</h2>
+      <Title level={2}>Data Files</Title>
 
-      <div className="card">
-        <h3>Current Target</h3>
+      <Card title="Current Target" style={{ marginBottom: '16px' }}>
         {currentTarget ? (
-          <div className="alert alert-success">
-            <strong>📄 Active Data File:</strong> <code>{currentTarget}</code>
-          </div>
+          <Alert
+            type="success"
+            message={<span><Text strong>Active Data File:</Text> <code>{currentTarget}</code></span>}
+            showIcon
+            icon={<FileOutlined />}
+          />
         ) : (
-          <div className="alert alert-info">
-            <strong>📥 Target:</strong> Download (live data)
-          </div>
+          <Alert
+            type="info"
+            message={<span><Text strong>Target:</Text> Download (live data)</span>}
+            showIcon
+          />
         )}
-        <p className="text-muted">
-          <strong>💡 To change the target:</strong> Use the <strong>Control</strong> tab → <strong>Complete CLI Settings</strong> form
-        </p>
-      </div>
+        <Text type="secondary" style={{ marginTop: '12px', display: 'block' }}>
+          <Text strong>To change the target:</Text> Use the <Text strong>Control</Text> tab → <Text strong>Complete CLI Settings</Text> form
+        </Text>
+      </Card>
 
       {dataFiles && dataFiles.length > 0 ? (
-        <div className="card">
-          <h3>Available Data Files ({dataFiles.length})</h3>
-          
-          <div className="file-list">
-            {dataFiles.map((filePath, index) => (
-              <div key={filePath} className="file-item">
-                <div style={{ flex: 1 }}>
-                  <strong>{index + 1}.</strong> <code>{filePath}</code>
+        <Card title={`Available Data Files (${dataFiles.length})`} style={{ marginBottom: '16px' }}>
+          <List
+            dataSource={dataFiles}
+            renderItem={(filePath, index) => (
+              <List.Item>
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>
+                    <FileOutlined style={{ marginRight: '8px' }} />
+                    <Text strong>{index + 1}.</Text> <code>{filePath}</code>
+                  </span>
                   {currentTarget === filePath && (
-                    <span style={{ marginLeft: '10px', color: '#28a745', fontWeight: 'bold' }}>
-                      ✅ ACTIVE
-                    </span>
+                    <Tag icon={<CheckCircleOutlined />} color="success">
+                      ACTIVE
+                    </Tag>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              </List.Item>
+            )}
+          />
+        </Card>
       ) : (
-        <div className="alert alert-warning">
-          No data files found
-        </div>
+        <Alert
+          type="warning"
+          message="No data files found"
+          style={{ marginBottom: '16px' }}
+        />
       )}
       
       {renderInstructions()}
