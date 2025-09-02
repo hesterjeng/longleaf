@@ -4,6 +4,7 @@
  (public_name longleaf-lib.core)
  (instrumentation
   (backend landmarks))
+ ; (modes melange)
  (libraries
   longleaf_util
   fmt

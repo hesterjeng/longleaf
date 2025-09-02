@@ -2,7 +2,7 @@
 type t = Download | File of string
 (* Store file path for deferred loading *)
 (* | Loaded of 'a (\* Placeholder - will be updated when bars are available *\) *)
-[@@deriving show, variants]
+[@@deriving show, variants, yojson]
 
 let of_string_res =
  fun x ->

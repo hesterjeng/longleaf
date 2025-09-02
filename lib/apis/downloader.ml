@@ -33,12 +33,12 @@ let download eio_env request (downloader_arg : Ty.t option) afterhours =
   Eio.traceln "Making request %a..." Market_data_api.Request.pp request;
   let* bars =
     match downloader_arg with
-    | Some Alpaca -> (
-      MDA.Stock.historical_bars request |> function
+    | Some Alpaca ->
+      MDA.Stock.historical_bars request |> ( function
       | Ok x -> x
       | Error e ->
         Eio.traceln "error in MDA.Stock.historical_bars: %a" Error.pp e;
-        invalid_arg "Error downloading historical bars")
+        invalid_arg "Error downloading historical bars" )
     | Some Tiingo ->
       let module Param = struct
         let longleaf_env = longleaf_env

@@ -280,7 +280,7 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
         invalid_arg "Error while converting bars to json"
     in
     Response.of_string ~body `OK
-  | { Request.meth = `GET; target; _ } when data_prefix target -> (
+  | { Request.meth = `GET; target; _ } when data_prefix target ->
     let target =
       String.chop_prefix ~pre:"/data" target |> function
       | None -> invalid_arg "Unable to get data target (server.ml)"
@@ -288,13 +288,13 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     in
     let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
     let instrument = Instrument.of_string_res target in
-    match instrument with
+    (match instrument with
     | Ok targ -> plotly_response_of_symbol ~mutices targ
     | Error _ ->
       Response.of_string
         ~body:("Unable to create Instrument.t from " ^ target)
         `Internal_server_error)
-  | { Request.meth = `POST; target; _ } when custom_indicator_prefix target -> (
+  | { Request.meth = `POST; target; _ } when custom_indicator_prefix target ->
     let target =
       String.chop_prefix ~pre:"/custom-indicator" target |> function
       | None -> invalid_arg "Unable to get custom indicator target (server.ml)"
@@ -302,43 +302,43 @@ let connection_handler ~(mutices : Longleaf_mutex.t)
     in
     let target = String.filter (fun x -> not @@ Char.equal '/' x) target in
     let instrument = Instrument.of_string_res target in
-    match instrument with
-    | Ok targ -> (
-      try
-        Eio.traceln "@[Processing custom indicator request for target: %a@]@."
-          Instrument.pp targ;
-        (* Read JSON body from request *)
-        let body =
-          Body.to_string params.request.body |> function
-          | Ok x ->
-            Eio.traceln "@[Successfully read request body: %s@]@." x;
-            x
-          | Error e ->
-            Eio.traceln "@[ERROR reading request body: %a@]@." Piaf.Error.pp_hum
-              e;
-            "server.ml: Unable to convert body to string in \
-             custom_indicator_prefix endpoint"
-        in
-        let json = Yojson.Safe.from_string body in
-        Eio.traceln "@[Successfully parsed JSON body@]@.";
-        let tacaml_str =
-          Yojson.Safe.Util.(json |> member "tacaml" |> to_string)
-        in
-        let color = Yojson.Safe.Util.(json |> member "color" |> to_string) in
-        let yaxis = Yojson.Safe.Util.(json |> member "yaxis" |> to_string) in
-        Eio.traceln "@[Extracted parameters: tacaml=%s, color=%s, yaxis=%s@]@."
-          tacaml_str color yaxis;
+    (match instrument with
+    | Ok targ ->
+      (try
+         Eio.traceln "@[Processing custom indicator request for target: %a@]@."
+           Instrument.pp targ;
+         (* Read JSON body from request *)
+         let body =
+           Body.to_string params.request.body |> function
+           | Ok x ->
+             Eio.traceln "@[Successfully read request body: %s@]@." x;
+             x
+           | Error e ->
+             Eio.traceln "@[ERROR reading request body: %a@]@."
+               Piaf.Error.pp_hum e;
+             "server.ml: Unable to convert body to string in \
+              custom_indicator_prefix endpoint"
+         in
+         let json = Yojson.Safe.from_string body in
+         Eio.traceln "@[Successfully parsed JSON body@]@.";
+         let tacaml_str =
+           Yojson.Safe.Util.(json |> member "tacaml" |> to_string)
+         in
+         let color = Yojson.Safe.Util.(json |> member "color" |> to_string) in
+         let yaxis = Yojson.Safe.Util.(json |> member "yaxis" |> to_string) in
+         Eio.traceln "@[Extracted parameters: tacaml=%s, color=%s, yaxis=%s@]@."
+           tacaml_str color yaxis;
 
-        match
-          custom_indicator_response ~mutices targ tacaml_str color yaxis
-        with
-        | Ok response ->
-          Eio.traceln "@[Custom indicator request completed successfully@]@.";
-          response
-        | Error err_msg ->
-          Eio.traceln "@[Custom indicator request failed: %s@]@." err_msg;
-          Response.of_string ~body:err_msg `Internal_server_error
-      with
+         match
+           custom_indicator_response ~mutices targ tacaml_str color yaxis
+         with
+         | Ok response ->
+           Eio.traceln "@[Custom indicator request completed successfully@]@.";
+           response
+         | Error err_msg ->
+           Eio.traceln "@[Custom indicator request failed: %s@]@." err_msg;
+           Response.of_string ~body:err_msg `Internal_server_error
+       with
       | e ->
         let err_msg =
           "Error processing custom indicator request: " ^ Printexc.to_string e

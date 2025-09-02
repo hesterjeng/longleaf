@@ -27,31 +27,8 @@ let find_gadt_strategy name =
     Some (Gadt_strategy.random ())
   | _ -> find_gadt_strategy name gadt_strategies
 
-(** Function for Cmdliner use. *)
-let of_string_res strategy_name =
-  match find_gadt_strategy strategy_name with
-  | Some _ -> Result.return strategy_name
-  | None ->
-    Result.fail
-    @@ `Msg
-         (Format.asprintf
-            "@[Unknown strategy selected: %s@]@.@[Valid options are: %a@]@."
-            strategy_name (List.pp String.pp) all_strategy_names)
-
-(** Function for Cmdliner use. *)
-let conv = Cmdliner.Arg.conv (of_string_res, String.pp)
-
-type multitest = { mean : float; min : float; max : float; std : float }
-[@@deriving show]
-(** Track some statistics if we are doing multiple backtests. *)
-
 module Run = struct
   module Target = Longleaf_core.Target
-
-  let run_server eio_env (flags : Options.CLI.t) mutices () =
-    match flags.no_gui with
-    | true -> ()
-    | false -> Longleaf_server.Server.top ~mutices eio_env
 
   let run_strategy eio_env flags target mutices () =
     (* Load target bars with eio_env if needed *)
@@ -89,25 +66,20 @@ module Run = struct
       Eio.traceln "Using Gadt_atomic.opt_atomic";
       Longleaf_gadt.Gadt_atomic.opt_atomic bars options mutices strategy
 
-  let server env flags target mutices =
+  let top (flags : Options.CLI.t) target =
+    Eio_main.run @@ fun env ->
+    Eio.Switch.run @@ fun sw ->
     let domain_mgr = Eio.Stdenv.domain_mgr env in
     let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
-    Eio.Switch.run @@ fun sw ->
     let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
+    let mutices = Longleaf_state.Mutex.create [] in
     let strat_result =
       Eio.Executor_pool.submit_fork ~sw ~weight:1.0 pool
       @@ run_strategy env flags target mutices
     in
-    run_server env flags mutices ();
     match Eio.Promise.await strat_result with
     | Ok x -> x
     | Error e ->
       Eio.traceln "longleaf_strategies: strategy error";
       raise e
-
-  let top (flags : Options.CLI.t) target =
-    Eio_main.run @@ fun eio_env ->
-    let mutices = Longleaf_state.Mutex.create [] in
-    let res = server eio_env flags target mutices in
-    res
 end

@@ -27,7 +27,7 @@ module Make (Backend : Backend.S) = struct
              | None ->
                Ticker.tick ~runtype env Input.options.tick;
                Result.return Mode.Continue
-             | Some open_time -> (
+             | Some open_time ->
                Eio.traceln "@[Current time: %a@]@." (Option.pp Time.pp)
                  (Eio.Time.now env#clock |> Ptime.of_float_s);
                Eio.traceln "@[Open time: %a@]@." Time.pp open_time;
@@ -35,7 +35,7 @@ module Make (Backend : Backend.S) = struct
                Eio.traceln "@[Waiting until market open...@]@.";
                Eio.Time.sleep_until env#clock open_time;
                Eio.traceln "@[Market is open, resuming.@]@.";
-               Eio.Time.now env#clock |> Ptime.of_float_s |> function
+               Eio.Time.now env#clock |> Ptime.of_float_s |> ( function
                | Some t ->
                  Eio.traceln "@[Current time: %a@]@." Time.pp t;
                  Ticker.tick ~runtype env 5.0;
@@ -43,7 +43,7 @@ module Make (Backend : Backend.S) = struct
                  Result.return @@ Mode.Continue
                | None ->
                  Eio.traceln "@[Detected an illegal time!  Shutting down.@]@.";
-                 Result.return @@ Mode.BeginShutdown));
+                 Result.return @@ Mode.BeginShutdown ));
            (fun () ->
              while
                let shutdown = Pmutex.get mutices.shutdown_mutex in
@@ -81,14 +81,14 @@ module Make (Backend : Backend.S) = struct
       let stepped = step prev in
       match stepped with
       | Ok x -> go x
-      | Error e -> (
+      | Error e ->
         let try_liquidating () =
           Eio.traceln
             "@[Trying to liquidate because of a signal or error: %a@]@."
             Error.pp e;
           go @@ State.liquidate prev
         in
-        match State.current prev with
+        (match State.current prev with
         | Liquidate
         | Finished _ ->
           Eio.traceln "@[Exiting run.@]@.";
@@ -180,12 +180,12 @@ module Make (Backend : Backend.S) = struct
       in
       Eio.traceln "Finished with initialization: %d..." (State.tick state);
       Result.return @@ State.set state Listening
-    | Listening -> (
+    | Listening ->
       if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
       (* Eio.traceln "tick"; *)
       let* listened = listen_tick eio_env in
       let* length = Bars.length bars in
-      match listened with
+      (match listened with
       | Continue when tick >= length - 1 ->
         Eio.traceln "Liquidating due to end of data";
         Result.return @@ State.set state Liquidate
