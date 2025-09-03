@@ -1,27 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Layout, Tabs, Alert, Typography } from 'antd';
+import type { TabsProps } from 'antd';
 import Sidebar from './components/Sidebar';
 import OverviewTab from './components/OverviewTab';
 import ChartTab from './components/ChartTab';
 import DataTab from './components/DataTab';
 import StrategiesTab from './components/StrategiesTab';
+import type { ServerData } from './types';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
 
-const App = () => {
-  const [serverUrl, setServerUrl] = useState('http://localhost:8080');
-  const [serverOnline, setServerOnline] = useState(false);
-  const [serverData, setServerData] = useState({
+const App: React.FC = () => {
+  const [serverUrl, setServerUrl] = useState<string>('http://localhost:8080');
+  const [serverOnline, setServerOnline] = useState<boolean>(false);
+  const [serverData, setServerData] = useState<ServerData>({
     status: null,
     settings: null,
     dataFiles: null,
     strategies: null,
     symbols: null
   });
-  const [loading, setLoading] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [loading, setLoading] = useState<boolean>(false);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   const fetchAllData = useCallback(async () => {
     if (!serverOnline) return;
@@ -82,7 +84,7 @@ const App = () => {
     fetchAllData();
   }, [fetchAllData]);
 
-  const tabItems = [
+  const tabItems: TabsProps['items'] = [
     {
       key: 'overview',
       label: 'Overview & Control',

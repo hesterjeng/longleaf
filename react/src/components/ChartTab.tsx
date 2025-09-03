@@ -3,20 +3,27 @@ import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { Card, Button, Alert, Select, Typography, Row, Col, Spin, Statistic, Collapse } from 'antd';
 import { LineChartOutlined, ReloadOutlined } from '@ant-design/icons';
+import type { ServerData, ChartData, APIError } from '../types';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { Panel } = Collapse;
 
-const ChartTab = ({ serverData }) => {
-  const [selectedSymbol, setSelectedSymbol] = useState('');
-  const [chartData, setChartData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+interface ChartTabProps {
+  serverData: ServerData;
+  refreshData: () => void;
+  loading: boolean;
+}
+
+const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('');
+  const [chartData, setChartData] = useState<ChartData | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { symbols } = serverData;
 
-  const fetchChartData = async (symbol) => {
+  const fetchChartData = async (symbol: string) => {
     if (!symbol) return;
 
     setLoading(true);
@@ -28,10 +35,11 @@ const ChartTab = ({ serverData }) => {
       });
       setChartData(response.data);
     } catch (err) {
-      if (err.response?.status === 404) {
+      const error = err as APIError;
+      if (error.response?.status === 404) {
         setError(`Chart data not yet available for ${symbol}`);
       } else {
-        setError(`Error fetching chart data for ${symbol}: ${err.message}`);
+        setError(`Error fetching chart data for ${symbol}: ${error.message}`);
       }
       setChartData(null);
     } finally {
@@ -51,7 +59,7 @@ const ChartTab = ({ serverData }) => {
     }
 
     // Convert server chart data to Plotly format
-    const traces = chartData.traces.map(trace => ({
+    const traces = chartData.traces.map((trace) => ({
       x: trace.x || [],
       y: trace.y || [],
       type: trace.type === 'scatter' ? 'scatter' : 'scatter',

@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
-import { Card, Button, Alert, Table, Typography, Row, Col, Spin, Tag, Collapse, Form, Select, Switch, InputNumber, Input, message } from 'antd';
-import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SettingOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons';
-import { parseOCamlVariant, getTargetDisplay, formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
+import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Select, Switch, InputNumber, message } from 'antd';
+import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons';
+import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
 import { executeStrategy, updateServerStatus, updateCLI, updateTarget } from '../utils/api';
+import type { ServerData, SettingsFormValues, CLIFormData, APIError } from '../types';
 
 const { Title, Text } = Typography;
-const { Panel } = Collapse;
 const { Option } = Select;
 
-const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
+interface OverviewTabProps {
+  serverData: ServerData;
+  lastUpdate: Date;
+  refreshData: () => void;
+  loading: boolean;
+}
+
+const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refreshData, loading }) => {
   const { status, settings, dataFiles, strategies } = serverData;
-  const [executing, setExecuting] = useState(false);
-  const [executeResult, setExecuteResult] = useState(null);
-  const [executeError, setExecuteError] = useState(null);
+  const [executing, setExecuting] = useState<boolean>(false);
+  const [executeResult, setExecuteResult] = useState<string | null>(null);
+  const [executeError, setExecuteError] = useState<string | null>(null);
   const [settingsForm] = Form.useForm();
-  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
 
   const runtypeOptions = [
     'Live', 'Paper', 'Backtest', 'Manual', 'Multitest', 'Montecarlo',
@@ -22,18 +29,13 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
     'RandomTickerBacktest', 'MultiRandomTickerBacktest'
   ];
 
-  // Monitor status changes to detect completion
+  // Monitor status changes to detect errors
   React.useEffect(() => {
-    if (executing) {
-      if (status === 'Ready' && executeResult === null && executeError === null) {
-        setExecuteResult('Strategy execution completed');
-        setExecuting(false);
-      } else if (status === 'Error') {
-        setExecuteError('Strategy execution failed - check server logs');
-        setExecuting(false);
-      }
+    if (executing && status === 'Error') {
+      setExecuteError('Strategy execution failed - check server logs');
+      setExecuting(false);
     }
-  }, [status, executing, executeResult, executeError]);
+  }, [status, executing]);
 
   // Update form when settings change
   React.useEffect(() => {
@@ -55,15 +57,28 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
     setExecuteError(null);
     
     try {
-      executeStrategy().catch(error => {
-        if (!error.code || error.code !== 'ECONNABORTED') {
-          setExecuteError(formatError(error, 'execute strategy'));
-          setExecuting(false);
+      const result = await executeStrategy();
+      // The server returns the backtest result as a float value
+      if (result.data !== undefined && result.data !== null) {
+        if (typeof result.data === 'number') {
+          setExecuteResult(`Backtest completed - Final portfolio value: $${result.data.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+        } else if (typeof result.data === 'string') {
+          const value = parseFloat(result.data);
+          if (!isNaN(value)) {
+            setExecuteResult(`Backtest completed - Final portfolio value: $${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+          } else {
+            setExecuteResult(`Strategy execution completed - Result: ${result.data}`);
+          }
+        } else {
+          setExecuteResult(`Strategy execution completed - Result: ${String(result.data)}`);
         }
-      });
+      } else {
+        setExecuteResult('Strategy execution completed');
+      }
+      setExecuting(false);
       refreshData();
     } catch (error) {
-      setExecuteError(formatError(error, 'execute strategy'));
+      setExecuteError(formatError(error as APIError, 'execute strategy'));
       setExecuting(false);
     }
   };
@@ -75,16 +90,16 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
       message.success('Server stopped successfully');
       refreshData();
     } catch (error) {
-      message.error(formatError(error, 'stop server'));
+      message.error(formatError(error as APIError, 'stop server'));
     } finally {
       setSettingsLoading(false);
     }
   };
 
-  const onFinishSettings = async (values) => {
+  const onFinishSettings = async (values: SettingsFormValues) => {
     setSettingsLoading(true);
     try {
-      const cliData = {
+      const cliData: CLIFormData = {
         runtype: values.runtype,
         stacktrace: values.stacktrace,
         strategy_arg: values.strategy_arg,
@@ -110,19 +125,19 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
       message.success('Settings updated successfully');
       refreshData();
     } catch (error) {
-      message.error(formatError(error, 'update settings'));
+      message.error(formatError(error as APIError, 'update settings'));
     } finally {
       setSettingsLoading(false);
     }
   };
 
-  const renderStatusDisplay = (statusData) => {
+  const renderStatusDisplay = (statusData: string | null) => {
     if (!statusData) {
       return <Alert type="error" message="No status data available" />;
     }
 
     const statusStr = typeof statusData === 'string' ? statusData : String(statusData);
-    let alertType = 'warning';
+    let alertType: 'warning' | 'success' | 'info' | 'error' = 'warning';
 
     if (statusStr.includes('Ready')) {
       alertType = 'success';
@@ -141,96 +156,7 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
     );
   };
 
-  const renderSettingsDisplay = (settingsData) => {
-    if (!settingsData) {
-      return <Alert type="error" message="No settings data available" />;
-    }
 
-    const cliVars = settingsData.cli_vars || {};
-    const target = settingsData.target;
-    const targetDisplay = getTargetDisplay(target);
-
-    const coreColumns = [
-      {
-        title: 'Setting',
-        dataIndex: 'setting',
-        key: 'setting',
-        width: '40%'
-      },
-      {
-        title: 'Value',
-        dataIndex: 'value',
-        key: 'value',
-        render: (text) => <code>{text}</code>
-      }
-    ];
-
-    const coreData = [
-      { key: '1', setting: 'Run Type', value: parseOCamlVariant(cliVars.runtype) || 'Not set' },
-      { key: '2', setting: 'Strategy', value: cliVars.strategy_arg || 'Not set' },
-      { key: '3', setting: 'Target', value: targetDisplay },
-      { key: '4', setting: 'Start Index', value: cliVars.start || 0 }
-    ];
-
-    return (
-      <div>
-        <Title level={4}>Current Configuration</Title>
-        
-        <Row gutter={16}>
-          <Col span={12}>
-            <Card title="Core Settings" size="small">
-              <Table
-                columns={coreColumns}
-                dataSource={coreData}
-                pagination={false}
-                size="small"
-              />
-            </Card>
-          </Col>
-          
-          <Col span={12}>
-            <Card title="Options" size="small">
-              <div>
-                <Text strong>Debug:</Text>
-                <div style={{ marginBottom: '12px' }}>
-                  <Tag color={cliVars.stacktrace ? 'green' : 'default'}>Stacktrace</Tag>
-                  <Tag color={cliVars.print_tick_arg ? 'green' : 'default'}>Print Tick</Tag>
-                  <Tag color={cliVars.compare_preloaded ? 'green' : 'default'}>Compare Preloaded</Tag>
-                </div>
-                
-                <Text strong>Processing:</Text>
-                <div style={{ marginBottom: '12px' }}>
-                  <Tag color={cliVars.no_gui ? 'green' : 'default'}>No GUI</Tag>
-                  <Tag color={cliVars.precompute_indicators_arg ? 'green' : 'default'}>Precompute Indicators</Tag>
-                  <Tag color={cliVars.nowait_market_open ? 'green' : 'default'}>No Wait Market Open</Tag>
-                </div>
-                
-                <Text strong>Storage:</Text>
-                <div style={{ marginBottom: '12px' }}>
-                  <Tag color={cliVars.save_received ? 'green' : 'default'}>Save Received</Tag>
-                  <Tag color={cliVars.save_to_file ? 'green' : 'default'}>Save to File</Tag>
-                </div>
-                
-                {cliVars.random_drop_chance > 0 && (
-                  <div>
-                    <Text strong>Random Drop:</Text> <Tag>{cliVars.random_drop_chance}%</Tag>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </Col>
-        </Row>
-
-        <Collapse style={{ marginTop: '16px' }}>
-          <Panel header="Raw Settings JSON" key="1">
-            <pre style={{ background: '#f5f5f5', padding: '16px', borderRadius: '6px' }}>
-              {JSON.stringify(settingsData, null, 2)}
-            </pre>
-          </Panel>
-        </Collapse>
-      </div>
-    );
-  };
 
   if (loading) {
     return (
@@ -345,9 +271,9 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
             <Col span={6}>
               <Form.Item label="Strategy" name="strategy_arg">
                 <Select placeholder="Select strategy" showSearch size="large">
-                  {strategies && strategies.length > 0 ? strategies.map(strategy => (
+                  {strategies && strategies.length > 0 ? strategies.map((strategy: string) => (
                     <Option key={strategy} value={strategy}>{strategy}</Option>
-                  )) : <Option disabled>No strategies available</Option>}
+                  )) : <Option disabled value="">No strategies available</Option>}
                 </Select>
               </Form.Item>
             </Col>
@@ -378,9 +304,9 @@ const OverviewTab = ({ serverData, lastUpdate, refreshData, loading }) => {
             <Col span={12}>
               <Form.Item label="Target File" name="target_file">
                 <Select placeholder="Select data file" allowClear showSearch size="large">
-                  {dataFiles && dataFiles.length > 0 ? dataFiles.map(file => (
+                  {dataFiles && dataFiles.length > 0 ? dataFiles.map((file: string) => (
                     <Option key={file} value={file}>{file}</Option>
-                  )) : <Option disabled>No data files available</Option>}
+                  )) : <Option disabled value="">No data files available</Option>}
                 </Select>
               </Form.Item>
             </Col>

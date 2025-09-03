@@ -2,14 +2,21 @@ import React from 'react';
 import { Card, Alert, Typography, Tag, Collapse, List } from 'antd';
 import { CheckCircleOutlined, FileOutlined } from '@ant-design/icons';
 import { getActiveDataFile } from '../utils/oclFormat';
+import type { ServerData } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
 
-const DataTab = ({ serverData }) => {
+interface DataTabProps {
+  serverData: ServerData;
+  refreshData: () => void;
+  loading: boolean;
+}
+
+const DataTab: React.FC<DataTabProps> = ({ serverData }) => {
   const { dataFiles, settings } = serverData;
 
-  const currentTarget = getActiveDataFile(settings?.target);
+  const currentTarget = getActiveDataFile(settings?.target || null);
 
   const renderInstructions = () => (
     <Collapse>
@@ -62,7 +69,7 @@ longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 \\
         <Card title={`Available Data Files (${dataFiles.length})`} style={{ marginBottom: '16px' }}>
           <List
             dataSource={dataFiles}
-            renderItem={(filePath, index) => (
+            renderItem={(filePath: string, index: number) => (
               <List.Item>
                 <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>

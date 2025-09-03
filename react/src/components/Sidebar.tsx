@@ -4,8 +4,15 @@ import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-d
 
 const { Title, Paragraph, Text } = Typography;
 
-const Sidebar = ({ serverUrl, setServerUrl, serverOnline, checkServerConnection }) => {
-  const handleUrlChange = (e) => {
+interface SidebarProps {
+  serverUrl: string;
+  setServerUrl: (url: string) => void;
+  serverOnline: boolean;
+  checkServerConnection: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ serverUrl, setServerUrl, serverOnline, checkServerConnection }) => {
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setServerUrl(e.target.value);
   };
 

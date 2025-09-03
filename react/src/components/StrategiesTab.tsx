@@ -1,11 +1,18 @@
 import React from 'react';
 import { Card, Alert, Typography, Tag, Collapse, List } from 'antd';
 import { CheckCircleOutlined } from '@ant-design/icons';
+import type { ServerData } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
 
-const StrategiesTab = ({ serverData }) => {
+interface StrategiesTabProps {
+  serverData: ServerData;
+  refreshData: () => void;
+  loading: boolean;
+}
+
+const StrategiesTab: React.FC<StrategiesTabProps> = ({ serverData }) => {
   const { strategies, settings } = serverData;
   const currentStrategy = settings?.cli_vars?.strategy_arg || null;
 
@@ -77,7 +84,7 @@ module Make : Strategy.BUILDER = Template.Make (Buy_inp) (Sell)`}
         <Card title={`Available Strategies (${strategies.length})`} style={{ marginBottom: '16px' }}>
           <List
             dataSource={strategies}
-            renderItem={(strategy, index) => (
+            renderItem={(strategy: string, index: number) => (
               <List.Item>
                 <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>
