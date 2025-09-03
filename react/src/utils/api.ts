@@ -34,19 +34,35 @@ export const apiPost = <T = unknown>(url: string, data: unknown, timeout: number
 };
 
 /**
+ * POST request helper for endpoints that return plain text instead of JSON
+ */
+export const apiPostText = async (url: string, data: unknown, timeout: number = 5000): Promise<ApiResponse<string>> => {
+  const config: AxiosRequestConfig = {
+    method: 'POST',
+    url,
+    timeout,
+    headers: { 'Content-Type': 'application/json' },
+    responseType: 'text', // Expect plain text response
+    data: JSON.stringify(data)
+  };
+  
+  return axios(config);
+};
+
+/**
  * Standard server status update
  */
 export const updateServerStatus = (status: string) => {
-  return apiPost('/set_status', [status]);
+  return apiPostText('/set_status', [status]);
 };
 
 /**
  * Standard CLI settings update
  */
-export const updateCLI = async (cliSettings: CLISettings): Promise<ApiResponse> => {
+export const updateCLI = async (cliSettings: CLISettings): Promise<ApiResponse<string>> => {
   console.log('Sending CLI data:', JSON.stringify(cliSettings, null, 2));
   try {
-    const response = await apiPost('/set_cli', cliSettings);
+    const response = await apiPostText('/set_cli', cliSettings);
     console.log('CLI response:', response);
     return response;
   } catch (error) {
@@ -58,10 +74,10 @@ export const updateCLI = async (cliSettings: CLISettings): Promise<ApiResponse> 
 /**
  * Standard target update
  */
-export const updateTarget = async (targetData: OCamlTarget): Promise<ApiResponse> => {
+export const updateTarget = async (targetData: OCamlTarget): Promise<ApiResponse<string>> => {
   console.log('Sending target data:', JSON.stringify(targetData, null, 2));
   try {
-    const response = await apiPost('/set_target', targetData);
+    const response = await apiPostText('/set_target', targetData);
     console.log('Target response:', response);
     return response;
   } catch (error) {
@@ -74,14 +90,17 @@ export const updateTarget = async (targetData: OCamlTarget): Promise<ApiResponse
  * Execute strategy - uses longer timeout for potentially long-running backtests
  */
 export const executeStrategy = async (): Promise<ApiResponse> => {
-  console.log('Executing strategy...');
+  console.log('📡 API: Starting strategy execution request...');
   try {
+    console.log('📡 API: Making GET request to /execute with 60s timeout...');
     // 60 second timeout for strategy execution (backtests can take time)
     const response = await apiGet('/execute', 60000);
-    console.log('Execute response:', response);
+    console.log('✅ API: Got response from /execute:', response);
     return response;
   } catch (error) {
-    console.error('Execute error:', (error as any).response?.data || (error as any).message);
+    console.error('❌ API: Execute request failed:', error);
+    console.error('❌ API: Error details:', (error as any).response?.data || (error as any).message);
+    console.error('❌ API: Error code:', (error as any).code);
     throw error;
   }
 };

@@ -29,13 +29,43 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     'RandomTickerBacktest', 'MultiRandomTickerBacktest'
   ];
 
-  // Monitor status changes to detect errors
+  // Monitor status changes to detect errors and hung executions
   React.useEffect(() => {
     if (executing && status === 'Error') {
+      console.log('🔥 Server status changed to Error during execution');
       setExecuteError('Strategy execution failed - check server logs');
       setExecuting(false);
     }
   }, [status, executing]);
+
+  // Safety net: If execution takes too long without server response, check server status
+  React.useEffect(() => {
+    if (executing) {
+      console.log('⏰ Setting up 70s safety timeout for execution...');
+      const timeoutId = setTimeout(async () => {
+        console.log('⚠️ Safety timeout triggered - checking if server is hung...');
+        // Check if server is still in Started state after our API timeout
+        try {
+          const statusResponse = await fetch('/status');
+          if (statusResponse.ok) {
+            const serverStatus = await statusResponse.text();
+            console.log('📊 Server status after timeout:', serverStatus);
+            if (serverStatus.includes('Started')) {
+              setExecuteError('Execution appears to be hung - server status still "Started". Try stopping the server and retrying.');
+              setExecuting(false);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to check server status:', error);
+        }
+      }, 70000); // 70 seconds - slightly longer than API timeout
+
+      return () => {
+        console.log('🧹 Cleaning up execution timeout');
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [executing]);
 
   // Update form when settings change
   React.useEffect(() => {
@@ -52,12 +82,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   }, [settings, settingsForm, strategies, dataFiles]);
 
   const executeStrategyHandler = async () => {
+    console.log('🚀 Starting strategy execution...');
     setExecuting(true);
     setExecuteResult(null);
     setExecuteError(null);
     
     try {
+      console.log('📡 Calling executeStrategy API...');
       const result = await executeStrategy();
+      console.log('✅ Got result from server:', result);
       // The server returns the backtest result as a float value
       if (result.data !== undefined && result.data !== null) {
         if (typeof result.data === 'number') {
@@ -75,9 +108,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       } else {
         setExecuteResult('Strategy execution completed');
       }
+      console.log('🎯 Setting execution complete state');
       setExecuting(false);
-      refreshData();
+      // Note: Don't call refreshData() immediately - the server has already returned the result
+      // and we have all the information we need. Let the user manually refresh if needed.
     } catch (error) {
+      console.error('❌ Strategy execution error:', error);
       setExecuteError(formatError(error as APIError, 'execute strategy'));
       setExecuting(false);
     }
