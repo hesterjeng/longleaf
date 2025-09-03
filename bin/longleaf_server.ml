@@ -1,7 +1,7 @@
 module Error = Core.Error
 module Cmd = Cmdliner.Cmd
 module CLI = Core.Options.CLI
-               module Instrument = Longleaf_core.Instrument
+module Instrument = Longleaf_core.Instrument
 
 module Settings = struct
   type status = Ready | Started | Error [@@deriving show, yojson]
@@ -17,7 +17,6 @@ module Settings = struct
     { cli_vars = Core.Options.CLI.default; target = Download; status = Ready }
 end
 
-
 let get =
   [
     Dream.get "/static/**" @@ Dream.static "static";
@@ -26,16 +25,12 @@ let get =
       s.status <- Started;
       let r = Longleaf_strategies.Run.top s.cli_vars s.target in
       match r with
-      |
-        Ok c ->
-        (
-      s.status <- Ready;
-        Dream.json @@ Yojson.Safe.to_string @@ `Float c)
+      | Ok c ->
+        s.status <- Ready;
+        Dream.json @@ Yojson.Safe.to_string @@ `Float c
       | Error e ->
-(
-      s.status <- Error;
-          Dream.respond ~status:`Not_Found @@ Error.show e)
-    );
+        s.status <- Error;
+        Dream.respond ~status:`Not_Found @@ Error.show e );
     ( Dream.get "/status" @@ fun _ ->
       Settings.yojson_of_status Settings.settings.status
       |> Yojson.Safe.to_string |> Dream.json );
@@ -52,13 +47,13 @@ let get =
     ( Dream.get "/symbols" @@ fun _ ->
       (* Get symbols from current target data *)
       match Settings.settings.target with
-      | Download -> Dream.json @@ Yojson.Safe.to_string @@
-        `List []
+      | Download -> Dream.json @@ Yojson.Safe.to_string @@ `List []
       | File _ ->
-        (try
-           invalid_arg "symbols endpoint nyi"
-        with
-        | e -> Dream.respond ~status:`Not_Found (Printf.sprintf "Error loading symbols: %s" (Printexc.to_string e))) );
+        (try invalid_arg "symbols endpoint nyi" with
+        | e ->
+          Dream.respond ~status:`Not_Found
+            (Printf.sprintf "Error loading symbols: %s" (Printexc.to_string e)))
+    );
     ( Dream.get "/data/:symbol/json" @@ fun request ->
       let symbol_str = Dream.param request "symbol" in
       try
@@ -66,20 +61,21 @@ let get =
         match Settings.settings.target with
         | Download ->
           Dream.respond ~status:`Not_Found "No data loaded for charting"
-        | File _ ->
-          Dream.respond ~status:`Not_Found symbol_str
-          (* let bars = Bars.of_file filename in *)
-          (* (\* Create a simple mock state for plotting - this is a simplified version *\) *)
-          (* let mock_indicators_config = Indicators_config.{ tacaml_indicators = [] } in *)
-          (* let mock_state = match State.make 0 bars () mock_indicators_config 10000.0 with *)
-          (*   | Ok state -> state *)
-          (*   | Error e -> failwith (Error.show e) *)
-          (* in *)
-          (* (match Longleaf_server__Plotly.of_state mock_state symbol with *)
-          (* | Some json -> Dream.json (Yojson.Safe.to_string json) *)
-          (* | None -> Dream.respond ~status:`Not_Found "Error generating chart") *)
+        | File _ -> Dream.respond ~status:`Not_Found symbol_str
+        (* let bars = Bars.of_file filename in *)
+        (* (\* Create a simple mock state for plotting - this is a simplified version *\) *)
+        (* let mock_indicators_config = Indicators_config.{ tacaml_indicators = [] } in *)
+        (* let mock_state = match State.make 0 bars () mock_indicators_config 10000.0 with *)
+        (*   | Ok state -> state *)
+        (*   | Error e -> failwith (Error.show e) *)
+        (* in *)
+        (* (match Longleaf_server__Plotly.of_state mock_state symbol with *)
+        (* | Some json -> Dream.json (Yojson.Safe.to_string json) *)
+        (* | None -> Dream.respond ~status:`Not_Found "Error generating chart") *)
       with
-      | e -> Dream.respond ~status:`Bad_Request (Printf.sprintf "Error: %s" (Printexc.to_string e)) );
+      | e ->
+        Dream.respond ~status:`Bad_Request
+          (Printf.sprintf "Error: %s" (Printexc.to_string e)) );
     ( Dream.get "/" @@ fun _ ->
       let html =
         Format.asprintf "%a" (Tyxml.Html.pp_elt ()) Longleaf_server__Index.page
@@ -110,8 +106,7 @@ let post =
             Result.return @@ Core.Target.t_of_yojson
             @@ Yojson.Safe.from_string target_str
           with
-          | _ -> Error.json @@"Problem converting target string" ^ target_str
-
+          | _ -> Error.json @@ "Problem converting target string" ^ target_str
         in
         let* target =
           match target with
@@ -145,29 +140,25 @@ let post =
           "Could not find strategy in data directory" );
     ( Dream.post "/set_runtype" @@ fun request ->
       let* body = Dream.body request in
-        try let r = Yojson.Safe.from_string body
-          |> Core.Runtype.t_of_yojson in
+      try
+        let r = Yojson.Safe.from_string body |> Core.Runtype.t_of_yojson in
         let cli = { Settings.settings.cli_vars with runtype = r } in
         Settings.settings.cli_vars <- cli;
         Dream.respond ~status:`OK "settings.cli_vars.strategy_arg set"
-
-        with
-        | _ ->
+      with
+      | _ ->
         Dream.respond ~status:`Not_Acceptable
-          "Could not find strategy in data directory"
-    );
+          "Could not find strategy in data directory" );
     ( Dream.post "/set_cli" @@ fun request ->
       let* body = Dream.body request in
-        try let r = Yojson.Safe.from_string body
-          |> Core.Options.CLI.t_of_yojson in
+      try
+        let r = Yojson.Safe.from_string body |> Core.Options.CLI.t_of_yojson in
         Settings.settings.cli_vars <- r;
         Dream.respond ~status:`OK "settings.cli_vars._arg set"
-
-        with
-        | _ ->
+      with
+      | _ ->
         Dream.respond ~status:`Not_Acceptable
-          "Could not find strategy in data directory"
-    );
+          "Could not find strategy in data directory" );
   ]
 
 let handler : Dream.handler = Dream.router @@ get @ post

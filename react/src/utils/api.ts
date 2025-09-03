@@ -71,12 +71,13 @@ export const updateTarget = async (targetData: OCamlTarget): Promise<ApiResponse
 };
 
 /**
- * Execute strategy
+ * Execute strategy - uses longer timeout for potentially long-running backtests
  */
 export const executeStrategy = async (): Promise<ApiResponse> => {
   console.log('Executing strategy...');
   try {
-    const response = await apiGet('/execute');
+    // 60 second timeout for strategy execution (backtests can take time)
+    const response = await apiGet('/execute', 60000);
     console.log('Execute response:', response);
     return response;
   } catch (error) {
