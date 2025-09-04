@@ -9,30 +9,41 @@ module Settings = struct
   type t = {
     mutable cli_vars : Core.Options.CLI.t;
     mutable target : Core.Target.t;
+    mutable last_value : float;
     mutable status : status;
   }
   [@@deriving show, yojson]
 
   let settings =
-    { cli_vars = Core.Options.CLI.default; target = Download; status = Ready }
+    {
+      cli_vars = Core.Options.CLI.default;
+      target = Download;
+      status = Ready;
+      last_value = 0.0;
+    }
 end
 
-let get =
+let get env =
   [
     Dream.get "/static/**" @@ Dream.static "static";
     ( Dream.get "/execute" @@ fun _ ->
       let s = Settings.settings in
       s.status <- Started;
       try
-        let result = Longleaf_strategies.Run.top s.cli_vars s.target in
-        Dream.log "got result back from strategy";
-        match result with
-        | Ok value ->
-          s.status <- Ready;
-          Dream.json @@ Yojson.Safe.to_string @@ `Float value
-        | Error e ->
-          s.status <- Error;
-          Dream.respond ~status:`Bad_Request @@ Error.show e
+        (Dream.log "running strategy";
+         Lwt.async @@ fun () ->
+         Lwt_eio.run_eio @@ fun () ->
+         Eio.traceln "eio test";
+         let res = Longleaf_strategies.Run.top env s.cli_vars s.target in
+         match res with
+         | Ok k ->
+           Eio.traceln "got a result back";
+           Settings.settings.last_value <- k;
+           Settings.settings.status <- Ready
+         | Error e ->
+           Eio.traceln "%a" Error.pp e;
+           Settings.settings.status <- Error);
+        Dream.respond ~status:`OK "strategy execution started"
       with
       | exn ->
         Dream.log "strategy execution failed with exception";
@@ -56,9 +67,12 @@ let get =
     ( Dream.get "/symbols" @@ fun _ ->
       (* Get symbols from current target data *)
       match Settings.settings.target with
-      | Download -> Dream.json @@ Yojson.Safe.to_string @@ `List []
+      | Download ->
+        Dream.error (fun log -> log "symbols endpoint nyi");
+        Dream.json @@ Yojson.Safe.to_string @@ `List []
       | File _ ->
         (* Return empty list for now since symbols endpoint is not implemented *)
+        Dream.error (fun log -> log "symbols endpoint nyi");
         Dream.json @@ Yojson.Safe.to_string @@ `List [] );
     ( Dream.get "/data/:symbol/json" @@ fun request ->
       let symbol_str = Dream.param request "symbol" in
@@ -167,12 +181,14 @@ let post =
           "Could not find strategy in data directory" );
   ]
 
-let handler : Dream.handler = Dream.router @@ get @ post
+let handler env : Dream.handler = Dream.router @@ get env @ post
 
 let () =
   Eio_main.run @@ fun env ->
   let clock = Eio.Stdenv.clock env in
   Lwt_eio.with_event_loop ~clock @@ fun () ->
-  let _ = Lwt_eio.run_lwt @@ fun () -> Dream.serve @@ Dream.logger @@ handler in
+  let _ =
+    Lwt_eio.run_lwt @@ fun () -> Dream.serve @@ Dream.logger @@ handler env
+  in
   Eio.traceln "longleaf_server: exited";
   ()

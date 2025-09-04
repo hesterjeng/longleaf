@@ -44,6 +44,8 @@ export interface CLISettings extends CLIBooleanFields, CLINumericFields, CLIUnkn
 export interface ServerSettings {
   cli_vars: CLISettings;
   target: OCamlTarget;
+  last_value: number;
+  status: string;
 }
 
 // Server data structure that comes from various endpoints

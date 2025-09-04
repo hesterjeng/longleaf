@@ -65,27 +65,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       console.log('📡 Calling executeStrategy API...');
       const result = await executeStrategy();
       console.log('✅ Got result from server:', result);
-      // The server returns the backtest result as a float value
-      if (result.data !== undefined && result.data !== null) {
-        if (typeof result.data === 'number') {
-          setExecuteResult(`Backtest completed - Final portfolio value: $${result.data.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-        } else if (typeof result.data === 'string') {
-          const value = parseFloat(result.data);
-          if (!isNaN(value)) {
-            setExecuteResult(`Backtest completed - Final portfolio value: $${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-          } else {
-            setExecuteResult(`Strategy execution completed - Result: ${result.data}`);
-          }
-        } else {
-          setExecuteResult(`Strategy execution completed - Result: ${String(result.data)}`);
-        }
+      
+      // Server now responds immediately with "strategy execution started"
+      if (typeof result.data === 'string' && result.data.includes('started')) {
+        setExecuteResult('Strategy execution started - running in background');
+        console.log('🎯 Strategy started in background, will check status via refresh');
       } else {
-        setExecuteResult('Strategy execution completed');
+        setExecuteResult('Strategy execution initiated');
       }
-      console.log('🎯 Setting execution complete state');
+      
       setExecuting(false);
-      // Note: Don't call refreshData() immediately - the server has already returned the result
-      // and we have all the information we need. Let the user manually refresh if needed.
+      // Refresh data to get updated status and last_value
+      refreshData();
     } catch (error) {
       console.error('❌ Strategy execution error:', error);
       setExecuteError(formatError(error as APIError, 'execute strategy'));
@@ -157,12 +148,37 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       alertType = 'error';
     }
 
+    const lastValue = settings?.last_value;
+    
+    // Debug: Log the settings to see if last_value is present
+    if (settings) {
+      console.log('Settings received:', settings);
+      console.log('Last value:', lastValue);
+    }
+
     return (
-      <Alert
-        type={alertType}
-        message={`Server Status: ${statusStr}`}
-        showIcon
-      />
+      <div>
+        <Alert
+          type={alertType}
+          message={`Server Status: ${statusStr}`}
+          showIcon
+        />
+        {lastValue !== undefined && (
+          <Alert
+            type="info"
+            message="Last Execution Result"
+            description={
+              <Text strong>
+                Final Portfolio Value: ${lastValue.toLocaleString('en-US', { 
+                  minimumFractionDigits: 2, 
+                  maximumFractionDigits: 2 
+                })}
+              </Text>
+            }
+            style={{ marginTop: '8px' }}
+          />
+        )}
+      </div>
     );
   };
 
