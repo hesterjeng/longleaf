@@ -78,7 +78,9 @@ module Run = struct
       @@ run_strategy env flags target mutices
     in
     match Eio.Promise.await strat_result with
-    | Ok x -> x
+    | Ok x ->
+      Eio.traceln "longleaf_strategies: got result";
+      x
     | Error e ->
       Eio.traceln "longleaf_strategies: strategy error";
       raise e

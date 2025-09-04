@@ -38,34 +38,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
   }, [status, executing]);
 
-  // Safety net: If execution takes too long without server response, check server status
-  React.useEffect(() => {
-    if (executing) {
-      console.log('⏰ Setting up 70s safety timeout for execution...');
-      const timeoutId = setTimeout(async () => {
-        console.log('⚠️ Safety timeout triggered - checking if server is hung...');
-        // Check if server is still in Started state after our API timeout
-        try {
-          const statusResponse = await fetch('/status');
-          if (statusResponse.ok) {
-            const serverStatus = await statusResponse.text();
-            console.log('📊 Server status after timeout:', serverStatus);
-            if (serverStatus.includes('Started')) {
-              setExecuteError('Execution appears to be hung - server status still "Started". Try stopping the server and retrying.');
-              setExecuting(false);
-            }
-          }
-        } catch (error) {
-          console.error('Failed to check server status:', error);
-        }
-      }, 70000); // 70 seconds - slightly longer than API timeout
-
-      return () => {
-        console.log('🧹 Cleaning up execution timeout');
-        clearTimeout(timeoutId);
-      };
-    }
-  }, [executing]);
+  // Note: Server blocks completely during execution - cannot respond to any requests
+  // No point in trying to check server status while strategy is running
 
   // Update form when settings change
   React.useEffect(() => {

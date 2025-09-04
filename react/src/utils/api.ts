@@ -87,14 +87,16 @@ export const updateTarget = async (targetData: OCamlTarget): Promise<ApiResponse
 };
 
 /**
- * Execute strategy - uses longer timeout for potentially long-running backtests
+ * Execute strategy - uses much longer timeout since server blocks completely during execution
+ * Server becomes unresponsive to ALL requests while strategy runs (including /status)
  */
 export const executeStrategy = async (): Promise<ApiResponse> => {
   console.log('📡 API: Starting strategy execution request...');
+  console.warn('⚠️ API: Server will be completely unresponsive during execution');
   try {
-    console.log('📡 API: Making GET request to /execute with 60s timeout...');
-    // 60 second timeout for strategy execution (backtests can take time)
-    const response = await apiGet('/execute', 60000);
+    console.log('📡 API: Making GET request to /execute with 5 minute timeout...');
+    // 5 minute timeout - server blocks completely during strategy execution
+    const response = await apiGet('/execute', 300000);
     console.log('✅ API: Got response from /execute:', response);
     return response;
   } catch (error) {
