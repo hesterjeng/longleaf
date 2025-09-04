@@ -64,9 +64,14 @@ module Run = struct
       Gadt_strategy.run bars options mutices strategy
     | _ ->
       Eio.traceln "Using Gadt_atomic.opt_atomic";
-      Longleaf_gadt.Gadt_atomic.opt_atomic bars options mutices strategy
+      let res =
+        Longleaf_gadt.Gadt_atomic.opt_atomic bars options mutices strategy
+      in
+      Eio.traceln "Done using Gadt_atomic.opt_atomic";
+      res
 
   let top (flags : Options.CLI.t) target =
+    let ( let* ) = Result.( let* ) in
     Eio_main.run @@ fun env ->
     Eio.Switch.run @@ fun sw ->
     let domain_mgr = Eio.Stdenv.domain_mgr env in
@@ -77,11 +82,14 @@ module Run = struct
       Eio.Executor_pool.submit_fork ~sw ~weight:1.0 pool
       @@ run_strategy env flags target mutices
     in
+    Eio.traceln "longleaf_strategies: left fork";
     match Eio.Promise.await strat_result with
     | Ok x ->
       Eio.traceln "longleaf_strategies: got result";
-      x
+      let* x = x in
+      Result.return x
     | Error e ->
+      let e = Printexc.to_string e in
       Eio.traceln "longleaf_strategies: strategy error";
-      raise e
+      Error.fatal e
 end

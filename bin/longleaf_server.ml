@@ -26,14 +26,20 @@ let get =
       try
         let result = Longleaf_strategies.Run.top s.cli_vars s.target in
         Dream.log "got result back from strategy";
-        s.status <- Ready;
-        Dream.json @@ Yojson.Safe.to_string @@ `Float result
+        match result with
+        | Ok value ->
+          s.status <- Ready;
+          Dream.json @@ Yojson.Safe.to_string @@ `Float value
+        | Error e ->
+          s.status <- Error;
+          Dream.respond ~status:`Bad_Request @@ Error.show e
       with
       | exn ->
         Dream.log "strategy execution failed with exception";
         s.status <- Error;
-        Dream.respond ~status:`Internal_Server_Error @@ 
-          Printf.sprintf "Strategy execution failed: %s" (Printexc.to_string exn) );
+        Dream.respond ~status:`Internal_Server_Error
+        @@ Printf.sprintf "Strategy execution failed: %s"
+             (Printexc.to_string exn) );
     ( Dream.get "/status" @@ fun _ ->
       Settings.yojson_of_status Settings.settings.status
       |> Yojson.Safe.to_string |> Dream.json );
@@ -53,8 +59,7 @@ let get =
       | Download -> Dream.json @@ Yojson.Safe.to_string @@ `List []
       | File _ ->
         (* Return empty list for now since symbols endpoint is not implemented *)
-        Dream.json @@ Yojson.Safe.to_string @@ `List []
-    );
+        Dream.json @@ Yojson.Safe.to_string @@ `List [] );
     ( Dream.get "/data/:symbol/json" @@ fun request ->
       let symbol_str = Dream.param request "symbol" in
       try
