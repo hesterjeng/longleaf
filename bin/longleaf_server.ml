@@ -84,26 +84,18 @@ let get env =
         |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
     ( Dream.get "/data/:symbol/json" @@ fun request ->
       let symbol_str = Dream.param request "symbol" in
-      try
-        let _symbol = Instrument.of_string symbol_str in
-        match Settings.settings.target with
-        | Download ->
-          Dream.respond ~status:`Not_Found "No data loaded for charting"
-        | File _ -> Dream.respond ~status:`Not_Found symbol_str
-        (* let bars = Bars.of_file filename in *)
-        (* (\* Create a simple mock state for plotting - this is a simplified version *\) *)
-        (* let mock_indicators_config = Indicators_config.{ tacaml_indicators = [] } in *)
-        (* let mock_state = match State.make 0 bars () mock_indicators_config 10000.0 with *)
-        (*   | Ok state -> state *)
-        (*   | Error e -> failwith (Error.show e) *)
-        (* in *)
-        (* (match Longleaf_server__Plotly.of_state mock_state symbol with *)
-        (* | Some json -> Dream.json (Yojson.Safe.to_string json) *)
-        (* | None -> Dream.respond ~status:`Not_Found "Error generating chart") *)
-      with
-      | e ->
-        Dream.respond ~status:`Bad_Request
-          (Printf.sprintf "Error: %s" (Printexc.to_string e)) );
+      let instrument = Instrument.of_string symbol_str in
+      Option.Infix.(
+        let* mutices = Settings.settings.mutices in
+        Dream.log "symbol request %s" symbol_str;
+        let state = Longleaf_util.Pmutex.get mutices.state_mutex in
+        Longleaf_server__Plotly.of_state state instrument)
+      |> function
+      | None ->
+        Dream.error (fun log ->
+            log "failed to get mutices or plotly json for instrument");
+        Dream.respond ~status:`Bad_Request "problem at data endpoint"
+      | Some j -> Yojson.Safe.to_string j |> Dream.json );
     ( Dream.get "/" @@ fun _ ->
       let html =
         Format.asprintf "%a" (Tyxml.Html.pp_elt ()) Longleaf_server__Index.page
