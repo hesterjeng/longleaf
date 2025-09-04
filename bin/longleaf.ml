@@ -34,6 +34,6 @@ let () =
     Longleaf_util.handle_output s.output;
     Longleaf_indicators.Indicators.initialize ();
     Eio_main.run @@ fun env ->
-    let f = Longleaf_strategies.Run.top env s.cli s.target in
+    let f = Longleaf_strategies.Run.top None env s.cli s.target in
     Eio.traceln "%a" print_res f;
     Stdlib.exit Cmd.Exit.ok

@@ -70,13 +70,17 @@ module Run = struct
       Eio.traceln "Done using Gadt_atomic.opt_atomic";
       res
 
-  let top env (flags : Options.CLI.t) target =
+  let top mutices env (flags : Options.CLI.t) target =
     let ( let* ) = Result.( let* ) in
     Eio.Switch.run @@ fun sw ->
     let domain_mgr = Eio.Stdenv.domain_mgr env in
     let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
     let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
-    let mutices = Longleaf_state.Mutex.create [] in
+    let mutices =
+      match mutices with
+      | None -> Longleaf_state.Mutex.create []
+      | Some m -> m
+    in
     let handler = run_strategy env flags target mutices in
     let strat_result =
       Eio.Executor_pool.submit_fork ~sw ~weight:1.0 pool handler

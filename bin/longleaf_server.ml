@@ -11,6 +11,7 @@ module Settings = struct
     mutable target : Core.Target.t;
     mutable last_value : float;
     mutable status : status;
+    mutable mutices : (Longleaf_state.Mutex.t option[@yojson.opaque]);
   }
   [@@deriving show, yojson]
 
@@ -20,6 +21,7 @@ module Settings = struct
       target = Download;
       status = Ready;
       last_value = 0.0;
+      mutices = None;
     }
 end
 
@@ -33,8 +35,11 @@ let get env =
         (Dream.log "running strategy";
          Lwt.async @@ fun () ->
          Lwt_eio.run_eio @@ fun () ->
-         Eio.traceln "eio test";
-         let res = Longleaf_strategies.Run.top env s.cli_vars s.target in
+         let mutices = Option.return @@ Longleaf_state.Mutex.create [] in
+         Settings.settings.mutices <- mutices;
+         let res =
+           Longleaf_strategies.Run.top mutices env s.cli_vars s.target
+         in
          match res with
          | Ok k ->
            Eio.traceln "got a result back";
@@ -65,15 +70,18 @@ let get env =
       List.map (fun x -> `String x) Longleaf_strategies.all_strategy_names
       |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
     ( Dream.get "/symbols" @@ fun _ ->
-      (* Get symbols from current target data *)
-      match Settings.settings.target with
-      | Download ->
-        Dream.error (fun log -> log "symbols endpoint nyi");
-        Dream.json @@ Yojson.Safe.to_string @@ `List []
-      | File _ ->
-        (* Return empty list for now since symbols endpoint is not implemented *)
-        Dream.error (fun log -> log "symbols endpoint nyi");
-        Dream.json @@ Yojson.Safe.to_string @@ `List [] );
+      Option.Infix.(
+        let* mutices = Settings.settings.mutices in
+        let+ symbols = Longleaf_util.Pmutex.get mutices.symbols_mutex in
+        Dream.log "returning symbols %s" symbols;
+        symbols)
+      |> function
+      | None ->
+        Dream.warning (fun log -> log "mutices not set (symbols)");
+        `List [] |> Yojson.Safe.to_string |> Dream.json
+      | Some symbols ->
+        (String.split ~by:"," symbols |> List.map @@ fun x -> `String x)
+        |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
     ( Dream.get "/data/:symbol/json" @@ fun request ->
       let symbol_str = Dream.param request "symbol" in
       try

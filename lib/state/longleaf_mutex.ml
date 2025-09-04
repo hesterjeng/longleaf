@@ -22,6 +22,7 @@ let create config =
   }
 
 let pp : t Format.printer = fun fmt _x -> Format.fprintf fmt "<mutex>"
+let bars x = State.bars @@ Pmutex.get x.state_mutex
 
 (* let create (module X : sig type context val x : content end) = *)
 (*   create () *)
