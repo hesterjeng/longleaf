@@ -62,6 +62,15 @@ let get env =
     ( Dream.get "/settings" @@ fun _ ->
       Settings.yojson_of_t Settings.settings
       |> Yojson.Safe.to_string |> Dream.json );
+    ( Dream.get "/shutdown" @@ fun _ ->
+      Option.Infix.(
+        let+ mutices = Settings.settings.mutices in
+        Longleaf_util.Pmutex.set mutices.shutdown_mutex true)
+      |> function
+      | None ->
+        Dream.respond ~status:`Bad_Request
+          "Unable to get shutdown mutex at shutdown endpoint"
+      | Some () -> Dream.respond ~status:`OK "shutdown mutex set" );
     ( Dream.get "/data" @@ fun _ ->
       Bars.files () |> List.map (fun x -> `String x) |> fun x ->
       `List x |> Yojson.Safe.to_string |> Dream.json );
