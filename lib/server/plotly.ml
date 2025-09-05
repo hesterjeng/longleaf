@@ -210,7 +210,7 @@ let performance_graph (state : 'a Longleaf_state.t) : Yojson.Safe.t =
   List.(
     let+ time, value = Longleaf_state.value_history state in
     (Ptime.to_rfc3339 time |> yojson_of_string, yojson_of_float value))
-  |> List.split
+  |> List.rev |> List.split
   |> Pair.map_same (yojson_of_list Fun.id)
   |> fun (x, y) ->
   `Assoc

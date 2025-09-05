@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Select, Switch, InputNumber, message } from 'antd';
-import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons';
+import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, message } from 'antd';
+import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined, LineChartOutlined } from '@ant-design/icons';
+import Plot from 'react-plotly.js';
+import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
-import { executeStrategy, updateServerStatus, updateCLI, updateTarget } from '../utils/api';
+import { executeStrategy, updateCLI, updateTarget } from '../utils/api';
 import type { ServerData, SettingsFormValues, CLIFormData, APIError } from '../types';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 interface OverviewTabProps {
   serverData: ServerData;
@@ -22,12 +23,36 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const [executeError, setExecuteError] = useState<string | null>(null);
   const [settingsForm] = Form.useForm();
   const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
+  const [performanceData, setPerformanceData] = useState<any>(null);
+  const [performanceLoading, setPerformanceLoading] = useState<boolean>(false);
+  const [performanceError, setPerformanceError] = useState<string | null>(null);
 
   const runtypeOptions = [
     'Live', 'Paper', 'Backtest', 'Manual', 'Multitest', 'Montecarlo',
     'MultiMontecarlo', 'RandomSliceBacktest', 'MultiRandomSliceBacktest',
     'RandomTickerBacktest', 'MultiRandomTickerBacktest'
   ];
+
+  const fetchPerformanceData = async () => {
+    setPerformanceLoading(true);
+    setPerformanceError(null);
+    
+    try {
+      const response = await axios.get('/performance', { timeout: 10000 });
+      setPerformanceData(response.data);
+    } catch (error) {
+      console.error('Error fetching performance data:', error);
+      setPerformanceError(formatError(error as APIError, 'fetch performance data'));
+      setPerformanceData(null);
+    } finally {
+      setPerformanceLoading(false);
+    }
+  };
+
+  // Fetch performance data on component mount and data refresh
+  React.useEffect(() => {
+    fetchPerformanceData();
+  }, []);
 
   // Monitor status changes to detect errors and hung executions
   React.useEffect(() => {
@@ -49,8 +74,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       console.log('Setting form values:', { cliData, targetData, strategies, dataFiles });
       settingsForm.setFieldsValue({
         ...cliData,
+        runtype: cliData.runtype || 'Backtest',
+        strategy_arg: cliData.strategy_arg || 'Listener',
         target_type: targetData.type,
         target_file: targetData.file
+      });
+    } else {
+      // Set defaults when no settings are available
+      settingsForm.setFieldsValue({
+        runtype: 'Backtest',
+        strategy_arg: 'Listener'
       });
     }
   }, [settings, settingsForm, strategies, dataFiles]);
@@ -77,6 +110,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       setExecuting(false);
       // Refresh data to get updated status and last_value
       refreshData();
+      // Also refresh performance data after execution
+      fetchPerformanceData();
     } catch (error) {
       console.error('❌ Strategy execution error:', error);
       setExecuteError(formatError(error as APIError, 'execute strategy'));
@@ -186,6 +221,90 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     );
   };
 
+  const renderPerformanceChart = () => {
+    if (performanceError) {
+      return (
+        <Alert
+          type="warning"
+          message="Performance Chart Unavailable"
+          description={performanceError}
+          action={
+            <Button size="small" icon={<ReloadOutlined />} onClick={fetchPerformanceData}>
+              Retry
+            </Button>
+          }
+        />
+      );
+    }
+
+    if (performanceLoading) {
+      return (
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <Spin size="large" />
+          <Text style={{ marginTop: '16px', display: 'block' }}>
+            Loading performance data...
+          </Text>
+        </div>
+      );
+    }
+
+    if (!performanceData || !performanceData.traces || performanceData.traces.length === 0) {
+      return (
+        <Alert
+          type="info"
+          message="No Performance Data Available"
+          description="Performance data will appear here after running a strategy"
+          action={
+            <Button size="small" icon={<ReloadOutlined />} onClick={fetchPerformanceData}>
+              Refresh
+            </Button>
+          }
+        />
+      );
+    }
+
+    // Convert server data to Plotly format
+    const traces = performanceData.traces.map((trace: any) => ({
+      x: trace.x || [],
+      y: trace.y || [],
+      type: 'scatter',
+      mode: 'lines',
+      name: trace.name || 'Portfolio Value',
+      line: {
+        color: '#1890ff',
+        width: 3
+      }
+    }));
+
+    const layout = {
+      title: performanceData.layout?.title || 'Portfolio Performance',
+      xaxis: {
+        title: 'Time',
+        ...performanceData.layout?.xaxis
+      },
+      yaxis: {
+        title: 'Portfolio Value ($)',
+        tickformat: ',.0f',
+        ...performanceData.layout?.yaxis
+      },
+      height: 400,
+      showlegend: false,
+      hovermode: 'x',
+      ...performanceData.layout
+    };
+
+    return (
+      <div>
+        <Plot
+          data={traces}
+          layout={layout}
+          style={{ width: '100%', height: '400px' }}
+          config={{ responsive: true }}
+        />
+      </div>
+    );
+  };
+
 
 
   if (loading) {
@@ -280,6 +399,23 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           </Card>
         </Col>
       </Row>
+
+      <Card 
+        title="Portfolio Performance" 
+        style={{ marginBottom: '16px' }}
+        extra={
+          <Button 
+            icon={<LineChartOutlined />}
+            onClick={fetchPerformanceData}
+            disabled={performanceLoading}
+            size="small"
+          >
+            Refresh Chart
+          </Button>
+        }
+      >
+        {renderPerformanceChart()}
+      </Card>
 
       <Card 
         title="Configuration" 
