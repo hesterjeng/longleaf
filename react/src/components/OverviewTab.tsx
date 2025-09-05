@@ -87,11 +87,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const stopServerHandler = async () => {
     setSettingsLoading(true);
     try {
-      await updateServerStatus('Ready');
-      message.success('Server stopped successfully');
-      refreshData();
+      const response = await fetch('/shutdown');
+      if (response.ok) {
+        message.success('Server shutdown initiated');
+        refreshData();
+      } else {
+        throw new Error('Failed to shutdown server');
+      }
     } catch (error) {
-      message.error(formatError(error as APIError, 'stop server'));
+      message.error(formatError(error as APIError, 'shutdown server'));
     } finally {
       setSettingsLoading(false);
     }
@@ -208,7 +212,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         
         <Col span={16}>
           <Card title="Server Controls" style={{ marginBottom: '16px' }}>
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
               <Button
                 type="primary"
                 danger
@@ -216,28 +220,40 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                 icon={<PlayCircleOutlined />}
                 onClick={executeStrategyHandler}
                 disabled={executing || loading || settingsLoading}
-                style={{ marginRight: '8px' }}
+                style={{ minWidth: '150px' }}
               >
                 {executing ? 'Executing...' : 'Execute Strategy'}
               </Button>
               
               <Button
+                size="large"
                 icon={<StopOutlined />}
                 onClick={stopServerHandler}
                 disabled={settingsLoading || loading}
-                style={{ marginRight: '8px' }}
+                style={{ minWidth: '150px' }}
               >
-                Stop Server
+                Shutdown Server
+              </Button>
+              
+              <Button
+                size="large"
+                icon={<ReloadOutlined />}
+                onClick={refreshData}
+                disabled={loading}
+                style={{ minWidth: '150px' }}
+              >
+                Refresh Data
               </Button>
               
               {(executeResult !== null || executeError) && (
                 <Button
-                  size="small"
+                  size="large"
                   icon={<CloseOutlined />}
                   onClick={() => {
                     setExecuteResult(null);
                     setExecuteError(null);
                   }}
+                  style={{ minWidth: '150px' }}
                 >
                   Clear Result
                 </Button>
@@ -463,12 +479,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
             </Col>
           </Row>
         </Form>
-      </Card>
-
-      <Card style={{ marginTop: '16px' }}>
-        <Button type="primary" icon={<ReloadOutlined />} onClick={refreshData}>
-          Refresh Data
-        </Button>
       </Card>
     </div>
   );

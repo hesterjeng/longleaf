@@ -47,11 +47,12 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
     }
   };
 
-  const handleLoadChart = () => {
+  // Auto-load chart when symbol is selected
+  React.useEffect(() => {
     if (selectedSymbol) {
       fetchChartData(selectedSymbol);
     }
-  };
+  }, [selectedSymbol]);
 
   const renderChart = () => {
     if (!chartData || !chartData.traces || !chartData.layout) {
@@ -164,39 +165,22 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
       {symbols && symbols.length > 0 ? (
         <div>
           <Card style={{ marginBottom: '16px' }}>
-            <Row gutter={16} align="bottom">
-              <Col span={18}>
-                <Text strong>Select Symbol</Text>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px', maxHeight: '150px', overflowY: 'auto' }}>
-                  {symbols.map(symbol => (
-                    <Button
-                      key={symbol}
-                      size="small"
-                      type={selectedSymbol === symbol ? 'primary' : 'default'}
-                      onClick={() => setSelectedSymbol(symbol)}
-                    >
-                      {symbol}
-                    </Button>
-                  ))}
-                </div>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  Choose a symbol to view its price chart with technical indicators
-                </Text>
-              </Col>
-              
-              <Col span={6}>
+            <Text strong>Select Symbol</Text>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px', maxHeight: '150px', overflowY: 'auto' }}>
+              {symbols.map(symbol => (
                 <Button
-                  type="primary"
-                  icon={<LineChartOutlined />}
-                  onClick={handleLoadChart}
-                  disabled={!selectedSymbol || loading}
-                  size="large"
-                  block
+                  key={symbol}
+                  size="small"
+                  type={selectedSymbol === symbol ? 'primary' : 'default'}
+                  onClick={() => setSelectedSymbol(symbol)}
                 >
-                  {loading ? 'Loading...' : 'Load Chart'}
+                  {symbol}
                 </Button>
-              </Col>
-            </Row>
+              ))}
+            </div>
+            <Text type="secondary" style={{ fontSize: '12px', marginTop: '8px', display: 'block' }}>
+              Choose a symbol to automatically load its price chart with technical indicators
+            </Text>
           </Card>
 
           {error && (
