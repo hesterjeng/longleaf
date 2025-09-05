@@ -1,14 +1,15 @@
 module Error = Core.Error
 module Cmd = Cmdliner.Cmd
 module CLI = Core.Options.CLI
+module Target = Core.Target
 module Instrument = Longleaf_core.Instrument
 
 module Settings = struct
   type status = Ready | Started | Error [@@deriving show, yojson]
 
   type t = {
-    mutable cli_vars : Core.Options.CLI.t;
-    mutable target : Core.Target.t;
+    mutable cli_vars : CLI.t;
+    mutable target : Target.t;
     mutable last_value : float;
     mutable status : status;
     mutable mutices : (Longleaf_state.Mutex.t option[@yojson.opaque]);
@@ -17,7 +18,7 @@ module Settings = struct
 
   let settings =
     {
-      cli_vars = Core.Options.CLI.default;
+      cli_vars = CLI.default;
       target = Download;
       status = Ready;
       last_value = 0.0;
@@ -59,6 +60,16 @@ let get env =
     ( Dream.get "/status" @@ fun _ ->
       Settings.yojson_of_status Settings.settings.status
       |> Yojson.Safe.to_string |> Dream.json );
+    ( Dream.get "/performance" @@ fun _ ->
+      Settings.settings.mutices
+      |> Option.map (fun (m : Longleaf_state.Mutex.t) ->
+             Longleaf_util.Pmutex.get m.state_mutex)
+      |> Option.map Longleaf_server__Plotly.performance_graph
+      |> function
+      | None ->
+        Dream.respond ~status:`Bad_Request
+          "Unable to get state performance history"
+      | Some j -> Yojson.Safe.to_string j |> Dream.json );
     ( Dream.get "/settings" @@ fun _ ->
       Settings.yojson_of_t Settings.settings
       |> Yojson.Safe.to_string |> Dream.json );

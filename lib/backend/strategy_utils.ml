@@ -136,7 +136,7 @@ module Make (Backend : Backend.S) = struct
   let update_continue (state : 'a State.t) =
     let ( let* ) = Result.( let* ) in
     let bars = State.bars state in
-    let res = State.increment_tick state in
+    let* res = State.increment_tick state in
     let* () = Backend.update_bars Backend.symbols bars @@ State.tick res in
     let* () =
       match Input.options.flags.runtype with
@@ -147,7 +147,7 @@ module Make (Backend : Backend.S) = struct
         @@ State.bars state
       | _ -> Result.return ()
     in
-    let* _value = State.value state in
+    (* let* _value = State.value state in *)
     Result.return res
 
   let handle_nonlogical_state (state : _ State.t) =
