@@ -13,6 +13,7 @@ type 'a t = {
   config : Config.t;
   cash : float;
   positions : Positions.t;
+  value_history : (Time.t * float) list;
 }
 [@@warning "-69"]
 
@@ -30,12 +31,13 @@ let empty runtype (indicators : Tacaml.t list) : unit t =
     cash = 0.0;
     positions = Positions.empty;
     content = ();
+    value_history = [];
   }
 
 let set x mode = { x with current_state = mode }
-let increment_tick x = { x with current_tick = x.current_tick + 1 }
 let set_tick x current_tick = { x with current_tick }
 let bars x = x.bars
+let value_history x = x.value_history
 let cost_basis x = Positions.cost_basis x.positions
 
 type 'a res = ('a, Error.t) result
@@ -55,6 +57,7 @@ let make current_tick bars content indicator_config cash =
       config;
       cash;
       positions = Positions.empty;
+      value_history = [];
     }
 
 let pp fmt t =
@@ -85,6 +88,17 @@ let value t =
          0.0 orders
   in
   Result.return (t.cash +. portfolio_value)
+
+let increment_tick x =
+  let ( let* ) = Result.( let* ) in
+  let* value = value x in
+  let* time = time x in
+  Result.return
+  @@ {
+       x with
+       current_tick = x.current_tick + 1;
+       value_history = (time, value) :: x.value_history;
+     }
 
 let listen t = { t with current_state = Listening }
 let liquidate t = { t with current_state = Liquidate }

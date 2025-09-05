@@ -39,6 +39,7 @@ val data : 'a t -> Instrument.t -> (Bars.Data.t, Error.t) result
 
 (* Get the bars *)
 val bars : 'a t -> Bars.t
+val value_history : 'a t -> (Time.t * float) list
 
 (* Get the value of the state's portfolio, plus the cash on hand *)
 val value : 'a t -> float res
@@ -55,7 +56,7 @@ val place_order : 'a t -> Order.t -> 'a t res
 
 (* Current tick of the state machine (corresponds to the Bars.t index) *)
 val tick : 'a t -> int
-val increment_tick : 'a t -> 'a t
+val increment_tick : 'a t -> ('a t, Error.t) result
 val set_tick : 'a t -> int -> 'a t
 val set : 'a t -> Mode.t -> 'a t
 val grow : 'a t -> 'a t
