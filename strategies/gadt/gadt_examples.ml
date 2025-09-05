@@ -108,9 +108,11 @@ let golden_cross =
   @@ {
        name = "GoldenCross";
        (* Buy when fast EMA crosses above slow SMA *)
-       buy_trigger = cross_up (Gadt_fo.Variable.ema ()) (Gadt_fo.Variable.sma ());
+       buy_trigger =
+         cross_up (Gadt_fo.Variable.ema ()) (Gadt_fo.Variable.sma ());
        (* Sell when fast EMA crosses below slow SMA *)
-       sell_trigger = cross_down (Gadt_fo.Variable.ema ()) (Gadt_fo.Variable.sma ());
+       sell_trigger =
+         cross_down (Gadt_fo.Variable.ema ()) (Gadt_fo.Variable.sma ());
        max_positions = 1;
        position_size = 1.0;
      }
@@ -121,10 +123,13 @@ let mean_reversion_lag =
   @@ {
        name = "MeanReversionlag";
        (* Buy when current price is below lagged price by significant margin and RSI oversold *)
-       buy_trigger = close <. lag close 5 &&. (Real.rsi 14 () <. Const (25.0, Float));
+       buy_trigger =
+         close <. lag close 5 &&. (Real.rsi 14 () <. Const (25.0, Float));
        (* Sell when current price recovers above lagged SMA or RSI overbought *)
        sell_trigger =
-         close >. lag (Real.sma 20 ()) 3 ||. (Real.rsi 14 () >. Const (75.0, Float));
+         close
+         >. lag (Real.sma 20 ()) 3
+         ||. (Real.rsi 14 () >. Const (75.0, Float));
        max_positions = 3;
        position_size = 0.33;
      }
@@ -135,9 +140,15 @@ let bollinger_breakout =
   @@ {
        name = "BollingerBreakout";
        (* Buy when price breaks above upper band and momentum is positive *)
-       buy_trigger = close >. Real.upper_bband 20 2.0 2.0 () &&. (Real.mom 10 () >. Const (0.0, Float));
+       buy_trigger =
+         close
+         >. Real.upper_bband 20 2.0 2.0 ()
+         &&. (Real.mom 10 () >. Const (0.0, Float));
        (* Sell when price falls back to middle band or momentum turns negative *)
-       sell_trigger = close <. Real.middle_bband 20 2.0 2.0 () ||. (Real.mom 10 () <. Const (-1.0, Float));
+       sell_trigger =
+         close
+         <. Real.middle_bband 20 2.0 2.0 ()
+         ||. (Real.mom 10 () <. Const (-1.0, Float));
        max_positions = 2;
        position_size = 0.6;
      }
@@ -173,7 +184,9 @@ let momentum_divergence =
          &&. (Real.rsi 14 () <. Const (40.0, Float));
        (* Sell when momentum peaks or price recovers strongly *)
        sell_trigger =
-         Real.mom 10 () <. lag (Real.mom 10 ()) 2 ||. (close >. lag close 10 +. Const (2.0, Float));
+         Real.mom 10 ()
+         <. lag (Real.mom 10 ()) 2
+         ||. (close >. lag close 10 +. Const (2.0, Float));
        max_positions = 2;
        position_size = 0.4;
      }
@@ -203,7 +216,9 @@ let contrarian_spike =
          &&. (Real.rsi 14 () <. Const (20.0, Float));
        (* Sell when price recovers to normal levels or gets overbought *)
        sell_trigger =
-         close >. lag (Real.sma 20 ()) 1 ||. (Real.rsi 14 () >. Const (80.0, Float));
+         close
+         >. lag (Real.sma 20 ()) 1
+         ||. (Real.rsi 14 () >. Const (80.0, Float));
        max_positions = 4;
        position_size = 0.25;
      }
@@ -232,12 +247,15 @@ let macd_momentum_lag =
        name = "MACDMomlag";
        (* Buy when MACD > signal momentum positive and price > 5-period lag *)
        buy_trigger =
-         Real.macd_macd 12 26 9 () >. Real.macd_signal 12 26 9 ()
+         Real.macd_macd 12 26 9 ()
+         >. Real.macd_signal 12 26 9 ()
          &&. (Real.mom 10 () >. Const (0.0, Float))
          &&. (close >. lag close 5);
        (* Sell when MACD < signal or price drops below 3-period lag SMA *)
        sell_trigger =
-         Real.macd_macd 12 26 9 () <. Real.macd_signal 12 26 9 () ||. (close <. lag (Real.sma 20 ()) 3);
+         Real.macd_macd 12 26 9 ()
+         <. Real.macd_signal 12 26 9 ()
+         ||. (close <. lag (Real.sma 20 ()) 3);
        max_positions = 1;
        position_size = 0.8;
      }
@@ -271,7 +289,8 @@ let williams_r_reversal =
          &&. (close <. lag low 3)
          &&. (Real.rsi 14 () <. Const (35.0, Float));
        (* Sell when Williams %R overbought or price above lagged high *)
-       sell_trigger = Real.willr 14 () >. Const (-20.0, Float) ||. (close >. lag high 2);
+       sell_trigger =
+         Real.willr 14 () >. Const (-20.0, Float) ||. (close >. lag high 2);
        max_positions = 2;
        position_size = 0.6;
      }
@@ -283,11 +302,13 @@ let triple_ema_crossover =
        name = "TripleEMA";
        (* Buy when fast EMA > medium EMA > slow EMA (all aligned) *)
        buy_trigger =
-         Real.ema 12 () >. Real.tema 26 () &&. (Real.tema 26 () >. Real.dema 50 ())
+         Real.ema 12 () >. Real.tema 26 ()
+         &&. (Real.tema 26 () >. Real.dema 50 ())
          &&. cross_up (Real.ema 12 ()) (Real.tema 26 ());
        (* Sell when any EMA alignment breaks *)
        sell_trigger =
-         Real.ema 12 () <. Real.tema 26 () ||. (Real.tema 26 () <. Real.dema 50 ())
+         Real.ema 12 () <. Real.tema 26 ()
+         ||. (Real.tema 26 () <. Real.dema 50 ())
          ||. cross_down (Real.ema 12 ()) (Real.tema 26 ());
        max_positions = 1;
        position_size = 0.9;
@@ -306,7 +327,9 @@ let cci_overbought_oversold =
          &&. (close >. lag close 2);
        (* Sell when CCI overbought or momentum turning negative *)
        sell_trigger =
-         Real.cci 14 () >. Const (100.0, Float) ||. cross_down (Real.mom 10 ()) (Const (0.0, Float));
+         Real.cci 14 ()
+         >. Const (100.0, Float)
+         ||. cross_down (Real.mom 10 ()) (Const (0.0, Float));
        max_positions = 2;
        position_size = 0.5;
      }
@@ -323,7 +346,8 @@ let aroon_trend_following =
          &&. (volume >. lag volume 5);
        (* Sell when Aroon Down > Aroon Up or oscillator < -50 *)
        sell_trigger =
-         Real.aroon_down 14 () >. Real.aroon_up 14 () ||. (Real.aroon_osc 14 () <. Const (-50.0, Float));
+         Real.aroon_down 14 () >. Real.aroon_up 14 ()
+         ||. (Real.aroon_osc 14 () <. Const (-50.0, Float));
        max_positions = 1;
        position_size = 0.8;
      }
@@ -339,7 +363,9 @@ let parabolic_sar_trend =
          &&. (close >. lag high 5)
          &&. (Real.adx 14 () >. Const (25.0, Float));
        (* Sell when price crosses below SAR *)
-       sell_trigger = cross_down close (Real.sar 0.02 0.2 ()) ||. (Real.adx 14 () <. Const (20.0, Float));
+       sell_trigger =
+         cross_down close (Real.sar 0.02 0.2 ())
+         ||. (Real.adx 14 () <. Const (20.0, Float));
        max_positions = 1;
        position_size = 1.0;
      }
@@ -356,7 +382,10 @@ let multi_timeframe_rsi =
          &&. (lag (Real.rsi 14 ()) 10 >. lag (Real.rsi 14 ()) 20)
          &&. (close >. lag (Real.sma 20 ()) 20);
        (* Sell when RSI overbought or long-term trend turns down *)
-       sell_trigger = Real.rsi 14 () >. Const (70.0, Float) ||. (lag (Real.rsi 14 ()) 5 <. lag (Real.rsi 14 ()) 15);
+       sell_trigger =
+         Real.rsi 14 ()
+         >. Const (70.0, Float)
+         ||. (lag (Real.rsi 14 ()) 5 <. lag (Real.rsi 14 ()) 15);
        max_positions = 3;
        position_size = 0.4;
      }
@@ -372,7 +401,9 @@ let roc_momentum_cross =
          &&. (Real.roc 10 () >. Const (0.0, Float))
          &&. (lag (Real.roc 10 ()) 5 >. Const (0.0, Float));
        (* Sell when short ROC crosses below long ROC *)
-       sell_trigger = cross_down (Real.roc 10 ()) (lag (Real.roc 10 ()) 5) ||. (Real.roc 10 () <. Const (-2.0, Float));
+       sell_trigger =
+         cross_down (Real.roc 10 ()) (lag (Real.roc 10 ()) 5)
+         ||. (Real.roc 10 () <. Const (-2.0, Float));
        max_positions = 2;
        position_size = 0.5;
      }
