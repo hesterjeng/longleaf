@@ -167,19 +167,18 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
             <Row gutter={16} align="bottom">
               <Col span={18}>
                 <Text strong>Select Symbol</Text>
-                <Select
-                  style={{ width: '100%', marginTop: '8px' }}
-                  placeholder="Choose a symbol..."
-                  value={selectedSymbol}
-                  onChange={setSelectedSymbol}
-                  size="large"
-                >
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px', maxHeight: '150px', overflowY: 'auto' }}>
                   {symbols.map(symbol => (
-                    <Option key={symbol} value={symbol}>
+                    <Button
+                      key={symbol}
+                      size="small"
+                      type={selectedSymbol === symbol ? 'primary' : 'default'}
+                      onClick={() => setSelectedSymbol(symbol)}
+                    >
                       {symbol}
-                    </Option>
+                    </Button>
                   ))}
-                </Select>
+                </div>
                 <Text type="secondary" style={{ fontSize: '12px' }}>
                   Choose a symbol to view its price chart with technical indicators
                 </Text>

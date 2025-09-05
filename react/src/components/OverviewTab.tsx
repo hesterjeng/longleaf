@@ -282,59 +282,128 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           form={settingsForm}
           layout="vertical"
           onFinish={onFinishSettings}
+          onValuesChange={(changedValues, allValues) => {
+            // This ensures form state is properly managed
+          }}
         >
           <Row gutter={24}>
-            <Col span={6}>
+            <Col span={8}>
               <Form.Item label="Run Type" name="runtype">
-                <Select size="large">
-                  {runtypeOptions.map(type => (
-                    <Option key={type} value={type}>{type}</Option>
-                  ))}
-                </Select>
+                <Form.Item noStyle shouldUpdate>
+                  {({ getFieldValue, setFieldsValue }) => (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {runtypeOptions.map(type => (
+                        <Button
+                          key={type}
+                          size="small"
+                          type={getFieldValue('runtype') === type ? 'primary' : 'default'}
+                          onClick={() => setFieldsValue({ runtype: type })}
+                          style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                        >
+                          {type}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </Form.Item>
               </Form.Item>
             </Col>
             
-            <Col span={6}>
+            <Col span={16}>
               <Form.Item label="Strategy" name="strategy_arg">
-                <Select placeholder="Select strategy" showSearch size="large">
-                  {strategies && strategies.length > 0 ? strategies.map((strategy: string) => (
-                    <Option key={strategy} value={strategy}>{strategy}</Option>
-                  )) : <Option disabled value="">No strategies available</Option>}
-                </Select>
-              </Form.Item>
-            </Col>
-            
-            <Col span={6}>
-              <Form.Item label="Start Index" name="start">
-                <InputNumber min={0} size="large" style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            
-            <Col span={6}>
-              <Form.Item label="Random Drop %" name="random_drop_chance">
-                <InputNumber min={0} max={100} size="large" style={{ width: '100%' }} />
+                <Form.Item noStyle shouldUpdate>
+                  {({ getFieldValue, setFieldsValue }) => (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
+                      {strategies && strategies.length > 0 ? strategies.map((strategy: string) => (
+                        <Button
+                          key={strategy}
+                          size="small"
+                          type={getFieldValue('strategy_arg') === strategy ? 'primary' : 'default'}
+                          onClick={() => setFieldsValue({ strategy_arg: strategy })}
+                          style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                        >
+                          {strategy}
+                        </Button>
+                      )) : (
+                        <Button disabled size="small">No strategies available</Button>
+                      )}
+                    </div>
+                  )}
+                </Form.Item>
               </Form.Item>
             </Col>
           </Row>
           
           <Row gutter={24}>
-            <Col span={12}>
+            <Col span={6}>
               <Form.Item label="Target Type" name="target_type">
-                <Select size="large">
-                  <Option value="Download">Download (Live Data)</Option>
-                  <Option value="File">Data File</Option>
-                </Select>
+                <Form.Item noStyle shouldUpdate>
+                  {({ getFieldValue, setFieldsValue }) => (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <Button
+                        size="small"
+                        type={getFieldValue('target_type') === 'Download' ? 'primary' : 'default'}
+                        onClick={() => setFieldsValue({ target_type: 'Download' })}
+                        style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                      >
+                        Download (Live Data)
+                      </Button>
+                      <Button
+                        size="small"
+                        type={getFieldValue('target_type') === 'File' ? 'primary' : 'default'}
+                        onClick={() => setFieldsValue({ target_type: 'File' })}
+                        style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                      >
+                        Data File
+                      </Button>
+                    </div>
+                  )}
+                </Form.Item>
+              </Form.Item>
+            </Col>
+            
+            <Col span={6}>
+              <Form.Item label="Target File" name="target_file">
+                <Form.Item noStyle shouldUpdate>
+                  {({ getFieldValue, setFieldsValue }) => (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
+                      <Button
+                        size="small"
+                        type={!getFieldValue('target_file') ? 'primary' : 'default'}
+                        onClick={() => setFieldsValue({ target_file: '' })}
+                        style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                      >
+                        None
+                      </Button>
+                      {dataFiles && dataFiles.length > 0 ? dataFiles.map((file: string) => (
+                        <Button
+                          key={file}
+                          size="small"
+                          type={getFieldValue('target_file') === file ? 'primary' : 'default'}
+                          onClick={() => setFieldsValue({ target_file: file })}
+                          style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                        >
+                          {file}
+                        </Button>
+                      )) : (
+                        <Button disabled size="small">No data files available</Button>
+                      )}
+                    </div>
+                  )}
+                </Form.Item>
               </Form.Item>
             </Col>
             
             <Col span={12}>
-              <Form.Item label="Target File" name="target_file">
-                <Select placeholder="Select data file" allowClear showSearch size="large">
-                  {dataFiles && dataFiles.length > 0 ? dataFiles.map((file: string) => (
-                    <Option key={file} value={file}>{file}</Option>
-                  )) : <Option disabled value="">No data files available</Option>}
-                </Select>
-              </Form.Item>
+              <div style={{ display: 'flex', gap: '24px' }}>
+                <Form.Item label="Start Index" name="start" style={{ flex: 1 }}>
+                  <InputNumber min={0} size="large" style={{ width: '100%' }} />
+                </Form.Item>
+                
+                <Form.Item label="Random Drop %" name="random_drop_chance" style={{ flex: 1 }}>
+                  <InputNumber min={0} max={100} size="large" style={{ width: '100%' }} />
+                </Form.Item>
+              </div>
             </Col>
           </Row>
           
