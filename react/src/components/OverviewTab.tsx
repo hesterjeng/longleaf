@@ -26,6 +26,19 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const [performanceData, setPerformanceData] = useState<any>(null);
   const [performanceLoading, setPerformanceLoading] = useState<boolean>(false);
   const [performanceError, setPerformanceError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(0);
+  const strategiesPerPage = 12; // 3 columns × 4 rows = 12 strategies per page
+
+  const { displayedStrategies, totalPages } = React.useMemo(() => {
+    if (!strategies || strategies.length === 0) return { displayedStrategies: [], totalPages: 0 };
+    
+    const total = Math.ceil(strategies.length / strategiesPerPage);
+    const start = currentPage * strategiesPerPage;
+    const end = start + strategiesPerPage;
+    const displayed = strategies.slice(start, end);
+    
+    return { displayedStrategies: displayed, totalPages: total };
+  }, [strategies, currentPage]);
 
   const runtypeOptions = [
     'Live', 'Paper', 'Backtest', 'Manual', 'Multitest', 'Montecarlo',
@@ -290,16 +303,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       height: 400,
       showlegend: false,
       hovermode: 'x',
+      autosize: true,
+      margin: { l: 60, r: 40, t: 50, b: 50 },
       ...performanceData.layout
     };
 
     return (
-      <div>
+      <div style={{ width: '100%', overflow: 'hidden' }}>
         <Plot
           data={traces}
           layout={layout}
           style={{ width: '100%', height: '400px' }}
-          config={{ responsive: true }}
+          config={{ responsive: true, displayModeBar: false }}
         />
       </div>
     );
@@ -464,23 +479,71 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
             <Col span={16}>
               <Form.Item label="Strategy" name="strategy_arg">
                 <Form.Item noStyle shouldUpdate>
-                  {({ getFieldValue, setFieldsValue }) => (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
-                      {strategies && strategies.length > 0 ? strategies.map((strategy: string) => (
-                        <Button
-                          key={strategy}
-                          size="small"
-                          type={getFieldValue('strategy_arg') === strategy ? 'primary' : 'default'}
-                          onClick={() => setFieldsValue({ strategy_arg: strategy })}
-                          style={{ textAlign: 'left', justifyContent: 'flex-start' }}
-                        >
-                          {strategy}
-                        </Button>
-                      )) : (
-                        <Button disabled size="small">No strategies available</Button>
-                      )}
-                    </div>
-                  )}
+                  {({ getFieldValue, setFieldsValue }) => {
+                    
+                    return (
+                      <div>
+                        {strategies && strategies.length > 0 ? (
+                          <>
+                            {/* Strategy Grid - 3 columns, no scrollbars */}
+                            <div style={{ 
+                              display: 'grid', 
+                              gridTemplateColumns: 'repeat(3, 1fr)', 
+                              gap: '6px',
+                              marginBottom: '12px'
+                            }}>
+                              {displayedStrategies.map((strategy: string) => (
+                                <Button
+                                  key={strategy}
+                                  size="small"
+                                  type={getFieldValue('strategy_arg') === strategy ? 'primary' : 'default'}
+                                  onClick={() => setFieldsValue({ strategy_arg: strategy })}
+                                  style={{ 
+                                    textAlign: 'left', 
+                                    justifyContent: 'flex-start',
+                                    minHeight: '32px' // Ensure consistent button height
+                                  }}
+                                >
+                                  {strategy}
+                                </Button>
+                              ))}
+                            </div>
+                            
+                            {/* Pagination Controls */}
+                            {totalPages > 1 && (
+                              <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'center', 
+                                alignItems: 'center', 
+                                gap: '8px',
+                                marginTop: '8px'
+                              }}>
+                                <Button
+                                  size="small"
+                                  onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                                  disabled={currentPage === 0}
+                                >
+                                  ← Previous
+                                </Button>
+                                <span style={{ fontSize: '12px', color: '#666' }}>
+                                  Page {currentPage + 1} of {totalPages} ({strategies.length} strategies)
+                                </span>
+                                <Button
+                                  size="small"
+                                  onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                                  disabled={currentPage === totalPages - 1}
+                                >
+                                  Next →
+                                </Button>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <Button disabled size="small">No strategies available</Button>
+                        )}
+                      </div>
+                    );
+                  }}
                 </Form.Item>
               </Form.Item>
             </Col>

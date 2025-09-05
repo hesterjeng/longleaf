@@ -86,16 +86,18 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
       hovermode: chartData.layout.hovermode || 'x',
       height: 600,
       showlegend: true,
+      autosize: true,
+      margin: { l: 60, r: 40, t: 50, b: 50 },
       ...chartData.layout
     };
 
     return (
-      <div>
+      <div style={{ width: '100%', overflow: 'hidden' }}>
         <Plot
           data={traces}
           layout={layout}
           style={{ width: '100%', height: '600px' }}
-          config={{ responsive: true }}
+          config={{ responsive: true, displayModeBar: true }}
         />
         
         <Row gutter={16} style={{ marginTop: '20px' }}>
@@ -162,7 +164,52 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
     <div>
       <Title level={2}>Price Charts</Title>
       
-      {symbols && symbols.length > 0 ? (
+      {symbols === null || symbols === undefined ? (
+        // Case 1: symbols endpoint not available/implemented
+        <div>
+          <Alert
+            type="warning"
+            message="Chart functionality not yet available"
+            style={{ marginBottom: '16px' }}
+          />
+          
+          <Alert
+            type="info"
+            message="Chart Implementation Status"
+            description={
+              <div>
+                <p>The chart endpoints are currently under development:</p>
+                <ul>
+                  <li><Text strong>/symbols</Text> endpoint: Not yet implemented for current target type</li>
+                  <li><Text strong>/data/:symbol/json</Text> endpoint: Returns 404 (not yet implemented)</li>
+                </ul>
+                
+                <p><Text strong>When implemented, you will be able to:</Text></p>
+                <ol>
+                  <li>Set a data file target in the <Text strong>Control</Text> tab</li>
+                  <li>View available symbols from the data file</li>
+                  <li>Generate interactive price charts with technical indicators</li>
+                </ol>
+                
+                <p><Text strong>Available data files can be found in the Data Files tab</Text></p>
+              </div>
+            }
+          />
+          {renderInstructions()}
+        </div>
+      ) : symbols.length === 0 ? (
+        // Case 2: symbols available but empty
+        <div>
+          <Alert
+            type="info"
+            message="No symbols available"
+            description="No symbols found in the current data source. Please check that your data file contains symbol data or select a different data file in the Control tab."
+            style={{ marginBottom: '16px' }}
+          />
+          {renderInstructions()}
+        </div>
+      ) : (
+        // Case 3: symbols available and populated
         <div>
           <Card style={{ marginBottom: '16px' }}>
             <Text strong>Select Symbol</Text>
@@ -203,37 +250,6 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
           {chartData && renderChart()}
           
           {renderInstructions()}
-        </div>
-      ) : (
-        <div>
-          <Alert
-            type="warning"
-            message="Chart functionality not yet available"
-            style={{ marginBottom: '16px' }}
-          />
-          
-          <Alert
-            type="info"
-            message="Chart Implementation Status"
-            description={
-              <div>
-                <p>The chart endpoints are currently under development:</p>
-                <ul>
-                  <li><Text strong>/symbols</Text> endpoint: Not yet implemented for File targets</li>
-                  <li><Text strong>/data/:symbol/json</Text> endpoint: Returns 404 (not yet implemented)</li>
-                </ul>
-                
-                <p><Text strong>When implemented, you will be able to:</Text></p>
-                <ol>
-                  <li>Set a data file target in the <Text strong>Control</Text> tab</li>
-                  <li>View available symbols from the data file</li>
-                  <li>Generate interactive price charts with technical indicators</li>
-                </ol>
-                
-                <p><Text strong>Available data files can be found in the Data Files tab</Text></p>
-              </div>
-            }
-          />
         </div>
       )}
     </div>
