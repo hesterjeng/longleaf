@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, message } from 'antd';
+import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, Input, Badge, message } from 'antd';
 import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined, LineChartOutlined } from '@ant-design/icons';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
@@ -14,9 +14,13 @@ interface OverviewTabProps {
   lastUpdate: Date;
   refreshData: () => void;
   loading: boolean;
+  serverUrl: string;
+  setServerUrl: (url: string) => void;
+  serverOnline: boolean;
+  checkServerConnection: () => void;
 }
 
-const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refreshData, loading }) => {
+const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refreshData, loading, serverUrl, setServerUrl, serverOnline, checkServerConnection }) => {
   const { status, settings, dataFiles, strategies } = serverData;
   const [executing, setExecuting] = useState<boolean>(false);
   const [executeResult, setExecuteResult] = useState<string | null>(null);
@@ -338,7 +342,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         <Col span={8}>
           <Card title="Server Status">
             {renderStatusDisplay(status)}
-            <Text type="secondary" style={{ marginTop: '16px', display: 'block' }}>
+            <div style={{ marginTop: '12px', marginBottom: '8px' }}>
+              <Badge 
+                status={serverOnline ? 'success' : 'error'}
+                text={serverOnline ? 'Server Online' : 'Server Offline'}
+              />
+            </div>
+            <Text type="secondary" style={{ marginTop: '8px', display: 'block' }}>
               Last updated: {lastUpdate.toLocaleString()}
             </Text>
           </Card>
@@ -377,6 +387,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                 style={{ minWidth: '150px' }}
               >
                 Refresh Data
+              </Button>
+              
+              <Button
+                size="large"
+                icon={<ReloadOutlined />}
+                onClick={checkServerConnection}
+                style={{ minWidth: '150px' }}
+              >
+                Check Connection
               </Button>
               
               {(executeResult !== null || executeError) && (
@@ -445,6 +464,20 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           </Button>
         }
       >
+        <div style={{ marginBottom: '16px' }}>
+          <Text strong>Server URL</Text>
+          <Input
+            value={serverUrl}
+            onChange={(e) => setServerUrl(e.target.value)}
+            placeholder="http://localhost:8080"
+            style={{ marginTop: '8px' }}
+            addonBefore="Server"
+          />
+          <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '4px' }}>
+            Longleaf server connection URL
+          </Text>
+        </div>
+        
         <Form
           form={settingsForm}
           layout="vertical"

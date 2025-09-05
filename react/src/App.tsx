@@ -2,14 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Layout, Tabs, Alert, Typography } from 'antd';
 import type { TabsProps } from 'antd';
-import Sidebar from './components/Sidebar';
 import OverviewTab from './components/OverviewTab';
 import ChartTab from './components/ChartTab';
 import DataTab from './components/DataTab';
 import StrategiesTab from './components/StrategiesTab';
 import type { ServerData } from './types';
 
-const { Header, Sider, Content } = Layout;
+const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 
 const App: React.FC = () => {
@@ -88,7 +87,16 @@ const App: React.FC = () => {
     {
       key: 'overview',
       label: 'Overview & Control',
-      children: <OverviewTab serverData={serverData} refreshData={refreshData} loading={loading} lastUpdate={lastUpdate} />
+      children: <OverviewTab 
+        serverData={serverData} 
+        refreshData={refreshData} 
+        loading={loading} 
+        lastUpdate={lastUpdate}
+        serverUrl={serverUrl}
+        setServerUrl={setServerUrl}
+        serverOnline={serverOnline}
+        checkServerConnection={checkServerConnection}
+      />
     },
     {
       key: 'charts', 
@@ -110,22 +118,12 @@ const App: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider width={300} theme="light" style={{ borderRight: '1px solid #f0f0f0' }}>
-        <Sidebar
-          serverUrl={serverUrl}
-          setServerUrl={setServerUrl}
-          serverOnline={serverOnline}
-          checkServerConnection={checkServerConnection}
-        />
-      </Sider>
-      
-      <Layout>
-        <Header style={{ background: '#fff', padding: '16px 24px', borderBottom: '1px solid #f0f0f0', height: 'auto' }}>
-          <Title level={2} style={{ margin: '0 0 4px 0' }}>Longleaf Control Dashboard</Title>
-          <Text type="secondary">Algorithmic Trading Platform Control Interface</Text>
-        </Header>
+      <Header style={{ background: '#fff', padding: '16px 24px', borderBottom: '1px solid #f0f0f0', height: 'auto' }}>
+        <Title level={2} style={{ margin: '0 0 4px 0' }}>Longleaf Control Dashboard</Title>
+        <Text type="secondary">Algorithmic Trading Platform Control Interface</Text>
+      </Header>
 
-        <Content style={{ padding: '24px' }}>
+      <Content style={{ padding: '24px' }}>
           {serverOnline ? (
             <Tabs items={tabItems} defaultActiveKey="overview" />
           ) : (
@@ -146,8 +144,7 @@ const App: React.FC = () => {
               }
             />
           )}
-        </Content>
-      </Layout>
+      </Content>
     </Layout>
   );
 };
