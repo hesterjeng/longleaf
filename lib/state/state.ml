@@ -9,7 +9,6 @@ type 'a t = {
   bars : Bars.t;
   current_tick : int;
   orders_placed : int;
-  content : 'a;
   config : Config.t;
   cash : float;
   positions : Positions.t;
@@ -30,7 +29,6 @@ let empty runtype (indicators : Tacaml.t list) : unit t =
       };
     cash = 0.0;
     positions = Positions.empty;
-    content = ();
     value_history = [];
   }
 
@@ -45,7 +43,7 @@ type 'a res = ('a, Error.t) result
 let current t = t.current_state
 let config x = x.config
 
-let make current_tick bars content indicator_config cash =
+let make current_tick bars indicator_config cash =
   let config = Config.{ placeholder = true; indicator_config } in
   Result.return
     {
@@ -53,7 +51,6 @@ let make current_tick bars content indicator_config cash =
       bars;
       current_tick;
       orders_placed = 0;
-      content;
       config;
       cash;
       positions = Positions.empty;

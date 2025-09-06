@@ -11,7 +11,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let get_trading_client _ = Result.fail @@ `MissingClient "Trading"
   let get_data_client _ = Result.fail @@ `MissingClient "Data"
 
-  let init_state content =
+  let init_state () =
     let ( let* ) = Result.( let* ) in
     let* bars =
       match Input.target with
@@ -22,7 +22,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Indicators_config.make Input.options.flags.runtype
         Input.options.tacaml_indicators
     in
-    State.make Input.options.flags.start bars content config 100000.0
+    State.make Input.options.flags.start bars config 100000.0
 
   let opts = Input.options
 

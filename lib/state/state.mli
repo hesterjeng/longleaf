@@ -10,7 +10,7 @@ type 'a res = ('a, Error.t) result
 val current : 'a t -> Mode.t
 
 (* Create a new state with index, data, and content *)
-val make : int -> Bars.t -> 'a -> Indicators_config.t -> float -> 'a t res
+val make : int -> Bars.t -> Indicators_config.t -> float -> 'a t res
 
 (* Print basic info about the state *)
 val pp : 'a t Format.printer

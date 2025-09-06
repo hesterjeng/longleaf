@@ -59,7 +59,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let longleaf_env = opts.longleaf_env
   end)
 
-  let init_state content =
+  let init_state () =
     let ( let* ) = Result.( let* ) in
     let* account_status = Trading_api.Accounts.get_account () in
     Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
@@ -74,7 +74,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Indicators_config.make Input.options.flags.runtype
         Input.options.tacaml_indicators
     in
-    State.make 0 bars content config account_cash
+    State.make 0 bars config account_cash
 
   let next_market_open () =
     let ( let* ) = Result.( let* ) in
