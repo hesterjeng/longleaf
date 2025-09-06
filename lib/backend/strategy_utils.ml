@@ -173,7 +173,7 @@ module Make (Backend : Backend.S) = struct
         | Live
         | Paper ->
           let* bars_length = Bars.length @@ State.bars state in
-          let state = State.set_tick state (bars_length - 1) in
+          let state = State.set_tick state (bars_length - 1) |> State.grow in
           Eio.traceln "Initialize state: %a" State.pp state;
           Result.return state
         | _ -> Result.return state
