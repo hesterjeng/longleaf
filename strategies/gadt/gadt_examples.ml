@@ -117,6 +117,23 @@ let golden_cross =
        position_size = 1.0;
      }
 
+let golden_cross_0 =
+  (* Classic moving average crossover strategy *)
+  let ema = Real.ema 58 () in
+  let sma = Real.sma 36 () in
+  register
+  @@ {
+       name = "GoldenCrossLauren";
+       (* Buy when fast EMA crosses above slow SMA *)
+       buy_trigger =
+         cross_up ema sma;
+       (* Sell when fast EMA crosses below slow SMA *)
+       sell_trigger =
+         cross_down ema sma;
+       max_positions = 1;
+       position_size = 1.0;
+     }
+
 let mean_reversion_lag =
   (* Mean reversion using lagged price comparison *)
   register
