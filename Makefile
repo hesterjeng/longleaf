@@ -1,11 +1,19 @@
-.PHONY: all clean
+.PHONY: all clean build install format deps react
 
-all: build
+all:
+	dune build
 
-build: dune build
+build:
+	dune build
 
-install: dune bnuild && dune install && cd react && npm install
+install:
+	dune build && dune install && cd react && npm install
 
-deps: odep dune | dot -Tsvg > dune-odep.svg
+format:
+	dune build @fmt --display=quiet --auto-promote
 
-react: cd react && npm start
+deps:
+	odep dune | dot -Tsvg > dune-odep.svg
+
+react:
+	cd react && npm start

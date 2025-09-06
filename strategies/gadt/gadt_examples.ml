@@ -125,11 +125,9 @@ let golden_cross_0 =
   @@ {
        name = "GoldenCrossLauren";
        (* Buy when fast EMA crosses above slow SMA *)
-       buy_trigger =
-         cross_up ema sma;
+       buy_trigger = cross_up ema sma;
        (* Sell when fast EMA crosses below slow SMA *)
-       sell_trigger =
-         cross_down ema sma;
+       sell_trigger = cross_down ema sma;
        max_positions = 1;
        position_size = 1.0;
      }
