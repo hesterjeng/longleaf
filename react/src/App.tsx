@@ -118,14 +118,26 @@ const App: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ background: '#fff', padding: '16px 24px', borderBottom: '1px solid #f0f0f0', height: 'auto' }}>
-        <Title level={2} style={{ margin: '0 0 4px 0' }}>Longleaf Control Dashboard</Title>
-        <Text type="secondary">Algorithmic Trading Platform Control Interface</Text>
-      </Header>
-
-      <Content style={{ padding: '24px' }}>
+      <Content style={{ padding: '8px 16px' }}>
           {serverOnline ? (
-            <Tabs items={tabItems} defaultActiveKey="overview" />
+            <div style={{ 
+              padding: '6px 12px'
+            }}>
+              <Tabs 
+                items={tabItems} 
+                defaultActiveKey="overview"
+                size="large"
+                style={{
+                  backgroundColor: 'transparent'
+                }}
+                tabBarStyle={{
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  marginBottom: '16px',
+                  borderBottom: '2px solid #d9d9d9'
+                }}
+              />
+            </div>
           ) : (
             <Alert
               type="error"

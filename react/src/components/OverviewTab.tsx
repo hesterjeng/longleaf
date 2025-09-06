@@ -31,6 +31,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const [performanceLoading, setPerformanceLoading] = useState<boolean>(false);
   const [performanceError, setPerformanceError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(0);
+  const [showServerUrlInput, setShowServerUrlInput] = useState<boolean>(false);
+  const [stacktraceActive, setStacktraceActive] = useState<boolean>(false);
+  const [printTickActive, setPrintTickActive] = useState<boolean>(false);
+  const [comparePreloadedActive, setComparePreloadedActive] = useState<boolean>(false);
+  const [saveReceivedActive, setSaveReceivedActive] = useState<boolean>(false);
+  const [saveToFileActive, setSaveToFileActive] = useState<boolean>(false);
+  const [precomputeIndicatorsActive, setPrecomputeIndicatorsActive] = useState<boolean>(false);
+  const [nowaitMarketOpenActive, setNowaitMarketOpenActive] = useState<boolean>(false);
   const strategiesPerPage = 12; // 3 columns × 4 rows = 12 strategies per page
 
   const { displayedStrategies, totalPages } = React.useMemo(() => {
@@ -336,11 +344,26 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
   return (
     <div>
-      <Title level={2}>System Overview</Title>
+      <div style={{ 
+        textAlign: 'center', 
+        marginBottom: '12px'
+      }}>
+        <img 
+          src="/hairpine.jpg" 
+          alt="Hairpine" 
+          style={{ 
+            width: '60%',
+            height: 'auto',
+            borderRadius: '8px'
+          }} 
+        />
+      </div>
       
-      <Row gutter={16}>
+      <Title level={2} style={{ textAlign: 'center' }}>Longleaf System Overview</Title>
+      
+      <Row gutter={6} style={{ marginBottom: '6px' }}>
         <Col span={8}>
-          <Card title="Server Status">
+          <Card title="Server Status" style={{ height: '100%' }} bodyStyle={{ padding: '8px' }}>
             {renderStatusDisplay(status)}
             <div style={{ marginTop: '12px', marginBottom: '8px' }}>
               <Badge 
@@ -355,80 +378,230 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         </Col>
         
         <Col span={16}>
-          <Card title="Server Controls" style={{ marginBottom: '16px' }}>
-            <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-              <Button
-                type="primary"
-                danger
-                size="large"
-                icon={<PlayCircleOutlined />}
-                onClick={executeStrategyHandler}
-                disabled={executing || loading || settingsLoading}
-                style={{ minWidth: '150px' }}
-              >
-                {executing ? 'Executing...' : 'Execute Strategy'}
-              </Button>
+          <Card title="Control Panel" style={{ height: '100%' }} bodyStyle={{ padding: '8px' }}>
+            <Row gutter={[8, 8]}>
+              <Col span={8}>
+                <Button
+                  type="primary"
+                  danger
+                  size="large"
+                  icon={<PlayCircleOutlined />}
+                  onClick={executeStrategyHandler}
+                  disabled={executing || loading || settingsLoading}
+                  style={{ width: '100%' }}
+                >
+                  {executing ? 'Executing...' : 'Execute Strategy'}
+                </Button>
+              </Col>
               
-              <Button
-                size="large"
-                icon={<StopOutlined />}
-                onClick={stopServerHandler}
-                disabled={settingsLoading || loading}
-                style={{ minWidth: '150px' }}
-              >
-                Shutdown Server
-              </Button>
+              <Col span={8}>
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<SaveOutlined />}
+                  onClick={() => settingsForm.submit()}
+                  loading={settingsLoading}
+                  style={{ width: '100%' }}
+                >
+                  Save Settings
+                </Button>
+              </Col>
               
-              <Button
-                size="large"
-                icon={<ReloadOutlined />}
-                onClick={refreshData}
-                disabled={loading}
-                style={{ minWidth: '150px' }}
-              >
-                Refresh Data
-              </Button>
-              
-              <Button
-                size="large"
-                icon={<ReloadOutlined />}
-                onClick={checkServerConnection}
-                style={{ minWidth: '150px' }}
-              >
-                Check Connection
-              </Button>
-              
-              {(executeResult !== null || executeError) && (
+              <Col span={8}>
                 <Button
                   size="large"
-                  icon={<CloseOutlined />}
+                  icon={<ReloadOutlined />}
                   onClick={() => {
-                    setExecuteResult(null);
-                    setExecuteError(null);
+                    refreshData();
+                    fetchPerformanceData();
                   }}
-                  style={{ minWidth: '150px' }}
+                  disabled={loading}
+                  style={{ width: '100%' }}
                 >
-                  Clear Result
+                  Refresh Data
                 </Button>
+              </Col>
+              
+              <Col span={8}>
+                <Button
+                  size="large"
+                  icon={<ReloadOutlined />}
+                  onClick={checkServerConnection}
+                  style={{ width: '100%' }}
+                >
+                  Check Connection
+                </Button>
+              </Col>
+              
+              {(executeResult !== null || executeError) && (
+                <Col span={8}>
+                  <Button
+                    size="large"
+                    icon={<CloseOutlined />}
+                    onClick={() => {
+                      setExecuteResult(null);
+                      setExecuteError(null);
+                    }}
+                    style={{ width: '100%' }}
+                  >
+                    Clear Result
+                  </Button>
+                </Col>
               )}
-            </div>
+              
+              {/* Empty buttons to fill out the control panel */}
+              <Col span={8}>
+                <Button
+                  size="large"
+                  onClick={() => setShowServerUrlInput(!showServerUrlInput)}
+                  style={{ width: '100%' }}
+                  type={showServerUrlInput ? 'primary' : 'default'}
+                >
+                  Server URL
+                </Button>
+              </Col>
+              
+              <Col span={8}>
+                <Button
+                  size="large"
+                  type={stacktraceActive ? 'primary' : 'default'}
+                  onClick={() => {
+                    const newValue = !stacktraceActive;
+                    setStacktraceActive(newValue);
+                    settingsForm.setFieldsValue({ stacktrace: newValue });
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Stacktrace
+                </Button>
+              </Col>
+              
+              <Col span={8}>
+                <Button
+                  size="large"
+                  type={printTickActive ? 'primary' : 'default'}
+                  onClick={() => {
+                    const newValue = !printTickActive;
+                    setPrintTickActive(newValue);
+                    settingsForm.setFieldsValue({ print_tick_arg: newValue });
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Print Tick
+                </Button>
+              </Col>
+              
+              <Col span={8}>
+                <Button
+                  size="large"
+                  type={comparePreloadedActive ? 'primary' : 'default'}
+                  onClick={() => {
+                    const newValue = !comparePreloadedActive;
+                    setComparePreloadedActive(newValue);
+                    settingsForm.setFieldsValue({ compare_preloaded: newValue });
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Compare Preloaded
+                </Button>
+              </Col>
+              
+              <Col span={8}>
+                <Button
+                  size="large"
+                  type={saveReceivedActive ? 'primary' : 'default'}
+                  onClick={() => {
+                    const newValue = !saveReceivedActive;
+                    setSaveReceivedActive(newValue);
+                    settingsForm.setFieldsValue({ save_received: newValue });
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Save Received
+                </Button>
+              </Col>
+              
+              <Col span={8}>
+                <Button
+                  size="large"
+                  type={saveToFileActive ? 'primary' : 'default'}
+                  onClick={() => {
+                    const newValue = !saveToFileActive;
+                    setSaveToFileActive(newValue);
+                    settingsForm.setFieldsValue({ save_to_file: newValue });
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Save to File
+                </Button>
+              </Col>
+              
+              <Col span={8}>
+                <Button
+                  size="large"
+                  type={precomputeIndicatorsActive ? 'primary' : 'default'}
+                  onClick={() => {
+                    const newValue = !precomputeIndicatorsActive;
+                    setPrecomputeIndicatorsActive(newValue);
+                    settingsForm.setFieldsValue({ precompute_indicators_arg: newValue });
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Precompute Indicators
+                </Button>
+              </Col>
+              
+              <Col span={8}>
+                <Button
+                  size="large"
+                  type={nowaitMarketOpenActive ? 'primary' : 'default'}
+                  onClick={() => {
+                    const newValue = !nowaitMarketOpenActive;
+                    setNowaitMarketOpenActive(newValue);
+                    settingsForm.setFieldsValue({ nowait_market_open: newValue });
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  No Wait Market Open
+                </Button>
+              </Col>
+            </Row>
             
-            {executeResult !== null && (
-              <Alert
-                type="success"
-                message="Execution Result"
-                description={<code>{executeResult}</code>}
-                style={{ marginBottom: '16px' }}
-              />
+            {showServerUrlInput && (
+              <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+                <Text strong>Server URL</Text>
+                <Input
+                  value={serverUrl}
+                  onChange={(e) => setServerUrl(e.target.value)}
+                  placeholder="http://localhost:8080"
+                  style={{ marginTop: '4px' }}
+                  addonBefore="Server"
+                />
+                <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '2px' }}>
+                  Longleaf server connection URL
+                </Text>
+              </div>
             )}
-            
-            {executeError && (
-              <Alert
-                type="error"
-                message="Execution Error"
-                description={executeError}
-                style={{ marginBottom: '16px' }}
-              />
+
+            {(executeResult !== null || executeError) && (
+              <div style={{ marginTop: '16px' }}>
+                {executeResult !== null && (
+                  <Alert
+                    type="success"
+                    message="Execution Result"
+                    description={<code>{executeResult}</code>}
+                    style={{ marginBottom: '16px' }}
+                  />
+                )}
+                
+                {executeError && (
+                  <Alert
+                    type="error"
+                    message="Execution Error"
+                    description={executeError}
+                  />
+                )}
+              </div>
             )}
           </Card>
         </Col>
@@ -436,62 +609,28 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
       <Card 
         title="Portfolio Performance" 
-        style={{ marginBottom: '16px' }}
-        extra={
-          <Button 
-            icon={<LineChartOutlined />}
-            onClick={fetchPerformanceData}
-            disabled={performanceLoading}
-            size="small"
-          >
-            Refresh Chart
-          </Button>
-        }
+        style={{ marginBottom: '6px' }}
+        bodyStyle={{ padding: '8px' }}
       >
         {renderPerformanceChart()}
       </Card>
 
-      <Card 
-        title="Configuration" 
-        extra={
-          <Button 
-            type="primary" 
-            icon={<SaveOutlined />}
-            loading={settingsLoading}
-            onClick={() => settingsForm.submit()}
-          >
-            Save Settings
-          </Button>
-        }
+      <Form
+        form={settingsForm}
+        layout="vertical"
+        onFinish={onFinishSettings}
+        onValuesChange={(changedValues, allValues) => {
+          // This ensures form state is properly managed
+        }}
       >
-        <div style={{ marginBottom: '16px' }}>
-          <Text strong>Server URL</Text>
-          <Input
-            value={serverUrl}
-            onChange={(e) => setServerUrl(e.target.value)}
-            placeholder="http://localhost:8080"
-            style={{ marginTop: '8px' }}
-            addonBefore="Server"
-          />
-          <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '4px' }}>
-            Longleaf server connection URL
-          </Text>
-        </div>
-        
-        <Form
-          form={settingsForm}
-          layout="vertical"
-          onFinish={onFinishSettings}
-          onValuesChange={(changedValues, allValues) => {
-            // This ensures form state is properly managed
-          }}
-        >
-          <Row gutter={24}>
-            <Col span={8}>
-              <Form.Item label="Run Type" name="runtype">
+
+        <Row gutter={6} style={{ marginBottom: '6px' }}>
+          <Col span={24}>
+            <Card title="Run Type" bodyStyle={{ padding: '8px' }}>
+              <Form.Item label="" name="runtype">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {runtypeOptions.map(type => (
                         <Button
                           key={type}
@@ -507,21 +646,23 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                   )}
                 </Form.Item>
               </Form.Item>
-            </Col>
-            
-            <Col span={16}>
-              <Form.Item label="Strategy" name="strategy_arg">
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={6} style={{ marginBottom: '6px' }}>
+          <Col span={24}>
+            <Card title="Strategy" bodyStyle={{ padding: '8px' }}>
+              <Form.Item label="" name="strategy_arg">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => {
-                    
                     return (
                       <div>
                         {strategies && strategies.length > 0 ? (
                           <>
-                            {/* Strategy Grid - 3 columns, no scrollbars */}
                             <div style={{ 
                               display: 'grid', 
-                              gridTemplateColumns: 'repeat(3, 1fr)', 
+                              gridTemplateColumns: 'repeat(4, 1fr)', 
                               gap: '6px',
                               marginBottom: '12px'
                             }}>
@@ -534,7 +675,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                                   style={{ 
                                     textAlign: 'left', 
                                     justifyContent: 'flex-start',
-                                    minHeight: '32px' // Ensure consistent button height
+                                    minHeight: '32px'
                                   }}
                                 >
                                   {strategy}
@@ -542,7 +683,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                               ))}
                             </div>
                             
-                            {/* Pagination Controls */}
                             {totalPages > 1 && (
                               <div style={{ 
                                 display: 'flex', 
@@ -579,46 +719,33 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                   }}
                 </Form.Item>
               </Form.Item>
-            </Col>
-          </Row>
-          
-          <Row gutter={24}>
-            <Col span={6}>
-              <Form.Item label="Target Type" name="target_type">
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={6} style={{ marginBottom: '6px' }}>
+          <Col span={24}>
+            <Card title="Target" bodyStyle={{ padding: '8px' }}>
+              <Form.Item label="" name="target_file">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       <Button
                         size="small"
                         type={getFieldValue('target_type') === 'Download' ? 'primary' : 'default'}
-                        onClick={() => setFieldsValue({ target_type: 'Download' })}
+                        onClick={() => {
+                          setFieldsValue({ target_type: 'Download', target_file: '' });
+                        }}
                         style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                       >
                         Download (Live Data)
                       </Button>
                       <Button
                         size="small"
-                        type={getFieldValue('target_type') === 'File' ? 'primary' : 'default'}
-                        onClick={() => setFieldsValue({ target_type: 'File' })}
-                        style={{ textAlign: 'left', justifyContent: 'flex-start' }}
-                      >
-                        Data File
-                      </Button>
-                    </div>
-                  )}
-                </Form.Item>
-              </Form.Item>
-            </Col>
-            
-            <Col span={6}>
-              <Form.Item label="Target File" name="target_file">
-                <Form.Item noStyle shouldUpdate>
-                  {({ getFieldValue, setFieldsValue }) => (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
-                      <Button
-                        size="small"
-                        type={!getFieldValue('target_file') ? 'primary' : 'default'}
-                        onClick={() => setFieldsValue({ target_file: '' })}
+                        type={!getFieldValue('target_file') && getFieldValue('target_type') === 'File' ? 'primary' : 'default'}
+                        onClick={() => {
+                          setFieldsValue({ target_type: 'File', target_file: '' });
+                        }}
                         style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                       >
                         None
@@ -628,90 +755,42 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                           key={file}
                           size="small"
                           type={getFieldValue('target_file') === file ? 'primary' : 'default'}
-                          onClick={() => setFieldsValue({ target_file: file })}
+                          onClick={() => {
+                            setFieldsValue({ target_type: 'File', target_file: file });
+                          }}
                           style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                         >
                           {file}
                         </Button>
-                      )) : (
-                        <Button disabled size="small">No data files available</Button>
-                      )}
+                      )) : null}
                     </div>
                   )}
                 </Form.Item>
               </Form.Item>
-            </Col>
-            
-            <Col span={12}>
-              <div style={{ display: 'flex', gap: '24px' }}>
-                <Form.Item label="Start Index" name="start" style={{ flex: 1 }}>
-                  <InputNumber min={0} size="large" style={{ width: '100%' }} />
-                </Form.Item>
-                
-                <Form.Item label="Random Drop %" name="random_drop_chance" style={{ flex: 1 }}>
-                  <InputNumber min={0} max={100} size="large" style={{ width: '100%' }} />
-                </Form.Item>
-              </div>
-            </Col>
-          </Row>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={6} style={{ marginBottom: '6px' }}>
+          <Col span={12}>
+            <Card title="Start Index" bodyStyle={{ padding: '8px' }}>
+              <Form.Item label="" name="start">
+                <InputNumber min={0} size="large" style={{ width: '100%' }} />
+              </Form.Item>
+            </Card>
+          </Col>
           
-          <Typography.Title level={5} style={{ marginTop: '24px', marginBottom: '16px' }}>
-            Options
-          </Typography.Title>
-          
-          <Row gutter={16}>
-            <Col span={6}>
-              <Form.Item label="Stacktrace" name="stacktrace" valuePropName="checked">
-                <Switch />
+          <Col span={12}>
+            <Card title="Random Drop %" bodyStyle={{ padding: '8px' }}>
+              <Form.Item label="" name="random_drop_chance">
+                <InputNumber min={0} max={100} size="large" style={{ width: '100%' }} />
               </Form.Item>
-            </Col>
-            
-            <Col span={6}>
-              <Form.Item label="Print Tick" name="print_tick_arg" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-            
-            <Col span={6}>
-              <Form.Item label="No GUI" name="no_gui" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-            
-            <Col span={6}>
-              <Form.Item label="Compare Preloaded" name="compare_preloaded" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Row gutter={16}>
-            <Col span={6}>
-              <Form.Item label="Save Received Data" name="save_received" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-            
-            <Col span={6}>
-              <Form.Item label="Save to File" name="save_to_file" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-            
-            <Col span={6}>
-              <Form.Item label="Precompute Indicators" name="precompute_indicators_arg" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-            
-            <Col span={6}>
-              <Form.Item label="No Wait Market Open" name="nowait_market_open" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-          </Row>
-        </Form>
-      </Card>
+            </Card>
+          </Col>
+        </Row>
+
+
+      </Form>
     </div>
   );
 };

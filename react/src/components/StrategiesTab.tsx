@@ -59,7 +59,22 @@ module Make : Strategy.BUILDER = Template.Make (Buy_inp) (Sell)`}
 
   return (
     <div>
-      <Title level={2}>Available Strategies</Title>
+      <div style={{ 
+        textAlign: 'center', 
+        marginBottom: '12px'
+      }}>
+        <img 
+          src="/cole.jpg" 
+          alt="Cole" 
+          style={{ 
+            width: '45%',
+            height: 'auto',
+            borderRadius: '8px'
+          }} 
+        />
+      </div>
+      
+      <Title level={2} style={{ textAlign: 'center' }}>Available Strategies</Title>
 
       <Card title="Current Strategy" style={{ marginBottom: '16px' }}>
         {currentStrategy ? (

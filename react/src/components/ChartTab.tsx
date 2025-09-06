@@ -162,7 +162,22 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
 
   return (
     <div>
-      <Title level={2}>Price Charts</Title>
+      <div style={{ 
+        textAlign: 'center', 
+        marginBottom: '12px'
+      }}>
+        <img 
+          src="/niagara.jpg" 
+          alt="Niagara" 
+          style={{ 
+            width: '60%',
+            height: 'auto',
+            borderRadius: '8px'
+          }} 
+        />
+      </div>
+      
+      <Title level={2} style={{ textAlign: 'center' }}>Price Charts</Title>
       
       {symbols === null || symbols === undefined ? (
         // Case 1: symbols endpoint not available/implemented

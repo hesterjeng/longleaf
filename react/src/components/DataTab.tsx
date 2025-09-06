@@ -43,7 +43,22 @@ longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 \\
 
   return (
     <div>
-      <Title level={2}>Data Files</Title>
+      <div style={{ 
+        textAlign: 'center', 
+        marginBottom: '12px'
+      }}>
+        <img 
+          src="/valley.jpg" 
+          alt="Valley" 
+          style={{ 
+            width: '45%',
+            height: 'auto',
+            borderRadius: '8px'
+          }} 
+        />
+      </div>
+      
+      <Title level={2} style={{ textAlign: 'center' }}>Data Files</Title>
 
       <Card title="Current Target" style={{ marginBottom: '16px' }}>
         {currentTarget ? (
