@@ -5,7 +5,7 @@ module Bars = Longleaf_bars
 module Pmutex = Longleaf_util.Pmutex
 
 type 'a t = {
-  current_state : Mode.t;
+  (* current_state : Mode.t; *)
   bars : Bars.t;
   current_tick : int;
   orders_placed : int;
@@ -18,7 +18,7 @@ type 'a t = {
 
 let empty runtype (indicators : Tacaml.t list) : unit t =
   {
-    current_state = Initialize;
+    (* current_state = `Initialize; *)
     bars = Bars.empty ();
     current_tick = 0;
     orders_placed = 0;
@@ -32,7 +32,6 @@ let empty runtype (indicators : Tacaml.t list) : unit t =
     value_history = [];
   }
 
-let set x mode = { x with current_state = mode }
 let set_tick x current_tick = { x with current_tick }
 let bars x = x.bars
 let value_history x = x.value_history
@@ -40,14 +39,12 @@ let cost_basis x = Positions.cost_basis x.positions
 
 type 'a res = ('a, Error.t) result
 
-let current t = t.current_state
 let config x = x.config
 
 let make current_tick bars indicator_config cash =
   let config = Config.{ placeholder = true; indicator_config } in
   Result.return
     {
-      current_state = Initialize;
       bars;
       current_tick;
       orders_placed = 0;
@@ -58,8 +55,7 @@ let make current_tick bars indicator_config cash =
     }
 
 let pp fmt t =
-  Format.fprintf fmt "V3State(tick=%d, state=%a, cash=%.2f)" t.current_tick
-    Mode.pp t.current_state t.cash
+  Format.fprintf fmt "V3State(tick=%d, cash=%.2f)" t.current_tick t.cash
 
 let show t = Format.asprintf "%a" pp t
 let cash t = t.cash
@@ -97,8 +93,8 @@ let increment_tick x =
        value_history = (time, value) :: x.value_history;
      }
 
-let listen t = { t with current_state = Listening }
-let liquidate t = { t with current_state = Liquidate }
+let listen t = t
+let liquidate t = t
 let qty (t : 'a t) instrument = Positions.qty t.positions instrument
 
 let place_order t (order : Order.t) =

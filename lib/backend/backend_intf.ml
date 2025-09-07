@@ -29,7 +29,7 @@ module type S = sig
   val received_data : Bars.t
   val get_trading_client : unit -> (Piaf.Client.t, Error.t) result
   val get_data_client : unit -> (Piaf.Client.t, Error.t) result
-  val init_state : unit -> ('a State.t, Error.t) result
+  val init_state : unit -> ([ `Initialize ] State.t, Error.t) result
   val symbols : Instrument.t list
   val shutdown : unit -> unit
 

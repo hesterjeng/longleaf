@@ -10,7 +10,8 @@ type 'a res = ('a, Error.t) result
 val current : 'a t -> Mode.t
 
 (* Create a new state with index, data, and content *)
-val make : int -> Bars.t -> Indicators_config.t -> float -> 'a t res
+val make :
+  int -> Bars.t -> Indicators_config.t -> float -> [ `Initialize ] t res
 
 (* Print basic info about the state *)
 val pp : 'a t Format.printer
@@ -46,7 +47,7 @@ val value : 'a t -> float res
 val orders_placed : 'a t -> int
 
 (* The same state but with with x.state set to Listening *)
-val listen : 'a t -> 'a t
+val listen : 'a t -> [ `Listening ] t
 
 (* The same state but with with x.state set to Listening *)
 val liquidate : 'a t -> 'a t

@@ -15,7 +15,7 @@ module Make (Backend : Backend.S) = struct
   let mutices : State.Mutex.t = Input.mutices
   let runtype = options.flags.runtype
 
-  let listen_tick env : (State.Mode.t, Error.t) result =
+  let listen_tick env : (unit, Error.t) result =
     match runtype with
     | Live
     | Paper ->
@@ -26,7 +26,7 @@ module Make (Backend : Backend.S) = struct
              match nmo with
              | None ->
                Ticker.tick ~runtype env Input.options.tick;
-               Result.return Mode.Continue
+               Result.return ()
              | Some open_time ->
                Eio.traceln "@[Current time: %a@]@." (Option.pp Time.pp)
                  (Eio.Time.now env#clock |> Ptime.of_float_s);
@@ -40,10 +40,9 @@ module Make (Backend : Backend.S) = struct
                  Eio.traceln "@[Current time: %a@]@." Time.pp t;
                  Ticker.tick ~runtype env 5.0;
                  Eio.traceln "@[Waited five seconds.@]@.";
-                 Result.return @@ Mode.Continue
+                 Result.return ()
                | None ->
-                 Eio.traceln "@[Detected an illegal time!  Shutting down.@]@.";
-                 Result.return @@ Mode.BeginShutdown ));
+                 Error.fatal "Detected an illegal time! strategy_util.ml" ));
            (fun () ->
              while
                let shutdown = Pmutex.get mutices.shutdown_mutex in
@@ -52,8 +51,7 @@ module Make (Backend : Backend.S) = struct
                Eio.Fiber.yield ();
                Ticker.tick ~runtype env 1.0
              done;
-             Eio.traceln "@[Shutdown command received by shutdown mutex.@]@.";
-             Result.return @@ Mode.BeginShutdown);
+             Error.fatal "Shutdown command received by shutdown mutexx");
            (fun () ->
              let* close_time = Backend.next_market_close () in
              let* now =
@@ -72,9 +70,9 @@ module Make (Backend : Backend.S) = struct
              Eio.traceln
                "@[Liquidating because we are within 10 minutes to market \
                 close.@]@.";
-             Result.return Mode.BeginShutdown);
+             Result.return ());
          ]
-    | _ -> Result.return Mode.Continue
+    | _ -> Result.return ()
 
   let run ~init_state step =
     let rec go prev =
@@ -150,36 +148,44 @@ module Make (Backend : Backend.S) = struct
     (* let* _value = State.value state in *)
     Result.return res
 
-  let handle_nonlogical_state (state : _ State.t) =
-    let ( let* ) = Result.( let* ) in
-    let bars = State.bars state in
-    let tick = State.tick state in
-    match State.current state with
-    | Initialize ->
+  module Initialize : sig
+    val top :
+      [ `Initialize ] State.t -> ([ `Listening ] State.t, Error.t) result
+  end = struct
+    let top (state : [ `Initialize ] State.t) =
       Eio.traceln "Initialize state...";
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
-      Eio.traceln "Bars initialize: %a" Bars.pp bars;
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       let* () =
         let indicator_config = (State.config state).indicator_config in
         Indicators.Calc.compute_all eio_env indicator_config @@ State.bars state
       in
-      let* state =
+      let* state : [ `Listening ] State.t =
         (* If we are in live or paper, we need to grow the bars to have somewhere \ *)
         (* to put the received data. *)
         match Input.options.flags.runtype with
         | Live
         | Paper ->
           let* bars_length = Bars.length @@ State.bars state in
-          let state = State.set_tick state (bars_length - 1) |> State.grow in
+          let state =
+            State.set_tick state (bars_length - 1) |> State.grow |> State.listen
+          in
           Eio.traceln "Initialize state: %a" State.pp state;
           Result.return state
-        | _ -> Result.return state
+        | _ -> State.listen state |> Result.return
       in
       Eio.traceln "Finished with initialization: %d..." (State.tick state);
-      Result.return @@ State.set state Listening
+      Result.return state
+  end
+
+  let handle_nonlogical_state (state : _ State.t) =
+    let ( let* ) = Result.( let* ) in
+    let bars = State.bars state in
+    let tick = State.tick state in
+    match State.current state with
+    | Initialize -> Initialize.top state
     | Listening ->
       if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
       (* Eio.traceln "tick"; *)
