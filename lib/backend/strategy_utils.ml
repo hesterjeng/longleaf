@@ -74,30 +74,30 @@ module Make (Backend : Backend.S) = struct
          ]
     | _ -> Result.return ()
 
-  let run ~init_state step =
-    let rec go prev =
-      let stepped = step prev in
-      match stepped with
-      | Ok x -> go x
-      | Error e ->
-        let try_liquidating () =
-          Eio.traceln
-            "@[Trying to liquidate because of a signal or error: %a@]@."
-            Error.pp e;
-          go @@ State.liquidate prev
-        in
-        (match State.current prev with
-        | Liquidate
-        | Finished _ ->
-          Eio.traceln "@[Exiting run.@]@.";
-          State.cash prev (* 0.0 *)
-        | _ -> try_liquidating ())
-    in
-    match init_state with
-    | Ok init_state -> go init_state
-    | Error e ->
-      Eio.traceln "[error] %a" Error.pp e;
-      0.0
+  (* let run ~init_state step = *)
+  (*   let rec go prev = *)
+  (*     let stepped = step prev in *)
+  (*     match stepped with *)
+  (*     | Ok x -> go x *)
+  (*     | Error e -> *)
+  (*       let try_liquidating () = *)
+  (*         Eio.traceln *)
+  (*           "@[Trying to liquidate because of a signal or error: %a@]@." *)
+  (*           Error.pp e; *)
+  (*         go @@ State.liquidate prev *)
+  (*       in *)
+  (*       (match State.current prev with *)
+  (*       | Liquidate *)
+  (*       | Finished _ -> *)
+  (*         Eio.traceln "@[Exiting run.@]@."; *)
+  (*         State.cash prev (\* 0.0 *\) *)
+  (*       | _ -> try_liquidating ()) *)
+  (*   in *)
+  (*   match init_state with *)
+  (*   | Ok init_state -> go init_state *)
+  (*   | Error e -> *)
+  (*     Eio.traceln "[error] %a" Error.pp e; *)
+  (*     0.0 *)
 
   let get_filename () = Longleaf_util.random_filename ()
 
@@ -180,42 +180,36 @@ module Make (Backend : Backend.S) = struct
       Result.return state
   end
 
-  let handle_nonlogical_state (state : _ State.t) =
-    let ( let* ) = Result.( let* ) in
-    let bars = State.bars state in
-    let tick = State.tick state in
-    match State.current state with
-    | Initialize -> Initialize.top state
-    | Listening ->
-      if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
-      (* Eio.traceln "tick"; *)
-      let* listened = listen_tick eio_env in
-      let* length = Bars.length bars in
-      (match listened with
-      | Continue when tick >= length - 1 ->
-        Eio.traceln "Liquidating due to end of data";
-        Result.return @@ State.set state Liquidate
-      | Continue ->
-        let* state = update_continue state in
-        Result.return @@ State.set state Ordering
-      | BeginShutdown ->
-        Eio.traceln "Attempting to liquidate positions before shutting down";
-        Result.return @@ State.set state Liquidate
-      | LiquidateContinue ->
-        Eio.traceln "Strategies.listen_tick resturned LiquidateContinue";
-        Result.return @@ State.set state LiquidateContinue
-      | _ ->
-        Error.fatal
-          "Strategies.handle_nonlogical_state: unhandled return value from \
-           listen_tick")
-    | Liquidate ->
+  module Listen = struct
+    let top (state : [ `Listening ] State.t) :
+        ([ `Ordering ] State.t, Error.t) result =
+      if not options.flags.no_gui then
+        Pmutex.set mutices.state_mutex @@ State.lock state;
+      let* () = listen_tick eio_env in
+      let* length = State.bars state |> Bars.length in
+      let tick = State.tick state in
+      tick >= length - 1 |> function
+      | true ->
+        let* state = Backend.liquidate state in
+        State.set_finished_flag state |> State.ordering |> Result.return
+      | false -> State.ordering state |> Result.return
+  end
+
+  module Liquidate = struct
+    let top state =
       let* state = Backend.liquidate state in
-      Result.return @@ State.set state (Finished "Liquidation finished")
-    | LiquidateContinue ->
+      State.set_finished_flag state |> State.finished |> Result.return
+
+    let top_continue state =
       let* state = Backend.liquidate state in
       Ticker.tick ~runtype eio_env 600.0;
-      Result.return @@ State.set state Listening
-    | Finished code ->
+      State.listen state |> Result.return
+  end
+
+  module Finish = struct
+    let top state =
+      let bars = State.bars state in
+      let tick = State.tick state in
       Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@."
         tick (State.cash state)
         (State.orders_placed state);
@@ -226,15 +220,30 @@ module Make (Backend : Backend.S) = struct
       let filename = get_filename () in
       let* () = output_data state filename in
       output_order_history state filename;
-      (* let tearsheet = Tearsheet.make state in *)
-      (* Eio.traceln "%a" Tearsheet.pp tearsheet; *)
-      (* assert (State.is_portfolio_empty state); *)
-      (* Eio.traceln "Finished cleanup... %fs" *)
-      (*   (Eio.Time.now Backend.env#clock -. !start_time); *)
-      Result.fail @@ `Finished code
-    | Ordering
-    | Continue
-    | BeginShutdown ->
-      Error.fatal
-        "Strategies.handle_nonlogical_state: unhandled nonlogical state"
+      Result.fail @@ `Finished "Finished in strategy_utils.ml"
+  end
+
+  (* let handle_nonlogical_state (state : _ State.t) = *)
+  (*   match State.current state with *)
+  (*   | Initialize -> Initialize.top state *)
+  (*   | Listening -> Listener.top state *)
+  (*   | Liquidate -> Liquidate.top state *)
+  (*   | LiquidateContinue -> Liquidate.top_continue state *)
+  (*   | Finished code -> *)
+  (*     Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@." *)
+  (*       tick (State.cash state) *)
+  (*       (State.orders_placed state); *)
+  (*     (\* TODO: get order history length from trading_state *\) *)
+  (*     Eio.traceln "state.bars at finish: %a" Bars.pp bars; *)
+  (*     Eio.traceln "Done..."; *)
+  (*     if not options.flags.no_gui then Pmutex.set mutices.state_mutex state; *)
+  (*     let filename = get_filename () in *)
+  (*     let* () = output_data state filename in *)
+  (*     output_order_history state filename; *)
+  (*     Result.fail @@ `Finished code *)
+  (*   | Ordering *)
+  (*   | Continue *)
+  (*   | BeginShutdown -> *)
+  (*     Error.fatal *)
+  (*       "Strategies.handle_nonlogical_state: unhandled nonlogical state" *)
 end

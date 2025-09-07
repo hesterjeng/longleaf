@@ -13,6 +13,7 @@ type 'a t = {
   cash : float;
   positions : Positions.t;
   value_history : (Time.t * float) list;
+  finished : bool;
 }
 [@@warning "-69"]
 
@@ -21,6 +22,7 @@ let empty runtype (indicators : Tacaml.t list) : unit t =
     (* current_state = `Initialize; *)
     bars = Bars.empty ();
     current_tick = 0;
+    finished = false;
     orders_placed = 0;
     config =
       {
@@ -36,6 +38,8 @@ let set_tick x current_tick = { x with current_tick }
 let bars x = x.bars
 let value_history x = x.value_history
 let cost_basis x = Positions.cost_basis x.positions
+let set_finished_flag x = { x with finished = true }
+let is_finished x = x.finished
 
 type 'a res = ('a, Error.t) result
 
@@ -50,11 +54,13 @@ let make current_tick bars indicator_config cash =
       orders_placed = 0;
       config;
       cash;
+      finished = false;
       positions = Positions.empty;
       value_history = [];
     }
 
-let pp fmt t =
+let pp : 'a t Format.printer =
+ fun fmt t ->
   Format.fprintf fmt "V3State(tick=%d, cash=%.2f)" t.current_tick t.cash
 
 let show t = Format.asprintf "%a" pp t
@@ -93,8 +99,11 @@ let increment_tick x =
        value_history = (time, value) :: x.value_history;
      }
 
-let listen t = t
+let finished x = x
+let lock (x : 'a t) = (x : [ `Lock ] t)
+let listen x = x
 let liquidate t = t
+let ordering t = t
 let qty (t : 'a t) instrument = Positions.qty t.positions instrument
 
 let place_order t (order : Order.t) =

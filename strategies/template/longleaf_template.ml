@@ -175,31 +175,31 @@ module Make
     let* res = sell state symbol in
     Result.return res
 
-  let step (state : 'a State.t) =
-    let ( let* ) = Result.( let* ) in
-    match State.current state with
-    | Ordering ->
-      let held_symbols = State.held_symbols state in
-      let* sold_state =
-        List.fold_left sell_fold (Ok state) @@ State.held_symbols state
-        (* @@ (State.Core.get_active_orders state.trading_state *)
-        (*    |> List.map (fun (r : State.Order_record.t) -> r.order)) *)
-      in
-      let* complete = buy ~held_symbols sold_state in
-      Result.return complete
-      (* { complete with tick = complete.tick + 1 } *)
-    | _ -> SU.handle_nonlogical_state state
+  (* let step (state : 'a State.t) = *)
+  (*   let ( let* ) = Result.( let* ) in *)
+  (*   match State.current state with *)
+  (*   | Ordering -> *)
+  (*     let held_symbols = State.held_symbols state in *)
+  (*     let* sold_state = *)
+  (*       List.fold_left sell_fold (Ok state) @@ State.held_symbols state *)
+  (*       (\* @@ (State.Core.get_active_orders state.trading_state *\) *)
+  (*       (\*    |> List.map (fun (r : State.Order_record.t) -> r.order)) *\) *)
+  (*     in *)
+  (*     let* complete = buy ~held_symbols sold_state in *)
+  (*     Result.return complete *)
+  (*     (\* { complete with tick = complete.tick + 1 } *\) *)
+  (*   | _ -> SU.handle_nonlogical_state state *)
 
-  exception E
+  (* exception E *)
 
-  let step_exn (state : 'a State.t) =
-    match step state with
-    | Ok x -> x
-    | Error _ -> raise E
+  (* let step_exn (state : 'a State.t) = *)
+  (*   match step state with *)
+  (*   | Ok x -> x *)
+  (*   | Error _ -> raise E *)
 
-  let run () =
-    let init_state = init_state () in
-    SU.run ~init_state step
+  (* let run () = *)
+  (*   let init_state = init_state () in *)
+  (*   SU.run ~init_state step *)
 end
 
 let mk_options switch eio_env flags target tacaml_indicators : Options.t =

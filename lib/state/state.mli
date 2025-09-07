@@ -6,9 +6,6 @@ module Bars = Longleaf_bars
 type 'a t
 type 'a res = ('a, Error.t) result
 
-(* The current "state of the state" *)
-val current : 'a t -> Mode.t
-
 (* Create a new state with index, data, and content *)
 val make :
   int -> Bars.t -> Indicators_config.t -> float -> [ `Initialize ] t res
@@ -50,7 +47,12 @@ val orders_placed : 'a t -> int
 val listen : 'a t -> [ `Listening ] t
 
 (* The same state but with with x.state set to Listening *)
-val liquidate : 'a t -> 'a t
+val liquidate : 'a t -> [ `Liquidate ] t
+val finished : 'a t -> [ `Finished ] t
+val ordering : 'a t -> [ `Ordering ] t
+val lock : 'a t -> [ `Lock ] t
+val set_finished_flag : 'a t -> 'a t
+val is_finished : 'a t -> bool
 
 (* Place an order.  Assume that orders are filled completely and instantly at the current price. *)
 val place_order : 'a t -> Order.t -> 'a t res
@@ -59,7 +61,6 @@ val place_order : 'a t -> Order.t -> 'a t res
 val tick : 'a t -> int
 val increment_tick : 'a t -> ('a t, Error.t) result
 val set_tick : 'a t -> int -> 'a t
-val set : 'a t -> Mode.t -> 'a t
 val grow : 'a t -> 'a t
 
 (* Return the options record *)

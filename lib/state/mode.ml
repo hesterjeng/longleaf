@@ -3,6 +3,7 @@ type t =
   | `Listening
   | `Ordering
   | `Liquidate
+  | `Lock
   | (* | `LiquidateContinue *)
     `Continue
   | `BeginShutdown
