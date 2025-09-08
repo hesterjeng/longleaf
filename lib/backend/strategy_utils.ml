@@ -101,7 +101,7 @@ module Make (Backend : Backend.S) = struct
 
   let get_filename () = Longleaf_util.random_filename ()
 
-  let output_data (state : _ State.t) filename =
+  let output_data (state : State.t) filename =
     let ( let* ) = Result.( let* ) in
     match options.flags.save_to_file with
     | true ->
@@ -119,7 +119,7 @@ module Make (Backend : Backend.S) = struct
       Result.return ()
     | false -> Result.return ()
 
-  let output_order_history (_state : _ State.t) filename =
+  let output_order_history (_state : State.t) filename =
     if options.flags.save_to_file then (
       let json_str =
         `List [] |> Yojson.Safe.to_string
@@ -131,7 +131,7 @@ module Make (Backend : Backend.S) = struct
       close_out oc)
     else ()
 
-  let update_continue (state : 'a State.t) =
+  let update_continue (state : State.t) =
     let ( let* ) = Result.( let* ) in
     let bars = State.bars state in
     let* res = State.increment_tick state in
@@ -150,9 +150,9 @@ module Make (Backend : Backend.S) = struct
 
   module Initialize : sig
     val top :
-      [ `Initialize ] State.t -> ([ `Listening ] State.t, Error.t) result
+      State.t -> (State.t, Error.t) result
   end = struct
-    let top (state : [ `Initialize ] State.t) =
+    let top (state : State.t) =
       Eio.traceln "Initialize state...";
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
@@ -162,7 +162,7 @@ module Make (Backend : Backend.S) = struct
         let indicator_config = (State.config state).indicator_config in
         Indicators.Calc.compute_all eio_env indicator_config @@ State.bars state
       in
-      let* state : [ `Listening ] State.t =
+      let* state =
         (* If we are in live or paper, we need to grow the bars to have somewhere \ *)
         (* to put the received data. *)
         match Input.options.flags.runtype with
@@ -170,64 +170,72 @@ module Make (Backend : Backend.S) = struct
         | Paper ->
           let* bars_length = Bars.length @@ State.bars state in
           let state =
-            State.set_tick state (bars_length - 1) |> State.grow |> State.listen
+            State.set_tick state (bars_length - 1) |> State.grow
           in
           Eio.traceln "Initialize state: %a" State.pp state;
           Result.return state
-        | _ -> State.listen state |> Result.return
+        | _ -> Result.return state
       in
       Eio.traceln "Finished with initialization: %d..." (State.tick state);
       Result.return state
   end
 
   module Listen = struct
-    let top (state : [ `Listening ] State.t) :
-        ([ `Ordering ] State.t, Error.t) result =
+    let top (state : State.t) :
+        (State.t, Error.t) result =
       if not options.flags.no_gui then
-        Pmutex.set mutices.state_mutex @@ State.lock state;
+        Pmutex.set mutices.state_mutex state;
       let* () = listen_tick eio_env in
       let* length = State.bars state |> Bars.length in
       let tick = State.tick state in
       tick >= length - 1 |> function
       | true ->
         let* state = Backend.liquidate state in
-        State.set_finished_flag state |> State.ordering |> Result.return
-      | false -> State.ordering state |> Result.return
+        State.set_finished_flag state |> Result.return
+      | false -> Result.return state
   end
 
   module Liquidate = struct
     let top state =
       let* state = Backend.liquidate state in
-      State.set_finished_flag state |> State.finish |> Result.return
+      State.set_finished_flag state |> Result.return
 
     let top_continue state =
       let* state = Backend.liquidate state in
       Eio.traceln "liquidate continue 10 minute wait...";
       Ticker.tick ~runtype eio_env 600.0;
-      State.listen state |> Result.return
+      Result.return state
   end
 
   module Finish = struct
+    exception FinalState of State.t
+
     let top state =
-      let bars = State.bars state in
-      let tick = State.tick state in
-      Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@."
-        tick (State.cash state)
-        (State.orders_placed state);
-      (* TODO: get order history length from trading_state *)
-      Eio.traceln "state.bars at finish: %a" Bars.pp bars;
-      Eio.traceln "Done...";
-      if not options.flags.no_gui then
-        Pmutex.set mutices.state_mutex @@ State.lock state;
-      let filename = get_filename () in
-      let* () = output_data state filename in
-      output_order_history state filename;
-      Result.return @@ State.finish state
+      match State.finished_flag state with
+      | true ->
+        let bars = State.bars state in
+        let tick = State.tick state in
+        Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@."
+          tick (State.cash state)
+          (State.orders_placed state);
+        (* TODO: get order history length from trading_state *)
+        Eio.traceln "state.bars at finish: %a" Bars.pp bars;
+        Eio.traceln "Done...";
+        if not options.flags.no_gui then
+          Pmutex.set mutices.state_mutex state;
+        let filename = get_filename () in
+        let* () = output_data state filename in
+        output_order_history state filename;
+        raise (FinalState state)
+      | false -> Ok state
   end
 
-  let go order (x : [ `Initialize ] State.t) =
+  let go order (x : State.t) =
     let open Result.Infix in
     let* init = Initialize.top x in
-    let rec loop state = Listen.top state >>= order >>= loop in
+    let rec loop state =
+      try Listen.top state >>= Finish.top >>= order >>= loop with
+      | Finish.FinalState x -> Ok x
+    in
     loop init
 end

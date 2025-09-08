@@ -4,7 +4,7 @@ module Stats = Stats
 module Bars = Longleaf_bars
 module Pmutex = Longleaf_util.Pmutex
 
-type 'a t = {
+type t = {
   (* current_state : Mode.t; *)
   bars : Bars.t;
   current_tick : int;
@@ -18,7 +18,7 @@ type 'a t = {
 }
 [@@deriving fields] [@@warning "-69"]
 
-let empty runtype (indicators : Tacaml.t list) : unit t =
+let empty runtype (indicators : Tacaml.t list) : t =
   {
     (* current_state = `Initialize; *)
     bars = Bars.empty ();
@@ -61,7 +61,7 @@ let make current_tick bars indicator_config cash =
       value_history = [];
     }
 
-let pp : 'a t Format.printer =
+let pp : t Format.printer =
  fun fmt t ->
   Format.fprintf fmt "V3State(tick=%d, cash=%.2f)" t.current_tick t.cash
 
@@ -101,13 +101,8 @@ let increment_tick x =
        value_history = (time, value) :: x.value_history;
      }
 
-external finish : 'a t -> [ `Finished ] t = "%identity"
-external lock : 'a t -> [ `Lock ] t = "%identity"
-external listen : 'a t -> [ `Listening ] t = "%identity"
-external liquidate : 'a t -> [ `Liquidate ] t = "%identity"
-external ordering : 'a t -> [ `Ordering ] t = "%identity"
 
-let qty (t : 'a t) instrument = Positions.qty t.positions instrument
+let qty (t : t) instrument = Positions.qty t.positions instrument
 
 let place_order t (order : Order.t) =
   let ( let* ) = Result.( let* ) in

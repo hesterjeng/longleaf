@@ -83,8 +83,10 @@ let get env =
           "Unable to get shutdown mutex at shutdown endpoint"
       | Some () -> Dream.respond ~status:`OK "shutdown mutex set" );
     ( Dream.get "/data" @@ fun _ ->
-      Bars.files () |> List.map (fun x -> `String x) |> fun x ->
-      `List x |> Yojson.Safe.to_string |> Dream.json );
+      Bars.files ()
+      |> List.filter (fun x -> not @@ String.is_empty x)
+      |> List.map (fun x -> `String x)
+      |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
     (Dream.get "/options" @@ fun _ -> Dream.html "Show configured options");
     ( Dream.get "/strategies" @@ fun _ ->
       List.map (fun x -> `String x) Longleaf_strategies.all_strategy_names

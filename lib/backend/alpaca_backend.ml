@@ -143,7 +143,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let* state = State.place_order state order in
     Result.return state
 
-  let liquidate (state : 'a State.t) =
+  let liquidate (state : State.t) =
     let ( let* ) = Result.( let* ) in
     let symbols = State.held_symbols state in
     Eio.traceln "@[Liquidating %d positions@]@." (List.length symbols);

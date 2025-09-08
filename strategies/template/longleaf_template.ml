@@ -19,19 +19,17 @@ module Buy_trigger = struct
   (** Module type for result of the Buy_trigger Make functor. This is used by
       the Template.Make functor. *)
   module type S = sig
-    val make :
-      'a State.t -> Instrument.t list -> (Signal.t list, Error.t) result
-
+    val make : State.t -> Instrument.t list -> (Signal.t list, Error.t) result
     val num_positions : int
   end
 
   (** The user provides a module of this type in their strategy. *)
   module type INPUT = sig
-    val pass : _ State.t -> Instrument.t -> (Signal.t, Error.t) result
+    val pass : State.t -> Instrument.t -> (Signal.t, Error.t) result
     (** Return Pass for a symbol if we want to buy it. Otherwise it returns Fail
         and we do nothing.*)
 
-    val score : _ State.t -> Instrument.t -> (float, Error.t) result
+    val score : State.t -> Instrument.t -> (float, Error.t) result
     (** Used to determine the symbol(s) to buy if multiple Pass. Higher is
         better. *)
 
@@ -67,7 +65,7 @@ module Sell_trigger = struct
   (** The user provides a module of this type to determine when to exit a
       position *)
   module type S = sig
-    val make : 'a State.t -> Instrument.t -> (Signal.t, Error.t) result
+    val make : State.t -> Instrument.t -> (Signal.t, Error.t) result
     (** Return Pass if we want to exit the position corresponding to
         buying_order. If we return Fail, do nothing.*)
   end
@@ -89,7 +87,7 @@ module Make
 
   let init_state () = Backend.init_state ()
 
-  let buy_ (state : 'a State.t) selected =
+  let buy_ (state : State.t) selected =
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
     let current_cash = State.cash state in
@@ -117,7 +115,7 @@ module Make
         let* state = Backend.place_order state order in
         Result.return state
 
-  let buy ~held_symbols (state : 'a State.t) =
+  let buy ~held_symbols (state : State.t) =
     let ( let* ) = Result.( let* ) in
     let* potential_buys =
       List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
@@ -141,9 +139,9 @@ module Make
       | [] -> Result.return state
       | selected -> buy_ state selected
     in
-    Result.return @@ State.listen res
+    Result.return res
 
-  let sell (state : 'a State.t) (symbol : Instrument.t) =
+  let sell (state : State.t) (symbol : Instrument.t) =
     let ( let* ) = Result.( let* ) in
     let qty = State.qty state symbol in
     let cost_basis = State.cost_basis state symbol in
@@ -167,7 +165,7 @@ module Make
         let* state = Backend.place_order state order in
         Result.return state
     in
-    Result.return @@ State.listen state
+    Result.return state
 
   let sell_fold state symbol =
     let ( let* ) = Result.( let* ) in
@@ -175,7 +173,19 @@ module Make
     let* res = sell state symbol in
     Result.return res
 
-  (* let step (state : 'a State.t) = *)
+  let order (state : State.t) =
+    let ( let* ) = Result.( let* ) in
+    let held_symbols = State.held_symbols state in
+    let* sold_state =
+      List.fold_left sell_fold (Ok state) @@ State.held_symbols state
+      (* @@ (State.Core.get_active_orders state.trading_state *)
+      (*    |> List.map (fun (r : State.Order_record.t) -> r.order)) *)
+    in
+    let* complete = buy ~held_symbols sold_state in
+    Result.return complete
+  (* { complete with tick = complete.tick + 1 } *)
+
+  (* let step (state : State.t) = *)
   (*   let ( let* ) = Result.( let* ) in *)
   (*   match State.current state with *)
   (*   | Ordering -> *)
@@ -192,14 +202,16 @@ module Make
 
   (* exception E *)
 
-  (* let step_exn (state : 'a State.t) = *)
+  (* let step_exn (state : State.t) = *)
   (*   match step state with *)
   (*   | Ok x -> x *)
   (*   | Error _ -> raise E *)
 
-  (* let run () = *)
-  (*   let init_state = init_state () in *)
-  (*   SU.run ~init_state step *)
+  let run () =
+    let ( let* ) = Result.( let* ) in
+    let* init_state = init_state () in
+    let* res = SU.go order init_state in
+    State.value res
 end
 
 let mk_options switch eio_env flags target tacaml_indicators : Options.t =
@@ -230,6 +242,6 @@ let run (module Strat : BUILDER) bars options mutices =
   let module S = Strat (Backend) in
   Eio.traceln "Applied strategy functor to backend, running %s."
     options.flags.strategy_arg;
-  let res = S.run () in
+  let* res = S.run () in
   Backend.shutdown ();
   Result.return res

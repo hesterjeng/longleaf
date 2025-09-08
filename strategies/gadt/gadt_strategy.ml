@@ -115,7 +115,7 @@ end = struct
 
   (* Helper function to evaluate strategy triggers *)
   let eval_strategy_signal (strategy_expr : bool Gadt.t)
-      (state : _ Longleaf_state.t) symbol =
+      (state : Longleaf_state.t) symbol =
     let ( let* ) = Result.( let* ) in
     let* data =
       State.data state symbol

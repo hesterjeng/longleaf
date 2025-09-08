@@ -1,7 +1,7 @@
 module Util = Longleaf_util
 
 module type S = sig
-  val run : unit -> float
+  val run : unit -> (float, Error.t) result
   val shutdown : unit -> unit
 end
 
@@ -9,7 +9,7 @@ let dummy f =
   let module Dummy = struct
     let run () =
       let _ = f () in
-      0.0
+      Ok 0.0
 
     let shutdown () = ()
   end in

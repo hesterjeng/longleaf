@@ -115,7 +115,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (*   | None -> *)
   (*     Error.fatal "No last data bar in Backtesting_backend.last_data_bar?" *)
 
-  let liquidate (state : 'a State.t) =
+  let liquidate (state : State.t) =
     let ( let* ) = Result.( let* ) in
     let symbols = State.held_symbols state in
     Eio.traceln "@[Liquidating %d positions@]@." (List.length symbols);

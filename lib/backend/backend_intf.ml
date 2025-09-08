@@ -29,15 +29,15 @@ module type S = sig
   val received_data : Bars.t
   val get_trading_client : unit -> (Piaf.Client.t, Error.t) result
   val get_data_client : unit -> (Piaf.Client.t, Error.t) result
-  val init_state : unit -> ([ `Initialize ] State.t, Error.t) result
+  val init_state : unit -> (State.t, Error.t) result
   val symbols : Instrument.t list
   val shutdown : unit -> unit
 
   (* Return the next open time if the market is closed *)
   val next_market_open : unit -> (Time.t option, Error.t) result
   val next_market_close : unit -> (Time.t, Error.t) result
-  val place_order : 'a State.t -> Order.t -> ('a State.t, Error.t) result
+  val place_order : State.t -> Order.t -> (State.t, Error.t) result
   val update_bars : Instrument.t list -> Bars.t -> int -> (unit, Error.t) result
   val last_data_bar : (Bars.Latest.t, Error.t) result
-  val liquidate : 'a State.t -> ('a State.t, Error.t) Result.t
+  val liquidate : State.t -> (State.t, Error.t) Result.t
 end
