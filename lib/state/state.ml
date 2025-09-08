@@ -99,11 +99,11 @@ let increment_tick x =
        value_history = (time, value) :: x.value_history;
      }
 
-let finished x = x
-let lock (x : 'a t) = (x : [ `Lock ] t)
-let listen x = x
-let liquidate t = t
-let ordering t = t
+external finished : 'a t -> [ `Finished ] t = "%identity"
+external lock : 'a t -> [ `Lock ] t = "%identity"
+external listen : 'a t -> [ `Listening ] t = "%identity"  
+external liquidate : 'a t -> [ `Liquidate ] t = "%identity"
+external ordering : 'a t -> [ `Ordering ] t = "%identity"
 let qty (t : 'a t) instrument = Positions.qty t.positions instrument
 
 let place_order t (order : Order.t) =
