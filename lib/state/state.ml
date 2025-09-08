@@ -13,16 +13,18 @@ type 'a t = {
   cash : float;
   positions : Positions.t;
   value_history : (Time.t * float) list;
-  finished : bool;
+  finished_flag : bool;
+  liquidate_flag : bool;
 }
-[@@warning "-69"]
+[@@deriving fields] [@@warning "-69"]
 
 let empty runtype (indicators : Tacaml.t list) : unit t =
   {
     (* current_state = `Initialize; *)
     bars = Bars.empty ();
     current_tick = 0;
-    finished = false;
+    finished_flag = false;
+    liquidate_flag = false;
     orders_placed = 0;
     config =
       {
@@ -38,8 +40,7 @@ let set_tick x current_tick = { x with current_tick }
 let bars x = x.bars
 let value_history x = x.value_history
 let cost_basis x = Positions.cost_basis x.positions
-let set_finished_flag x = { x with finished = true }
-let is_finished x = x.finished
+let set_finished_flag x = { x with finished_flag = true }
 
 type 'a res = ('a, Error.t) result
 
@@ -54,7 +55,8 @@ let make current_tick bars indicator_config cash =
       orders_placed = 0;
       config;
       cash;
-      finished = false;
+      finished_flag = false;
+      liquidate_flag = false;
       positions = Positions.empty;
       value_history = [];
     }
@@ -99,11 +101,12 @@ let increment_tick x =
        value_history = (time, value) :: x.value_history;
      }
 
-external finished : 'a t -> [ `Finished ] t = "%identity"
+external finish : 'a t -> [ `Finished ] t = "%identity"
 external lock : 'a t -> [ `Lock ] t = "%identity"
-external listen : 'a t -> [ `Listening ] t = "%identity"  
+external listen : 'a t -> [ `Listening ] t = "%identity"
 external liquidate : 'a t -> [ `Liquidate ] t = "%identity"
 external ordering : 'a t -> [ `Ordering ] t = "%identity"
+
 let qty (t : 'a t) instrument = Positions.qty t.positions instrument
 
 let place_order t (order : Order.t) =

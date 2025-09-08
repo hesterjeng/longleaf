@@ -48,11 +48,12 @@ val listen : 'a t -> [ `Listening ] t
 
 (* The same state but with with x.state set to Listening *)
 val liquidate : 'a t -> [ `Liquidate ] t
-val finished : 'a t -> [ `Finished ] t
+val finish : 'a t -> [ `Finished ] t
 val ordering : 'a t -> [ `Ordering ] t
 val lock : 'a t -> [ `Lock ] t
 val set_finished_flag : 'a t -> 'a t
-val is_finished : 'a t -> bool
+val finished_flag : 'a t -> bool
+val liquidate_flag : 'a t -> bool
 
 (* Place an order.  Assume that orders are filled completely and instantly at the current price. *)
 val place_order : 'a t -> Order.t -> 'a t res

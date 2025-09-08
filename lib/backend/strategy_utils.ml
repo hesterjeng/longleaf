@@ -52,25 +52,25 @@ module Make (Backend : Backend.S) = struct
                Ticker.tick ~runtype env 1.0
              done;
              Error.fatal "Shutdown command received by shutdown mutexx");
-           (fun () ->
-             let* close_time = Backend.next_market_close () in
-             let* now =
-               Eio.Time.now env#clock |> Ptime.of_float_s |> function
-               | Some t -> Result.return t
-               | None ->
-                 Error.fatal
-                   "Unable to get clock time in listen_tick for market close"
-             in
-             let time_until_close =
-               Ptime.diff close_time now |> Ptime.Span.to_float_s
-             in
-             while time_until_close >=. 600.0 do
-               Eio.Fiber.yield ()
-             done;
-             Eio.traceln
-               "@[Liquidating because we are within 10 minutes to market \
-                close.@]@.";
-             Result.return ());
+           (* (fun () -> *)
+           (*   let* close_time = Backend.next_market_close () in *)
+           (*   let* now = *)
+           (*     Eio.Time.now env#clock |> Ptime.of_float_s |> function *)
+           (*     | Some t -> Result.return t *)
+           (*     | None -> *)
+           (*       Error.fatal *)
+           (*         "Unable to get clock time in listen_tick for market close" *)
+           (*   in *)
+           (*   let time_until_close = *)
+           (*     Ptime.diff close_time now |> Ptime.Span.to_float_s *)
+           (*   in *)
+           (*   while time_until_close >=. 600.0 do *)
+           (*     Eio.Fiber.yield () *)
+           (*   done; *)
+           (*   Eio.traceln *)
+           (*     "@[Liquidating because we are within 10 minutes to market \ *)
+           (*      close.@]@."; *)
+           (*   Result.return ()); *)
          ]
     | _ -> Result.return ()
 
@@ -198,10 +198,11 @@ module Make (Backend : Backend.S) = struct
   module Liquidate = struct
     let top state =
       let* state = Backend.liquidate state in
-      State.set_finished_flag state |> State.finished |> Result.return
+      State.set_finished_flag state |> State.finish |> Result.return
 
     let top_continue state =
       let* state = Backend.liquidate state in
+      Eio.traceln "liquidate continue 10 minute wait...";
       Ticker.tick ~runtype eio_env 600.0;
       State.listen state |> Result.return
   end
@@ -216,34 +217,17 @@ module Make (Backend : Backend.S) = struct
       (* TODO: get order history length from trading_state *)
       Eio.traceln "state.bars at finish: %a" Bars.pp bars;
       Eio.traceln "Done...";
-      if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
+      if not options.flags.no_gui then
+        Pmutex.set mutices.state_mutex @@ State.lock state;
       let filename = get_filename () in
       let* () = output_data state filename in
       output_order_history state filename;
-      Result.fail @@ `Finished "Finished in strategy_utils.ml"
+      Result.return @@ State.finish state
   end
 
-  (* let handle_nonlogical_state (state : _ State.t) = *)
-  (*   match State.current state with *)
-  (*   | Initialize -> Initialize.top state *)
-  (*   | Listening -> Listener.top state *)
-  (*   | Liquidate -> Liquidate.top state *)
-  (*   | LiquidateContinue -> Liquidate.top_continue state *)
-  (*   | Finished code -> *)
-  (*     Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@." *)
-  (*       tick (State.cash state) *)
-  (*       (State.orders_placed state); *)
-  (*     (\* TODO: get order history length from trading_state *\) *)
-  (*     Eio.traceln "state.bars at finish: %a" Bars.pp bars; *)
-  (*     Eio.traceln "Done..."; *)
-  (*     if not options.flags.no_gui then Pmutex.set mutices.state_mutex state; *)
-  (*     let filename = get_filename () in *)
-  (*     let* () = output_data state filename in *)
-  (*     output_order_history state filename; *)
-  (*     Result.fail @@ `Finished code *)
-  (*   | Ordering *)
-  (*   | Continue *)
-  (*   | BeginShutdown -> *)
-  (*     Error.fatal *)
-  (*       "Strategies.handle_nonlogical_state: unhandled nonlogical state" *)
+  let go order (x : [ `Initialize ] State.t) =
+    let open Result.Infix in
+    let* init = Initialize.top x in
+    let rec loop state = Listen.top state >>= order >>= loop in
+    loop init
 end
