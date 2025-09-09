@@ -80,7 +80,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       in
       Result.return last_data_bar
 
-  let update_bars _ _ _i = Result.return ()
+  let update_bars state = Result.return state
   (* let ( let* ) = Result.( let* ) in *)
   (* let latest_data_bar = Bars.Latest.empty () in *)
   (* match target with *)

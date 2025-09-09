@@ -7,8 +7,7 @@ type t
 type 'a res = ('a, Error.t) result
 
 (* Create a new state with index, data, and content *)
-val make :
-  int -> Bars.t -> Indicators_config.t -> float -> t res
+val make : int -> Bars.t -> Indicators_config.t -> float -> t res
 
 (* Print basic info about the state *)
 val pp : t Format.printer
@@ -42,10 +41,6 @@ val value_history : t -> (Time.t * float) list
 (* Get the value of the state's portfolio, plus the cash on hand *)
 val value : t -> float res
 val orders_placed : t -> int
-
-val set_finished_flag : t -> t
-val finished_flag : t -> bool
-val liquidate_flag : t -> bool
 
 (* Place an order.  Assume that orders are filled completely and instantly at the current price. *)
 val place_order : t -> Order.t -> t res

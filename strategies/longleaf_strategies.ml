@@ -55,7 +55,12 @@ module Run = struct
         Result.return strategy
         (* Gadt.run bars options mutices strategy *)
         (* Gadt_atomic.opt_atomic bars options mutices strategy *)
-      | None -> Error.fatal "Unknown strategy selected"
+      | None ->
+        let msg =
+          "longleaf_strategies.ml: Unknown strategy selected"
+          ^ flags.strategy_arg
+        in
+        Error.fatal msg
     in
     match flags.runtype with
     | Longleaf_core.Runtype.Live

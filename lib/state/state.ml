@@ -13,8 +13,6 @@ type t = {
   cash : float;
   positions : Positions.t;
   value_history : (Time.t * float) list;
-  finished_flag : bool;
-  liquidate_flag : bool;
 }
 [@@deriving fields] [@@warning "-69"]
 
@@ -23,8 +21,6 @@ let empty runtype (indicators : Tacaml.t list) : t =
     (* current_state = `Initialize; *)
     bars = Bars.empty ();
     current_tick = 0;
-    finished_flag = false;
-    liquidate_flag = false;
     orders_placed = 0;
     config =
       {
@@ -40,7 +36,6 @@ let set_tick x current_tick = { x with current_tick }
 let bars x = x.bars
 let value_history x = x.value_history
 let cost_basis x = Positions.cost_basis x.positions
-let set_finished_flag x = { x with finished_flag = true }
 
 type 'a res = ('a, Error.t) result
 
@@ -55,8 +50,6 @@ let make current_tick bars indicator_config cash =
       orders_placed = 0;
       config;
       cash;
-      finished_flag = false;
-      liquidate_flag = false;
       positions = Positions.empty;
       value_history = [];
     }
@@ -100,7 +93,6 @@ let increment_tick x =
        current_tick = x.current_tick + 1;
        value_history = (time, value) :: x.value_history;
      }
-
 
 let qty (t : t) instrument = Positions.qty t.positions instrument
 

@@ -98,7 +98,16 @@ export const parseOCamlCLI = (oclCLI: CLISettings) => {
 export const toOCamlCLI = (cliSettings: CLIFormData): CLISettings => {
   return {
     ...cliSettings,
-    runtype: toOCamlVariant(cliSettings.runtype)
+    runtype: toOCamlVariant(cliSettings.runtype),
+    // Ensure all required OCaml CLI fields are present with defaults
+    stacktrace: cliSettings.stacktrace ?? false,
+    no_gui: cliSettings.no_gui ?? false,
+    save_received: cliSettings.save_received ?? false,
+    save_to_file: cliSettings.save_to_file ?? false,
+    nowait_market_open: cliSettings.nowait_market_open ?? false,
+    print_tick_arg: cliSettings.print_tick_arg ?? false,
+    precompute_indicators_arg: cliSettings.precompute_indicators_arg ?? false,
+    compare_preloaded: cliSettings.compare_preloaded ?? false,
   };
 };
 

@@ -101,21 +101,16 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let last_data_bar =
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
-  let latest_bars (symbols : Instrument.t list) bars tick =
-    let ( let* ) = Result.( let* ) in
-    (* let* account = Trading_api.Accounts.get_account () in *)
-    (* let backend_cash = Portfolio.get_cash in *)
-    (* if not @@ Float.equal backend_cash account.cash then *)
-    (*   Eio.traceln "[alpaca_backend] Backend cash: %f Alpaca cash: %f" *)
-    (*     (Portfolio.get_cash ()) *)
-    (*     account.cash; *)
-    (* Portfolio.set_cash account.cash; *)
+  let update_bars (state : State.t) =
+    let ( let+ ) = Result.( let+ ) in
+    let bars = State.bars state in
+    let tick = State.tick state in
     match symbols with
     | [] ->
       Eio.traceln "No symbols in latest bars request.";
-      Result.return ()
+      Result.return state
     | _ ->
-      let* () =
+      let+ () =
         match Tiingo.latest bars symbols tick with
         | Ok x -> Result.return x
         | Error s ->
@@ -126,15 +121,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
           (* Ticker.tick ~runtype:opts.flags.runtype env 5.0; *)
           Tiingo.latest bars symbols tick
       in
-      let* () =
-        if save_received then
-          invalid_arg "Alpaca_backend.latest_bars save_received nyi"
-          (* Bars.append res received_data *)
-        else Result.return ()
-      in
-      Ok ()
+      state
 
-  let update_bars _ _ _i = Result.return ()
   let get_clock = Trading_api.Clock.get
 
   let place_order state order =
