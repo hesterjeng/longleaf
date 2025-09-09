@@ -141,5 +141,9 @@ let stats x =
   let positions = positions x in
   Stats.from_positions positions bars
 
-let grow x = { x with bars = Bars.grow x.bars }
+let grow x =
+  let ( let* ) = Result.( let* ) in
+  let* bars = Bars.grow x.bars in
+  Result.return @@ { x with bars }
+
 let orders_placed x = x.orders_placed

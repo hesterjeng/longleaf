@@ -298,7 +298,7 @@ let copy (x : t) =
     index = Index.copy x.index;
   }
 
-let grow (x : t) =
+let grow_ (x : t) =
   let new_size = x.size * 2 in
   let new_data =
     Array2.init Bigarray.float64 Bigarray.c_layout 150 new_size (fun _ _ ->
@@ -330,6 +330,12 @@ let grow (x : t) =
     indicators_computed = x.indicators_computed;
     orders = new_orders;
   }
+
+let grow x =
+  try Ok (grow_ x) with
+  | Invalid_argument s ->
+    Eio.traceln "Data.grow: %s" s;
+    Error.fatal s
 
 let set_item (x : t) (i : int) (item : Item.t) =
   try

@@ -4,45 +4,24 @@ module Options = Longleaf_core.Options
 module Mode = State.Mode
 module Bars = Longleaf_bars
 module Indicators = Longleaf_indicators.Indicators
-(* module Server = Longleaf_server *)
 
-module Make (Backend : Backend.S) : sig end = struct
+let ( let* ) = Result.( let* )
+
+module Make (Backend : Backend.S) : sig
+  val go :
+    (State.t -> (State.t, Error.t) result) ->
+    State.t ->
+    (State.t, Error.t) result
+end = struct
   module Input = Backend.Input
 
   let eio_env = Input.options.eio_env
-  let ( let* ) = Result.( let* )
   let options = Input.options
   let mutices : State.Mutex.t = Input.mutices
   let runtype = options.flags.runtype
 
-  (* let run ~init_state step = *)
-  (*   let rec go prev = *)
-  (*     let stepped = step prev in *)
-  (*     match stepped with *)
-  (*     | Ok x -> go x *)
-  (*     | Error e -> *)
-  (*       let try_liquidating () = *)
-  (*         Eio.traceln *)
-  (*           "@[Trying to liquidate because of a signal or error: %a@]@." *)
-  (*           Error.pp e; *)
-  (*         go @@ State.liquidate prev *)
-  (*       in *)
-  (*       (match State.current prev with *)
-  (*       | Liquidate *)
-  (*       | Finished _ -> *)
-  (*         Eio.traceln "@[Exiting run.@]@."; *)
-  (*         State.cash prev (\* 0.0 *\) *)
-  (*       | _ -> try_liquidating ()) *)
-  (*   in *)
-  (*   match init_state with *)
-  (*   | Ok init_state -> go init_state *)
-  (*   | Error e -> *)
-  (*     Eio.traceln "[error] %a" Error.pp e; *)
-  (*     0.0 *)
-
   module LiveIndicators = struct
     let top (state : State.t) =
-      let ( let* ) = Result.( let* ) in
       let* () =
         match Input.options.flags.runtype with
         | Live
@@ -76,7 +55,7 @@ module Make (Backend : Backend.S) : sig end = struct
         | Live
         | Paper ->
           let* bars_length = Bars.length @@ State.bars state in
-          let state = State.set_tick state (bars_length - 1) |> State.grow in
+          let* state = State.set_tick state (bars_length - 1) |> State.grow in
           Eio.traceln "Initialize state: %a" State.pp state;
           Result.return state
         | _ -> Result.return state
@@ -85,8 +64,10 @@ module Make (Backend : Backend.S) : sig end = struct
       Result.return state
   end
 
+  exception FinalState of State.t
+
   module Listen = struct
-    let listen_tick env : (unit, Error.t) result =
+    let listen_tick state env : (unit, Error.t) result =
       match runtype with
       | Live
       | Paper ->
@@ -122,7 +103,7 @@ module Make (Backend : Backend.S) : sig end = struct
                  Eio.Fiber.yield ();
                  Ticker.tick ~runtype env 1.0
                done;
-               Error.fatal "Shutdown command received by shutdown mutexx");
+               raise (FinalState state));
              (* (fun () -> *)
              (*   let* close_time = Backend.next_market_close () in *)
              (*   let* now = *)
@@ -147,11 +128,9 @@ module Make (Backend : Backend.S) : sig end = struct
 
     let top (state : State.t) : (State.t, Error.t) result =
       if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
-      let* () = listen_tick eio_env in
+      let* () = listen_tick state eio_env in
       Ok state
   end
-
-  exception FinalState of State.t
 
   module Increment = struct
     let top state =
@@ -175,7 +154,6 @@ module Make (Backend : Backend.S) : sig end = struct
     let get_filename () = Longleaf_util.random_filename ()
 
     let output_data (state : State.t) filename =
-      let ( let* ) = Result.( let* ) in
       match options.flags.save_to_file with
       | true ->
         let prefix =

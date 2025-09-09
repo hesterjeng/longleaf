@@ -34,7 +34,7 @@ val combine : t list -> (t, Error.t) result
 val print_to_file : ?filename:string -> t -> string -> (unit, Error.t) result
 val print_to_file_direct : t -> string -> (unit, Error.t) result
 val fold : t -> 'a -> (Instrument.t -> Data.t -> 'a -> 'a) -> 'a
-val grow : t -> t
+val grow : t -> (t, Error.t) result
 
 (* List the bars json files in the data directory *)
 val files : unit -> string list
