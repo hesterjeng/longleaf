@@ -300,13 +300,15 @@ let copy (x : t) =
 
 let grow_ (x : t) =
   let new_size = x.size * 2 in
+  let old_data_rows = Array2.dim1 x.data in
+  let old_int_data_rows = Array2.dim1 x.int_data in
   let new_data =
-    Array2.init Bigarray.float64 Bigarray.c_layout 150 new_size (fun _ _ ->
-        Float.nan)
+    Array2.init Bigarray.float64 Bigarray.c_layout old_data_rows new_size
+      (fun _ _ -> Float.nan)
   in
   let new_int_data =
-    Array2.init Bigarray.int32 Bigarray.c_layout 70 new_size (fun _ _ ->
-        Int32.zero)
+    Array2.init Bigarray.int32 Bigarray.c_layout old_int_data_rows new_size
+      (fun _ _ -> Int32.zero)
   in
   (* Create new orders array and copy existing orders *)
   let new_orders = Array.make new_size [] in
