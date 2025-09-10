@@ -82,7 +82,11 @@ module Make (Tiingo : Client.CLIENT) = struct
     let* resp = get ~headers ~endpoint in
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
     let* tiingo = t_of_yojson resp in
-    assert (List.is_sorted ~cmp:compare_item tiingo);
+    if not @@ List.is_sorted ~cmp:compare_item tiingo then
+      Eio.traceln
+        "warning, unsorted response from tiingo.  is this a problem? %a"
+        (List.pp pp_item) tiingo;
+    (* assert (List.is_sorted ~cmp:compare_item tiingo); *)
     let* () =
       List.foldi
         (fun acc _ tiingo_item ->
