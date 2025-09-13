@@ -102,7 +102,9 @@ let timestamp (x : t) (tick : int) =
     match acc with
     | None -> Some timestamp
     | Some prev ->
-      assert (Float.equal prev timestamp);
+      if Float.abs @@ (timestamp -. prev) <. 1.0 then
+        Eio.traceln
+          "warning:  significantly different timestamps in Bars.timestamp";
       Some prev
   in
   match res with

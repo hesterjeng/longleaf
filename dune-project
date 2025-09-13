@@ -26,7 +26,6 @@
   cmdliner
   landmarks
   iter
-  raven
   containers-data
   ocamlgraph
   eio_main
