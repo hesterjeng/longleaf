@@ -99,3 +99,6 @@ module Calc = struct
     | true -> compute_parallel ~i eio_env config bars
     | false -> Result.return ()
 end
+
+(* let top (state : State.t) = *)
+(*   let indicator_config = Stat *)

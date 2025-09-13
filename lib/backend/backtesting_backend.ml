@@ -11,7 +11,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let get_trading_client _ = Result.fail @@ `MissingClient "Trading"
   let get_data_client _ = Result.fail @@ `MissingClient "Data"
 
-  let init_state content =
+  let init_state () =
     let ( let* ) = Result.( let* ) in
     let* bars =
       match Input.target with
@@ -22,7 +22,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Indicators_config.make Input.options.flags.runtype
         Input.options.tacaml_indicators
     in
-    State.make Input.options.flags.start bars content config 100000.0
+    State.make Input.options.flags.start bars config 100000.0
 
   let opts = Input.options
 
@@ -80,7 +80,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       in
       Result.return last_data_bar
 
-  let update_bars _ _ _i = Result.return ()
+  let update_bars state = Result.return state
   (* let ( let* ) = Result.( let* ) in *)
   (* let latest_data_bar = Bars.Latest.empty () in *)
   (* match target with *)
@@ -115,7 +115,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (*   | None -> *)
   (*     Error.fatal "No last data bar in Backtesting_backend.last_data_bar?" *)
 
-  let liquidate (state : 'a State.t) =
+  let liquidate (state : State.t) =
     let ( let* ) = Result.( let* ) in
     let symbols = State.held_symbols state in
     Eio.traceln "@[Liquidating %d positions@]@." (List.length symbols);

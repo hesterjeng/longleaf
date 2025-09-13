@@ -102,7 +102,9 @@ let timestamp (x : t) (tick : int) =
     match acc with
     | None -> Some timestamp
     | Some prev ->
-      assert (Float.equal prev timestamp);
+      if Float.abs @@ (timestamp -. prev) <. 1.0 then
+        Eio.traceln
+          "warning:  significantly different timestamps in Bars.timestamp";
       Some prev
   in
   match res with
@@ -227,13 +229,16 @@ let of_seq = Hashtbl.of_seq
 let of_list l = of_seq @@ Seq.of_list l
 
 let grow bars =
-  let new_bars = Hashtbl.create (Hashtbl.length bars) in
-  Hashtbl.iter
-    (fun instrument data ->
-      let grown_data = Data.grow data in
-      Hashtbl.add new_bars instrument grown_data)
-    bars;
-  new_bars
+  try
+    let new_bars = Hashtbl.create (Hashtbl.length bars) in
+    Hashtbl.iter
+      (fun instrument data ->
+        let grown_data = Data.grow data |> Result.get_exn in
+        Hashtbl.add new_bars instrument grown_data)
+      bars;
+    new_bars |> Result.return
+  with
+  | e -> Error.fatal @@ "Unhandled error in Bars.grow: " ^ Printexc.to_string e
 
 let print_to_file_direct bars filename =
   let ( let* ) = Result.( let* ) in
@@ -256,4 +261,5 @@ let print_to_file ?(filename : string option) bars prefix =
 (* List the json files in the data directory *)
 let files () =
   Sys.readdir "data" |> Array.to_list
-  |> List.filter @@ fun x -> String.equal (Filename.extension x) ".json"
+  |> (List.filter @@ fun x -> String.equal (Filename.extension x) ".json")
+  |> List.map @@ fun x -> "data/" ^ x

@@ -2,14 +2,14 @@ module Pmutex = Longleaf_util.Pmutex
 
 type t = {
   shutdown_mutex : bool Pmutex.t;
-  state_mutex : unit State.t Pmutex.t;
+  state_mutex : State.t Pmutex.t;
   symbols_mutex : string option Pmutex.t;
   target_symbol : string option Pmutex.t;
 }
 
 let create config =
   let shutdown_mutex = Pmutex.make false in
-  let state_mutex = Pmutex.make @@ State.empty Invalid config in
+  let state_mutex = State.empty Invalid config |> Pmutex.make in
   let symbols_mutex = Pmutex.make None in
   (* let indicators_mutex = Pmutex.make @@ Indicators.empty Precomputed in *)
   let target_symbol = Pmutex.make None in
@@ -22,6 +22,7 @@ let create config =
   }
 
 let pp : t Format.printer = fun fmt _x -> Format.fprintf fmt "<mutex>"
+let bars x = State.bars @@ Pmutex.get x.state_mutex
 
 (* let create (module X : sig type context val x : content end) = *)
 (*   create () *)

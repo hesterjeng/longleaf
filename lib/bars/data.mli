@@ -154,7 +154,7 @@ val make : int -> t
 val copy : t -> t
 (** [copy x] returns a copy of the data matrix [x]. *)
 
-val grow : t -> t
+val grow : t -> (t, Error.t) result
 (** [grow x] returns a new data matrix with double the capacity, preserving
     existing data. *)
 

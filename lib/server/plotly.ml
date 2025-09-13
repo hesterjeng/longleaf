@@ -206,7 +206,25 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
 
 module TI = Tacaml.Indicator
 
-let of_state ?(start = 100) ?end_ (state : 'a Longleaf_state.t) symbol :
+let performance_graph (state : Longleaf_state.t) : Yojson.Safe.t =
+  List.(
+    let+ time, value = Longleaf_state.value_history state in
+    (Ptime.to_rfc3339 time |> yojson_of_string, yojson_of_float value))
+  |> List.rev |> List.split
+  |> Pair.map_same (yojson_of_list Fun.id)
+  |> fun (x, y) ->
+  `Assoc
+    [
+      ("x", x);
+      ("y", y);
+      ("text", `String "Performance");
+      ("name", `String "Performance");
+      ("type", `String "scatter");
+    ]
+  |> fun pt ->
+  `Assoc [ ("traces", `List [ pt ]); ("layout", layout "Performance") ]
+
+let of_state ?(start = 100) ?end_ (state : Longleaf_state.t) symbol :
     Yojson.Safe.t option =
   let ( let* ) = Result.( let* ) in
   let result =

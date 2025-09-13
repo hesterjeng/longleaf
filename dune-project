@@ -1,6 +1,5 @@
 (lang dune 3.17)
 (version 1.0.2)
-(using melange 0.1)
 
 (name longleaf)
 
@@ -27,7 +26,6 @@
   cmdliner
   landmarks
   iter
-  raven
   containers-data
   ocamlgraph
   eio_main

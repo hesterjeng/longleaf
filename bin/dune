@@ -31,4 +31,12 @@
 (env
  (dev
   (flags
-   (:standard -w +a-4-40-58-42-44-48-70-66@8 -open Containers -open Longleaf))))
+   (:standard
+    -w
+    +a-4-40-58-42-44-48-70-66@8
+    -open
+    Containers
+    -open
+    Longleaf
+    -open
+    Ppx_yojson_conv_lib.Yojson_conv.Primitives))))

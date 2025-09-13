@@ -33,6 +33,7 @@ let () =
     Fmt_tty.setup_std_outputs ();
     Longleaf_util.handle_output s.output;
     Longleaf_indicators.Indicators.initialize ();
-    let f = Longleaf_strategies.Run.top s.cli s.target in
+    Eio_main.run @@ fun env ->
+    let f = Longleaf_strategies.Run.top None env s.cli s.target in
     Eio.traceln "%a" print_res f;
     Stdlib.exit Cmd.Exit.ok

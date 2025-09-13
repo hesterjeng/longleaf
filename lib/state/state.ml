@@ -4,21 +4,21 @@ module Stats = Stats
 module Bars = Longleaf_bars
 module Pmutex = Longleaf_util.Pmutex
 
-type 'a t = {
-  current_state : Mode.t;
+type t = {
+  (* current_state : Mode.t; *)
   bars : Bars.t;
   current_tick : int;
   orders_placed : int;
-  content : 'a;
   config : Config.t;
   cash : float;
   positions : Positions.t;
+  value_history : (Time.t * float) list;
 }
-[@@warning "-69"]
+[@@deriving fields] [@@warning "-69"]
 
-let empty runtype (indicators : Tacaml.t list) : unit t =
+let empty runtype (indicators : Tacaml.t list) : t =
   {
-    current_state = Initialize;
+    (* current_state = `Initialize; *)
     bars = Bars.empty ();
     current_tick = 0;
     orders_placed = 0;
@@ -29,37 +29,34 @@ let empty runtype (indicators : Tacaml.t list) : unit t =
       };
     cash = 0.0;
     positions = Positions.empty;
-    content = ();
+    value_history = [];
   }
 
-let set x mode = { x with current_state = mode }
-let increment_tick x = { x with current_tick = x.current_tick + 1 }
 let set_tick x current_tick = { x with current_tick }
 let bars x = x.bars
+let value_history x = x.value_history
 let cost_basis x = Positions.cost_basis x.positions
 
 type 'a res = ('a, Error.t) result
 
-let current t = t.current_state
 let config x = x.config
 
-let make current_tick bars content indicator_config cash =
+let make current_tick bars indicator_config cash =
   let config = Config.{ placeholder = true; indicator_config } in
   Result.return
     {
-      current_state = Initialize;
       bars;
       current_tick;
       orders_placed = 0;
-      content;
       config;
       cash;
       positions = Positions.empty;
+      value_history = [];
     }
 
-let pp fmt t =
-  Format.fprintf fmt "V3State(tick=%d, state=%a, cash=%.2f)" t.current_tick
-    Mode.pp t.current_state t.cash
+let pp : t Format.printer =
+ fun fmt t ->
+  Format.fprintf fmt "V3State(tick=%d, cash=%.2f)" t.current_tick t.cash
 
 let show t = Format.asprintf "%a" pp t
 let cash t = t.cash
@@ -86,9 +83,18 @@ let value t =
   in
   Result.return (t.cash +. portfolio_value)
 
-let listen t = { t with current_state = Listening }
-let liquidate t = { t with current_state = Liquidate }
-let qty (t : 'a t) instrument = Positions.qty t.positions instrument
+let increment_tick x =
+  let ( let* ) = Result.( let* ) in
+  let* value = value x in
+  let* time = time x in
+  Result.return
+  @@ {
+       x with
+       current_tick = x.current_tick + 1;
+       value_history = (time, value) :: x.value_history;
+     }
+
+let qty (t : t) instrument = Positions.qty t.positions instrument
 
 let place_order t (order : Order.t) =
   let ( let* ) = Result.( let* ) in
@@ -135,5 +141,9 @@ let stats x =
   let positions = positions x in
   Stats.from_positions positions bars
 
-let grow x = { x with bars = Bars.grow x.bars }
+let grow x =
+  let ( let* ) = Result.( let* ) in
+  let* bars = Bars.grow x.bars in
+  Result.return @@ { x with bars }
+
 let orders_placed x = x.orders_placed

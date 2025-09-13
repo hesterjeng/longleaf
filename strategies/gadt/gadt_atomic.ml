@@ -26,14 +26,17 @@ type work_result = (float option, Error.t) Result.t
 
 module Worker = struct
   (* Start worker domain that waits for work *)
-  let top request_atomic result_atomic bars (options : Options.t) mutices =
+  let top request_atomic result_atomic shutdown_atomic bars
+      (options : Options.t) mutices =
    fun () ->
     let rec worker_loop () =
       match Atomic.get request_atomic with
       | None ->
-        (* No work, yield and try again *)
-        Domain.cpu_relax ();
-        worker_loop ()
+        if Atomic.get shutdown_atomic then ()
+        else (
+          (* No work, yield and try again *)
+          Domain.cpu_relax ();
+          worker_loop ())
       | Some work ->
         Eio.traceln "Worker domain processing request";
         let result =
@@ -116,10 +119,12 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   (* Create atomic communication channels *)
   let work_request_atomic = Atomic.make None in
   let work_result_atomic = Atomic.make (Ok None) in
+  let shutdown_atomic = Atomic.make false in
 
   (* Create the worker domain *)
   let worker =
-    Worker.top work_request_atomic work_result_atomic bars options mutices
+    Worker.top work_request_atomic work_result_atomic shutdown_atomic bars
+      options mutices
   in
   let domain_mgr = Eio.Stdenv.domain_mgr options.eio_env in
   let pool =
@@ -147,4 +152,5 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   in
   Eio.traceln "optimization res: %s" (Nlopt.string_of_result res);
   Eio.traceln "%a : %f" (Array.pp Float.pp) xopt fopt;
+  Atomic.set shutdown_atomic true;
   Result.return fopt

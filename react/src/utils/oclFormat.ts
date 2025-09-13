@@ -1,15 +1,17 @@
 // Utility functions for converting between React and OCaml yojson formats
 
+import type { OCamlVariant, OCamlTarget, ParsedTarget, CLISettings, CLIFormData, APIError } from '../types';
+
 /**
  * Convert OCaml variant array format to simple string
  * ["Backtest"] -> "Backtest"
  * ["Live"] -> "Live" 
  */
-export const parseOCamlVariant = (variant) => {
+export const parseOCamlVariant = (variant: OCamlVariant): string => {
   if (Array.isArray(variant) && variant.length === 1) {
     return variant[0];
   }
-  return variant;
+  return variant as string;
 };
 
 /**
@@ -17,7 +19,7 @@ export const parseOCamlVariant = (variant) => {
  * "Backtest" -> ["Backtest"]
  * "Live" -> ["Live"]
  */
-export const toOCamlVariant = (value) => {
+export const toOCamlVariant = (value: string): string[] => {
   return [value];
 };
 
@@ -26,7 +28,7 @@ export const toOCamlVariant = (value) => {
  * ["Download"] -> { type: "Download", file: "" }
  * ["File", "path"] -> { type: "File", file: "path" }
  */
-export const parseTarget = (target) => {
+export const parseTarget = (target: OCamlTarget): ParsedTarget => {
   if (Array.isArray(target)) {
     if (target.length === 1 && target[0] === 'Download') {
       return { type: 'Download', file: '' };
@@ -42,7 +44,7 @@ export const parseTarget = (target) => {
  * { type: "Download", file: "" } -> ["Download"]
  * { type: "File", file: "path" } -> ["File", "path"]
  */
-export const toOCamlTarget = (targetSettings) => {
+export const toOCamlTarget = (targetSettings: ParsedTarget): OCamlTarget => {
   if (targetSettings.type === 'Download') {
     return ['Download'];
   } else {
@@ -55,17 +57,17 @@ export const toOCamlTarget = (targetSettings) => {
  * ["Download"] -> "Download"
  * ["File", "path"] -> "File: path"
  */
-export const getTargetDisplay = (target) => {
-  if (Array.isArray(target)) {
-    if (target.length === 1 && target[0] === 'Download') {
-      return 'Download';
-    } else if (target.length === 2 && target[0] === 'File') {
-      return `File: ${target[1]}`;
-    } else {
-      return target.join(' ');
-    }
+export const getTargetDisplay = (target: OCamlTarget | null): string => {
+  if (!target) return 'None';
+  
+  if (target.length === 1 && target[0] === 'Download') {
+    return 'Download';
+  } else if (target.length === 2 && target[0] === 'File') {
+    return `File: ${target[1]}`;
   }
-  return String(target || 'None');
+  
+  // Fallback case - shouldn't happen with well-formed OCamlTarget
+  return (target as string[]).join(' ');
 };
 
 /**
@@ -73,8 +75,8 @@ export const getTargetDisplay = (target) => {
  * ["Download"] -> null
  * ["File", "path"] -> "path"
  */
-export const getActiveDataFile = (target) => {
-  if (Array.isArray(target) && target.length === 2 && target[0] === 'File') {
+export const getActiveDataFile = (target: OCamlTarget | null): string | null => {
+  if (target && target.length === 2 && target[0] === 'File') {
     return target[1];
   }
   return null;
@@ -83,7 +85,7 @@ export const getActiveDataFile = (target) => {
 /**
  * Convert CLI settings from OCaml format to React format
  */
-export const parseOCamlCLI = (oclCLI) => {
+export const parseOCamlCLI = (oclCLI: CLISettings) => {
   return {
     ...oclCLI,
     runtype: parseOCamlVariant(oclCLI.runtype)
@@ -93,17 +95,26 @@ export const parseOCamlCLI = (oclCLI) => {
 /**
  * Convert CLI settings from React format to OCaml format
  */
-export const toOCamlCLI = (cliSettings) => {
+export const toOCamlCLI = (cliSettings: CLIFormData): CLISettings => {
   return {
     ...cliSettings,
-    runtype: toOCamlVariant(cliSettings.runtype)
+    runtype: toOCamlVariant(cliSettings.runtype),
+    // Ensure all required OCaml CLI fields are present with defaults
+    stacktrace: cliSettings.stacktrace ?? false,
+    no_gui: cliSettings.no_gui ?? false,
+    save_received: cliSettings.save_received ?? false,
+    save_to_file: cliSettings.save_to_file ?? false,
+    nowait_market_open: cliSettings.nowait_market_open ?? false,
+    print_tick_arg: cliSettings.print_tick_arg ?? false,
+    precompute_indicators_arg: cliSettings.precompute_indicators_arg ?? false,
+    compare_preloaded: cliSettings.compare_preloaded ?? false,
   };
 };
 
 /**
  * Standard error message formatting
  */
-export const formatError = (error, operation) => {
+export const formatError = (error: APIError, operation: string): string => {
   if (error.response?.status === 406) {
     return `Server rejected ${operation} (406): ${error.response.data}`;
   } else {

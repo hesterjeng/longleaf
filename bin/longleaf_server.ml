@@ -1,85 +1,123 @@
 module Error = Core.Error
 module Cmd = Cmdliner.Cmd
 module CLI = Core.Options.CLI
-               module Instrument = Longleaf_core.Instrument
+module Target = Core.Target
+module Instrument = Longleaf_core.Instrument
 
 module Settings = struct
   type status = Ready | Started | Error [@@deriving show, yojson]
 
   type t = {
-    mutable cli_vars : Core.Options.CLI.t;
-    mutable target : Core.Target.t;
+    mutable cli_vars : CLI.t;
+    mutable target : Target.t;
+    mutable last_value : float;
     mutable status : status;
+    mutable mutices : (Longleaf_state.Mutex.t option[@yojson.opaque]);
   }
   [@@deriving show, yojson]
 
   let settings =
-    { cli_vars = Core.Options.CLI.default; target = Download; status = Ready }
+    {
+      cli_vars = CLI.default;
+      target = Download;
+      status = Ready;
+      last_value = 0.0;
+      mutices = None;
+    }
 end
 
-
-let get =
+let get env =
   [
     Dream.get "/static/**" @@ Dream.static "static";
     ( Dream.get "/execute" @@ fun _ ->
       let s = Settings.settings in
       s.status <- Started;
-      let r = Longleaf_strategies.Run.top s.cli_vars s.target in
-      match r with
-      |
-        Ok c ->
-        (
-      s.status <- Ready;
-        Dream.json @@ Yojson.Safe.to_string @@ `Float c)
-      | Error e ->
-(
-      s.status <- Error;
-          Dream.respond ~status:`Not_Found @@ Error.show e)
-    );
+      try
+        (Dream.log "running strategy";
+         Lwt.async @@ fun () ->
+         Lwt_eio.run_eio @@ fun () ->
+         let mutices = Option.return @@ Longleaf_state.Mutex.create [] in
+         Settings.settings.mutices <- mutices;
+         let res =
+           Longleaf_strategies.Run.top mutices env s.cli_vars s.target
+         in
+         match res with
+         | Ok k ->
+           Eio.traceln "got a result back";
+           Settings.settings.last_value <- k;
+           Settings.settings.status <- Ready
+         | Error e ->
+           Eio.traceln "%a" Error.pp e;
+           Settings.settings.status <- Error);
+        Dream.respond ~status:`OK "strategy execution started"
+      with
+      | exn ->
+        Dream.log "strategy execution failed with exception";
+        s.status <- Error;
+        Dream.respond ~status:`Internal_Server_Error
+        @@ Printf.sprintf "Strategy execution failed: %s"
+             (Printexc.to_string exn) );
     ( Dream.get "/status" @@ fun _ ->
       Settings.yojson_of_status Settings.settings.status
       |> Yojson.Safe.to_string |> Dream.json );
+    ( Dream.get "/performance" @@ fun _ ->
+      Settings.settings.mutices
+      |> Option.map (fun (m : Longleaf_state.Mutex.t) ->
+             Longleaf_util.Pmutex.get m.state_mutex)
+      |> Option.map Longleaf_server__Plotly.performance_graph
+      |> function
+      | None ->
+        Dream.respond ~status:`Bad_Request
+          "Unable to get state performance history"
+      | Some j -> Yojson.Safe.to_string j |> Dream.json );
     ( Dream.get "/settings" @@ fun _ ->
       Settings.yojson_of_t Settings.settings
       |> Yojson.Safe.to_string |> Dream.json );
+    ( Dream.get "/shutdown" @@ fun _ ->
+      Option.Infix.(
+        let+ mutices = Settings.settings.mutices in
+        Longleaf_util.Pmutex.set mutices.shutdown_mutex true)
+      |> function
+      | None ->
+        Dream.respond ~status:`Bad_Request
+          "Unable to get shutdown mutex at shutdown endpoint"
+      | Some () -> Dream.respond ~status:`OK "shutdown mutex set" );
     ( Dream.get "/data" @@ fun _ ->
-      Bars.files () |> List.map (fun x -> `String x) |> fun x ->
-      `List x |> Yojson.Safe.to_string |> Dream.json );
+      Bars.files ()
+      |> List.filter (fun x -> not @@ String.is_empty x)
+      |> List.map (fun x -> `String x)
+      |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
     (Dream.get "/options" @@ fun _ -> Dream.html "Show configured options");
     ( Dream.get "/strategies" @@ fun _ ->
       List.map (fun x -> `String x) Longleaf_strategies.all_strategy_names
       |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
     ( Dream.get "/symbols" @@ fun _ ->
-      (* Get symbols from current target data *)
-      match Settings.settings.target with
-      | Download -> Dream.json @@ Yojson.Safe.to_string @@
-        `List []
-      | File _ ->
-        (try
-           invalid_arg "symbols endpoint nyi"
-        with
-        | e -> Dream.respond ~status:`Not_Found (Printf.sprintf "Error loading symbols: %s" (Printexc.to_string e))) );
+      Option.Infix.(
+        let* mutices = Settings.settings.mutices in
+        let+ symbols = Longleaf_util.Pmutex.get mutices.symbols_mutex in
+        Dream.log "returning symbols %s" symbols;
+        symbols)
+      |> function
+      | None ->
+        Dream.warning (fun log -> log "mutices not set (symbols)");
+        `List [] |> Yojson.Safe.to_string |> Dream.json
+      | Some symbols ->
+        (String.split ~by:"," symbols |> List.map @@ fun x -> `String x)
+        |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
     ( Dream.get "/data/:symbol/json" @@ fun request ->
       let symbol_str = Dream.param request "symbol" in
-      try
-        let _symbol = Instrument.of_string symbol_str in
-        match Settings.settings.target with
-        | Download ->
-          Dream.respond ~status:`Not_Found "No data loaded for charting"
-        | File _ ->
-          Dream.respond ~status:`Not_Found symbol_str
-          (* let bars = Bars.of_file filename in *)
-          (* (\* Create a simple mock state for plotting - this is a simplified version *\) *)
-          (* let mock_indicators_config = Indicators_config.{ tacaml_indicators = [] } in *)
-          (* let mock_state = match State.make 0 bars () mock_indicators_config 10000.0 with *)
-          (*   | Ok state -> state *)
-          (*   | Error e -> failwith (Error.show e) *)
-          (* in *)
-          (* (match Longleaf_server__Plotly.of_state mock_state symbol with *)
-          (* | Some json -> Dream.json (Yojson.Safe.to_string json) *)
-          (* | None -> Dream.respond ~status:`Not_Found "Error generating chart") *)
-      with
-      | e -> Dream.respond ~status:`Bad_Request (Printf.sprintf "Error: %s" (Printexc.to_string e)) );
+      let instrument = Instrument.of_string symbol_str in
+      Option.Infix.(
+        let* mutices = Settings.settings.mutices in
+        Dream.log "symbol request %s" symbol_str;
+        let state = Longleaf_util.Pmutex.get mutices.state_mutex in
+        Longleaf_server__Plotly.of_state state instrument)
+      |> function
+      | None ->
+        Dream.error (fun log ->
+            log "failed to get mutices or plotly json for instrument");
+        Dream.respond ~status:`Bad_Request "problem at data endpoint"
+      | Some j -> Yojson.Safe.to_string j |> Dream.json );
     ( Dream.get "/" @@ fun _ ->
       let html =
         Format.asprintf "%a" (Tyxml.Html.pp_elt ()) Longleaf_server__Index.page
@@ -110,8 +148,7 @@ let post =
             Result.return @@ Core.Target.t_of_yojson
             @@ Yojson.Safe.from_string target_str
           with
-          | _ -> Error.json @@"Problem converting target string" ^ target_str
-
+          | _ -> Error.json @@ "Problem converting target string" ^ target_str
         in
         let* target =
           match target with
@@ -145,37 +182,35 @@ let post =
           "Could not find strategy in data directory" );
     ( Dream.post "/set_runtype" @@ fun request ->
       let* body = Dream.body request in
-        try let r = Yojson.Safe.from_string body
-          |> Core.Runtype.t_of_yojson in
+      try
+        let r = Yojson.Safe.from_string body |> Core.Runtype.t_of_yojson in
         let cli = { Settings.settings.cli_vars with runtype = r } in
         Settings.settings.cli_vars <- cli;
         Dream.respond ~status:`OK "settings.cli_vars.strategy_arg set"
-
-        with
-        | _ ->
+      with
+      | _ ->
         Dream.respond ~status:`Not_Acceptable
-          "Could not find strategy in data directory"
-    );
+          "Could not find strategy in data directory" );
     ( Dream.post "/set_cli" @@ fun request ->
       let* body = Dream.body request in
-        try let r = Yojson.Safe.from_string body
-          |> Core.Options.CLI.t_of_yojson in
+      try
+        let r = Yojson.Safe.from_string body |> Core.Options.CLI.t_of_yojson in
         Settings.settings.cli_vars <- r;
         Dream.respond ~status:`OK "settings.cli_vars._arg set"
-
-        with
-        | _ ->
+      with
+      | _ ->
         Dream.respond ~status:`Not_Acceptable
-          "Could not find strategy in data directory"
-    );
+          "Could not find strategy in data directory" );
   ]
 
-let handler : Dream.handler = Dream.router @@ get @ post
+let handler env : Dream.handler = Dream.router @@ get env @ post
 
 let () =
   Eio_main.run @@ fun env ->
   let clock = Eio.Stdenv.clock env in
   Lwt_eio.with_event_loop ~clock @@ fun () ->
-  let _ = Lwt_eio.run_lwt @@ fun () -> Dream.serve @@ Dream.logger @@ handler in
+  let _ =
+    Lwt_eio.run_lwt @@ fun () -> Dream.serve @@ Dream.logger @@ handler env
+  in
   Eio.traceln "longleaf_server: exited";
   ()
