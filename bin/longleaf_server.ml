@@ -119,10 +119,8 @@ let get env =
         Dream.respond ~status:`Bad_Request "problem at data endpoint"
       | Some j -> Yojson.Safe.to_string j |> Dream.json );
     ( Dream.get "/" @@ fun _ ->
-      let html =
-        Format.asprintf "%a" (Tyxml.Html.pp_elt ()) Longleaf_server__Index.page
-      in
-      Dream.html html );
+      Settings.yojson_of_t Settings.settings
+      |> Yojson.Safe.to_string |> Dream.json );
   ]
 
 let post =
