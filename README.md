@@ -10,7 +10,7 @@ An algorithmic trading platform written in OCaml that supports live trading, pap
 - **Brokerage support**: Alpaca (with extensible backend system)
 - **Market data sources**: Alpaca and Tiingo
 - **Technical indicators**: Integration with TA-lib via tacaml
-- **Web dashboard**: Real-time visualization using Streamlit
+- **Web dashboard**: Real-time visualization using React
 - **Strategy templates**: Functional approach with reusable components
 
 ## Installation
@@ -18,7 +18,6 @@ An algorithmic trading platform written in OCaml that supports live trading, pap
 You'll need to install the following dependencies:
 - **tacaml**: OCaml bindings for TA-lib technical analysis
 - **TA-lib**: Technical analysis library (system dependency)
-- **streamlit**: For the web dashboard (Python)
 
 ## Setup
 
@@ -91,28 +90,17 @@ longleaf Backtest AStarExample data/24.json -i 100
 
 2. **Launch the dashboard**:
 ```bash
-cd streamlit
-streamlit run dashboard.py
+cd react
+npm start
 ```
 
-3. **Access the dashboard**: Open `http://localhost:8501` in your browser
+3. **Access the dashboard**: Open `http://localhost:3000` in your browser
 
 The dashboard provides:
 - Real-time portfolio visualization
 - Technical indicator charts with 30+ traces
 - Strategy statistics and performance metrics
 - Interactive symbol selection and data exploration
-
-### Dashboard Authentication
-
-Set a password hash to secure your dashboard:
-```bash
-# Generate password hash
-python3 -c "import hashlib; print(hashlib.sha256('your_secure_password'.encode()).hexdigest())"
-
-# Set environment variable
-export DASHBOARD_PASSWORD_HASH="your_generated_hash"
-```
 
 ## Available Strategies
 

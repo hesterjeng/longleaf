@@ -1,6 +1,6 @@
 # Longleaf React Dashboard
 
-A React-based control dashboard for the Longleaf algorithmic trading platform. This is a React/Plotly equivalent of the Streamlit dashboard implementation.
+A React-based control dashboard for the Longleaf algorithmic trading platform.
 
 ## Features
 
@@ -103,9 +103,9 @@ The dashboard uses vanilla CSS with a clean, modern design:
 - Mobile-first responsive design
 - Custom button and form styles
 
-## Comparison with Streamlit Version
+## Dashboard Features
 
-This React dashboard provides equivalent functionality to the Streamlit version with these improvements:
+This React dashboard provides:
 
 - **Better performance** - No Python backend required
 - **More responsive** - Native web technologies
