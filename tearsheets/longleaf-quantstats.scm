@@ -17,57 +17,6 @@
              (gnu packages protobuf)
              (gnu packages statistics))
 
-;; FastAPI - Web framework
-(define-public python-fastapi
-  (package
-    (name "python-fastapi")
-    (version "0.112.0")
-    (source
-     (origin
-       (method url-fetch)
-       (uri (string-append "https://files.pythonhosted.org/packages/source/f/fastapi/fastapi-"
-                           version ".tar.gz"))
-       (sha256
-        (base32 "01fg203wbkl6fq8vglh4qpz3b6dvfnnd42pwx3sd20finxbbqqnj"))))
-    (build-system pyproject-build-system)
-    (arguments
-     '(#:tests? #f)) ; Skip tests that require network
-    (propagated-inputs
-     (list python-starlette
-           python-pydantic
-           python-typing-extensions))
-    (home-page "https://github.com/tiangolo/fastapi")
-    (synopsis "FastAPI framework, high performance, easy to learn")
-    (description
-     "FastAPI is a modern, fast web framework for building APIs with Python 3.7+
-based on standard Python type hints.")
-    (license license:expat)))
-
-;; Uvicorn - ASGI server
-(define-public python-uvicorn
-  (package
-    (name "python-uvicorn")
-    (version "0.30.0")
-    (source
-     (origin
-       (method url-fetch)
-       (uri (string-append "https://files.pythonhosted.org/packages/source/u/uvicorn/uvicorn-"
-                           version ".tar.gz"))
-       (sha256
-        (base32 "0dxac25841rznm9flv3i30jd8j80qigyrfa9pxmp0f9szb2dwy7n"))))
-    (build-system pyproject-build-system)
-    (arguments
-     '(#:tests? #f)) ; Skip tests
-    (propagated-inputs
-     (list python-click
-           python-h11
-           python-typing-extensions))
-    (home-page "https://github.com/encode/uvicorn")
-    (synopsis "Lightning-fast ASGI server implementation")
-    (description
-     "Uvicorn is a lightning-fast ASGI server implementation, using uvloop
-and httptools.")
-    (license license:bsd-3)))
 
 ;; yfinance - Market data downloader
 (define-public python-yfinance
@@ -164,8 +113,6 @@ rolling statistics, monthly returns, and various performance tear sheets.")
                #t))))))
     (propagated-inputs
      (list python
-           python-fastapi
-           python-uvicorn
            python-quantstats
            python-pandas
            python-numpy))
