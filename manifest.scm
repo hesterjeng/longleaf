@@ -7,7 +7,9 @@
              (gnu packages tls)
              (gnu packages curl)
              (gnu packages version-control)
-             (gnu packages pkg-config))
+             (gnu packages pkg-config)
+             (gnu packages terminals)
+             (gnu packages tmux))
 
 ;; Load QuantStats server package
 (load "tearsheets/longleaf-quantstats.scm")
@@ -25,7 +27,7 @@
        longleaf-quantstats-dev
        longleaf-frontend-dev
        ;; Process orchestration  
-       overmind
+       tmux
        ;; System dependencies
        pkg-config
        zlib

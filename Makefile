@@ -1,4 +1,4 @@
-.PHONY: all clean build install format deps odep react run
+.PHONY: all clean build install format deps odep react run shutdown
 
 all:
 	dune build
@@ -22,5 +22,17 @@ deps:
 react:
 	cd react && npm start
 
+_tmux-setup:
+	tmux new-session -d -s longleaf
+	tmux send-keys -t longleaf:0 "cd react && npm start" Enter
+	tmux new-window -t longleaf -n tearsheets
+	tmux send-keys -t longleaf:tearsheets "python tearsheets/quantstats.py" Enter
+	tmux new-window -t longleaf -n longleaf
+	tmux send-keys -t longleaf:longleaf "dune exec bin/longleaf_server.exe" Enter
+	tmux attach-session -t longleaf
+
 run:
-	overmind start
+	guix shell -m manifest.scm -- $(MAKE) _tmux-setup
+
+shutdown:
+	tmux kill-session -t longleaf

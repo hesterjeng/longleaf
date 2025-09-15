@@ -5,6 +5,7 @@
              (guix gexp)
              (guix build-system copy)
              (guix build-system gnu)
+             (guix build utils)
              ((guix licenses) #:prefix license:)
              (gnu packages)
              (gnu packages node))
@@ -16,9 +17,8 @@
     (version "0.1.0")
     (source (local-file "." "longleaf-frontend-source"
                         #:recursive? #t
-                        #:select? (file-name-predicate
-                                   (lambda (file stat)
-                                     (not (string-contains file "node_modules"))))))
+                        #:select? (lambda (file stat)
+                                    (not (string-contains file "node_modules")))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases
@@ -32,7 +32,7 @@
                (copy-recursively "." (string-append out "/share/longleaf-frontend"))
                #t))))))
     (propagated-inputs
-     (list node npm))
+     (list node))
     (home-page "https://github.com/hesterjeng/longleaf")
     (synopsis "Longleaf React frontend development environment")
     (description
@@ -51,6 +51,7 @@ for running 'npm install' and 'npm start' in the React directory.")
     (arguments
      '(#:install-plan
        '(("." "share/longleaf/static"))))
+    (home-page "https://github.com/hesterjeng/longleaf")
     (synopsis "Longleaf React frontend (built)")
     (description
      "Pre-built React dashboard for Longleaf trading platform. Contains

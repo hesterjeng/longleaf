@@ -4,12 +4,17 @@
              (guix git-download)
              (guix gexp)
              (guix build-system python)
+             (guix build-system pyproject)
              (guix build-system copy)
              ((guix licenses) #:prefix license:)
              (gnu packages python)
              (gnu packages python-xyz)
              (gnu packages python-science)
              (gnu packages python-web)
+             (gnu packages python-build)
+             (gnu packages time)
+             (gnu packages xml)
+             (gnu packages protobuf)
              (gnu packages statistics))
 
 ;; FastAPI - Web framework
@@ -23,8 +28,8 @@
        (uri (string-append "https://files.pythonhosted.org/packages/source/f/fastapi/fastapi-"
                            version ".tar.gz"))
        (sha256
-        (base32 "0s3xkyn9xr9b6r4xdh5xpf9b1wnwf4r8b3f6r2p8r3v7r8z9r2p3"))))
-    (build-system python-build-system)
+        (base32 "01fg203wbkl6fq8vglh4qpz3b6dvfnnd42pwx3sd20finxbbqqnj"))))
+    (build-system pyproject-build-system)
     (arguments
      '(#:tests? #f)) ; Skip tests that require network
     (propagated-inputs
@@ -49,8 +54,8 @@ based on standard Python type hints.")
        (uri (string-append "https://files.pythonhosted.org/packages/source/u/uvicorn/uvicorn-"
                            version ".tar.gz"))
        (sha256
-        (base32 "1x7z3r8w9q7r6x5y7z8r9p3q1w2e3r4t5y6u7i8o9p0q1w2e3r4t"))))
-    (build-system python-build-system)
+        (base32 "0dxac25841rznm9flv3i30jd8j80qigyrfa9pxmp0f9szb2dwy7n"))))
+    (build-system pyproject-build-system)
     (arguments
      '(#:tests? #f)) ; Skip tests
     (propagated-inputs
@@ -145,7 +150,7 @@ rolling statistics, monthly returns, and various performance tear sheets.")
     (version "0.1.0")
     (source (local-file "." "longleaf-quantstats-source"
                         #:recursive? #t))
-    (build-system python-build-system)
+    (build-system pyproject-build-system)
     (arguments
      '(#:phases
        (modify-phases %standard-phases
