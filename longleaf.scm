@@ -10,7 +10,14 @@
              (gnu packages pkg-config)
              (gnu packages compression)
              (gnu packages tls)
-             (gnu packages curl))
+             (gnu packages curl)
+             (gnu packages node))
+
+;; Load React frontend package
+(load "react/longleaf-frontend.scm")
+
+;; Load QuantStats server package
+(load "lib/server/longleaf-quantstats.scm")
 
 ;; Load our local package definitions
 (load "packages.scm")
@@ -52,7 +59,11 @@
          zlib
          openssl
          curl
-         git))
+         git
+         ;; Frontend
+         longleaf-frontend-dev
+         ;; Analytics server
+         longleaf-quantstats-dev))
   (home-page "https://github.com/hesterjeng/longleaf")
   (synopsis "Algorithmic trading platform written in OCaml")
   (description
