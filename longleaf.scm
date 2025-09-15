@@ -17,7 +17,7 @@
 (load "react/longleaf-frontend.scm")
 
 ;; Load QuantStats server package
-(load "lib/server/longleaf-quantstats.scm")
+(load "tearsheets/longleaf-quantstats.scm")
 
 ;; Load our local package definitions
 (load "packages.scm")
@@ -60,6 +60,8 @@
          openssl
          curl
          git
+         ;; Process orchestration
+         overmind
          ;; Frontend
          longleaf-frontend-dev
          ;; Analytics server
