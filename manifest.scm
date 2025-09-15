@@ -9,7 +9,10 @@
              (gnu packages version-control)
              (gnu packages pkg-config)
              (gnu packages terminals)
-             (gnu packages tmux))
+             (gnu packages tmux)
+             (gnu packages python-web)
+             (gnu packages python-science)
+             (gnu packages node))
 
 ;; Load QuantStats server package
 (load "tearsheets/longleaf-quantstats.scm")
@@ -26,6 +29,9 @@
  (list ;; Frontend and tearsheets
        longleaf-quantstats-dev
        longleaf-frontend-dev
+       ;; Python web framework
+       python-fastapi
+       python-uvicorn
        ;; Process orchestration  
        tmux
        ;; System dependencies
