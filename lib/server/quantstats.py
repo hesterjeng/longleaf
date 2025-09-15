@@ -1,80 +1,115 @@
-from flask import Flask, request, jsonify, send_from_directory
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from typing import List, Optional
 import quantstats as qs
 import pandas as pd
 import tempfile
 import os
 
-app = Flask(__name__)
+app = FastAPI(title="QuantStats Server", description="Portfolio analytics service")
 
-@app.route('/')
-def index():
-    return '''
-    <h1>QuantStats Server</h1>
-    <p>Available endpoints:</p>
-    <ul>
-        <li><code>POST /analyze</code> - Analyze portfolio returns</li>
-        <li><code>POST /report</code> - Generate HTML report</li>
-        <li><code>GET /metrics/&lt;symbol&gt;</code> - Get basic metrics for a symbol</li>
-    </ul>
-    '''
+class AnalyzeRequest(BaseModel):
+    returns: List[float]
+    dates: List[str]
 
-@app.route('/analyze', methods=['POST'])
-def analyze():
+class ReportRequest(BaseModel):
+    returns: List[float]
+    dates: List[str]
+    benchmark: Optional[str] = "SPY"
+    title: Optional[str] = "Portfolio Analysis"
+
+class TearsheetRequest(BaseModel):
+    returns: List[float]
+    dates: List[str]
+    benchmark: Optional[str] = "SPY"
+    title: Optional[str] = "Longleaf Trading Strategy Tearsheet"
+
+@app.get("/")
+async def root():
+    return {
+        "message": "QuantStats Server",
+        "endpoints": {
+            "POST /analyze": "Analyze portfolio returns",
+            "POST /report": "Generate HTML report", 
+            "POST /tearsheet": "Generate complete tearsheet report",
+            "GET /metrics/{symbol}": "Get basic metrics for a symbol"
+        }
+    }
+
+@app.post("/analyze")
+async def analyze(request: AnalyzeRequest):
     try:
-        data = request.json
-        returns = pd.Series(data['returns'], index=pd.to_datetime(data['dates']))
+        returns = pd.Series(request.returns, index=pd.to_datetime(request.dates))
         
         metrics = {
-            'sharpe': qs.stats.sharpe(returns),
-            'sortino': qs.stats.sortino(returns),
-            'max_drawdown': qs.stats.max_drawdown(returns),
-            'cagr': qs.stats.cagr(returns),
-            'volatility': qs.stats.volatility(returns),
-            'calmar': qs.stats.calmar(returns)
+            'sharpe': float(qs.stats.sharpe(returns)),
+            'sortino': float(qs.stats.sortino(returns)),
+            'max_drawdown': float(qs.stats.max_drawdown(returns)),
+            'cagr': float(qs.stats.cagr(returns)),
+            'volatility': float(qs.stats.volatility(returns)),
+            'calmar': float(qs.stats.calmar(returns))
         }
         
-        return jsonify(metrics)
+        return metrics
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.route('/report', methods=['POST'])
-def generate_report():
+@app.post("/report", response_class=HTMLResponse)
+async def generate_report(request: ReportRequest):
     try:
-        data = request.json
-        returns = pd.Series(data['returns'], index=pd.to_datetime(data['dates']))
-        benchmark = data.get('benchmark', 'SPY')
+        returns = pd.Series(request.returns, index=pd.to_datetime(request.dates))
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
-            qs.reports.html(returns, benchmark, output=f.name, title=data.get('title', 'Portfolio Analysis'))
+            qs.reports.html(returns, request.benchmark, output=f.name, title=request.title)
             
         with open(f.name, 'r') as report_file:
             html_content = report_file.read()
             
         os.unlink(f.name)
         
-        return html_content, 200, {'Content-Type': 'text/html'}
+        return HTMLResponse(content=html_content)
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.route('/metrics/<symbol>')
-def get_symbol_metrics(symbol):
+@app.post("/tearsheet", response_class=HTMLResponse)
+async def generate_tearsheet(request: TearsheetRequest):
+    try:
+        returns = pd.Series(request.returns, index=pd.to_datetime(request.dates))
+        
+        # Generate full tearsheet with quantstats
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+            qs.reports.full(returns, request.benchmark, output=f.name, title=request.title)
+            
+        with open(f.name, 'r') as report_file:
+            html_content = report_file.read()
+            
+        os.unlink(f.name)
+        
+        return HTMLResponse(content=html_content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/metrics/{symbol}")
+async def get_symbol_metrics(symbol: str):
     try:
         returns = qs.utils.download_returns(symbol)
         
         metrics = {
             'symbol': symbol,
-            'sharpe': qs.stats.sharpe(returns),
-            'sortino': qs.stats.sortino(returns),
-            'max_drawdown': qs.stats.max_drawdown(returns),
-            'cagr': qs.stats.cagr(returns),
-            'volatility': qs.stats.volatility(returns)
+            'sharpe': float(qs.stats.sharpe(returns)),
+            'sortino': float(qs.stats.sortino(returns)),
+            'max_drawdown': float(qs.stats.max_drawdown(returns)),
+            'cagr': float(qs.stats.cagr(returns)),
+            'volatility': float(qs.stats.volatility(returns))
         }
         
-        return jsonify(metrics)
+        return metrics
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=5000)
 
     # run with uv --with...
