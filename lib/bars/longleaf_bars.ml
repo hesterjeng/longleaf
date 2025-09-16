@@ -104,7 +104,11 @@ let timestamp (x : t) (tick : int) =
     | Some prev ->
       if Float.abs @@ (timestamp -. prev) <. 1.0 then
         Eio.traceln
-          "warning:  significantly different timestamps in Bars.timestamp";
+          "warning:  significantly different timestamps in Bars.timestamp %a %a"
+          Time.pp
+          (Time.of_float_res timestamp |> Result.get_exn)
+          Time.pp
+          (Time.of_float_res prev |> Result.get_exn);
       Some prev
   in
   match res with
