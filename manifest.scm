@@ -10,6 +10,8 @@
              (gnu packages pkg-config)
              (gnu packages terminals)
              (gnu packages tmux)
+             (gnu packages maths)
+             (gnu packages libevent)
              (gnu packages python-web)
              (gnu packages python-science)
              (gnu packages node))
@@ -22,21 +24,23 @@
 
 ;; Warning message
 (format #t "~%WARNING: This manifest provides frontend and tearsheets dependencies only.~%")
-(format #t "For OCaml development, use: guix shell -f longleaf.scm~%~%")
+(format #t "~%OCaml is not handled by Guix yet.~%")
 
 ;; Create manifest with development packages and system dependencies
 (packages->manifest
  (list ;; Frontend and tearsheets
-       longleaf-quantstats-dev
-       longleaf-frontend-dev
-       ;; Python web framework
-       python-fastapi
-       python-uvicorn
-       ;; Process orchestration  
-       tmux
-       ;; System dependencies
-       pkg-config
-       zlib
-       openssl
-       curl
-       git))
+  longleaf-quantstats-dev
+  longleaf-frontend-dev
+  ;; Python web framework
+  python-fastapi
+  python-uvicorn
+  nlopt
+  libev
+  ;; Process orchestration
+  tmux
+  ;; System dependencies
+  pkg-config
+  zlib
+  openssl
+  curl
+  git))

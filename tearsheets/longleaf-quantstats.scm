@@ -35,17 +35,19 @@
     '(#:tests? #f     ; Skip tests that require network access
       #:phases
       (modify-phases %standard-phases
-        (delete 'sanity-check))))  ; Skip sanity check that enforces curl_cffi dependency
+                     (delete 'sanity-check))))  ; Skip sanity check that enforces curl_cffi dependency
    (propagated-inputs
-    (list python-pandas
-          python-numpy
-          python-requests
-          python-lxml
-          python-appdirs
-          python-pytz
-          python-beautifulsoup4
-          python-websockets
-          python-protobuf))
+    (list
+     python
+     python-pandas
+     python-numpy
+     python-requests
+     python-lxml
+     python-appdirs
+     python-pytz
+     python-beautifulsoup4
+     python-websockets
+     python-protobuf))
    (home-page "https://github.com/ranaroussi/yfinance")
    (synopsis "Download market data from Yahoo! Finance API")
    (description
@@ -72,7 +74,7 @@ authentication and decryption issues by dynamically scraping the data.")
     '(#:tests? #f     ; Skip tests that require yfinance network access
       #:phases
       (modify-phases %standard-phases
-        (delete 'sanity-check))))  ; Skip sanity check that enforces yfinance curl_cffi dependency
+                     (delete 'sanity-check))))  ; Skip sanity check that enforces yfinance curl_cffi dependency
    (propagated-inputs
     (list python-pandas
           python-numpy
@@ -95,33 +97,33 @@ rolling statistics, monthly returns, and various performance tear sheets.")
 ;; Development environment - provides Python environment for server
 (define-public longleaf-quantstats-dev
   (package
-    (name "longleaf-quantstats-dev")
-    (version "0.1.0")
-    (source (local-file "." "longleaf-quantstats-source"
-                        #:recursive? #t))
-    (build-system pyproject-build-system)
-    (arguments
-     '(#:phases
-       (modify-phases %standard-phases
-         (delete 'configure)
-         (delete 'build)
-         (delete 'check)
-         (replace 'install
-           (lambda* (#:key outputs #:allow-other-keys)
-             (let ((out (assoc-ref outputs "out")))
-               (copy-recursively "." (string-append out "/share/longleaf-quantstats"))
-               #t))))))
-    (propagated-inputs
-     (list python
-           python-quantstats
-           python-pandas
-           python-numpy))
-    (home-page "https://github.com/hesterjeng/longleaf")
-    (synopsis "Longleaf QuantStats server development environment")
-    (description
-     "Development package for Longleaf QuantStats FastAPI server. Provides Python
+   (name "longleaf-quantstats-dev")
+   (version "0.1.0")
+   (source (local-file "." "longleaf-quantstats-source"
+                       #:recursive? #t))
+   (build-system pyproject-build-system)
+   (arguments
+    '(#:phases
+      (modify-phases %standard-phases
+                     (delete 'configure)
+                     (delete 'build)
+                     (delete 'check)
+                     (replace 'install
+                              (lambda* (#:key outputs #:allow-other-keys)
+                                (let ((out (assoc-ref outputs "out")))
+                                  (copy-recursively "." (string-append out "/share/longleaf-quantstats"))
+                                  #t))))))
+   (propagated-inputs
+    (list python
+          python-quantstats
+          python-pandas
+          python-numpy))
+   (home-page "https://github.com/hesterjeng/longleaf")
+   (synopsis "Longleaf QuantStats server development environment")
+   (description
+    "Development package for Longleaf QuantStats FastAPI server. Provides Python
 environment with all dependencies for portfolio analytics and reporting.")
-    (license license:gpl3+)))
+   (license license:gpl3+)))
 
 ;; Default export for development
 longleaf-quantstats-dev
