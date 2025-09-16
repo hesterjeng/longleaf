@@ -32,6 +32,7 @@
   longleaf-quantstats-dev
   longleaf-frontend-dev
   ;; Python web framework
+  python
   python-fastapi
   python-uvicorn
   nlopt

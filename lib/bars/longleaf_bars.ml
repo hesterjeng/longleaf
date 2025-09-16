@@ -102,7 +102,7 @@ let timestamp (x : t) (tick : int) =
     match acc with
     | None -> Some timestamp
     | Some prev ->
-      if Float.abs @@ (timestamp -. prev) <. 1.0 then
+      if Float.abs @@ (timestamp -. prev) >. 1.0 then
         Eio.traceln
           "warning:  significantly different timestamps in Bars.timestamp %a %a"
           Time.pp
