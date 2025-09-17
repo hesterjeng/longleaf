@@ -91,9 +91,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   // Note: Server blocks completely during execution - cannot respond to any requests
   // No point in trying to check server status while strategy is running
 
-  // Update form when settings change
+  // Track whether form has been manually updated
+  const [formManuallyUpdated, setFormManuallyUpdated] = useState<boolean>(false);
+
+  // Update form when settings change, but only if not manually updated
   React.useEffect(() => {
-    if (settings?.cli_vars && settings?.target) {
+    if (!formManuallyUpdated && settings?.cli_vars && settings?.target) {
       const cliData = parseOCamlCLI(settings.cli_vars);
       const targetData = parseTarget(settings.target);
       console.log('Setting form values:', { cliData, targetData, strategies, dataFiles });
@@ -104,14 +107,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         target_type: targetData.type,
         target_file: targetData.file
       });
-    } else {
+    } else if (!formManuallyUpdated && (!settings?.cli_vars || !settings?.target)) {
       // Set defaults when no settings are available
       settingsForm.setFieldsValue({
         runtype: 'Backtest',
         strategy_arg: 'Listener'
       });
     }
-  }, [settings, settingsForm, strategies, dataFiles]);
+  }, [settings, settingsForm, strategies, dataFiles, formManuallyUpdated]);
 
   const executeStrategyHandler = async () => {
     console.log('🚀 Starting strategy execution...');
@@ -188,6 +191,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       await updateTarget(toOCamlTarget(targetData));
       
       message.success('Settings updated successfully');
+      setFormManuallyUpdated(false); // Reset flag so form can accept server updates
       refreshData();
     } catch (error) {
       message.error(formatError(error as APIError, 'update settings'));
@@ -620,7 +624,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         layout="vertical"
         onFinish={onFinishSettings}
         onValuesChange={(changedValues, allValues) => {
-          // This ensures form state is properly managed
+          // Mark form as manually updated when user makes changes
+          setFormManuallyUpdated(true);
         }}
       >
 
@@ -735,6 +740,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                         type={getFieldValue('target_type') === 'Download' ? 'primary' : 'default'}
                         onClick={() => {
                           setFieldsValue({ target_type: 'Download', target_file: '' });
+                          setFormManuallyUpdated(true);
                         }}
                         style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                       >
@@ -745,6 +751,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                         type={!getFieldValue('target_file') && getFieldValue('target_type') === 'File' ? 'primary' : 'default'}
                         onClick={() => {
                           setFieldsValue({ target_type: 'File', target_file: '' });
+                          setFormManuallyUpdated(true);
                         }}
                         style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                       >
@@ -757,6 +764,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                           type={getFieldValue('target_file') === file ? 'primary' : 'default'}
                           onClick={() => {
                             setFieldsValue({ target_type: 'File', target_file: file });
+                            setFormManuallyUpdated(true);
                           }}
                           style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                         >
