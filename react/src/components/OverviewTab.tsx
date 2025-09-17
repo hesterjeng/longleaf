@@ -367,7 +367,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       
       <Row gutter={6} style={{ marginBottom: '6px' }}>
         <Col span={8}>
-          <Card title="Server Status" style={{ height: '100%' }} bodyStyle={{ padding: '8px' }}>
+          <Card title="Server Status" style={{ height: '100%' }} styles={{ body: { padding: '8px' } }}>
             {renderStatusDisplay(status)}
             <div style={{ marginTop: '12px', marginBottom: '8px' }}>
               <Badge 
@@ -382,7 +382,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         </Col>
         
         <Col span={16}>
-          <Card title="Control Panel" style={{ height: '100%' }} bodyStyle={{ padding: '8px' }}>
+          <Card title="Control Panel" style={{ height: '100%' }} styles={{ body: { padding: '8px' } }}>
             <Row gutter={[8, 8]}>
               <Col span={8}>
                 <Button
@@ -614,7 +614,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       <Card 
         title="Portfolio Performance" 
         style={{ marginBottom: '6px' }}
-        bodyStyle={{ padding: '8px' }}
+        styles={{ body: { padding: '8px' } }}
       >
         {renderPerformanceChart()}
       </Card>
@@ -631,7 +631,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
         <Row gutter={6} style={{ marginBottom: '6px' }}>
           <Col span={24}>
-            <Card title="Run Type" bodyStyle={{ padding: '8px' }}>
+            <Card title="Run Type" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="runtype">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => (
@@ -657,7 +657,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
         <Row gutter={6} style={{ marginBottom: '6px' }}>
           <Col span={24}>
-            <Card title="Strategy" bodyStyle={{ padding: '8px' }}>
+            <Card title="Strategy" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="strategy_arg">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => {
@@ -730,7 +730,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
         <Row gutter={6} style={{ marginBottom: '6px' }}>
           <Col span={24}>
-            <Card title="Target" bodyStyle={{ padding: '8px' }}>
+            <Card title="Target" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="target_file">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => (
@@ -781,7 +781,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
         <Row gutter={6} style={{ marginBottom: '6px' }}>
           <Col span={12}>
-            <Card title="Start Index" bodyStyle={{ padding: '8px' }}>
+            <Card title="Start Index" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="start">
                 <InputNumber min={0} size="large" style={{ width: '100%' }} />
               </Form.Item>
@@ -789,7 +789,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           </Col>
           
           <Col span={12}>
-            <Card title="Random Drop %" bodyStyle={{ padding: '8px' }}>
+            <Card title="Random Drop %" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="random_drop_chance">
                 <InputNumber min={0} max={100} size="large" style={{ width: '100%' }} />
               </Form.Item>
