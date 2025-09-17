@@ -5,7 +5,7 @@ import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
 import { executeStrategy, updateCLI, updateTarget } from '../utils/api';
-import type { ServerData, SettingsFormValues, CLIFormData, APIError } from '../types';
+import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget } from '../types';
 
 const { Title, Text } = Typography;
 
@@ -101,8 +101,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         ...cliData,
         runtype: cliData.runtype || 'Backtest',
         strategy_arg: cliData.strategy_arg || 'Listener',
-        target_type: targetData.type,
-        target_file: targetData.file
+        target_file: targetData.type === 'Download' ? 'download' : targetData.file
       });
     } else {
       // Set defaults when no settings are available
@@ -179,9 +178,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         random_drop_chance: values.random_drop_chance || 0
       };
       
-      const targetData = {
-        type: values.target_type || 'Download',
-        file: values.target_file || ''
+      const targetData: ParsedTarget = {
+        type: values.target_file === 'download' ? 'Download' : 'File',
+        file: values.target_file === 'download' ? '' : (values.target_file || '')
       };
 
       await updateCLI(toOCamlCLI(cliData));
@@ -363,7 +362,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       
       <Row gutter={6} style={{ marginBottom: '6px' }}>
         <Col span={8}>
-          <Card title="Server Status" style={{ height: '100%' }} bodyStyle={{ padding: '8px' }}>
+          <Card title="Server Status" style={{ height: '100%' }} styles={{ body: { padding: '8px' } }}>
             {renderStatusDisplay(status)}
             <div style={{ marginTop: '12px', marginBottom: '8px' }}>
               <Badge 
@@ -378,7 +377,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         </Col>
         
         <Col span={16}>
-          <Card title="Control Panel" style={{ height: '100%' }} bodyStyle={{ padding: '8px' }}>
+          <Card title="Control Panel" style={{ height: '100%' }} styles={{ body: { padding: '8px' } }}>
             <Row gutter={[8, 8]}>
               <Col span={8}>
                 <Button
@@ -610,7 +609,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       <Card 
         title="Portfolio Performance" 
         style={{ marginBottom: '6px' }}
-        bodyStyle={{ padding: '8px' }}
+        styles={{ body: { padding: '8px' } }}
       >
         {renderPerformanceChart()}
       </Card>
@@ -626,7 +625,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
         <Row gutter={6} style={{ marginBottom: '6px' }}>
           <Col span={24}>
-            <Card title="Run Type" bodyStyle={{ padding: '8px' }}>
+            <Card title="Run Type" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="runtype">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => (
@@ -652,7 +651,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
         <Row gutter={6} style={{ marginBottom: '6px' }}>
           <Col span={24}>
-            <Card title="Strategy" bodyStyle={{ padding: '8px' }}>
+            <Card title="Strategy" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="strategy_arg">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => {
@@ -725,27 +724,23 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
         <Row gutter={6} style={{ marginBottom: '6px' }}>
           <Col span={24}>
-            <Card title="Target" bodyStyle={{ padding: '8px' }}>
+            <Card title="Target" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="target_file">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       <Button
                         size="small"
-                        type={getFieldValue('target_type') === 'Download' ? 'primary' : 'default'}
-                        onClick={() => {
-                          setFieldsValue({ target_type: 'Download', target_file: '' });
-                        }}
+                        type={getFieldValue('target_file') === 'download' ? 'primary' : 'default'}
+                        onClick={() => setFieldsValue({ target_file: 'download' })}
                         style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                       >
                         Download (Live Data)
                       </Button>
                       <Button
                         size="small"
-                        type={!getFieldValue('target_file') && getFieldValue('target_type') === 'File' ? 'primary' : 'default'}
-                        onClick={() => {
-                          setFieldsValue({ target_type: 'File', target_file: '' });
-                        }}
+                        type={getFieldValue('target_file') === '' ? 'primary' : 'default'}
+                        onClick={() => setFieldsValue({ target_file: '' })}
                         style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                       >
                         None
@@ -755,9 +750,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                           key={file}
                           size="small"
                           type={getFieldValue('target_file') === file ? 'primary' : 'default'}
-                          onClick={() => {
-                            setFieldsValue({ target_type: 'File', target_file: file });
-                          }}
+                          onClick={() => setFieldsValue({ target_file: file })}
                           style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                         >
                           {file}
@@ -773,7 +766,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
         <Row gutter={6} style={{ marginBottom: '6px' }}>
           <Col span={12}>
-            <Card title="Start Index" bodyStyle={{ padding: '8px' }}>
+            <Card title="Start Index" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="start">
                 <InputNumber min={0} size="large" style={{ width: '100%' }} />
               </Form.Item>
@@ -781,7 +774,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           </Col>
           
           <Col span={12}>
-            <Card title="Random Drop %" bodyStyle={{ padding: '8px' }}>
+            <Card title="Random Drop %" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="random_drop_chance">
                 <InputNumber min={0} max={100} size="large" style={{ width: '100%' }} />
               </Form.Item>

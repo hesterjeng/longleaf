@@ -14,12 +14,12 @@ let float (x : t) =
 let bool (x : t) =
   match x with
   | `Bool f -> Result.return f
-  | _ -> Error "Expected float"
+  | _ -> Error "Expected bool"
 
 let int (x : t) =
   match x with
   | `Int f -> Result.return f
-  | _ -> Error "Expected float"
+  | _ -> Error "Expected int"
 
 let float_of_string (x : t) =
   match x with

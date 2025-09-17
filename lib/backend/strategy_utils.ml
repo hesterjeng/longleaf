@@ -137,7 +137,10 @@ end = struct
       let* length = State.bars state |> Bars.length in
       State.tick state >= length - 1 |> function
       | true -> raise (FinalState state)
-      | false -> State.increment_tick state
+      | false ->
+        if options.flags.print_tick_arg then
+          Eio.traceln "[ Increment.top ] %d" (State.tick state + 1);
+        State.increment_tick state
   end
 
   module Liquidate = struct
