@@ -5,7 +5,7 @@ import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
 import { executeStrategy, updateCLI, updateTarget } from '../utils/api';
-import type { ServerData, SettingsFormValues, CLIFormData, APIError } from '../types';
+import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget } from '../types';
 
 const { Title, Text } = Typography;
 
@@ -91,12 +91,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   // Note: Server blocks completely during execution - cannot respond to any requests
   // No point in trying to check server status while strategy is running
 
-  // Track whether form has been manually updated
-  const [formManuallyUpdated, setFormManuallyUpdated] = useState<boolean>(false);
-
-  // Update form when settings change, but only if not manually updated
+  // Update form when settings change
   React.useEffect(() => {
-    if (!formManuallyUpdated && settings?.cli_vars && settings?.target) {
+    if (settings?.cli_vars && settings?.target) {
       const cliData = parseOCamlCLI(settings.cli_vars);
       const targetData = parseTarget(settings.target);
       console.log('Setting form values:', { cliData, targetData, strategies, dataFiles });
@@ -104,17 +101,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         ...cliData,
         runtype: cliData.runtype || 'Backtest',
         strategy_arg: cliData.strategy_arg || 'Listener',
-        target_type: targetData.type,
-        target_file: targetData.file
+        target_file: targetData.type === 'Download' ? 'download' : targetData.file
       });
-    } else if (!formManuallyUpdated && (!settings?.cli_vars || !settings?.target)) {
+    } else {
       // Set defaults when no settings are available
       settingsForm.setFieldsValue({
         runtype: 'Backtest',
         strategy_arg: 'Listener'
       });
     }
-  }, [settings, settingsForm, strategies, dataFiles, formManuallyUpdated]);
+  }, [settings, settingsForm, strategies, dataFiles]);
 
   const executeStrategyHandler = async () => {
     console.log('🚀 Starting strategy execution...');
@@ -182,16 +178,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         random_drop_chance: values.random_drop_chance || 0
       };
       
-      const targetData = {
-        type: values.target_type || 'Download',
-        file: values.target_file || ''
+      const targetData: ParsedTarget = {
+        type: values.target_file === 'download' ? 'Download' : 'File',
+        file: values.target_file === 'download' ? '' : (values.target_file || '')
       };
 
       await updateCLI(toOCamlCLI(cliData));
       await updateTarget(toOCamlTarget(targetData));
       
       message.success('Settings updated successfully');
-      setFormManuallyUpdated(false); // Reset flag so form can accept server updates
       refreshData();
     } catch (error) {
       message.error(formatError(error as APIError, 'update settings'));
@@ -624,8 +619,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         layout="vertical"
         onFinish={onFinishSettings}
         onValuesChange={(changedValues, allValues) => {
-          // Mark form as manually updated when user makes changes
-          setFormManuallyUpdated(true);
+          // This ensures form state is properly managed
         }}
       >
 
@@ -737,22 +731,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       <Button
                         size="small"
-                        type={getFieldValue('target_type') === 'Download' ? 'primary' : 'default'}
-                        onClick={() => {
-                          setFieldsValue({ target_type: 'Download', target_file: '' });
-                          setFormManuallyUpdated(true);
-                        }}
+                        type={getFieldValue('target_file') === 'download' ? 'primary' : 'default'}
+                        onClick={() => setFieldsValue({ target_file: 'download' })}
                         style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                       >
                         Download (Live Data)
                       </Button>
                       <Button
                         size="small"
-                        type={!getFieldValue('target_file') && getFieldValue('target_type') === 'File' ? 'primary' : 'default'}
-                        onClick={() => {
-                          setFieldsValue({ target_type: 'File', target_file: '' });
-                          setFormManuallyUpdated(true);
-                        }}
+                        type={getFieldValue('target_file') === '' ? 'primary' : 'default'}
+                        onClick={() => setFieldsValue({ target_file: '' })}
                         style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                       >
                         None
@@ -762,10 +750,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                           key={file}
                           size="small"
                           type={getFieldValue('target_file') === file ? 'primary' : 'default'}
-                          onClick={() => {
-                            setFieldsValue({ target_type: 'File', target_file: file });
-                            setFormManuallyUpdated(true);
-                          }}
+                          onClick={() => setFieldsValue({ target_file: file })}
                           style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                         >
                           {file}

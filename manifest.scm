@@ -35,6 +35,7 @@
   python
   python-fastapi
   python-uvicorn
+  python-wrapper
   nlopt
   libev
   ;; Process orchestration
