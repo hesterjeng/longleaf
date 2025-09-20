@@ -123,7 +123,7 @@ let golden_cross_0 =
   let sma = Real.sma 36 () in
   register
   @@ {
-       name = "GoldenCrossLauren";
+       name = "GoldenCrossSa";
        (* Buy when fast EMA crosses above slow SMA *)
        buy_trigger = cross_up ema sma;
        (* Sell when fast EMA crosses below slow SMA *)

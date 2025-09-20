@@ -2,6 +2,7 @@ _build/
 notes.org
 .envrc
 server.exe
+tearsheets/__pycache__/
 elisp/flycheck_top.el
 lib/javascript/css.css
 lib/javascript/plotly_latest.css

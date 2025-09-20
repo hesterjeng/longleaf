@@ -56,3 +56,7 @@ val options : t -> Config.t
 val empty : Runtype.t -> Tacaml.t list -> t
 val stats : t -> Stats.t
 val positions : t -> Positions.t
+
+module Conv : sig
+  val to_tearsheet_json : t -> Yojson.Safe.t
+end

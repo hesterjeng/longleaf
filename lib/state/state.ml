@@ -147,3 +147,31 @@ let grow x =
   Result.return @@ { x with bars }
 
 let orders_placed x = x.orders_placed
+
+module Conv = struct
+  let to_tearsheet_json x =
+    let vh = List.rev (value_history x) in (* Reverse to get chronological order *)
+    match vh with
+    | [] -> `Assoc [("returns", `List []); ("dates", `List [])]
+    | _ ->
+      let values = List.map snd vh in
+      let dates = List.map (fun (t, _) -> Time.to_string t) vh in
+      
+      (* Calculate returns from consecutive portfolio values *)
+      let returns = 
+        List.fold_left2 (fun acc prev_val curr_val ->
+          let return_pct = (curr_val -. prev_val) /. prev_val in
+          return_pct :: acc
+        ) [] values (List.tl values)
+        |> List.rev
+      in
+      
+      (* Format for JSON *)
+      let returns_json = List.map (fun r -> `Float r) returns in
+      let dates_json = List.map (fun d -> `String d) (List.tl dates) in (* Skip first date since we have n-1 returns *)
+      
+      `Assoc [
+        ("returns", `List returns_json);
+        ("dates", `List dates_json)
+      ]
+end
