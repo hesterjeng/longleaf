@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, Input, Badge, message } from 'antd';
-import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined, LineChartOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined, LineChartOutlined, FileTextOutlined } from '@ant-design/icons';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
@@ -157,6 +157,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       message.error(formatError(error as APIError, 'shutdown server'));
     } finally {
       setSettingsLoading(false);
+    }
+  };
+
+  const openTearsheet = async () => {
+    try {
+      // Open tearsheet in new tab
+      window.open('/tearsheet', '_blank');
+    } catch (error) {
+      message.error('Failed to open tearsheet');
     }
   };
 
@@ -493,15 +502,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
               <Col span={8}>
                 <Button
                   size="large"
-                  type={comparePreloadedActive ? 'primary' : 'default'}
-                  onClick={() => {
-                    const newValue = !comparePreloadedActive;
-                    setComparePreloadedActive(newValue);
-                    settingsForm.setFieldsValue({ compare_preloaded: newValue });
-                  }}
+                  icon={<FileTextOutlined />}
+                  onClick={openTearsheet}
                   style={{ width: '100%' }}
                 >
-                  Compare Preloaded
+                  Tearsheet
                 </Button>
               </Col>
               
