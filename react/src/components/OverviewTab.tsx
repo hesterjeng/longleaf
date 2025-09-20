@@ -160,13 +160,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
   };
 
-  const openTearsheet = async () => {
-    try {
-      // Open tearsheet in new tab
-      window.open('/tearsheet', '_blank');
-    } catch (error) {
-      message.error('Failed to open tearsheet');
-    }
+  const openTearsheet = () => {
+    // Navigate directly to the tearsheet endpoint on the OCaml server
+    window.location.href = `${serverUrl}/tearsheet`;
   };
 
   const onFinishSettings = async (values: SettingsFormValues) => {

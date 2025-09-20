@@ -158,13 +158,13 @@ module Conv = struct
       let dates = List.map (fun (t, _) -> Time.to_string t) vh in
       
       (* Calculate returns from consecutive portfolio values *)
-      let returns = 
-        List.fold_left2 (fun acc prev_val curr_val ->
-          let return_pct = (curr_val -. prev_val) /. prev_val in
-          return_pct :: acc
-        ) [] values (List.tl values)
-        |> List.rev
+      let rec calc_returns acc = function
+        | [] | [_] -> List.rev acc (* Need at least 2 values *)
+        | prev :: (curr :: _ as rest) ->
+          let return_pct = (curr -. prev) /. prev in
+          calc_returns (return_pct :: acc) rest
       in
+      let returns = calc_returns [] values in
       
       (* Format for JSON *)
       let returns_json = List.map (fun r -> `Float r) returns in

@@ -126,59 +126,65 @@ let get env =
         let state_data =
           Option.Infix.(
             let* mutices = Settings.settings.mutices in
-            let+ state = Longleaf_util.Pmutex.get mutices.state_mutex in
-            Longleaf_state.Conv.to_tearsheet_json state)
+            Longleaf_util.Pmutex.get mutices.state_mutex
+            |> Longleaf_state.Conv.to_tearsheet_json |> Option.return)
         in
         match state_data with
         | None ->
-          Dream.respond ~status:`Bad_Request 
+          Dream.respond ~status:`Bad_Request
             "No strategy state available. Please start a strategy first."
         | Some json ->
           (* Add benchmark and title to the JSON from State.Conv *)
-          let base_assoc = match json with
+          let base_assoc =
+            match json with
             | `Assoc assoc -> assoc
             | _ -> []
           in
-          let request_json = `Assoc (base_assoc @ [
-            ("benchmark", `String "SPY");
-            ("title", `String "Longleaf Strategy Tearsheet")
-          ]) in
+          let request_json =
+            `Assoc
+              (base_assoc
+              @ [
+                  ("benchmark", `String "SPY");
+                  ("title", `String "Longleaf Strategy Tearsheet");
+                ])
+          in
           let request = Yojson.Safe.to_string request_json in
 
-        (* Make HTTP POST request to Python FastAPI service *)
-        let ( let* ) = Lwt.Syntax.( let* ) in
-        let* response =
-          Lwt_eio.run_eio @@ fun () ->
-          Eio.Switch.run @@ fun sw ->
-          let client =
-            match
-              Piaf.Client.create ~sw env (Uri.of_string "http://localhost:5000")
-            with
-            | Ok client -> client
+          (* Make HTTP POST request to Python FastAPI service *)
+          let ( let* ) = Lwt.Syntax.( let* ) in
+          let* response =
+            Lwt_eio.run_eio @@ fun () ->
+            Eio.Switch.run @@ fun sw ->
+            let client =
+              match
+                Piaf.Client.create ~sw env
+                  (Uri.of_string "http://localhost:5000")
+              with
+              | Ok client -> client
+              | Error e ->
+                invalid_arg
+                @@ Format.asprintf "Failed to create client: %a"
+                     Piaf.Error.pp_hum e
+            in
+            let headers =
+              Piaf.Headers.of_list [ ("Content-Type", "application/json") ]
+            in
+            let body = Yojson.Safe.from_string request in
+            let resp =
+              Longleaf_apis.Tools.post_piaf ~client ~body ~headers
+                ~endpoint:"/tearsheet"
+            in
+            let body = Piaf.Response.body resp in
+            match Piaf.Body.to_string body with
+            | Ok html_content -> html_content
             | Error e ->
               invalid_arg
-              @@ Format.asprintf "Failed to create client: %a" Piaf.Error.pp_hum
-                   e
+              @@ Format.asprintf "Failed to read response body: %a"
+                   Piaf.Error.pp_hum e
           in
-          let headers =
-            Piaf.Headers.of_list [ ("Content-Type", "application/json") ]
-          in
-          let body = Yojson.Safe.from_string request in
-          let resp =
-            Longleaf_apis.Tools.post_piaf ~client ~body ~headers
-              ~endpoint:"/tearsheet"
-          in
-          let body = Piaf.Response.body resp in
-          match Piaf.Body.to_string body with
-          | Ok html_content -> html_content
-          | Error e ->
-            invalid_arg
-            @@ Format.asprintf "Failed to read response body: %a"
-                 Piaf.Error.pp_hum e
-        in
-        Dream.respond ~status:`OK
-          ~headers:[ ("Content-Type", "text/html") ]
-          response
+          Dream.respond ~status:`OK
+            ~headers:[ ("Content-Type", "text/html") ]
+            response
       with
       | exn ->
         Dream.log "tearsheet generation failed: %s" (Printexc.to_string exn);

@@ -61,7 +61,8 @@ async def generate_report(request: ReportRequest):
         returns = pd.Series(request.returns, index=pd.to_datetime(request.dates))
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
-            qs.reports.html(returns, request.benchmark, output=f.name, title=request.title)
+            # Use the correct quantstats API
+            qs.reports.html(returns, benchmark=request.benchmark, output=f.name, title=request.title)
             
         with open(f.name, 'r') as report_file:
             html_content = report_file.read()
@@ -79,7 +80,8 @@ async def generate_tearsheet(request: TearsheetRequest):
         
         # Generate full tearsheet with quantstats
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
-            qs.reports.full(returns, request.benchmark, output=f.name, title=request.title)
+            # Use the correct quantstats API with explicit parameters
+            qs.reports.html(returns, benchmark=request.benchmark, output=f.name, title=request.title)
             
         with open(f.name, 'r') as report_file:
             html_content = report_file.read()
