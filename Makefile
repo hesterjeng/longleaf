@@ -32,7 +32,7 @@ _tmux-setup:
 	tmux attach-session -t longleaf
 
 run:
-	guix shell -m manifest.scm -- $(MAKE) _tmux-setup
+	guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup
 
 shutdown:
 	tmux kill-session -t longleaf
