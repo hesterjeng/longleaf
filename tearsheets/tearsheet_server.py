@@ -12,7 +12,7 @@ import quantstats as qs
 
 app = FastAPI(title="QuantStats Server", description="Portfolio analytics service")
 
-def align_benchmark_to_strategy(strategy_returns, strategy_dates, benchmark_returns, benchmark_dates):
+def align_benchmark_to_strategy(strategy_returns, strategy_dates, benchmark_returns, benchmark_dates, benchmark_name):
     """
     Align benchmark data to strategy data by simple length matching.
     Returns both aligned strategy and benchmark series with matching lengths.
@@ -46,9 +46,21 @@ def align_benchmark_to_strategy(strategy_returns, strategy_dates, benchmark_retu
     aligned_benchmark_returns = benchmark_returns[-min_length:]
     aligned_benchmark_dates = benchmark_dates[-min_length:]
     
-    # Create series with matching lengths
-    strategy_series = pd.Series(aligned_strategy_returns, index=pd.to_datetime(aligned_strategy_dates))
-    benchmark_series = pd.Series(aligned_benchmark_returns, index=pd.to_datetime(aligned_benchmark_dates))
+    # Create series with matching lengths and ensure consistent timezone handling
+    strategy_index = pd.to_datetime(aligned_strategy_dates)
+    benchmark_index = pd.to_datetime(aligned_benchmark_dates)
+    
+    # Remove timezone information to avoid datetime64[ns, UTC] vs datetime64[ns] comparison issues
+    if strategy_index.tz is not None:
+        strategy_index = strategy_index.tz_localize(None)
+    if benchmark_index.tz is not None:
+        benchmark_index = benchmark_index.tz_localize(None)
+    
+    strategy_series = pd.Series(aligned_strategy_returns, index=strategy_index)
+    benchmark_series = pd.Series(aligned_benchmark_returns, index=benchmark_index)
+    
+    # Set the name attribute for the benchmark series (quantstats might expect this)
+    benchmark_series.name = benchmark_name
     
     print(f"Final lengths - Strategy: {len(strategy_series)}, Benchmark: {len(benchmark_series)}")
     
@@ -113,7 +125,8 @@ async def generate_report(request: ReportRequest):
         # Align strategy and benchmark data
         aligned_returns, benchmark = align_benchmark_to_strategy(
             request.returns, request.dates, 
-            request.benchmark_returns, request.benchmark_dates
+            request.benchmark_returns, request.benchmark_dates,
+            request.benchmark_name
         )
         
         # Use aligned returns or fall back to original if no benchmark
@@ -141,7 +154,8 @@ async def generate_tearsheet(request: TearsheetRequest):
         # Align strategy and benchmark data  
         aligned_returns, benchmark = align_benchmark_to_strategy(
             request.returns, request.dates, 
-            request.benchmark_returns, request.benchmark_dates
+            request.benchmark_returns, request.benchmark_dates,
+            request.benchmark_name
         )
         
         # Use aligned returns or fall back to original if no benchmark
@@ -149,11 +163,23 @@ async def generate_tearsheet(request: TearsheetRequest):
         
         # Generate full tearsheet with quantstats
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+            # Debug logging
+            print(f"Benchmark is None: {benchmark is None}")
+            print(f"Request benchmark_name: {request.benchmark_name}")
+            print(f"Request title: {request.title}")
+            print(f"Request periods: {request.periods}")
+            
             # Use the correct quantstats API with explicit parameters including periods and benchmark data
+            # Ensure title is not None
+            title = request.title or "Portfolio Analysis"
+            periods = request.periods or 252
+            
             if benchmark is not None:
-                qs.reports.html(returns, benchmark=benchmark, output=f.name, title=request.title, periods_per_year=request.periods)
+                print("Calling qs.reports.html with benchmark")
+                qs.reports.html(returns, benchmark=benchmark, output=f.name, title=title, periods_per_year=periods)
             else:
-                qs.reports.html(returns, output=f.name, title=request.title, periods_per_year=request.periods)
+                print("Calling qs.reports.html without benchmark")
+                qs.reports.html(returns, output=f.name, title=title, periods_per_year=periods)
             
         with open(f.name, 'r') as report_file:
             html_content = report_file.read()

@@ -178,7 +178,8 @@ module Conv = struct
          in
          let l =
            loop (Bigarray.Array1.dim prices - 1) []
-           |> List.rev |> calc_returns []
+           (* |> List.rev *)
+           |> calc_returns []
            |> List.map (fun x -> `Float x)
            |> fun l -> `List l
          in
