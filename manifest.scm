@@ -39,6 +39,7 @@
   gmp
   python-fastapi
   python-uvicorn
+  python-frozendict
   python-wrapper
   nlopt
   libev

@@ -26,7 +26,7 @@ _tmux-setup:
 	tmux new-session -d -s longleaf
 	tmux send-keys -t longleaf:0 "cd react && npm start" Enter
 	tmux new-window -t longleaf -n tearsheets
-	tmux send-keys -t longleaf:tearsheets "python tearsheets/quantstats.py" Enter
+	tmux send-keys -t longleaf:tearsheets "python tearsheets/tearsheet_server.py" Enter
 	tmux new-window -t longleaf -n longleaf
 	tmux send-keys -t longleaf:longleaf "dune exec bin/longleaf_server.exe" Enter
 	tmux attach-session -t longleaf

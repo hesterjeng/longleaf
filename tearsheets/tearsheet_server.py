@@ -2,10 +2,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Optional
-import quantstats as qs
 import pandas as pd
 import tempfile
 import os
+import sys
+
+# Monkey patch to avoid curl_cffi dependency
+class MockCurlCffi:
+    requests = None
+
+sys.modules['curl_cffi'] = MockCurlCffi()
+
+# Now import quantstats
+import quantstats as qs
 
 app = FastAPI(title="QuantStats Server", description="Portfolio analytics service")
 

@@ -47,7 +47,8 @@
      python-pytz
      python-beautifulsoup4
      python-websockets
-     python-protobuf))
+     python-protobuf
+     python-frozendict))
    (home-page "https://github.com/ranaroussi/yfinance")
    (synopsis "Download market data from Yahoo! Finance API")
    (description
@@ -117,7 +118,8 @@ rolling statistics, monthly returns, and various performance tear sheets.")
     (list python
           python-quantstats
           python-pandas
-          python-numpy))
+          python-numpy
+          python-frozendict))
    (home-page "https://github.com/hesterjeng/longleaf")
    (synopsis "Longleaf QuantStats server development environment")
    (description
