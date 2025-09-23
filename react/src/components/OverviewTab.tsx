@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, Input, Badge, message } from 'antd';
-import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined, LineChartOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined, LineChartOutlined, FileTextOutlined } from '@ant-design/icons';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
@@ -158,6 +158,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     } finally {
       setSettingsLoading(false);
     }
+  };
+
+  const openTearsheet = () => {
+    // Navigate directly to the tearsheet endpoint on the OCaml server
+    window.location.href = `${serverUrl}/tearsheet`;
   };
 
   const onFinishSettings = async (values: SettingsFormValues) => {
@@ -493,15 +498,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
               <Col span={8}>
                 <Button
                   size="large"
-                  type={comparePreloadedActive ? 'primary' : 'default'}
-                  onClick={() => {
-                    const newValue = !comparePreloadedActive;
-                    setComparePreloadedActive(newValue);
-                    settingsForm.setFieldsValue({ compare_preloaded: newValue });
-                  }}
+                  icon={<FileTextOutlined />}
+                  onClick={openTearsheet}
                   style={{ width: '100%' }}
                 >
-                  Compare Preloaded
+                  Tearsheet
                 </Button>
               </Col>
               

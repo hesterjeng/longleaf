@@ -12,6 +12,7 @@
              (gnu packages tmux)
              (gnu packages shellutils)
              (gnu packages maths)
+             (gnu packages databases)
              (gnu packages libevent)
              (gnu packages python-web)
              (gnu packages python-science)
@@ -39,7 +40,10 @@
   gmp
   python-fastapi
   python-uvicorn
+  python-frozendict
   python-wrapper
+  python-peewee
+  python-ipython
   nlopt
   libev
   ;; Process orchestration

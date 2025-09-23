@@ -15,21 +15,52 @@
              (gnu packages time)
              (gnu packages xml)
              (gnu packages protobuf)
-             (gnu packages statistics))
+             (gnu packages statistics)
+             (gnu packages libffi)
+             (gnu packages tls)
+             (gnu packages python-crypto)
+             (gnu packages databases))
 
+
+
+;; multitasking - Non-blocking Python methods using decorators
+(define-public python-multitasking
+  (package
+   (name "python-multitasking")
+   (version "0.0.12")
+   (source
+    (origin
+     (method url-fetch)
+     (uri (string-append "https://files.pythonhosted.org/packages/source/m/multitasking/multitasking-"
+                         version ".tar.gz"))
+     (sha256
+      (base32 "1lc4kcs5fnhp2rrr4izjnviqsrbx3k27vpf54zi8ajwcxnl2zfig"))))
+   (build-system python-build-system)
+   (arguments
+    '(#:tests? #f))  ; No tests included in source
+   (home-page "https://github.com/ranaroussi/multitasking")
+   (synopsis "Non-blocking Python methods using decorators")
+   (description
+    "MultiTasking is a lightweight Python library that lets you convert your
+Python methods into asynchronous, non-blocking methods simply by using a
+decorator.  Perfect for I/O-bound tasks, API calls, web scraping, and any
+scenario where you want to run multiple operations concurrently without the
+complexity of manual thread or process management.")
+   (license license:asl2.0)))
 
 ;; yfinance - Market data downloader
+;; NOTE: Pinned to v0.2.57 to avoid curl_cffi dependency introduced in v0.2.58+
 (define-public python-yfinance
   (package
    (name "python-yfinance")
-   (version "0.2.65")
+   (version "0.2.57")
    (source
     (origin
      (method url-fetch)
      (uri (string-append "https://files.pythonhosted.org/packages/source/y/yfinance/yfinance-"
                          version ".tar.gz"))
      (sha256
-      (base32 "1184qqpvd5sizd72zwq971i6pvqbw3irv0k2k0gxdscvqic5wiix"))))
+      (base32 "1cgkch19a1rn175ixd8180a47dnc8nmwljyj2538s55ijyd385kv"))))
    (build-system python-build-system)
    (arguments
     '(#:tests? #f     ; Skip tests that require network access
@@ -37,17 +68,17 @@
       (modify-phases %standard-phases
                      (delete 'sanity-check))))  ; Skip sanity check that enforces curl_cffi dependency
    (propagated-inputs
-    (list
-     python
-     python-pandas
-     python-numpy
-     python-requests
-     python-lxml
-     python-appdirs
-     python-pytz
-     python-beautifulsoup4
-     python-websockets
-     python-protobuf))
+    (list python-pandas
+          python-numpy
+          python-requests
+          python-lxml
+          python-appdirs
+          python-pytz
+          python-beautifulsoup4
+          python-websockets
+          python-protobuf
+          python-frozendict
+          python-peewee))
    (home-page "https://github.com/ranaroussi/yfinance")
    (synopsis "Download market data from Yahoo! Finance API")
    (description
@@ -84,7 +115,9 @@ authentication and decryption issues by dynamically scraping the data.")
           python-tabulate
           python-dateutil
           python-packaging
-          python-yfinance))
+          python-yfinance
+          python-multitasking
+          python-ipython))
    (home-page "https://github.com/ranaroussi/quantstats")
    (synopsis "Portfolio analytics for quants")
    (description
@@ -117,7 +150,8 @@ rolling statistics, monthly returns, and various performance tear sheets.")
     (list python
           python-quantstats
           python-pandas
-          python-numpy))
+          python-numpy
+          python-frozendict))
    (home-page "https://github.com/hesterjeng/longleaf")
    (synopsis "Longleaf QuantStats server development environment")
    (description
