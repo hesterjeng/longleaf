@@ -1,5 +1,6 @@
 (lang dune 3.17)
-(version 1.0.2)
+
+(version 1.0.3)
 
 (name longleaf)
 
@@ -33,9 +34,15 @@
   tacaml
   fileutils
   ocamlformat
+  landmarks-ppx
   yojson
-  (alcotest :with-test)
-))
+  uuidm
+  tyxml
+  nlopt
+  dream
+  alcotest
+  lwt_eio
+  (alcotest :with-test)))
 
 (package
  (name longleaf-strategies)
@@ -47,5 +54,4 @@
   dune
   ocaml
   longleaf-lib
-  (alcotest :with-test)
-))
+  (alcotest :with-test)))

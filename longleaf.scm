@@ -22,7 +22,7 @@
 ;; Full Longleaf package with all dependencies
 (package
  (name "longleaf")
- (version "1.0.2")
+ (version "1.0.3")
  (source (local-file "." "longleaf-checkout"
                      #:recursive? #t
                      #:select? (git-predicate ".")))
