@@ -55,12 +55,9 @@
             ptime
             ppx_yojson_conv
             ppx_deriving
-            ppx_variants_conv
-            ppx_fields_conv
             cmdliner
             landmarks
             iter
-            containers-data
             ocamlgraph
             eio_main
             piaf
@@ -123,26 +120,9 @@
             quantstatsPackages.longleaf-quantstats
           ];
           
-          installPhase = ''
-            mkdir -p $out/bin $out/share
-            
-            # Link OCaml binaries
-            if [ -d "${longleaf-lib}/bin" ]; then
-              ln -s ${longleaf-lib}/bin/* $out/bin/ 2>/dev/null || true
-            fi
-            if [ -d "${longleaf-strategies}/bin" ]; then
-              ln -s ${longleaf-strategies}/bin/* $out/bin/ 2>/dev/null || true
-            fi
-            
-            # Link frontend static files
-            ln -s ${frontendPackages.longleaf-frontend}/share/longleaf $out/share/
-            
-            # Link quantstats server
-            if [ -d "${quantstatsPackages.longleaf-quantstats}/bin" ]; then
-              ln -s ${quantstatsPackages.longleaf-quantstats}/bin/* $out/bin/ 2>/dev/null || true
-            fi
-          '';
-          
+          # installPhase = ''
+          # '';
+
           meta = {
             description = "Complete Longleaf algorithmic trading platform";
             homepage = "https://github.com/hesterjeng/longleaf";
@@ -156,12 +136,9 @@
             # OCaml development
             ocaml
             dune_3
-            ocamlformat
-            odoc
             
             # Node.js for frontend
             nodejs_20
-            npm
             
             # Python for quantstats
             python3
@@ -185,12 +162,9 @@
             ptime
             ppx_yojson_conv
             ppx_deriving
-            ppx_variants_conv
-            ppx_fields_conv
             cmdliner
             landmarks
             iter
-            containers-data
             ocamlgraph
             eio_main
             piaf
@@ -198,6 +172,7 @@
             yojson
             alcotest
             odoc
+            ocamlformat
           ]) ++ (with pkgs.python3Packages; [
             # Python packages for quantstats
             fastapi
@@ -231,8 +206,6 @@
             # OCaml development
             ocaml
             dune_3
-            ocamlformat
-            odoc
             
             # System dependencies
             pkg-config
@@ -253,12 +226,9 @@
             ptime
             ppx_yojson_conv
             ppx_deriving
-            ppx_variants_conv
-            ppx_fields_conv
             cmdliner
             landmarks
             iter
-            containers-data
             ocamlgraph
             eio_main
             piaf
@@ -266,6 +236,7 @@
             yojson
             alcotest
             odoc
+            ocamlformat
           ]);
           
           shellHook = ''
