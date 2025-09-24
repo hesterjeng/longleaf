@@ -7,6 +7,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (* module Ticker = Ticker.Instant *)
   (* module Portfolio = Portfolio.Generative () *)
   module Input = Input
+  
+  (* Backend-specific random state initialized when functor is instantiated *)
+  let random_state = Random.State.make_self_init ()
 
   let get_trading_client _ = Result.fail @@ `MissingClient "Trading"
   let get_data_client _ = Result.fail @@ `MissingClient "Data"
@@ -39,21 +42,42 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let save_received = opts.flags.save_received
 
   let place_order state order =
-    let ( let+ ) = Result.( let+ ) in
-    match Input.options.flags.random_drop_chance with
-    | 0 -> State.place_order state order
-    | n ->
-      assert (n >= 0);
-      assert (n <= 100);
-      let ratio = Float.(of_int n / 100.0) in
-      let flip = Random.float_range 0.0 1.0 @@ Longleaf_util.random_state in
-      if flip >=. ratio then State.place_order state order
-      else
-        let+ time = State.time state in
+    let random_drop order =
+      match Input.options.flags.random_drop_chance with
+      | 0 -> Some order
+      | n ->
+        assert (n >= 0);
+        assert (n <= 100);
+        let ratio = Float.(of_int n / 100.0) in
+        let flip = Random.float_range 0.0 1.0 @@ random_state in
+        if flip >=. ratio then Some order
+        else
+          let tick = State.tick state in
+          Eio.traceln "[%d] Not placing an order due to random chance" tick;
+          None
+    in
+    let price_modifier (order : Order.t) =
+      match Input.options.flags.slippage_pct with
+      | 0.0 -> order
+      | pct ->
+        assert (pct >=. 0.0);
+        assert (pct <=. 1.0);
+        let minmod, maxmod = (1.0 -. pct, 1.0 +. pct) in
+        let pricemin, pricemax =
+          (minmod *. order.price, maxmod *. order.price)
+        in
+        let slipped_price =
+          Random.float_range pricemin pricemax @@ random_state
+        in
         let tick = State.tick state in
-        Eio.traceln "[%a %d] Not placing an order due to random chance" Time.pp
-          time tick;
-        state
+        Eio.traceln "[%d] Slippage %.3f%%: %s %.2f -> %.2f (%.1f%%)" 
+          tick (pct *. 100.0) (Instrument.symbol order.symbol) 
+          order.price slipped_price ((slipped_price -. order.price) /. order.price *. 100.0);
+        { order with price = slipped_price }
+    in
+    price_modifier order |> random_drop |> function
+    | None -> Result.return state
+    | Some order -> State.place_order state order
 
   let received_data = Bars.empty ()
   let target = Input.target
@@ -147,7 +171,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
             in
             (* Eio.traceln "@[Liquidating %d shares of %a at %f@]@." abs_qty *)
             (*   Instrument.pp symbol last_price; *)
-            State.place_order prev order)
+            place_order prev order)
         (Ok state) symbols
     in
 

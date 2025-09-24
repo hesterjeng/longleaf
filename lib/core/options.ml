@@ -12,6 +12,7 @@ module CLI = struct
     compare_preloaded : bool;
     start : int;
     random_drop_chance : int;
+    slippage_pct : float;
   }
   [@@deriving show, yojson]
 
@@ -115,6 +116,12 @@ module CLI = struct
     let random_drop_chance =
       let doc = "Chance (with int %) that an order will be ignored" in
       Cmdliner.Arg.(value & opt int 0 & info [ "drop-chance" ] ~doc)
+
+    let slippage_pct =
+      let doc =
+        "Prices will be multiplied by a random value in (1-pct,1+pct)"
+      in
+      Cmdliner.Arg.(value & opt float 0.0 & info [ "slippage" ] ~doc)
   end
 
   let default =
@@ -131,6 +138,7 @@ module CLI = struct
       compare_preloaded = false;
       start = 0;
       random_drop_chance = 0;
+      slippage_pct = 0.0;
     }
 
   let term =
@@ -146,7 +154,8 @@ module CLI = struct
     and+ precompute_indicators_arg = Args.precompute_indicators_arg
     and+ compare_preloaded = Args.compare_preload
     and+ start = Args.start_arg
-    and+ random_drop_chance = Args.random_drop_chance in
+    and+ random_drop_chance = Args.random_drop_chance
+    and+ slippage_pct = Args.slippage_pct in
     {
       runtype;
       stacktrace;
@@ -160,6 +169,7 @@ module CLI = struct
       compare_preloaded;
       start;
       random_drop_chance;
+      slippage_pct;
     }
 
   module Full = struct

@@ -108,6 +108,10 @@ export const toOCamlCLI = (cliSettings: CLIFormData): CLISettings => {
     print_tick_arg: cliSettings.print_tick_arg ?? false,
     precompute_indicators_arg: cliSettings.precompute_indicators_arg ?? false,
     compare_preloaded: cliSettings.compare_preloaded ?? false,
+    // Ensure numeric fields are present with defaults
+    start: cliSettings.start ?? 0,
+    random_drop_chance: cliSettings.random_drop_chance ?? 0,
+    slippage_pct: cliSettings.slippage_pct ?? 0.0,
   };
 };
 

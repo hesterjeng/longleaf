@@ -22,6 +22,7 @@ export interface CLIBooleanFields {
 export interface CLINumericFields {
   start?: number;
   random_drop_chance?: number;
+  slippage_pct?: number;
 }
 
 // Unknown fields that need proper typing when we understand them better
