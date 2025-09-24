@@ -298,6 +298,23 @@ let performance_graph_with_orders (state : Longleaf_state.t) : Yojson.Safe.t =
       ("line", `Assoc [("color", `String "#1890ff"); ("width", `Int 3)]);
     ] in
   
+  (* Cash trace *)
+  let cash_trace = 
+    List.(
+      let+ time, cash = Longleaf_state.cash_history state in
+      (Ptime.to_rfc3339 time |> yojson_of_string, yojson_of_float cash))
+    |> List.rev |> List.split
+    |> Pair.map_same (yojson_of_list Fun.id)
+    |> fun (x, y) ->
+    `Assoc [
+      ("x", x);
+      ("y", y);
+      ("text", `String "Cash");
+      ("name", `String "Cash");
+      ("type", `String "scatter");
+      ("line", `Assoc [("color", `String "#52c41a"); ("width", `Int 2)]);
+    ] in
+  
   (* Collect ALL orders from ALL symbols *)
   let bars = Longleaf_state.bars state in
   let all_orders_flat = 
@@ -322,7 +339,7 @@ let performance_graph_with_orders (state : Longleaf_state.t) : Yojson.Safe.t =
   let sell_trace = create_portfolio_order_trace Sell sell_orders state in
   
   (* Combine all traces *)
-  let all_traces = [performance_trace] @ buy_trace @ sell_trace in
+  let all_traces = [performance_trace; cash_trace] @ buy_trace @ sell_trace in
   `Assoc [
     ("traces", `List all_traces);
     ("layout", layout "Portfolio Performance with Orders")

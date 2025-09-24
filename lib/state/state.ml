@@ -13,6 +13,7 @@ type t = {
   cash : float;
   positions : Positions.t;
   value_history : (Time.t * float) list;
+  cash_history : (Time.t * float) list;
 }
 [@@deriving fields] [@@warning "-69"]
 
@@ -30,11 +31,13 @@ let empty runtype (indicators : Tacaml.t list) : t =
     cash = 0.0;
     positions = Positions.empty;
     value_history = [];
+    cash_history = [];
   }
 
 let set_tick x current_tick = { x with current_tick }
 let bars x = x.bars
 let value_history x = x.value_history
+let cash_history x = x.cash_history
 let cost_basis x = Positions.cost_basis x.positions
 
 type 'a res = ('a, Error.t) result
@@ -52,6 +55,7 @@ let make current_tick bars indicator_config cash =
       cash;
       positions = Positions.empty;
       value_history = [];
+      cash_history = [];
     }
 
 let pp : t Format.printer =
@@ -89,6 +93,7 @@ let increment_tick x =
        x with
        current_tick = x.current_tick + 1;
        value_history = (time, value) :: x.value_history;
+       cash_history = (time, x.cash) :: x.cash_history;
      }
 
 let qty (t : t) instrument = Positions.qty t.positions instrument
@@ -96,8 +101,8 @@ let qty (t : t) instrument = Positions.qty t.positions instrument
 let place_order state0 (order : Order.t) =
   let ( let* ) = Result.( let* ) in
   let* data = Bars.get state0.bars order.symbol in
-  let current_price = Bars.Data.get data Last state0.current_tick in
-  let order_value = float_of_int order.qty *. current_price in
+  (* Use the order price (which includes slippage) for cash calculation *)
+  let order_value = float_of_int order.qty *. order.price in
   let tick = state0.current_tick in
   let positions_upd state =
     let _ = Pmutex.set order.status Order.Status.Filled in
