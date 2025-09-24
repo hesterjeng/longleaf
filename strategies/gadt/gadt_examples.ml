@@ -132,6 +132,21 @@ let golden_cross_0 =
        position_size = 1.0;
      }
 
+let plurple =
+  (* Classic moving average crossover strategy *)
+  let ema = Real.ema 58 () in
+  let sma = Real.sma 36 () in
+  register
+  @@ {
+       name = "Pflurple";
+       (* Buy when fast EMA crosses above slow SMA *)
+       buy_trigger = cross_up ema sma;
+       (* Sell when fast EMA crosses below slow SMA *)
+       sell_trigger = cross_down ema sma;
+       max_positions = 8;
+       position_size = 0.5;
+     }
+
 let mean_reversion_lag =
   (* Mean reversion using lagged price comparison *)
   register
