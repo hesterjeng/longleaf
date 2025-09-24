@@ -117,27 +117,14 @@ const App: React.FC = () => {
 
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Content style={{ padding: '8px 16px' }}>
+    <Layout>
+      <Content>
           {serverOnline ? (
-            <div style={{ 
-              padding: '6px 12px'
-            }}>
-              <Tabs 
-                items={tabItems} 
-                defaultActiveKey="overview"
-                size="large"
-                style={{
-                  backgroundColor: 'transparent'
-                }}
-                tabBarStyle={{
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  marginBottom: '16px',
-                  borderBottom: '2px solid #d9d9d9'
-                }}
-              />
-            </div>
+            <Tabs 
+              items={tabItems} 
+              defaultActiveKey="overview"
+              size="large"
+            />
           ) : (
             <Alert
               type="error"

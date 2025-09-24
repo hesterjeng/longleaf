@@ -55,7 +55,7 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
   }, [selectedSymbol]);
 
   const renderChart = () => {
-    if (!chartData || !chartData.traces || !chartData.layout) {
+    if (!chartData || !chartData.traces || !Array.isArray(chartData.traces) || !chartData.layout) {
       return null;
     }
 
@@ -84,24 +84,19 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
       yaxis: chartData.layout.yaxis || {},
       yaxis2: chartData.layout.yaxis2 || {},
       hovermode: chartData.layout.hovermode || 'x',
-      height: 600,
       showlegend: true,
       autosize: true,
-      margin: { l: 60, r: 40, t: 50, b: 50 },
-      // Optimizations for large datasets
       dragmode: 'zoom',
       selectdirection: 'diagonal',
-      // Reduce animation for better performance with large datasets
       transition: { duration: 0 },
       ...chartData.layout
     };
 
     return (
-      <div style={{ width: '100%', overflow: 'hidden' }}>
+      <div>
         <Plot
           data={traces}
           layout={layout}
-          style={{ width: '100%', height: '600px' }}
           config={{ 
             responsive: true, 
             displayModeBar: true,
@@ -116,7 +111,7 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
           }}
         />
         
-        <Row gutter={16} style={{ marginTop: '20px' }}>
+        <Row gutter={16}>
           <Col span={8}>
             <Card>
               <Statistic title="Symbol" value={selectedSymbol} />
@@ -134,9 +129,9 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
           </Col>
         </Row>
 
-        <Collapse style={{ marginTop: '20px' }}>
+        <Collapse>
           <Panel header="Raw Chart Data" key="1">
-            <pre style={{ background: '#f5f5f5', padding: '16px', borderRadius: '6px' }}>
+            <pre>
               {JSON.stringify(chartData, null, 2)}
             </pre>
           </Panel>
@@ -178,22 +173,14 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
 
   return (
     <div>
-      <div style={{ 
-        textAlign: 'center', 
-        marginBottom: '12px'
-      }}>
+      <div>
         <img 
           src="/niagara.jpg" 
           alt="Niagara" 
-          style={{ 
-            width: '60%',
-            height: 'auto',
-            borderRadius: '8px'
-          }} 
         />
       </div>
       
-      <Title level={2} style={{ textAlign: 'center' }}>Price Charts</Title>
+      <Title level={2}>Price Charts</Title>
       
       {symbols === null || symbols === undefined ? (
         // Case 1: symbols endpoint not available/implemented
@@ -201,7 +188,6 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
           <Alert
             type="warning"
             message="Chart functionality not yet available"
-            style={{ marginBottom: '16px' }}
           />
           
           <Alert
@@ -235,17 +221,16 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
             type="info"
             message="No symbols available"
             description="No symbols found in the current data source. Please check that your data file contains symbol data or select a different data file in the Control tab."
-            style={{ marginBottom: '16px' }}
           />
           {renderInstructions()}
         </div>
       ) : (
         // Case 3: symbols available and populated
         <div>
-          <Card style={{ marginBottom: '16px' }}>
+          <Card>
             <Text strong>Select Symbol</Text>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px', maxHeight: '150px', overflowY: 'auto' }}>
-              {symbols.map(symbol => (
+            <div>
+              {Array.isArray(symbols) && symbols.map(symbol => (
                 <Button
                   key={symbol}
                   size="small"
@@ -256,7 +241,7 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
                 </Button>
               ))}
             </div>
-            <Text type="secondary" style={{ fontSize: '12px', marginTop: '8px', display: 'block' }}>
+            <Text type="secondary">
               Choose a symbol to automatically load its price chart with technical indicators
             </Text>
           </Card>
@@ -265,14 +250,13 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
             <Alert
               type="warning"
               message={error}
-              style={{ marginBottom: '16px' }}
             />
           )}
 
           {loading && (
-            <Card style={{ textAlign: 'center', padding: '50px', marginBottom: '16px' }}>
+            <Card>
               <Spin size="large" />
-              <Text style={{ marginTop: '16px', display: 'block' }}>
+              <Text>
                 Loading chart for {selectedSymbol}...
               </Text>
             </Card>

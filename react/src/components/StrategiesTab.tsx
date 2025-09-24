@@ -40,7 +40,7 @@ const StrategiesTab: React.FC<StrategiesTabProps> = ({ serverData }) => {
         </ol>
 
         <Title level={5}>Example Strategy Structure:</Title>
-        <pre style={{ background: '#f5f5f5', padding: '16px', borderRadius: '6px' }}>
+        <pre >
 {`module Buy_inp : Template.Buy_trigger.INPUT = struct
   let pass state symbol = (* entry logic *)
   let score state symbol = (* ranking logic *)
@@ -59,24 +59,17 @@ module Make : Strategy.BUILDER = Template.Make (Buy_inp) (Sell)`}
 
   return (
     <div>
-      <div style={{ 
-        textAlign: 'center', 
-        marginBottom: '12px'
-      }}>
+      <div >
         <img 
           src="/cole.jpg" 
           alt="Cole" 
-          style={{ 
-            width: '45%',
-            height: 'auto',
-            borderRadius: '8px'
-          }} 
+           
         />
       </div>
       
-      <Title level={2} style={{ textAlign: 'center' }}>Available Strategies</Title>
+      <Title level={2} >Available Strategies</Title>
 
-      <Card title="Current Strategy" style={{ marginBottom: '16px' }}>
+      <Card title="Current Strategy" >
         {currentStrategy ? (
           <Alert
             type="success"
@@ -90,18 +83,18 @@ module Make : Strategy.BUILDER = Template.Make (Buy_inp) (Sell)`}
             showIcon
           />
         )}
-        <Text type="secondary" style={{ marginTop: '12px', display: 'block' }}>
+        <Text type="secondary" >
           <Text strong>To change the strategy:</Text> Use the <Text strong>Control</Text> tab → <Text strong>Complete CLI Settings</Text> form
         </Text>
       </Card>
 
       {strategies && strategies.length > 0 ? (
-        <Card title={`Available Strategies (${strategies.length})`} style={{ marginBottom: '16px' }}>
+        <Card title={`Available Strategies (${strategies.length})`} >
           <List
             dataSource={strategies}
             renderItem={(strategy: string, index: number) => (
               <List.Item>
-                <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div >
                   <span>
                     <Text strong>{index + 1}.</Text> <code>{strategy}</code>
                   </span>
@@ -119,7 +112,7 @@ module Make : Strategy.BUILDER = Template.Make (Buy_inp) (Sell)`}
         <Alert
           type="warning"
           message="No strategies found"
-          style={{ marginBottom: '16px' }}
+          
         />
       )}
       

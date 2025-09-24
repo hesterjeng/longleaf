@@ -32,12 +32,7 @@ export const DataList: React.FC<DataListProps> = ({
 }) => {
   const defaultRenderItem = (item: ListItem, index: number) => (
     <List.Item>
-      <div style={{ 
-        width: '100%', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center' 
-      }}>
+      <div>
         <span>
           {item.icon}
           <Text strong>{index + 1}.</Text>{' '}
