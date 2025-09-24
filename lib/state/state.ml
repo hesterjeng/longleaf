@@ -93,40 +93,44 @@ let increment_tick x =
 
 let qty (t : t) instrument = Positions.qty t.positions instrument
 
-let place_order t (order : Order.t) =
+let place_order state0 (order : Order.t) =
   let ( let* ) = Result.( let* ) in
-  let* data = Bars.get t.bars order.symbol in
-  let current_price = Bars.Data.get data Last t.current_tick in
+  let* data = Bars.get state0.bars order.symbol in
+  let current_price = Bars.Data.get data Last state0.current_tick in
   let order_value = float_of_int order.qty *. current_price in
-  let tick = t.current_tick in
-
-  let _ = Pmutex.set order.status Order.Status.Filled in
-  let positions = t.positions in
-  let positions = Positions.update positions order in
+  let tick = state0.current_tick in
+  let positions_upd state =
+    let _ = Pmutex.set order.status Order.Status.Filled in
+    let positions = state.positions in
+    let positions = Positions.update positions order in
+    positions
+  in
   (* Add order to data structure for visualization *)
   let* () = Bars.Data.add_order data tick order in
   match order.side with
   | Buy ->
-    if t.cash >=. order_value then
-      let new_cash = t.cash -. order_value in
+    if state0.cash >=. order_value then
       Result.return
         {
-          t with
-          cash = new_cash;
-          positions;
-          orders_placed = t.orders_placed + 1;
+          state0 with
+          cash = state0.cash -. order_value;
+          positions = positions_upd state0;
+          orders_placed = state0.orders_placed + 1;
         }
-    else Error.fatal "Insufficient cash for buy order"
+    else (
+      Eio.traceln "Insufficient cash for buy order";
+      Result.return state0 (* Error.fatal "Insufficient cash for buy order" *))
   | Sell ->
-    let qty_held = qty t order.symbol in
+    let qty_held = qty state0 order.symbol in
     if qty_held >= order.qty then
-      let new_cash = t.cash +. order_value in
+      let positions = positions_upd state0 in
+      let new_cash = state0.cash +. order_value in
       Result.return
         {
-          t with
+          state0 with
           cash = new_cash;
           positions;
-          orders_placed = t.orders_placed + 1;
+          orders_placed = state0.orders_placed + 1;
         }
     else Error.fatal "Insufficient shares for sell order"
 
