@@ -141,10 +141,55 @@ let plurple =
        name = "Pflurple";
        (* Buy when fast EMA crosses above slow SMA *)
        buy_trigger = cross_up ema sma;
-       (* Sell when fast EMA crosses below slow SMA *)
+       (* Sell when fast EMA crosses below SMA *)
        sell_trigger = cross_down ema sma;
        max_positions = 8;
        position_size = 0.5;
+     }
+
+let pflurple_kelly =
+  (* Improved Pflurple using Kelly-inspired position sizing *)
+  let ema = Real.ema 58 () in
+  let sma = Real.sma 36 () in
+  register
+  @@ {
+       name = "PflurpleKelly";
+       (* Buy when fast EMA crosses above slow SMA *)
+       buy_trigger = cross_up ema sma;
+       (* Sell when fast EMA crosses below slow SMA *)
+       sell_trigger = cross_down ema sma;
+       max_positions = 16; (* More diversification *)
+       position_size = 0.125; (* 12.5% per position = 200% max allocation *)
+     }
+
+let pflurple_conservative =
+  (* Conservative version with proper risk management *)
+  let ema = Real.ema 58 () in
+  let sma = Real.sma 36 () in
+  register
+  @@ {
+       name = "PflurpleConservative";
+       (* Buy when fast EMA crosses above slow SMA *)
+       buy_trigger = cross_up ema sma;
+       (* Sell when fast EMA crosses below slow SMA *)
+       sell_trigger = cross_down ema sma;
+       max_positions = 20; (* Maximum diversification *)
+       position_size = 0.08; (* 8% per position = 160% max allocation *)
+     }
+
+let pflurple_enhanced =
+  (* Enhanced version with momentum filter *)
+  let ema = Real.ema 58 () in
+  let sma = Real.sma 36 () in
+  register
+  @@ {
+       name = "PflurpleEnhanced";
+       (* Buy when EMA crosses SMA AND momentum is positive *)
+       buy_trigger = cross_up ema sma &&. (Real.mom 10 () >. Const (0.0, Float));
+       (* Sell when EMA crosses below SMA OR momentum turns negative *)
+       sell_trigger = cross_down ema sma ||. (Real.mom 10 () <. Const (-1.0, Float));
+       max_positions = 12;
+       position_size = 0.15; (* 15% per position = 180% max allocation *)
      }
 
 let mean_reversion_lag =
