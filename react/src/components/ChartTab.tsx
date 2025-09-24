@@ -89,7 +89,7 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
       autosize: true,
       margin: { l: 60, r: 40, t: 50, b: 50 },
       // Optimizations for large datasets
-      dragmode: 'pan',
+      dragmode: 'zoom',
       selectdirection: 'diagonal',
       // Reduce animation for better performance with large datasets
       transition: { duration: 0 },
