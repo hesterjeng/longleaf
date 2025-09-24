@@ -96,6 +96,7 @@ module Make
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
     let current_cash = State.cash state in
+    let* total_portfolio_value = State.value state in
     let pct = (position_size /. Float.of_int (List.length selected)) in
     assert (pct >=. 0.0 && pct <=. 1.0);
     let@ state f = List.fold_left f (Ok state) selected in
@@ -108,7 +109,12 @@ module Make
       let* col = Bars.Data.Column.of_data data tick in
       let* timestamp = Bars.Data.Column.timestamp col in
       let* price = Bars.Data.Column.get col Last in
-      let qty = Util.qty ~current_cash ~price ~pct in
+      (* Calculate target position value based on total portfolio *)
+      let target_position_value = total_portfolio_value *. pct in
+      let target_qty = target_position_value /. price |> Float.to_int in
+      (* Constrain by available cash *)
+      let max_affordable_qty = current_cash /. price |> Float.to_int in
+      let qty = max 0 (min target_qty max_affordable_qty) in
       (* assert (qty <> 0); *)
       match qty with
       | 0 -> Result.return state
