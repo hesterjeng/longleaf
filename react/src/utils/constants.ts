@@ -76,7 +76,8 @@ export const FORM_LABELS = {
   no_gui: 'Disable GUI',
   save_received: 'Save Received Data',
   start: 'Start Position',
-  random_drop_chance: 'Random Drop Chance (%)'
+  random_drop_chance: 'Random Drop Chance (%)',
+  slippage_pct: 'Slippage Percentage (%)'
 } as const;
 
 // Tooltip descriptions
@@ -89,5 +90,6 @@ export const FORM_TOOLTIPS = {
   no_gui: 'Run without graphical interface',
   save_received: 'Save incoming market data to disk',
   start: 'Position to start processing from',
-  random_drop_chance: 'Percentage of data to randomly drop for testing'
+  random_drop_chance: 'Percentage of data to randomly drop for testing',
+  slippage_pct: 'Price slippage factor for realistic order simulation (0.01 = 1%)'
 } as const;

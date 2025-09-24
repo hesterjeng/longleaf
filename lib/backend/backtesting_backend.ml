@@ -7,6 +7,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (* module Ticker = Ticker.Instant *)
   (* module Portfolio = Portfolio.Generative () *)
   module Input = Input
+  
+  (* Backend-specific random state initialized when functor is instantiated *)
+  let random_state = Random.State.make_self_init ()
 
   let get_trading_client _ = Result.fail @@ `MissingClient "Trading"
   let get_data_client _ = Result.fail @@ `MissingClient "Data"
@@ -46,7 +49,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
         assert (n >= 0);
         assert (n <= 100);
         let ratio = Float.(of_int n / 100.0) in
-        let flip = Random.float_range 0.0 1.0 @@ Longleaf_util.random_state in
+        let flip = Random.float_range 0.0 1.0 @@ random_state in
         if flip >=. ratio then Some order
         else
           let tick = State.tick state in
@@ -64,8 +67,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
           (minmod *. order.price, maxmod *. order.price)
         in
         let slipped_price =
-          Random.float_range pricemin pricemax @@ Longleaf_util.random_state
+          Random.float_range pricemin pricemax @@ random_state
         in
+        let tick = State.tick state in
+        Eio.traceln "[%d] Slippage %.3f%%: %s %.2f -> %.2f (%.1f%%)" 
+          tick (pct *. 100.0) (Instrument.symbol order.symbol) 
+          order.price slipped_price ((slipped_price -. order.price) /. order.price *. 100.0);
         { order with price = slipped_price }
     in
     price_modifier order |> random_drop |> function
@@ -164,7 +171,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
             in
             (* Eio.traceln "@[Liquidating %d shares of %a at %f@]@." abs_qty *)
             (*   Instrument.pp symbol last_price; *)
-            State.place_order prev order)
+            place_order prev order)
         (Ok state) symbols
     in
 

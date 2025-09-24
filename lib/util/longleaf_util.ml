@@ -75,8 +75,6 @@ let handle_output output =
     Unix.dup2 fd Unix.stderr;
     Unix.close fd
 
-let random_state = Random.State.make_self_init ()
-
 let qty ~current_cash ~pct ~price =
   match current_cash >=. 0.0 with
   | true ->

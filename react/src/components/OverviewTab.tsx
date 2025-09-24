@@ -248,7 +248,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         precompute_indicators_arg: values.precompute_indicators_arg,
         compare_preloaded: values.compare_preloaded,
         start: values.start || 0,
-        random_drop_chance: values.random_drop_chance || 0
+        random_drop_chance: values.random_drop_chance || 0,
+        slippage_pct: values.slippage_pct || 0.0
       };
       
       const targetData: ParsedTarget = {
@@ -873,6 +874,24 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
             <Card title="Random Drop %" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="random_drop_chance">
                 <InputNumber min={0} max={100} size="large" style={{ width: '100%' }} />
+              </Form.Item>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
+          <Col span={12}>
+            <Card title="Slippage %" styles={{ body: { padding: '8px' } }}>
+              <Form.Item label="" name="slippage_pct">
+                <InputNumber 
+                  min={0} 
+                  max={1} 
+                  step={0.001} 
+                  precision={3}
+                  size="large" 
+                  style={{ width: '100%' }} 
+                  placeholder="0.010 (1%)"
+                />
               </Form.Item>
             </Card>
           </Col>

@@ -38,7 +38,8 @@ export const createDefaultFormValues = (
     no_gui: false,
     save_received: false,
     start: 0,
-    random_drop_chance: 0
+    random_drop_chance: 0,
+    slippage_pct: 0.0
   };
 
   return { ...defaults, ...overrides };
@@ -70,6 +71,11 @@ export const validateFormValues = (values: SettingsFormValues): Record<string, s
   if (values.random_drop_chance !== undefined && 
       (values.random_drop_chance < 0 || values.random_drop_chance > 100)) {
     errors.random_drop_chance = 'Random drop chance must be between 0 and 100';
+  }
+
+  if (values.slippage_pct !== undefined && 
+      (values.slippage_pct < 0 || values.slippage_pct > 1)) {
+    errors.slippage_pct = 'Slippage percentage must be between 0 and 1 (e.g., 0.01 for 1%)';
   }
 
   return errors;
