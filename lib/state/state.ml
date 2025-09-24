@@ -70,16 +70,13 @@ let data t instrument = Bars.get t.bars instrument
 let value t =
   let ( let* ) = Result.( let* ) in
   let* portfolio_value =
-    Positions.fold (positions t) (Ok 0.0) @@ fun instrument orders acc ->
-    let* _ = acc in
+    Positions.fold (positions t) (Ok 0.0) @@ fun instrument _orders acc ->
+    let* acc = acc in
     let* data = data t instrument in
     let current_price = Bars.Data.get data Last t.current_tick in
-    Result.return
-    @@ List.fold_left
-         (fun acc (order : Order.t) ->
-           let order_value = float_of_int order.qty *. current_price in
-           order_value +. acc)
-         0.0 orders
+    let net_qty = Positions.qty t.positions instrument in
+    let position_value = float_of_int net_qty *. current_price in
+    Result.return (acc +. position_value)
   in
   Result.return (t.cash +. portfolio_value)
 

@@ -35,7 +35,7 @@ run:
 	guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup
 
 run-limited:
-	systemd-run --uid=$(shell id -u) --gid=$(shell id -g) --scope -p MemoryMax=8G \
+	systemd-run --user --scope -p MemoryMax=8G \
 		guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup
 
 shutdown:
