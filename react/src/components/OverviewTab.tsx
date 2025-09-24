@@ -58,12 +58,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     'RandomTickerBacktest', 'MultiRandomTickerBacktest'
   ];
 
-  const fetchPerformanceData = async () => {
+  const fetchPerformanceData = async (includeOrders = true) => {
     setPerformanceLoading(true);
     setPerformanceError(null);
     
     try {
-      const response = await axios.get('/performance', { timeout: 10000 });
+      const endpoint = includeOrders ? '/performance?orders=true' : '/performance';
+      const response = await axios.get(endpoint, { timeout: 10000 });
       setPerformanceData(response.data);
     } catch (error) {
       console.error('Error fetching performance data:', error);
@@ -293,16 +294,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
 
     // Convert server data to Plotly format
-    const traces = performanceData.traces.map((trace: any) => ({
+    const traces = performanceData.traces.map((trace: any, index: number) => ({
       x: trace.x || [],
       y: trace.y || [],
       type: 'scatter',
-      mode: 'lines',
-      name: trace.name || 'Portfolio Value',
-      line: {
-        color: '#1890ff',
-        width: 3
-      }
+      mode: trace.mode || (index === 0 ? 'lines' : 'markers'),
+      name: trace.name || `Trace ${index}`,
+      line: trace.line || (index === 0 ? { color: '#1890ff', width: 3 } : undefined),
+      marker: trace.marker || {},
+      hovertext: trace.hovertext || [],
+      hoverinfo: trace.hoverinfo || (index === 0 ? 'x+y+name' : 'text')
     }));
 
     const layout = {
@@ -317,8 +318,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         ...performanceData.layout?.yaxis
       },
       height: 400,
-      showlegend: false,
-      hovermode: 'x',
+      showlegend: true, // Enable legend for order traces
+      hovermode: 'closest', // Better for mixed line/marker data
       autosize: true,
       margin: { l: 60, r: 40, t: 50, b: 50 },
       ...performanceData.layout
@@ -330,7 +331,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           data={traces}
           layout={layout}
           style={{ width: '100%', height: '400px' }}
-          config={{ responsive: true, displayModeBar: false }}
+          config={{ responsive: true, displayModeBar: true }}
         />
       </div>
     );

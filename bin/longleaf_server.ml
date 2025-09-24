@@ -60,11 +60,16 @@ let get env =
     ( Dream.get "/status" @@ fun _ ->
       Settings.yojson_of_status Settings.settings.status
       |> Yojson.Safe.to_string |> Dream.json );
-    ( Dream.get "/performance" @@ fun _ ->
+    ( Dream.get "/performance" @@ fun _request ->
+      let include_orders = true in
       Settings.settings.mutices
       |> Option.map (fun (m : Longleaf_state.Mutex.t) ->
              Longleaf_util.Pmutex.get m.state_mutex)
-      |> Option.map Longleaf_server__Plotly.performance_graph
+      |> Option.map (fun state ->
+           if include_orders then 
+             Longleaf_server__Plotly.performance_graph_with_orders state
+           else 
+             Longleaf_server__Plotly.performance_graph state)
       |> function
       | None ->
         Dream.respond ~status:`Bad_Request
