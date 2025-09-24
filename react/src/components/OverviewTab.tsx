@@ -131,7 +131,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     
     try {
       const endpoint = includeOrders ? '/performance?orders=true' : '/performance';
-      const response = await axios.get(endpoint, { timeout: 10000 });
+      const response = await axios.get(endpoint, { timeout: 60000 });
       setPerformanceData(response.data);
     } catch (error) {
       console.error('Error fetching performance data:', error);
@@ -389,6 +389,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       hovermode: 'closest', // Better for mixed line/marker data
       autosize: true,
       margin: { l: 60, r: 40, t: 50, b: 50 },
+      // Optimizations for large datasets
+      dragmode: 'pan',
+      selectdirection: 'diagonal',
+      // Reduce animation for better performance with large datasets
+      transition: { duration: 0 },
       ...performanceData.layout
     };
 
@@ -398,7 +403,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           data={traces}
           layout={layout}
           style={{ width: '100%', height: '400px' }}
-          config={{ responsive: true, displayModeBar: true }}
+          config={{ 
+            responsive: true, 
+            displayModeBar: true,
+            plotlyServerURL: false,
+            showTips: false,
+            staticPlot: false,
+            editable: false,
+            autosizable: true,
+            queueLength: 0,
+            globalTransforms: [],
+            locale: 'en-US'
+          }}
         />
       </div>
     );
