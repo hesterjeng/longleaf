@@ -21,6 +21,7 @@ module Buy_trigger = struct
   module type S = sig
     val make : State.t -> Instrument.t list -> (Signal.t list, Error.t) result
     val num_positions : int
+    val position_size : float
   end
 
   (** The user provides a module of this type in their strategy. *)
@@ -38,6 +39,9 @@ module Buy_trigger = struct
         multiple positions that can be taken at a give tick, those with the best
         score are selected and cash is allocated equally to each symbol to take
         the position.*)
+
+    val position_size : float
+    (** The fraction of total portfolio value to allocate to each position (e.g., 0.25 = 25%).*)
   end
 
   (** Functor whose result is used to instantiate the strategy template. *)
@@ -58,6 +62,7 @@ module Buy_trigger = struct
       |> List.map fst |> List.rev |> Result.return
 
     let num_positions = Input.num_positions
+    let position_size = Input.position_size
   end
 end
 
@@ -87,11 +92,11 @@ module Make
 
   let init_state () = Backend.init_state ()
 
-  let buy_ (state : State.t) selected =
+  let buy_ ~position_size (state : State.t) selected =
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
     let current_cash = State.cash state in
-    let pct = 1.0 /. Float.of_int (List.length selected) in
+    let pct = (position_size /. Float.of_int (List.length selected)) in
     assert (pct >=. 0.0 && pct <=. 1.0);
     let@ state f = List.fold_left f (Ok state) selected in
     fun (signal : Signal.t) ->
@@ -115,7 +120,7 @@ module Make
         let* state = Backend.place_order state order in
         Result.return state
 
-  let buy ~held_symbols (state : State.t) =
+  let buy ~position_size ~held_symbols (state : State.t) =
     let ( let* ) = Result.( let* ) in
     let* potential_buys =
       List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
@@ -137,7 +142,7 @@ module Make
     let* res =
       match selected with
       | [] -> Result.return state
-      | selected -> buy_ state selected
+      | selected -> buy_ ~position_size state selected
     in
     Result.return res
 
@@ -181,7 +186,7 @@ module Make
       (* @@ (State.Core.get_active_orders state.trading_state *)
       (*    |> List.map (fun (r : State.Order_record.t) -> r.order)) *)
     in
-    let* complete = buy ~held_symbols sold_state in
+    let* complete = buy ~position_size:Buy.position_size ~held_symbols sold_state in
     Result.return complete
   (* { complete with tick = complete.tick + 1 } *)
 
