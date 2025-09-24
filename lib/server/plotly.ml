@@ -60,6 +60,7 @@ let layout title =
     [
       "title" = `String title;
       "hovermode" = `String "x";
+      "dragmode" = `String "zoom";
       "xaxis"
       = `Assoc
           [
@@ -295,6 +296,7 @@ let performance_graph_with_orders (state : Longleaf_state.t) : Yojson.Safe.t =
       ("text", `String "Portfolio Value");
       ("name", `String "Portfolio Value");
       ("type", `String "scatter");
+      ("mode", `String "lines");
       ("line", `Assoc [("color", `String "#1890ff"); ("width", `Int 3)]);
     ] in
   
@@ -312,6 +314,7 @@ let performance_graph_with_orders (state : Longleaf_state.t) : Yojson.Safe.t =
       ("text", `String "Cash");
       ("name", `String "Cash");
       ("type", `String "scatter");
+      ("mode", `String "lines");
       ("line", `Assoc [("color", `String "#52c41a"); ("width", `Int 2)]);
     ] in
   
