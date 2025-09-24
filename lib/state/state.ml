@@ -106,10 +106,10 @@ let place_order state0 (order : Order.t) =
     positions
   in
   (* Add order to data structure for visualization *)
-  let* () = Bars.Data.add_order data tick order in
   match order.side with
   | Buy ->
     if state0.cash >=. order_value then
+      let* () = Bars.Data.add_order data tick order in
       Result.return
         {
           state0 with
@@ -125,6 +125,7 @@ let place_order state0 (order : Order.t) =
     if qty_held >= order.qty then
       let positions = positions_upd state0 in
       let new_cash = state0.cash +. order_value in
+      let* () = Bars.Data.add_order data tick order in
       Result.return
         {
           state0 with
