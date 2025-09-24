@@ -184,9 +184,10 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
     List.map
       (fun (x : Order.t) ->
         let symbol = x.symbol in
+        let position_value = float_of_int x.qty *. x.price in
         `String
-          (Format.asprintf "%s<br>Qty: %d<br>Price: $%.2f<br>%s" 
-             (Instrument.symbol symbol) x.qty x.price
+          (Format.asprintf "%s<br>Qty: %d<br>Price: $%.2f<br>Value: $%.2f<br>%s" 
+             (Instrument.symbol symbol) x.qty x.price position_value
              (String.concat "<br>" x.reason)))
       orders
   in
@@ -253,11 +254,13 @@ let create_portfolio_order_trace (side : Trading_types.Side.t)
     `String (Ptime.to_rfc3339 time)) order_points in
   let y = List.map (fun (_, value, _) -> `Float value) order_points in
   let hovertext = List.map (fun (_, _, (order : Order.t)) ->
-    `String (Format.asprintf "%s %s<br>Qty: %d<br>Price: $%.2f<br>%s" 
+    let position_value = float_of_int order.qty *. order.price in
+    `String (Format.asprintf "%s %s<br>Qty: %d<br>Price: $%.2f<br>Value: $%.2f<br>%s" 
       (Trading_types.Side.to_string order.side)
       (Instrument.symbol order.symbol)
       order.qty
       order.price
+      position_value
       (String.concat "<br>" order.reason))) order_points in
   
   let color = Trading_types.Side.to_color side in

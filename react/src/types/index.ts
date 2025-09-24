@@ -114,6 +114,15 @@ export interface ApiResponse<T = unknown> {
   statusText: string;
 }
 
+// Strategy details from backend
+export interface StrategyDetails {
+  name: string;
+  max_positions: number;
+  position_size: number;
+  buy_trigger: string;
+  sell_trigger: string;
+}
+
 // Error structure for consistent error handling
 export interface APIError {
   response?: {

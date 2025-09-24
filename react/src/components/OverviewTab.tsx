@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, Input, Badge, message } from 'antd';
+import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, Input, Badge, message, Tooltip } from 'antd';
 import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined, LineChartOutlined, FileTextOutlined } from '@ant-design/icons';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
 import { executeStrategy, updateCLI, updateTarget } from '../utils/api';
-import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget } from '../types';
+import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget, StrategyDetails } from '../types';
 
 const { Title, Text } = Typography;
 
@@ -39,6 +39,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const [saveToFileActive, setSaveToFileActive] = useState<boolean>(false);
   const [precomputeIndicatorsActive, setPrecomputeIndicatorsActive] = useState<boolean>(false);
   const [nowaitMarketOpenActive, setNowaitMarketOpenActive] = useState<boolean>(false);
+  const [strategyTooltips, setStrategyTooltips] = useState<Record<string, StrategyDetails>>({});
   const strategiesPerPage = 12; // 3 columns × 4 rows = 12 strategies per page
 
   const { displayedStrategies, totalPages } = React.useMemo(() => {
@@ -57,6 +58,72 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     'MultiMontecarlo', 'RandomSliceBacktest', 'MultiRandomSliceBacktest',
     'RandomTickerBacktest', 'MultiRandomTickerBacktest'
   ];
+
+  const fetchStrategyDetails = async (strategyName: string) => {
+    if (strategyTooltips[strategyName]) {
+      return strategyTooltips[strategyName];
+    }
+
+    try {
+      const response = await axios.get(`/strategy/${encodeURIComponent(strategyName)}`, { timeout: 5000 });
+      const details = response.data;
+      setStrategyTooltips(prev => ({ ...prev, [strategyName]: details }));
+      return details;
+    } catch (error) {
+      console.error('Error fetching strategy details:', error);
+      return null;
+    }
+  };
+
+  const renderStrategyTooltip = (strategyName: string) => {
+    const details = strategyTooltips[strategyName];
+    
+    if (!details) {
+      return (
+        <div>
+          <div>Loading strategy details...</div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ maxWidth: '400px' }}>
+        <div><strong>Name:</strong> {details.name}</div>
+        <div><strong>Max Positions:</strong> {details.max_positions}</div>
+        <div><strong>Position Size:</strong> {(details.position_size * 100).toFixed(1)}%</div>
+        <div style={{ marginTop: '8px' }}>
+          <strong>Buy Trigger:</strong>
+          <pre style={{ 
+            fontSize: '12px', 
+            margin: '4px 0', 
+            padding: '8px', 
+            border: '1px solid #d9d9d9',
+            borderRadius: '4px',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            fontFamily: 'monospace'
+          }}>
+            {details.buy_trigger}
+          </pre>
+        </div>
+        <div>
+          <strong>Sell Trigger:</strong>
+          <pre style={{ 
+            fontSize: '12px', 
+            margin: '4px 0', 
+            padding: '8px', 
+            border: '1px solid #d9d9d9',
+            borderRadius: '4px',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            fontFamily: 'monospace'
+          }}>
+            {details.sell_trigger}
+          </pre>
+        </div>
+      </div>
+    );
+  };
 
   const fetchPerformanceData = async (includeOrders = true) => {
     setPerformanceLoading(true);
@@ -162,8 +229,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   };
 
   const openTearsheet = () => {
-    // Navigate directly to the tearsheet endpoint on the OCaml server
-    window.location.href = `${serverUrl}/tearsheet`;
+    // Open tearsheet in a new tab
+    window.open(`${serverUrl}/tearsheet`, '_blank', 'noopener,noreferrer');
   };
 
   const onFinishSettings = async (values: SettingsFormValues) => {
@@ -259,7 +326,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           message="Performance Chart Unavailable"
           description={performanceError}
           action={
-            <Button size="small" icon={<ReloadOutlined />} onClick={fetchPerformanceData}>
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => fetchPerformanceData()}>
               Retry
             </Button>
           }
@@ -285,7 +352,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           message="No Performance Data Available"
           description="Performance data will appear here after running a strategy"
           action={
-            <Button size="small" icon={<ReloadOutlined />} onClick={fetchPerformanceData}>
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => fetchPerformanceData()}>
               Refresh
             </Button>
           }
@@ -668,19 +735,30 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                               marginBottom: '12px'
                             }}>
                               {displayedStrategies.map((strategy: string) => (
-                                <Button
+                                <Tooltip
                                   key={strategy}
-                                  size="small"
-                                  type={getFieldValue('strategy_arg') === strategy ? 'primary' : 'default'}
-                                  onClick={() => setFieldsValue({ strategy_arg: strategy })}
-                                  style={{ 
-                                    textAlign: 'left', 
-                                    justifyContent: 'flex-start',
-                                    minHeight: '32px'
+                                  title={renderStrategyTooltip(strategy)}
+                                  placement="right"
+                                  onOpenChange={(visible) => {
+                                    if (visible && !strategyTooltips[strategy]) {
+                                      fetchStrategyDetails(strategy);
+                                    }
                                   }}
                                 >
-                                  {strategy}
-                                </Button>
+                                  <Button
+                                    size="small"
+                                    type={getFieldValue('strategy_arg') === strategy ? 'primary' : 'default'}
+                                    onClick={() => setFieldsValue({ strategy_arg: strategy })}
+                                    style={{ 
+                                      textAlign: 'left', 
+                                      justifyContent: 'flex-start',
+                                      minHeight: '32px',
+                                      width: '100%'
+                                    }}
+                                  >
+                                    {strategy}
+                                  </Button>
+                                </Tooltip>
                               ))}
                             </div>
                             
