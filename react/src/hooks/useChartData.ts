@@ -32,7 +32,7 @@ export const useChartData = (): UseChartDataReturn => {
 
     try {
       const response = await axios.get(`/data/${symbol.toUpperCase()}/json`, { 
-        timeout: 10000 
+        timeout: 60000 
       });
       setChartData(response.data);
       setSelectedSymbol(symbol);

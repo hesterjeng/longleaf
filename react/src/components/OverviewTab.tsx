@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, Input, Badge, message } from 'antd';
+import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, Input, Badge, message, Tooltip } from 'antd';
 import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined, LineChartOutlined, FileTextOutlined } from '@ant-design/icons';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
 import { executeStrategy, updateCLI, updateTarget } from '../utils/api';
-import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget } from '../types';
+import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget, StrategyDetails } from '../types';
 
 const { Title, Text } = Typography;
 
@@ -39,6 +39,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const [saveToFileActive, setSaveToFileActive] = useState<boolean>(false);
   const [precomputeIndicatorsActive, setPrecomputeIndicatorsActive] = useState<boolean>(false);
   const [nowaitMarketOpenActive, setNowaitMarketOpenActive] = useState<boolean>(false);
+  const [strategyTooltips, setStrategyTooltips] = useState<Record<string, StrategyDetails>>({});
   const strategiesPerPage = 12; // 3 columns × 4 rows = 12 strategies per page
 
   const { displayedStrategies, totalPages } = React.useMemo(() => {
@@ -58,12 +59,79 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     'RandomTickerBacktest', 'MultiRandomTickerBacktest'
   ];
 
-  const fetchPerformanceData = async () => {
+  const fetchStrategyDetails = async (strategyName: string) => {
+    if (strategyTooltips[strategyName]) {
+      return strategyTooltips[strategyName];
+    }
+
+    try {
+      const response = await axios.get(`/strategy/${encodeURIComponent(strategyName)}`, { timeout: 5000 });
+      const details = response.data;
+      setStrategyTooltips(prev => ({ ...prev, [strategyName]: details }));
+      return details;
+    } catch (error) {
+      console.error('Error fetching strategy details:', error);
+      return null;
+    }
+  };
+
+  const renderStrategyTooltip = (strategyName: string) => {
+    const details = strategyTooltips[strategyName];
+    
+    if (!details) {
+      return (
+        <div>
+          <div>Loading strategy details...</div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ maxWidth: '400px' }}>
+        <div><strong>Name:</strong> {details.name}</div>
+        <div><strong>Max Positions:</strong> {details.max_positions}</div>
+        <div><strong>Position Size:</strong> {(details.position_size * 100).toFixed(1)}%</div>
+        <div style={{ marginTop: '8px' }}>
+          <strong>Buy Trigger:</strong>
+          <pre style={{ 
+            fontSize: '12px', 
+            margin: '4px 0', 
+            padding: '8px', 
+            border: '1px solid #d9d9d9',
+            borderRadius: '4px',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            fontFamily: 'monospace'
+          }}>
+            {details.buy_trigger}
+          </pre>
+        </div>
+        <div>
+          <strong>Sell Trigger:</strong>
+          <pre style={{ 
+            fontSize: '12px', 
+            margin: '4px 0', 
+            padding: '8px', 
+            border: '1px solid #d9d9d9',
+            borderRadius: '4px',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            fontFamily: 'monospace'
+          }}>
+            {details.sell_trigger}
+          </pre>
+        </div>
+      </div>
+    );
+  };
+
+  const fetchPerformanceData = async (includeOrders = true) => {
     setPerformanceLoading(true);
     setPerformanceError(null);
     
     try {
-      const response = await axios.get('/performance', { timeout: 10000 });
+      const endpoint = includeOrders ? '/performance?orders=true' : '/performance';
+      const response = await axios.get(endpoint, { timeout: 60000 });
       setPerformanceData(response.data);
     } catch (error) {
       console.error('Error fetching performance data:', error);
@@ -161,8 +229,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   };
 
   const openTearsheet = () => {
-    // Navigate directly to the tearsheet endpoint on the OCaml server
-    window.location.href = `${serverUrl}/tearsheet`;
+    // Open tearsheet in a new tab
+    window.open(`${serverUrl}/tearsheet`, '_blank', 'noopener,noreferrer');
   };
 
   const onFinishSettings = async (values: SettingsFormValues) => {
@@ -258,7 +326,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           message="Performance Chart Unavailable"
           description={performanceError}
           action={
-            <Button size="small" icon={<ReloadOutlined />} onClick={fetchPerformanceData}>
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => fetchPerformanceData()}>
               Retry
             </Button>
           }
@@ -284,7 +352,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           message="No Performance Data Available"
           description="Performance data will appear here after running a strategy"
           action={
-            <Button size="small" icon={<ReloadOutlined />} onClick={fetchPerformanceData}>
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => fetchPerformanceData()}>
               Refresh
             </Button>
           }
@@ -293,16 +361,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
 
     // Convert server data to Plotly format
-    const traces = performanceData.traces.map((trace: any) => ({
+    const traces = performanceData.traces.map((trace: any, index: number) => ({
       x: trace.x || [],
       y: trace.y || [],
       type: 'scatter',
-      mode: 'lines',
-      name: trace.name || 'Portfolio Value',
-      line: {
-        color: '#1890ff',
-        width: 3
-      }
+      mode: trace.mode || (index === 0 ? 'lines' : 'markers'),
+      name: trace.name || `Trace ${index}`,
+      line: trace.line || (index === 0 ? { color: '#1890ff', width: 3 } : undefined),
+      marker: trace.marker || {},
+      hovertext: trace.hovertext || [],
+      hoverinfo: trace.hoverinfo || (index === 0 ? 'x+y+name' : 'text')
     }));
 
     const layout = {
@@ -317,10 +385,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         ...performanceData.layout?.yaxis
       },
       height: 400,
-      showlegend: false,
-      hovermode: 'x',
+      showlegend: true, // Enable legend for order traces
+      hovermode: 'closest', // Better for mixed line/marker data
       autosize: true,
       margin: { l: 60, r: 40, t: 50, b: 50 },
+      // Optimizations for large datasets
+      dragmode: 'pan',
+      selectdirection: 'diagonal',
+      // Reduce animation for better performance with large datasets
+      transition: { duration: 0 },
       ...performanceData.layout
     };
 
@@ -330,7 +403,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           data={traces}
           layout={layout}
           style={{ width: '100%', height: '400px' }}
-          config={{ responsive: true, displayModeBar: false }}
+          config={{ 
+            responsive: true, 
+            displayModeBar: true,
+            plotlyServerURL: false,
+            showTips: false,
+            staticPlot: false,
+            editable: false,
+            autosizable: true,
+            queueLength: 0,
+            globalTransforms: [],
+            locale: 'en-US'
+          }}
         />
       </div>
     );
@@ -667,19 +751,30 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                               marginBottom: '12px'
                             }}>
                               {displayedStrategies.map((strategy: string) => (
-                                <Button
+                                <Tooltip
                                   key={strategy}
-                                  size="small"
-                                  type={getFieldValue('strategy_arg') === strategy ? 'primary' : 'default'}
-                                  onClick={() => setFieldsValue({ strategy_arg: strategy })}
-                                  style={{ 
-                                    textAlign: 'left', 
-                                    justifyContent: 'flex-start',
-                                    minHeight: '32px'
+                                  title={renderStrategyTooltip(strategy)}
+                                  placement="right"
+                                  onOpenChange={(visible) => {
+                                    if (visible && !strategyTooltips[strategy]) {
+                                      fetchStrategyDetails(strategy);
+                                    }
                                   }}
                                 >
-                                  {strategy}
-                                </Button>
+                                  <Button
+                                    size="small"
+                                    type={getFieldValue('strategy_arg') === strategy ? 'primary' : 'default'}
+                                    onClick={() => setFieldsValue({ strategy_arg: strategy })}
+                                    style={{ 
+                                      textAlign: 'left', 
+                                      justifyContent: 'flex-start',
+                                      minHeight: '32px',
+                                      width: '100%'
+                                    }}
+                                  >
+                                    {strategy}
+                                  </Button>
+                                </Tooltip>
                               ))}
                             </div>
                             

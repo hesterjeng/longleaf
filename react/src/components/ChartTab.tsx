@@ -31,7 +31,7 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
     
     try {
       const response = await axios.get(`/data/${symbol.toUpperCase()}/json`, { 
-        timeout: 10000 
+        timeout: 60000 
       });
       setChartData(response.data);
     } catch (err) {
@@ -88,6 +88,11 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
       showlegend: true,
       autosize: true,
       margin: { l: 60, r: 40, t: 50, b: 50 },
+      // Optimizations for large datasets
+      dragmode: 'pan',
+      selectdirection: 'diagonal',
+      // Reduce animation for better performance with large datasets
+      transition: { duration: 0 },
       ...chartData.layout
     };
 
@@ -97,7 +102,18 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
           data={traces}
           layout={layout}
           style={{ width: '100%', height: '600px' }}
-          config={{ responsive: true, displayModeBar: true }}
+          config={{ 
+            responsive: true, 
+            displayModeBar: true,
+            plotlyServerURL: false,
+            showTips: false,
+            staticPlot: false,
+            editable: false,
+            autosizable: true,
+            queueLength: 0,
+            globalTransforms: [],
+            locale: 'en-US'
+          }}
         />
         
         <Row gutter={16} style={{ marginTop: '20px' }}>

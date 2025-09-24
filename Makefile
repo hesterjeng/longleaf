@@ -1,4 +1,4 @@
-.PHONY: all clean build install format deps odep react run shutdown
+.PHONY: all clean build install format deps odep react run run-limited shutdown
 
 all:
 	dune build
@@ -33,6 +33,14 @@ _tmux-setup:
 
 run:
 	guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup
+
+run-limited:
+	systemd-run --user --scope -p MemoryMax=8G \
+		guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup
+
+run20:
+	systemd-run --user --scope -p MemoryMax=20G \
+		guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup
 
 shutdown:
 	tmux kill-session -t longleaf

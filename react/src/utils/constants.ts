@@ -26,7 +26,7 @@ export const STATUS_CLASSIFICATIONS = {
 // API configuration
 export const API_CONFIG = {
   timeout: 5000,
-  chartTimeout: 10000,
+  chartTimeout: 60000, // Increased to 60 seconds for large datasets
   retryAttempts: 3,
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8080'
 } as const;

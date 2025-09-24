@@ -60,11 +60,16 @@ let get env =
     ( Dream.get "/status" @@ fun _ ->
       Settings.yojson_of_status Settings.settings.status
       |> Yojson.Safe.to_string |> Dream.json );
-    ( Dream.get "/performance" @@ fun _ ->
+    ( Dream.get "/performance" @@ fun _request ->
+      let include_orders = true in
       Settings.settings.mutices
       |> Option.map (fun (m : Longleaf_state.Mutex.t) ->
              Longleaf_util.Pmutex.get m.state_mutex)
-      |> Option.map Longleaf_server__Plotly.performance_graph
+      |> Option.map (fun state ->
+           if include_orders then 
+             Longleaf_server__Plotly.performance_graph_with_orders state
+           else 
+             Longleaf_server__Plotly.performance_graph state)
       |> function
       | None ->
         Dream.respond ~status:`Bad_Request
@@ -91,6 +96,23 @@ let get env =
     ( Dream.get "/strategies" @@ fun _ ->
       List.map (fun x -> `String x) Longleaf_strategies.all_strategy_names
       |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
+    ( Dream.get "/strategy/:name" @@ fun request ->
+      let strategy_name = Dream.param request "name" in
+      match Longleaf_strategies.find_gadt_strategy strategy_name with
+      | Some strategy ->
+        let buy_trigger_str = Longleaf_gadt.Gadt.to_string strategy.buy_trigger in
+        let sell_trigger_str = Longleaf_gadt.Gadt.to_string strategy.sell_trigger in
+        let strategy_info = `Assoc [
+          ("name", `String strategy.name);
+          ("max_positions", `Int strategy.max_positions);
+          ("position_size", `Float strategy.position_size);
+          ("buy_trigger", `String buy_trigger_str);
+          ("sell_trigger", `String sell_trigger_str);
+        ] in
+        Yojson.Safe.to_string strategy_info |> Dream.json
+      | None ->
+        Dream.respond ~status:`Not_Found 
+          (Printf.sprintf "Strategy '%s' not found" strategy_name) );
     ( Dream.get "/symbols" @@ fun _ ->
       Option.Infix.(
         let* mutices = Settings.settings.mutices in

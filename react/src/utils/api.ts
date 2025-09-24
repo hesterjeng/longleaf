@@ -94,7 +94,7 @@ export const executeStrategy = async (): Promise<ApiResponse> => {
   try {
     console.log('📡 API: Making GET request to /execute...');
     // Normal timeout since server responds immediately
-    const response = await apiGet('/execute', 10000);
+    const response = await apiGet('/execute', 60000);
     console.log('✅ API: Got response from /execute:', response);
     return response;
   } catch (error) {

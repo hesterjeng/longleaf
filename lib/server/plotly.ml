@@ -184,8 +184,10 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
     List.map
       (fun (x : Order.t) ->
         let symbol = x.symbol in
+        let position_value = float_of_int x.qty *. x.price in
         `String
-          (Format.asprintf "%s<br>%s" (Instrument.symbol symbol)
+          (Format.asprintf "%s<br>Qty: %d<br>Price: $%.2f<br>Value: $%.2f<br>%s" 
+             (Instrument.symbol symbol) x.qty x.price position_value
              (String.concat "<br>" x.reason)))
       orders
   in
@@ -223,6 +225,108 @@ let performance_graph (state : Longleaf_state.t) : Yojson.Safe.t =
     ]
   |> fun pt ->
   `Assoc [ ("traces", `List [ pt ]); ("layout", layout "Performance") ]
+
+(* Helper function to interpolate portfolio value at a given time *)
+let interpolate_portfolio_value_at_time (state : Longleaf_state.t) (target_time : Time.t) : float =
+  let value_history = Longleaf_state.value_history state |> List.rev in
+  match value_history with
+  | [] -> 100000.0 (* Default initial value *)
+  | (first_time, first_value) :: rest ->
+    if Ptime.compare target_time first_time <= 0 then first_value
+    else
+      let rec find_closest acc = function
+        | [] -> acc
+        | (_time, _value) :: _ when Ptime.compare target_time _time <= 0 -> acc
+        | (_time, value) :: rest -> find_closest value rest
+      in
+      find_closest first_value rest
+
+(* Create order trace with portfolio values *)
+let create_portfolio_order_trace (side : Trading_types.Side.t) 
+    (orders : Order.t list) (state : Longleaf_state.t) : Yojson.Safe.t list =
+  if List.is_empty orders then [] else
+  let order_points = List.map (fun (order : Order.t) ->
+    let portfolio_value = interpolate_portfolio_value_at_time state order.timestamp in
+    (order.timestamp, portfolio_value, order)
+  ) orders in
+  
+  let x = List.map (fun (time, _, _) -> 
+    `String (Ptime.to_rfc3339 time)) order_points in
+  let y = List.map (fun (_, value, _) -> `Float value) order_points in
+  let hovertext = List.map (fun (_, _, (order : Order.t)) ->
+    let position_value = float_of_int order.qty *. order.price in
+    `String (Format.asprintf "%s %s<br>Qty: %d<br>Price: $%.2f<br>Value: $%.2f<br>%s" 
+      (Trading_types.Side.to_string order.side)
+      (Instrument.symbol order.symbol)
+      order.qty
+      order.price
+      position_value
+      (String.concat "<br>" order.reason))) order_points in
+  
+  let color = Trading_types.Side.to_color side in
+  let symbol_shape = if Trading_types.Side.equal side Buy then "triangle-up" else "triangle-down" in
+  [`Assoc [
+    ("x", `List x);
+    ("y", `List y);
+    ("hovertext", `List hovertext);
+    ("hoverinfo", `String "text");
+    ("type", `String "scatter");
+    ("mode", `String "markers");
+    ("marker", `Assoc [
+      ("color", `String color); 
+      ("size", `Int 12);
+      ("symbol", `String symbol_shape)
+    ]);
+    ("name", `String (Trading_types.Side.to_string side ^ " Orders"));
+  ]]
+
+let performance_graph_with_orders (state : Longleaf_state.t) : Yojson.Safe.t =
+  (* Portfolio performance trace *)
+  let performance_trace = 
+    List.(
+      let+ time, value = Longleaf_state.value_history state in
+      (Ptime.to_rfc3339 time |> yojson_of_string, yojson_of_float value))
+    |> List.rev |> List.split
+    |> Pair.map_same (yojson_of_list Fun.id)
+    |> fun (x, y) ->
+    `Assoc [
+      ("x", x);
+      ("y", y);
+      ("text", `String "Portfolio Value");
+      ("name", `String "Portfolio Value");
+      ("type", `String "scatter");
+      ("line", `Assoc [("color", `String "#1890ff"); ("width", `Int 3)]);
+    ] in
+  
+  (* Collect ALL orders from ALL symbols *)
+  let bars = Longleaf_state.bars state in
+  let all_orders_flat = 
+    Bars.fold bars [] @@ fun _instrument data acc ->
+    match Data.get_all_orders data with
+    | orders_array ->
+      let orders_list = Array.to_list orders_array |> List.concat in
+      Result.return (orders_list @ acc)
+    |> function
+    | Ok orders -> orders
+    | Error _ -> acc
+  in
+  
+  (* Separate buy and sell orders *)
+  let buy_orders = List.filter (fun (o : Order.t) -> 
+    Trading_types.Side.equal o.side Buy) all_orders_flat in
+  let sell_orders = List.filter (fun (o : Order.t) -> 
+    Trading_types.Side.equal o.side Sell) all_orders_flat in
+  
+  (* Create order traces *)
+  let buy_trace = create_portfolio_order_trace Buy buy_orders state in
+  let sell_trace = create_portfolio_order_trace Sell sell_orders state in
+  
+  (* Combine all traces *)
+  let all_traces = [performance_trace] @ buy_trace @ sell_trace in
+  `Assoc [
+    ("traces", `List all_traces);
+    ("layout", layout "Portfolio Performance with Orders")
+  ]
 
 let of_state ?(start = 100) ?end_ (state : Longleaf_state.t) symbol :
     Yojson.Safe.t option =
