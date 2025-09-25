@@ -1,4 +1,4 @@
-.PHONY: all clean build install format deps odep react run run-limited shutdown
+.PHONY: all clean build install format deps odep react run run-limited shutdown run20 run-prod
 
 all:
 	dune build
@@ -41,6 +41,19 @@ run-limited:
 run20:
 	systemd-run --user --scope -p MemoryMax=20G \
 		guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup
+
+_tmux-setup-prod:
+	tmux new-session -d -s longleaf
+	tmux send-keys -t longleaf:0 "cd react && npm run build && npx serve build" Enter
+	tmux new-window -t longleaf -n tearsheets
+	tmux send-keys -t longleaf:tearsheets "python tearsheets/tearsheet_server.py" Enter
+	tmux new-window -t longleaf -n longleaf
+	tmux send-keys -t longleaf:longleaf "dune exec bin/longleaf_server.exe" Enter
+	tmux attach-session -t longleaf
+
+run-prod:
+	systemd-run --user --scope -p MemoryMax=6G \
+		guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup-prod
 
 shutdown:
 	tmux kill-session -t longleaf
