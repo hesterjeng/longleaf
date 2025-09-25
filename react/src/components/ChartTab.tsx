@@ -60,6 +60,7 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
     }
 
     // Convert server chart data to Plotly format
+    console.log('[DEBUG] ChartTab.tsx:63 - About to map chartData.traces:', chartData.traces, 'Type:', typeof chartData.traces, 'IsArray:', Array.isArray(chartData.traces));
     const traces = chartData.traces.map((trace) => ({
       x: trace.x || [],
       y: trace.y || [],
@@ -230,16 +231,19 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
           <Card>
             <Text strong>Select Symbol</Text>
             <div>
-              {Array.isArray(symbols) && symbols.map(symbol => (
-                <Button
-                  key={symbol}
-                  size="small"
-                  type={selectedSymbol === symbol ? 'primary' : 'default'}
-                  onClick={() => setSelectedSymbol(symbol)}
-                >
-                  {symbol}
-                </Button>
-              ))}
+              {Array.isArray(symbols) && (() => {
+                console.log('[DEBUG] ChartTab.tsx:233 - About to map symbols:', symbols, 'Type:', typeof symbols, 'IsArray:', Array.isArray(symbols));
+                return symbols.map(symbol => (
+                  <Button
+                    key={symbol}
+                    size="small"
+                    type={selectedSymbol === symbol ? 'primary' : 'default'}
+                    onClick={() => setSelectedSymbol(symbol)}
+                  >
+                    {symbol}
+                  </Button>
+                ));
+              })()}
             </div>
             <Text type="secondary">
               Choose a symbol to automatically load its price chart with technical indicators

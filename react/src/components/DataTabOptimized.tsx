@@ -25,6 +25,7 @@ const DataTabOptimized: React.FC<BaseTabProps> = ({ serverData, refreshData, loa
   const currentTarget = getActiveDataFile(settings?.target || null);
 
   // Transform data files into standard ListItem format
+  console.log('[DEBUG] DataTabOptimized.tsx:28 - About to map dataFiles:', dataFiles, 'Type:', typeof dataFiles, 'IsArray:', Array.isArray(dataFiles));
   const dataItems: ListItem[] = (dataFiles || []).map((filePath: string) => ({
     key: filePath,
     label: filePath,

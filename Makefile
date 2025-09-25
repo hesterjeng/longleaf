@@ -44,7 +44,7 @@ run20:
 
 _tmux-setup-prod:
 	tmux new-session -d -s longleaf
-	tmux send-keys -t longleaf:0 "cd react && npm run build && npx serve build" Enter
+	tmux send-keys -t longleaf:0 "cd react && npm run build && npm run serve" Enter
 	tmux new-window -t longleaf -n tearsheets
 	tmux send-keys -t longleaf:tearsheets "python tearsheets/tearsheet_server.py" Enter
 	tmux new-window -t longleaf -n longleaf

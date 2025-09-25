@@ -114,27 +114,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     try {
       const endpoint = includeOrders ? '/performance?orders=true' : '/performance';
       const response = await axios.get(endpoint, { timeout: 60000 });
-      
-      // Runtime validation of server response
-      console.log('Raw server response:', response.data);
-      console.log('Response type:', typeof response.data);
-      console.log('Response traces:', response.data?.traces);
-      console.log('Traces type:', typeof response.data?.traces);
-      console.log('Traces isArray:', Array.isArray(response.data?.traces));
-      
-      // Validate the response structure
-      if (!response.data || typeof response.data !== 'object') {
-        throw new Error('Invalid response: not an object');
-      }
-      
-      if (!response.data.traces) {
-        throw new Error('Invalid response: missing traces field');
-      }
-      
-      if (!Array.isArray(response.data.traces)) {
-        throw new Error(`Invalid response: traces is not an array, got ${typeof response.data.traces}`);
-      }
-      
       setPerformanceData(response.data);
     } catch (error) {
       console.error('Error fetching performance data:', error);
@@ -364,6 +343,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
 
     // Convert server data to Plotly format
+    console.log('[DEBUG] OverviewTab.tsx:346 - About to map performanceData.traces:', performanceData.traces, 'Type:', typeof performanceData.traces, 'IsArray:', Array.isArray(performanceData.traces));
     const traces = performanceData.traces.map((trace, index: number) => ({
       x: trace.x || [],
       y: trace.y || [],
@@ -693,7 +673,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => (
                     <div >
-                      {runtypeOptions.map(type => (
+                      {(() => {
+                        console.log('[DEBUG] OverviewTab.tsx:675 - About to map runtypeOptions:', runtypeOptions, 'Type:', typeof runtypeOptions, 'IsArray:', Array.isArray(runtypeOptions));
+                        return runtypeOptions.map(type => (
                         <Button
                           key={type}
                           size="small"
@@ -702,7 +684,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                                                   >
                           {type}
                         </Button>
-                      ))}
+                        ));
+                      })()}
                     </div>
                   )}
                 </Form.Item>
@@ -722,7 +705,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                         {strategies && strategies.length > 0 ? (
                           <>
                             <div>
-                              {displayedStrategies.map((strategy: string) => (
+                              {(() => {
+                                console.log('[DEBUG] OverviewTab.tsx:704 - About to map displayedStrategies:', displayedStrategies, 'Type:', typeof displayedStrategies, 'IsArray:', Array.isArray(displayedStrategies));
+                                return displayedStrategies.map((strategy: string) => (
                                 <Tooltip
                                   key={strategy}
                                   title={renderStrategyTooltip(strategy)}
@@ -741,7 +726,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                                     {strategy}
                                   </Button>
                                 </Tooltip>
-                              ))}
+                                ));
+                              })()}
                             </div>
                             
                             {totalPages > 1 && (
@@ -799,16 +785,19 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                                               >
                         None
                       </Button>
-                      {dataFiles && Array.isArray(dataFiles) && dataFiles.length > 0 ? dataFiles.map((file: string) => (
-                        <Button
-                          key={file}
-                          size="small"
-                          type={getFieldValue('target_file') === file ? 'primary' : 'default'}
-                          onClick={() => setFieldsValue({ target_file: file })}
-                                                  >
-                          {file}
-                        </Button>
-                      )) : null}
+                      {dataFiles && Array.isArray(dataFiles) && dataFiles.length > 0 ? (() => {
+                        console.log('[DEBUG] OverviewTab.tsx:781 - About to map dataFiles:', dataFiles, 'Type:', typeof dataFiles, 'IsArray:', Array.isArray(dataFiles));
+                        return dataFiles.map((file: string) => (
+                          <Button
+                            key={file}
+                            size="small"
+                            type={getFieldValue('target_file') === file ? 'primary' : 'default'}
+                            onClick={() => setFieldsValue({ target_file: file })}
+                          >
+                            {file}
+                          </Button>
+                        ));
+                      })() : null}
                     </div>
                   )}
                 </Form.Item>

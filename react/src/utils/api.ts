@@ -1,5 +1,35 @@
 import axios, { Method, AxiosRequestConfig } from 'axios';
-import type { CLISettings, OCamlTarget, ApiResponse, APIError } from '../types';
+import type { CLISettings, OCamlTarget, ApiResponse, APIError, PerformanceData, ServerData } from '../types';
+
+/**
+ * Runtime type validation utilities
+ */
+export const typeValidators = {
+  isObject: (value: unknown): value is Record<string, unknown> => {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+  },
+  
+  isArray: (value: unknown): value is unknown[] => {
+    return Array.isArray(value);
+  },
+  
+  hasProperty: <T extends string>(obj: Record<string, unknown>, key: T): obj is Record<T, unknown> => {
+    return key in obj;
+  },
+  
+  isPerformanceData: (value: unknown): value is PerformanceData => {
+    if (!typeValidators.isObject(value)) return false;
+    if (!typeValidators.hasProperty(value, 'traces')) return false;
+    if (!typeValidators.isArray(value.traces)) return false;
+    return true;
+  },
+  
+  isServerError: (value: unknown): value is { error: string } => {
+    return typeValidators.isObject(value) && 
+           typeValidators.hasProperty(value, 'error') && 
+           typeof value.error === 'string';
+  }
+};
 
 /**
  * Standard API call wrapper with error handling
