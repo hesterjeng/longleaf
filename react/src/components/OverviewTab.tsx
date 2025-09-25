@@ -5,7 +5,7 @@ import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
 import { executeStrategy, updateCLI, updateTarget } from '../utils/api';
-import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget, StrategyDetails } from '../types';
+import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget, StrategyDetails, PerformanceData } from '../types';
 
 const { Title, Text } = Typography;
 
@@ -27,7 +27,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const [executeError, setExecuteError] = useState<string | null>(null);
   const [settingsForm] = Form.useForm();
   const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
-  const [performanceData, setPerformanceData] = useState<any>(null);
+  const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null);
   const [performanceLoading, setPerformanceLoading] = useState<boolean>(false);
   const [performanceError, setPerformanceError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(0);
@@ -114,6 +114,27 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     try {
       const endpoint = includeOrders ? '/performance?orders=true' : '/performance';
       const response = await axios.get(endpoint, { timeout: 60000 });
+      
+      // Runtime validation of server response
+      console.log('Raw server response:', response.data);
+      console.log('Response type:', typeof response.data);
+      console.log('Response traces:', response.data?.traces);
+      console.log('Traces type:', typeof response.data?.traces);
+      console.log('Traces isArray:', Array.isArray(response.data?.traces));
+      
+      // Validate the response structure
+      if (!response.data || typeof response.data !== 'object') {
+        throw new Error('Invalid response: not an object');
+      }
+      
+      if (!response.data.traces) {
+        throw new Error('Invalid response: missing traces field');
+      }
+      
+      if (!Array.isArray(response.data.traces)) {
+        throw new Error(`Invalid response: traces is not an array, got ${typeof response.data.traces}`);
+      }
+      
       setPerformanceData(response.data);
     } catch (error) {
       console.error('Error fetching performance data:', error);
@@ -343,7 +364,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
 
     // Convert server data to Plotly format
-    const traces = performanceData.traces.map((trace: any, index: number) => ({
+    const traces = performanceData.traces.map((trace, index: number) => ({
       x: trace.x || [],
       y: trace.y || [],
       type: 'scatter',

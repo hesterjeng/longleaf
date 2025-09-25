@@ -1,5 +1,5 @@
 import axios, { Method, AxiosRequestConfig } from 'axios';
-import type { CLISettings, OCamlTarget, ApiResponse } from '../types';
+import type { CLISettings, OCamlTarget, ApiResponse, APIError } from '../types';
 
 /**
  * Standard API call wrapper with error handling
@@ -66,7 +66,7 @@ export const updateCLI = async (cliSettings: CLISettings): Promise<ApiResponse<s
     console.log('CLI response:', response);
     return response;
   } catch (error) {
-    console.error('CLI error:', (error as any).response?.data || (error as any).message);
+    console.error('CLI error:', (error as APIError).response?.data || (error as APIError).message);
     throw error;
   }
 };
@@ -81,7 +81,7 @@ export const updateTarget = async (targetData: OCamlTarget): Promise<ApiResponse
     console.log('Target response:', response);
     return response;
   } catch (error) {
-    console.error('Target error:', (error as any).response?.data || (error as any).message);
+    console.error('Target error:', (error as APIError).response?.data || (error as APIError).message);
     throw error;
   }
 };
@@ -99,8 +99,8 @@ export const executeStrategy = async (): Promise<ApiResponse> => {
     return response;
   } catch (error) {
     console.error('❌ API: Execute request failed:', error);
-    console.error('❌ API: Error details:', (error as any).response?.data || (error as any).message);
-    console.error('❌ API: Error code:', (error as any).code);
+    console.error('❌ API: Error details:', (error as APIError).response?.data || (error as APIError).message);
+    console.error('❌ API: Error code:', (error as Error).message);
     throw error;
   }
 };
