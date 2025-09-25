@@ -32,7 +32,7 @@ const DataTab: React.FC<DataTabProps> = ({ serverData }) => {
         </ul>
 
         <Title level={5}>Example commands:</Title>
-        <pre style={{ background: '#f5f5f5', padding: '16px', borderRadius: '6px' }}>
+        <pre >
 {`# Download data for backtesting
 longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 \\
     --interval=10 --timeframe=minute data/24.json`}
@@ -43,24 +43,17 @@ longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 \\
 
   return (
     <div>
-      <div style={{ 
-        textAlign: 'center', 
-        marginBottom: '12px'
-      }}>
+      <div >
         <img 
           src="/valley.jpg" 
           alt="Valley" 
-          style={{ 
-            width: '45%',
-            height: 'auto',
-            borderRadius: '8px'
-          }} 
+           
         />
       </div>
       
-      <Title level={2} style={{ textAlign: 'center' }}>Data Files</Title>
+      <Title level={2} >Data Files</Title>
 
-      <Card title="Current Target" style={{ marginBottom: '16px' }}>
+      <Card title="Current Target" >
         {currentTarget ? (
           <Alert
             type="success"
@@ -75,20 +68,20 @@ longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 \\
             showIcon
           />
         )}
-        <Text type="secondary" style={{ marginTop: '12px', display: 'block' }}>
+        <Text type="secondary" >
           <Text strong>To change the target:</Text> Use the <Text strong>Control</Text> tab → <Text strong>Complete CLI Settings</Text> form
         </Text>
       </Card>
 
       {dataFiles && dataFiles.length > 0 ? (
-        <Card title={`Available Data Files (${dataFiles.length})`} style={{ marginBottom: '16px' }}>
+        <Card title={`Available Data Files (${dataFiles.length})`} >
           <List
             dataSource={dataFiles}
             renderItem={(filePath: string, index: number) => (
               <List.Item>
-                <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div >
                   <span>
-                    <FileOutlined style={{ marginRight: '8px' }} />
+                    <FileOutlined  />
                     <Text strong>{index + 1}.</Text> <code>{filePath}</code>
                   </span>
                   {currentTarget === filePath && (
@@ -105,7 +98,7 @@ longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 \\
         <Alert
           type="warning"
           message="No data files found"
-          style={{ marginBottom: '16px' }}
+          
         />
       )}
       

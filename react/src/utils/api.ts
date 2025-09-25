@@ -1,5 +1,35 @@
 import axios, { Method, AxiosRequestConfig } from 'axios';
-import type { CLISettings, OCamlTarget, ApiResponse } from '../types';
+import type { CLISettings, OCamlTarget, ApiResponse, APIError, PerformanceData, ServerData } from '../types';
+
+/**
+ * Runtime type validation utilities
+ */
+export const typeValidators = {
+  isObject: (value: unknown): value is Record<string, unknown> => {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+  },
+  
+  isArray: (value: unknown): value is unknown[] => {
+    return Array.isArray(value);
+  },
+  
+  hasProperty: <T extends string>(obj: Record<string, unknown>, key: T): obj is Record<T, unknown> => {
+    return key in obj;
+  },
+  
+  isPerformanceData: (value: unknown): value is PerformanceData => {
+    if (!typeValidators.isObject(value)) return false;
+    if (!typeValidators.hasProperty(value, 'traces')) return false;
+    if (!typeValidators.isArray(value.traces)) return false;
+    return true;
+  },
+  
+  isServerError: (value: unknown): value is { error: string } => {
+    return typeValidators.isObject(value) && 
+           typeValidators.hasProperty(value, 'error') && 
+           typeof value.error === 'string';
+  }
+};
 
 /**
  * Standard API call wrapper with error handling
@@ -66,7 +96,7 @@ export const updateCLI = async (cliSettings: CLISettings): Promise<ApiResponse<s
     console.log('CLI response:', response);
     return response;
   } catch (error) {
-    console.error('CLI error:', (error as any).response?.data || (error as any).message);
+    console.error('CLI error:', (error as APIError).response?.data || (error as APIError).message);
     throw error;
   }
 };
@@ -81,7 +111,7 @@ export const updateTarget = async (targetData: OCamlTarget): Promise<ApiResponse
     console.log('Target response:', response);
     return response;
   } catch (error) {
-    console.error('Target error:', (error as any).response?.data || (error as any).message);
+    console.error('Target error:', (error as APIError).response?.data || (error as APIError).message);
     throw error;
   }
 };
@@ -99,8 +129,8 @@ export const executeStrategy = async (): Promise<ApiResponse> => {
     return response;
   } catch (error) {
     console.error('❌ API: Execute request failed:', error);
-    console.error('❌ API: Error details:', (error as any).response?.data || (error as any).message);
-    console.error('❌ API: Error code:', (error as any).code);
+    console.error('❌ API: Error details:', (error as APIError).response?.data || (error as APIError).message);
+    console.error('❌ API: Error code:', (error as Error).message);
     throw error;
   }
 };

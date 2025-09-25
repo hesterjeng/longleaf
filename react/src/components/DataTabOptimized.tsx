@@ -25,6 +25,7 @@ const DataTabOptimized: React.FC<BaseTabProps> = ({ serverData, refreshData, loa
   const currentTarget = getActiveDataFile(settings?.target || null);
 
   // Transform data files into standard ListItem format
+  console.log('[DEBUG] DataTabOptimized.tsx:28 - About to map dataFiles:', dataFiles, 'Type:', typeof dataFiles, 'IsArray:', Array.isArray(dataFiles));
   const dataItems: ListItem[] = (dataFiles || []).map((filePath: string) => ({
     key: filePath,
     label: filePath,
@@ -34,14 +35,14 @@ const DataTabOptimized: React.FC<BaseTabProps> = ({ serverData, refreshData, loa
 
   // Instructions component could also be extracted as a reusable component
   const renderInstructions = () => (
-    <div style={{ marginBottom: '16px', padding: '16px', background: '#f9f9f9', borderRadius: '6px' }}>
+    <div >
       <p><strong>Data files</strong> are historical market data files used for backtesting and analysis.</p>
       <ul>
         <li>Files are typically JSON format containing OHLCV data</li>
         <li>Use the <strong>longleaf_downloader</strong> tool to create data files</li>
         <li>Select a file to set it as the target for backtesting</li>
       </ul>
-      <pre style={{ background: '#f5f5f5', padding: '12px', borderRadius: '4px', fontSize: '12px' }}>
+      <pre>
         longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 \<br/>
         {'    '}--interval=10 --timeframe=minute data/24.json
       </pre>
@@ -51,13 +52,13 @@ const DataTabOptimized: React.FC<BaseTabProps> = ({ serverData, refreshData, loa
   const renderCurrentTarget = () => {
     if (currentTarget) {
       return (
-        <div style={{ marginBottom: '16px', padding: '12px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: '6px' }}>
+        <div>
           <strong>Active Data File:</strong> <code>{currentTarget}</code>
         </div>
       );
     }
     return (
-      <div style={{ marginBottom: '16px', padding: '12px', background: '#e6f7ff', border: '1px solid #91d5ff', borderRadius: '6px' }}>
+      <div>
         <strong>Target:</strong> Download (live data)
       </div>
     );
@@ -80,24 +81,13 @@ const DataTabOptimized: React.FC<BaseTabProps> = ({ serverData, refreshData, loa
         loading={loading}
         emptyText="No data files available. Use longleaf_downloader to create data files."
         renderItem={(item) => (
-          <div style={{ 
-            width: '100%', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center' 
-          }}>
+          <div>
             <span>
-              <FileOutlined style={{ marginRight: '8px' }} />
+              <FileOutlined />
               <code>{item.label}</code>
             </span>
             {item.isActive && (
-              <span style={{ 
-                background: '#52c41a', 
-                color: 'white', 
-                padding: '2px 8px', 
-                borderRadius: '4px', 
-                fontSize: '12px' 
-              }}>
+              <span>
                 ACTIVE
               </span>
             )}

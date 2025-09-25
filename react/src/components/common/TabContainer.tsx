@@ -34,9 +34,9 @@ export const TabContainer: React.FC<TabContainerProps> = ({
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
+      <div >
         <Spin size="large" />
-        <div style={{ marginTop: '16px' }}>Loading {title.toLowerCase()}...</div>
+        <div >Loading {title.toLowerCase()}...</div>
       </div>
     );
   }
@@ -48,7 +48,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
         showIcon
         message="Error"
         description={error}
-        style={{ margin: '16px 0' }}
+        
       />
     );
   }
@@ -60,20 +60,15 @@ export const TabContainer: React.FC<TabContainerProps> = ({
         showIcon
         message="Data Not Available"
         description={`Required data (${missingData.join(', ')}) is not available from the server.`}
-        style={{ margin: '16px 0' }}
+        
       />
     );
   }
 
   return (
     <div>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '16px' 
-      }}>
-        <Title level={2} style={{ margin: 0 }}>{title}</Title>
+      <div>
+        <Title level={2} >{title}</Title>
         {extra}
       </div>
       {children}

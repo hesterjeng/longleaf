@@ -89,6 +89,17 @@ export interface ChartData {
   symbol?: string;
 }
 
+// Performance data structure from /performance endpoint
+export interface PerformanceData {
+  traces: ChartTrace[];
+  layout?: {
+    title?: string;
+    xaxis?: { title?: string };
+    yaxis?: { title?: string };
+    [key: string]: unknown;
+  };
+}
+
 // Base form fields
 export interface FormCLIFields extends CLIBooleanFields, CLINumericFields, CLIUnknownFields {
   runtype: string;

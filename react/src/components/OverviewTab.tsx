@@ -5,7 +5,7 @@ import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
 import { executeStrategy, updateCLI, updateTarget } from '../utils/api';
-import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget, StrategyDetails } from '../types';
+import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget, StrategyDetails, PerformanceData } from '../types';
 
 const { Title, Text } = Typography;
 
@@ -27,7 +27,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const [executeError, setExecuteError] = useState<string | null>(null);
   const [settingsForm] = Form.useForm();
   const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
-  const [performanceData, setPerformanceData] = useState<any>(null);
+  const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null);
   const [performanceLoading, setPerformanceLoading] = useState<boolean>(false);
   const [performanceError, setPerformanceError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(0);
@@ -87,37 +87,19 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
 
     return (
-      <div style={{ maxWidth: '400px' }}>
+      <div>
         <div><strong>Name:</strong> {details.name}</div>
         <div><strong>Max Positions:</strong> {details.max_positions}</div>
         <div><strong>Position Size:</strong> {(details.position_size * 100).toFixed(1)}%</div>
-        <div style={{ marginTop: '8px' }}>
+        <div>
           <strong>Buy Trigger:</strong>
-          <pre style={{ 
-            fontSize: '12px', 
-            margin: '4px 0', 
-            padding: '8px', 
-            border: '1px solid #d9d9d9',
-            borderRadius: '4px',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-            fontFamily: 'monospace'
-          }}>
+          <pre>
             {details.buy_trigger}
           </pre>
         </div>
         <div>
           <strong>Sell Trigger:</strong>
-          <pre style={{ 
-            fontSize: '12px', 
-            margin: '4px 0', 
-            padding: '8px', 
-            border: '1px solid #d9d9d9',
-            borderRadius: '4px',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-            fontFamily: 'monospace'
-          }}>
+          <pre>
             {details.sell_trigger}
           </pre>
         </div>
@@ -312,7 +294,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                 })}
               </Text>
             }
-            style={{ marginTop: '8px' }}
           />
         )}
       </div>
@@ -337,16 +318,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
     if (performanceLoading) {
       return (
-        <div style={{ textAlign: 'center', padding: '50px' }}>
+        <div>
           <Spin size="large" />
-          <Text style={{ marginTop: '16px', display: 'block' }}>
+          <Text>
             Loading performance data...
           </Text>
         </div>
       );
     }
 
-    if (!performanceData || !performanceData.traces || performanceData.traces.length === 0) {
+    if (!performanceData || !performanceData.traces || !Array.isArray(performanceData.traces) || performanceData.traces.length === 0) {
       return (
         <Alert
           type="info"
@@ -362,7 +343,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
 
     // Convert server data to Plotly format
-    const traces = performanceData.traces.map((trace: any, index: number) => ({
+    console.log('[DEBUG] OverviewTab.tsx:346 - About to map performanceData.traces:', performanceData.traces, 'Type:', typeof performanceData.traces, 'IsArray:', Array.isArray(performanceData.traces));
+    const traces = performanceData.traces.map((trace, index: number) => ({
       x: trace.x || [],
       y: trace.y || [],
       type: 'scatter',
@@ -399,11 +381,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     };
 
     return (
-      <div style={{ width: '100%', overflow: 'hidden' }}>
+      <div>
         <Plot
           data={traces}
           layout={layout}
-          style={{ width: '100%', height: '400px' }}
           config={{ 
             responsive: true, 
             displayModeBar: true,
@@ -425,7 +406,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
+      <div>
         <Spin size="large" />
       </div>
     );
@@ -433,41 +414,34 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
   return (
     <div>
-      <div style={{ 
-        textAlign: 'center', 
-        marginBottom: '12px'
-      }}>
+      <div>
         <img 
           src="/hairpine.jpg" 
           alt="Hairpine" 
-          style={{ 
-            width: '60%',
-            height: 'auto',
-            borderRadius: '8px'
-          }} 
+ 
         />
       </div>
       
-      <Title level={2} style={{ textAlign: 'center' }}>Longleaf System Overview</Title>
+      <Title level={2}>Longleaf System Overview</Title>
       
-      <Row gutter={6} style={{ marginBottom: '6px' }}>
+      <Row gutter={6} >
         <Col span={8}>
-          <Card title="Server Status" style={{ height: '100%' }} styles={{ body: { padding: '8px' } }}>
+          <Card title="Server Status">
             {renderStatusDisplay(status)}
-            <div style={{ marginTop: '12px', marginBottom: '8px' }}>
+            <div>
               <Badge 
                 status={serverOnline ? 'success' : 'error'}
                 text={serverOnline ? 'Server Online' : 'Server Offline'}
               />
             </div>
-            <Text type="secondary" style={{ marginTop: '8px', display: 'block' }}>
+            <Text type="secondary">
               Last updated: {lastUpdate.toLocaleString()}
             </Text>
           </Card>
         </Col>
         
         <Col span={16}>
-          <Card title="Control Panel" style={{ height: '100%' }} styles={{ body: { padding: '8px' } }}>
+          <Card title="Control Panel">
             <Row gutter={[8, 8]}>
               <Col span={8}>
                 <Button
@@ -477,7 +451,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                   icon={<PlayCircleOutlined />}
                   onClick={executeStrategyHandler}
                   disabled={executing || loading || settingsLoading}
-                  style={{ width: '100%' }}
                 >
                   {executing ? 'Executing...' : 'Execute Strategy'}
                 </Button>
@@ -490,7 +463,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                   icon={<SaveOutlined />}
                   onClick={() => settingsForm.submit()}
                   loading={settingsLoading}
-                  style={{ width: '100%' }}
                 >
                   Save Settings
                 </Button>
@@ -505,7 +477,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                     fetchPerformanceData();
                   }}
                   disabled={loading}
-                  style={{ width: '100%' }}
                 >
                   Refresh Data
                 </Button>
@@ -516,7 +487,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                   size="large"
                   icon={<ReloadOutlined />}
                   onClick={checkServerConnection}
-                  style={{ width: '100%' }}
                 >
                   Check Connection
                 </Button>
@@ -531,8 +501,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                       setExecuteResult(null);
                       setExecuteError(null);
                     }}
-                    style={{ width: '100%' }}
-                  >
+                    >
                     Clear Result
                   </Button>
                 </Col>
@@ -543,7 +512,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                 <Button
                   size="large"
                   onClick={() => setShowServerUrlInput(!showServerUrlInput)}
-                  style={{ width: '100%' }}
                   type={showServerUrlInput ? 'primary' : 'default'}
                 >
                   Server URL
@@ -559,7 +527,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                     setStacktraceActive(newValue);
                     settingsForm.setFieldsValue({ stacktrace: newValue });
                   }}
-                  style={{ width: '100%' }}
                 >
                   Stacktrace
                 </Button>
@@ -574,7 +541,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                     setPrintTickActive(newValue);
                     settingsForm.setFieldsValue({ print_tick_arg: newValue });
                   }}
-                  style={{ width: '100%' }}
                 >
                   Print Tick
                 </Button>
@@ -585,7 +551,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                   size="large"
                   icon={<FileTextOutlined />}
                   onClick={openTearsheet}
-                  style={{ width: '100%' }}
                 >
                   Tearsheet
                 </Button>
@@ -600,7 +565,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                     setSaveReceivedActive(newValue);
                     settingsForm.setFieldsValue({ save_received: newValue });
                   }}
-                  style={{ width: '100%' }}
                 >
                   Save Received
                 </Button>
@@ -615,7 +579,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                     setSaveToFileActive(newValue);
                     settingsForm.setFieldsValue({ save_to_file: newValue });
                   }}
-                  style={{ width: '100%' }}
                 >
                   Save to File
                 </Button>
@@ -630,7 +593,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                     setPrecomputeIndicatorsActive(newValue);
                     settingsForm.setFieldsValue({ precompute_indicators_arg: newValue });
                   }}
-                  style={{ width: '100%' }}
                 >
                   Precompute Indicators
                 </Button>
@@ -645,7 +607,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                     setNowaitMarketOpenActive(newValue);
                     settingsForm.setFieldsValue({ nowait_market_open: newValue });
                   }}
-                  style={{ width: '100%' }}
                 >
                   No Wait Market Open
                 </Button>
@@ -653,29 +614,27 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
             </Row>
             
             {showServerUrlInput && (
-              <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+              <div>
                 <Text strong>Server URL</Text>
                 <Input
                   value={serverUrl}
                   onChange={(e) => setServerUrl(e.target.value)}
                   placeholder="http://localhost:8080"
-                  style={{ marginTop: '4px' }}
                   addonBefore="Server"
                 />
-                <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '2px' }}>
+                <Text type="secondary">
                   Longleaf server connection URL
                 </Text>
               </div>
             )}
 
             {(executeResult !== null || executeError) && (
-              <div style={{ marginTop: '16px' }}>
+              <div>
                 {executeResult !== null && (
                   <Alert
                     type="success"
                     message="Execution Result"
                     description={<code>{executeResult}</code>}
-                    style={{ marginBottom: '16px' }}
                   />
                 )}
                 
@@ -694,9 +653,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
       <Card 
         title="Portfolio Performance" 
-        style={{ marginBottom: '6px' }}
-        styles={{ body: { padding: '8px' } }}
-      >
+                      >
         {renderPerformanceChart()}
       </Card>
 
@@ -709,24 +666,26 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         }}
       >
 
-        <Row gutter={6} style={{ marginBottom: '6px' }}>
+        <Row gutter={6} >
           <Col span={24}>
             <Card title="Run Type" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="runtype">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {runtypeOptions.map(type => (
+                    <div >
+                      {(() => {
+                        console.log('[DEBUG] OverviewTab.tsx:675 - About to map runtypeOptions:', runtypeOptions, 'Type:', typeof runtypeOptions, 'IsArray:', Array.isArray(runtypeOptions));
+                        return runtypeOptions.map(type => (
                         <Button
                           key={type}
                           size="small"
                           type={getFieldValue('runtype') === type ? 'primary' : 'default'}
                           onClick={() => setFieldsValue({ runtype: type })}
-                          style={{ textAlign: 'left', justifyContent: 'flex-start' }}
-                        >
+                                                  >
                           {type}
                         </Button>
-                      ))}
+                        ));
+                      })()}
                     </div>
                   )}
                 </Form.Item>
@@ -735,7 +694,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           </Col>
         </Row>
 
-        <Row gutter={6} style={{ marginBottom: '6px' }}>
+        <Row gutter={6} >
           <Col span={24}>
             <Card title="Strategy" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="strategy_arg">
@@ -745,13 +704,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                       <div>
                         {strategies && strategies.length > 0 ? (
                           <>
-                            <div style={{ 
-                              display: 'grid', 
-                              gridTemplateColumns: 'repeat(4, 1fr)', 
-                              gap: '6px',
-                              marginBottom: '12px'
-                            }}>
-                              {displayedStrategies.map((strategy: string) => (
+                            <div>
+                              {(() => {
+                                console.log('[DEBUG] OverviewTab.tsx:704 - About to map displayedStrategies:', displayedStrategies, 'Type:', typeof displayedStrategies, 'IsArray:', Array.isArray(displayedStrategies));
+                                return displayedStrategies.map((strategy: string) => (
                                 <Tooltip
                                   key={strategy}
                                   title={renderStrategyTooltip(strategy)}
@@ -766,27 +722,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                                     size="small"
                                     type={getFieldValue('strategy_arg') === strategy ? 'primary' : 'default'}
                                     onClick={() => setFieldsValue({ strategy_arg: strategy })}
-                                    style={{ 
-                                      textAlign: 'left', 
-                                      justifyContent: 'flex-start',
-                                      minHeight: '32px',
-                                      width: '100%'
-                                    }}
                                   >
                                     {strategy}
                                   </Button>
                                 </Tooltip>
-                              ))}
+                                ));
+                              })()}
                             </div>
                             
                             {totalPages > 1 && (
-                              <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'center', 
-                                alignItems: 'center', 
-                                gap: '8px',
-                                marginTop: '8px'
-                              }}>
+                              <div>
                                 <Button
                                   size="small"
                                   onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
@@ -794,7 +739,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                                 >
                                   ← Previous
                                 </Button>
-                                <span style={{ fontSize: '12px', color: '#666' }}>
+                                <span>
                                   Page {currentPage + 1} of {totalPages} ({strategies.length} strategies)
                                 </span>
                                 <Button
@@ -819,40 +764,40 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           </Col>
         </Row>
 
-        <Row gutter={6} style={{ marginBottom: '6px' }}>
+        <Row gutter={6} >
           <Col span={24}>
             <Card title="Target" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="target_file">
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue, setFieldsValue }) => (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    <div >
                       <Button
                         size="small"
                         type={getFieldValue('target_file') === 'download' ? 'primary' : 'default'}
                         onClick={() => setFieldsValue({ target_file: 'download' })}
-                        style={{ textAlign: 'left', justifyContent: 'flex-start' }}
-                      >
+                                              >
                         Download (Live Data)
                       </Button>
                       <Button
                         size="small"
                         type={getFieldValue('target_file') === '' ? 'primary' : 'default'}
                         onClick={() => setFieldsValue({ target_file: '' })}
-                        style={{ textAlign: 'left', justifyContent: 'flex-start' }}
-                      >
+                                              >
                         None
                       </Button>
-                      {dataFiles && dataFiles.length > 0 ? dataFiles.map((file: string) => (
-                        <Button
-                          key={file}
-                          size="small"
-                          type={getFieldValue('target_file') === file ? 'primary' : 'default'}
-                          onClick={() => setFieldsValue({ target_file: file })}
-                          style={{ textAlign: 'left', justifyContent: 'flex-start' }}
-                        >
-                          {file}
-                        </Button>
-                      )) : null}
+                      {dataFiles && Array.isArray(dataFiles) && dataFiles.length > 0 ? (() => {
+                        console.log('[DEBUG] OverviewTab.tsx:781 - About to map dataFiles:', dataFiles, 'Type:', typeof dataFiles, 'IsArray:', Array.isArray(dataFiles));
+                        return dataFiles.map((file: string) => (
+                          <Button
+                            key={file}
+                            size="small"
+                            type={getFieldValue('target_file') === file ? 'primary' : 'default'}
+                            onClick={() => setFieldsValue({ target_file: file })}
+                          >
+                            {file}
+                          </Button>
+                        ));
+                      })() : null}
                     </div>
                   )}
                 </Form.Item>
@@ -861,11 +806,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           </Col>
         </Row>
 
-        <Row gutter={6} style={{ marginBottom: '6px' }}>
+        <Row gutter={6} >
           <Col span={12}>
             <Card title="Start Index" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="start">
-                <InputNumber min={0} size="large" style={{ width: '100%' }} />
+                <InputNumber min={0} size="large"  />
               </Form.Item>
             </Card>
           </Col>
@@ -873,13 +818,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           <Col span={12}>
             <Card title="Random Drop %" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="random_drop_chance">
-                <InputNumber min={0} max={100} size="large" style={{ width: '100%' }} />
+                <InputNumber min={0} max={100} size="large"  />
               </Form.Item>
             </Card>
           </Col>
         </Row>
 
-        <Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
+        <Row gutter={[16, 16]} >
           <Col span={12}>
             <Card title="Slippage %" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="slippage_pct">
@@ -889,7 +834,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                   step={0.001} 
                   precision={3}
                   size="large" 
-                  style={{ width: '100%' }} 
+                   
                   placeholder="0.010 (1%)"
                 />
               </Form.Item>
