@@ -67,8 +67,8 @@ let get env =
       |> Option.map Longleaf_server__Plotly.performance_graph_with_orders
       |> function
       | None ->
-        Dream.respond ~status:`Bad_Request
-          "Unable to get state performance history"
+        `Assoc [ ("error", `String "mutices not set") ]
+        |> Yojson.Safe.to_string |> Dream.json
       | Some j -> Yojson.Safe.to_string j |> Dream.json );
     ( Dream.get "/settings" @@ fun _ ->
       Settings.yojson_of_t Settings.settings
