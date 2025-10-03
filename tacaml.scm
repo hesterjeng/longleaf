@@ -5,6 +5,8 @@
              ((guix licenses) #:prefix license:)
              (gnu packages ocaml)
              (gnu packages pkg-config)
+             (guix gexp)
+             (gnu packages finance)
              (gnu packages maths))
 
 (package

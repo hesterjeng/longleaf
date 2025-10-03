@@ -13,7 +13,11 @@
              (gnu packages curl)
              (gnu packages node)
              (gnu packages maths)
-             (gnu packages finance))
+             (gnu packages finance)
+             (gnu packages libffi))
+
+;; Load updated ctypes package
+(load "ocaml-ctypes.scm")
 
 ;; Define tacaml package
 (define-public tacaml
@@ -31,7 +35,7 @@
    (propagated-inputs
     (list ocaml
           dune
-          ocaml-ctypes
+          ocaml-ctypes-latest
           ocaml-ppx-deriving
           ocaml-ppx-hash
           ta-lib
