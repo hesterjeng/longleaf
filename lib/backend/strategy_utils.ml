@@ -77,6 +77,10 @@ end = struct
                let* nmo = Backend.next_market_open () in
                match nmo with
                | None ->
+                 if options.flags.print_tick_arg then
+                   Eio.traceln "strategy_utils: ticking %d %a" (State.tick state)
+                     (Option.pp Time.pp)
+                     (Eio.Time.now env#clock |> Ptime.of_float_s);
                  Ticker.tick ~runtype env Input.options.tick;
                  Result.return ()
                | Some open_time ->
