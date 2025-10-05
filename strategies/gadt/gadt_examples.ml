@@ -158,8 +158,10 @@ let pflurple_kelly =
        buy_trigger = cross_up ema sma;
        (* Sell when fast EMA crosses below slow SMA *)
        sell_trigger = cross_down ema sma;
-       max_positions = 16; (* More diversification *)
-       position_size = 0.125; (* 12.5% per position = 200% max allocation *)
+       max_positions = 16;
+       (* More diversification *)
+       position_size = 0.125;
+       (* 12.5% per position = 200% max allocation *)
      }
 
 let pflurple_conservative =
@@ -173,8 +175,10 @@ let pflurple_conservative =
        buy_trigger = cross_up ema sma;
        (* Sell when fast EMA crosses below slow SMA *)
        sell_trigger = cross_down ema sma;
-       max_positions = 20; (* Maximum diversification *)
-       position_size = 0.08; (* 8% per position = 160% max allocation *)
+       max_positions = 20;
+       (* Maximum diversification *)
+       position_size = 0.08;
+       (* 8% per position = 160% max allocation *)
      }
 
 let pflurple_enhanced =
@@ -187,9 +191,11 @@ let pflurple_enhanced =
        (* Buy when EMA crosses SMA AND momentum is positive *)
        buy_trigger = cross_up ema sma &&. (Real.mom 10 () >. Const (0.0, Float));
        (* Sell when EMA crosses below SMA OR momentum turns negative *)
-       sell_trigger = cross_down ema sma ||. (Real.mom 10 () <. Const (-1.0, Float));
+       sell_trigger =
+         cross_down ema sma ||. (Real.mom 10 () <. Const (-1.0, Float));
        max_positions = 12;
-       position_size = 0.15; (* 15% per position = 180% max allocation *)
+       position_size = 0.15;
+       (* 15% per position = 180% max allocation *)
      }
 
 let mean_reversion_lag =

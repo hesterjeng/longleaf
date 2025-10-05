@@ -41,7 +41,8 @@ module Buy_trigger = struct
         the position.*)
 
     val position_size : float
-    (** The fraction of total portfolio value to allocate to each position (e.g., 0.25 = 25%).*)
+    (** The fraction of total portfolio value to allocate to each position
+        (e.g., 0.25 = 25%).*)
   end
 
   (** Functor whose result is used to instantiate the strategy template. *)
@@ -97,7 +98,7 @@ module Make
     let ( let* ) = Result.( let* ) in
     let current_cash = State.cash state in
     let* total_portfolio_value = State.value state in
-    let pct = (position_size /. Float.of_int (List.length selected)) in
+    let pct = position_size /. Float.of_int (List.length selected) in
     assert (pct >=. 0.0 && pct <=. 1.0);
     let@ state f = List.fold_left f (Ok state) selected in
     fun (signal : Signal.t) ->
@@ -192,7 +193,9 @@ module Make
       (* @@ (State.Core.get_active_orders state.trading_state *)
       (*    |> List.map (fun (r : State.Order_record.t) -> r.order)) *)
     in
-    let* complete = buy ~position_size:Buy.position_size ~held_symbols sold_state in
+    let* complete =
+      buy ~position_size:Buy.position_size ~held_symbols sold_state
+    in
     Result.return complete
   (* { complete with tick = complete.tick + 1 } *)
 
