@@ -176,6 +176,7 @@ end = struct
 
     let output_order_history (_state : State.t) filename =
       if options.flags.save_to_file then (
+        Eio.traceln "@[Outputting order history to filename %s@]@." filename;
         let json_str =
           `List [] |> Yojson.Safe.to_string
           (* TODO: get order history from trading_state *)
