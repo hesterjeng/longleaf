@@ -130,7 +130,8 @@ end = struct
     | Error e -> Error e
 
   (* Convert GADT strategy to Template-compatible modules *)
-  let gadt_to_buy_trigger (buy_expr : bool Gadt.t) (max_positions : int) (position_size : float) =
+  let gadt_to_buy_trigger (buy_expr : bool Gadt.t) (max_positions : int)
+      (position_size : float) =
     let module Buy_input : Longleaf_template.Buy_trigger.INPUT = struct
       let pass state symbol = eval_strategy_signal buy_expr state symbol
       let score _state _symbol = Result.return 1.0
@@ -148,7 +149,8 @@ end = struct
 
   let top (strategy : t) =
     let buy_trigger =
-      gadt_to_buy_trigger strategy.buy_trigger strategy.max_positions strategy.position_size
+      gadt_to_buy_trigger strategy.buy_trigger strategy.max_positions
+        strategy.position_size
     in
     let sell_trigger = gadt_to_sell_trigger strategy.sell_trigger in
     let module StrategyBuilder =

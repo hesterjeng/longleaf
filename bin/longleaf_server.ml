@@ -69,14 +69,17 @@ let get env =
       |> function
       | None ->
         (* Return empty but valid performance data structure instead of error *)
-        `Assoc [
-          ("traces", `List []);
-          ("layout", `Assoc [
-            ("title", `String "Portfolio Performance");
-            ("xaxis", `Assoc [("title", `String "Time")]);
-            ("yaxis", `Assoc [("title", `String "Value")])
-          ])
-        ]
+        `Assoc
+          [
+            ("traces", `List []);
+            ( "layout",
+              `Assoc
+                [
+                  ("title", `String "Portfolio Performance");
+                  ("xaxis", `Assoc [ ("title", `String "Time") ]);
+                  ("yaxis", `Assoc [ ("title", `String "Value") ]);
+                ] );
+          ]
         |> Yojson.Safe.to_string |> Dream.json
       | Some j -> Yojson.Safe.to_string j |> Dream.json );
     ( Dream.get "/settings" @@ fun _ ->
@@ -88,9 +91,14 @@ let get env =
         Longleaf_util.Pmutex.set mutices.shutdown_mutex true)
       |> function
       | None ->
-        `Assoc [ ("error", `String "Unable to get shutdown mutex at shutdown endpoint") ]
-        |> Yojson.Safe.to_string |> Dream.json ~status:`Bad_Request
-      | Some () -> 
+        `Assoc
+          [
+            ( "error",
+              `String "Unable to get shutdown mutex at shutdown endpoint" );
+          ]
+        |> Yojson.Safe.to_string
+        |> Dream.json ~status:`Bad_Request
+      | Some () ->
         `Assoc [ ("message", `String "shutdown mutex set") ]
         |> Yojson.Safe.to_string |> Dream.json );
     ( Dream.get "/data" @@ fun _ ->
@@ -98,7 +106,7 @@ let get env =
       |> List.filter (fun x -> not @@ String.is_empty x)
       |> List.map (fun x -> `String x)
       |> fun x -> `List x |> Yojson.Safe.to_string |> Dream.json );
-    ( Dream.get "/options" @@ fun _ -> 
+    ( Dream.get "/options" @@ fun _ ->
       `Assoc [ ("message", `String "Show configured options") ]
       |> Yojson.Safe.to_string |> Dream.json );
     ( Dream.get "/strategies" @@ fun _ ->
@@ -126,7 +134,12 @@ let get env =
         in
         Yojson.Safe.to_string strategy_info |> Dream.json
       | None ->
-        `Assoc [ ("error", `String (Printf.sprintf "Strategy '%s' not found" strategy_name)) ]
+        `Assoc
+          [
+            ( "error",
+              `String (Printf.sprintf "Strategy '%s' not found" strategy_name)
+            );
+          ]
         |> Yojson.Safe.to_string |> Dream.json );
     ( Dream.get "/symbols" @@ fun _ ->
       Option.Infix.(
@@ -154,14 +167,17 @@ let get env =
         Dream.error (fun log ->
             log "failed to get mutices or plotly json for instrument");
         (* Return empty but valid chart data structure instead of error *)
-        `Assoc [
-          ("traces", `List []);
-          ("layout", `Assoc [
-            ("title", `String ("Chart for " ^ symbol_str));
-            ("xaxis", `Assoc [("title", `String "Time")]);
-            ("yaxis", `Assoc [("title", `String "Price")])
-          ])
-        ]
+        `Assoc
+          [
+            ("traces", `List []);
+            ( "layout",
+              `Assoc
+                [
+                  ("title", `String ("Chart for " ^ symbol_str));
+                  ("xaxis", `Assoc [ ("title", `String "Time") ]);
+                  ("yaxis", `Assoc [ ("title", `String "Price") ]);
+                ] );
+          ]
         |> Yojson.Safe.to_string |> Dream.json
       | Some j -> Yojson.Safe.to_string j |> Dream.json );
     ( Dream.get "/tearsheet" @@ fun _ ->
@@ -256,9 +272,10 @@ let post =
         `Assoc [ ("message", `String "Set status") ]
         |> Yojson.Safe.to_string |> Dream.json
       with
-      | e -> 
+      | e ->
         `Assoc [ ("error", `String (Printexc.to_string e)) ]
-        |> Yojson.Safe.to_string |> Dream.json ~status:`Not_Acceptable );
+        |> Yojson.Safe.to_string
+        |> Dream.json ~status:`Not_Acceptable );
     ( Dream.post "/set_target" @@ fun request ->
       let* target_str = Dream.body request in
       let target =
@@ -285,9 +302,10 @@ let post =
         Settings.settings.target <- target;
         `Assoc [ ("message", `String "settings.cli_vars.strategy_arg set") ]
         |> Yojson.Safe.to_string |> Dream.json
-      | Error e -> 
+      | Error e ->
         `Assoc [ ("error", `String (Error.show e)) ]
-        |> Yojson.Safe.to_string |> Dream.json ~status:`Not_Acceptable );
+        |> Yojson.Safe.to_string
+        |> Dream.json ~status:`Not_Acceptable );
     ( Dream.post "/set_strategy" @@ fun request ->
       let* body = Dream.body request in
       let strategy_arg =
@@ -302,8 +320,10 @@ let post =
         `Assoc [ ("message", `String "settings.cli_vars.strategy_arg set") ]
         |> Yojson.Safe.to_string |> Dream.json
       | false ->
-        `Assoc [ ("error", `String "Could not find strategy in data directory") ]
-        |> Yojson.Safe.to_string |> Dream.json ~status:`Not_Acceptable );
+        `Assoc
+          [ ("error", `String "Could not find strategy in data directory") ]
+        |> Yojson.Safe.to_string
+        |> Dream.json ~status:`Not_Acceptable );
     ( Dream.post "/set_runtype" @@ fun request ->
       let* body = Dream.body request in
       try
@@ -314,8 +334,10 @@ let post =
         |> Yojson.Safe.to_string |> Dream.json
       with
       | _ ->
-        `Assoc [ ("error", `String "Could not find strategy in data directory") ]
-        |> Yojson.Safe.to_string |> Dream.json ~status:`Not_Acceptable );
+        `Assoc
+          [ ("error", `String "Could not find strategy in data directory") ]
+        |> Yojson.Safe.to_string
+        |> Dream.json ~status:`Not_Acceptable );
     ( Dream.post "/set_cli" @@ fun request ->
       let* body = Dream.body request in
       try
@@ -325,8 +347,10 @@ let post =
         |> Yojson.Safe.to_string |> Dream.json
       with
       | _ ->
-        `Assoc [ ("error", `String "Could not find strategy in data directory") ]
-        |> Yojson.Safe.to_string |> Dream.json ~status:`Not_Acceptable );
+        `Assoc
+          [ ("error", `String "Could not find strategy in data directory") ]
+        |> Yojson.Safe.to_string
+        |> Dream.json ~status:`Not_Acceptable );
   ]
 
 let handler env : Dream.handler = Dream.router @@ get env @ post
