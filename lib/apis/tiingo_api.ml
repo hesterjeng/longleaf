@@ -1,6 +1,6 @@
 module Bars = Longleaf_bars
 module Data = Bars.Data
-module Headers = Piaf.Headers
+module Headers = Cohttp.Header
 (* module Hashtbl = Bars.Hashtbl *)
 
 type item = {
@@ -39,15 +39,8 @@ let t_of_yojson (l : Yojson.Safe.t) =
   | `Null -> Result.fail @@ `JsonError "Got `Null from Tiingo_api"
   | _ -> Result.fail @@ `JsonError "Expected a list in Tiingo_api.t_of_yojson"
 
-let tiingo_client eio_env sw =
-  let res =
-    Piaf.Client.create ~sw eio_env @@ Uri.of_string "https://api.tiingo.com"
-  in
-  match res with
-  | Ok x -> x
-  | Error s ->
-    Eio.traceln "%a" Piaf.Error.pp_hum s;
-    invalid_arg "Unable to create Tiingo client"
+let tiingo_client eio_env _sw =
+  Cohttp_eio.Client.make ~https:(Some (Eio.Stdenv.secure_random eio_env, Eio.Stdenv.tls eio_env)) (Eio.Stdenv.net eio_env)
 
 module Make (Tiingo : Client.CLIENT) = struct
   let client = Tiingo.client

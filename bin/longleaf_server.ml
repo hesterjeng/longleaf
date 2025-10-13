@@ -216,33 +216,17 @@ let get env =
           let ( let* ) = Lwt.Syntax.( let* ) in
           let* response =
             Lwt_eio.run_eio @@ fun () ->
-            Eio.Switch.run @@ fun sw ->
-            let client =
-              match
-                Piaf.Client.create ~sw env
-                  (Uri.of_string "http://localhost:5000")
-              with
-              | Ok client -> client
-              | Error e ->
-                invalid_arg
-                @@ Format.asprintf "Failed to create client: %a"
-                     Piaf.Error.pp_hum e
-            in
+            let client = Cohttp_eio.Client.make (Eio.Stdenv.net env) in
             let headers =
-              Piaf.Headers.of_list [ ("Content-Type", "application/json") ]
+              Cohttp.Header.of_list [ ("Content-Type", "application/json") ]
             in
             let body = Yojson.Safe.from_string request in
             let resp =
-              Longleaf_apis.Tools.post_piaf ~client ~body ~headers
-                ~endpoint:"/tearsheet"
+              Longleaf_apis.Tools.post_cohttp ~client ~body ~headers
+                ~endpoint:"http://localhost:5000/tearsheet"
             in
-            let body = Piaf.Response.body resp in
-            match Piaf.Body.to_string body with
-            | Ok html_content -> html_content
-            | Error e ->
-              invalid_arg
-              @@ Format.asprintf "Failed to read response body: %a"
-                   Piaf.Error.pp_hum e
+            let body_str = Cohttp_eio.Body.to_string (Cohttp.Response.body resp) in
+            body_str
           in
           Dream.respond ~status:`OK
             ~headers:[ ("Content-Type", "text/html") ]

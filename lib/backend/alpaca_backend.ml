@@ -19,17 +19,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let received_data = Bars.empty ()
 
   let trading_client =
-    let res =
-      let ty =
-        match opts.flags.runtype with
-        | Live -> `Live
-        | _ -> `Paper
-      in
-      Piaf.Client.create ~sw:switch env @@ Util.apca_api_base_url ty
-    in
-    match res with
-    | Ok x -> x
-    | Error _ -> invalid_arg "Unable to create trading client"
+    Cohttp_eio.Client.make ~https:(Some (Eio.Stdenv.secure_random env, Eio.Stdenv.tls env)) (Eio.Stdenv.net env)
 
   let tiingo_client = Tiingo_api.tiingo_client env switch
 
@@ -41,10 +31,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   module Tiingo = Tiingo_api.Make (Tiingo_client)
 
   let data_client =
-    let res = Piaf.Client.create ~sw:switch env Util.apca_api_data_url in
-    match res with
-    | Ok x -> x
-    | Error _ -> invalid_arg "Unable to create data client"
+    Cohttp_eio.Client.make ~https:(Some (Eio.Stdenv.secure_random env, Eio.Stdenv.tls env)) (Eio.Stdenv.net env)
 
   let get_trading_client _ = Ok trading_client
   let get_data_client _ = Ok data_client
@@ -89,9 +76,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let shutdown () =
     Eio.traceln "Alpaca backend shutdown";
-    Piaf.Client.shutdown trading_client;
-    Piaf.Client.shutdown data_client;
-    Piaf.Client.shutdown tiingo_client;
+    (* cohttp-eio clients don't require explicit shutdown *)
     ()
 
   let symbols = List.map Instrument.security Input.options.symbols

@@ -13,7 +13,8 @@
   iter
   uuidm
   landmarks
-  piaf)
+  cohttp
+  cohttp-eio)
  (preprocess
   (pps
    ppx_deriving.std

@@ -1,6 +1,3 @@
-type piaf_error = (Piaf.Error.t[@printer Piaf.Error.pp_hum] [@yojson.opaque])
-[@@deriving yojson_poly, show]
-
 type t =
   [ `MissingData of string
   | `MissingClient of string
@@ -8,7 +5,7 @@ type t =
   | `JsonError of string
   | `Finished of string
   | `TALibCode of int
-  | piaf_error
+  | `Msg of string
   | `FatalError of string ]
 [@@deriving show { with_path = false }, yojson]
 

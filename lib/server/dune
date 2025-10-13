@@ -14,7 +14,8 @@
   containers-data
   ptime
   eio_main
-  piaf
+  cohttp
+  cohttp-eio
   tyxml
   ; lwt_eio
   ; dream

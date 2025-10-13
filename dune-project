@@ -30,7 +30,8 @@
   containers-data
   ocamlgraph
   eio_main
-  piaf
+  cohttp
+  cohttp-eio
   tacaml
   fileutils
   ocamlformat

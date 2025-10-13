@@ -23,7 +23,8 @@
   cmdliner
   landmarks
   tacaml
-  piaf
+  cohttp
+  cohttp-eio
   yojson)
  (preprocess
   (pps

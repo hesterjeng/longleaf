@@ -61,13 +61,13 @@ handling with Result types.")
 (package
  (name "longleaf")
  (version "1.0.3")
- (source (local-file "." "longleaf-checkout"
-                     #:recursive? #t
-                     #:select? (git-predicate ".")))
+ ;; (source (local-file "." "longleaf-checkout"
+ ;;                     #:recursive? #t
+ ;;                     #:select? (git-predicate ".")))
  (build-system dune-build-system)
- (arguments
-  `(#:package "longleaf-lib,longleaf-strategies"
-    #:test-target "."))
+ ;; (arguments
+ ;;  `(#:package "longleaf-lib,longleaf-strategies"
+ ;;    #:test-target "."))
  (native-inputs
   (list ocaml-alcotest ocaml-odoc))
  (propagated-inputs
@@ -87,12 +87,6 @@ handling with Result types.")
         ocaml-uuidm
         ocaml-tyxml
         ocaml-alcotest
-        ;; System dependencies
-        pkg-config
-        zlib
-        openssl
-        curl
-        git
         ;; Frontend
         longleaf-frontend-dev
         ;; Analytics server

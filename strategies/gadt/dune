@@ -16,7 +16,8 @@
   containers-data
   ptime
   eio_main
-  piaf
+  cohttp
+  cohttp-eio
   yojson)
  (preprocess
   (pps

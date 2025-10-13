@@ -12,7 +12,8 @@
   ptime
   uuidm
   cmdliner
-  piaf
+  cohttp
+  cohttp-eio
   tacaml
   yojson)
  (preprocess

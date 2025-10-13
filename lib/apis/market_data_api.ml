@@ -1,5 +1,5 @@
 open Trading_types
-module Headers = Piaf.Headers
+module Headers = Cohttp.Header
 module Util = Longleaf_util
 module Bars = Longleaf_bars
 
@@ -166,7 +166,7 @@ module Make (Alpaca : Client.CLIENT) = struct
         =
       let ( let* ) = Result.( let* ) in
       let headers =
-        Piaf.Headers.of_list
+        Cohttp.Header.of_list
           [
             ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
             ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);

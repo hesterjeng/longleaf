@@ -1,7 +1,7 @@
 open Trading_types
-module Headers = Piaf.Headers
-module Response = Piaf.Response
-module Status = Piaf.Status
+module Headers = Cohttp.Header
+module Response = Cohttp.Response
+module Status = Cohttp.Code
 module Util = Longleaf_util
 module Pmutex = Longleaf_util.Pmutex
 
@@ -162,34 +162,40 @@ module Make (Alpaca : Client.CLIENT) = struct
       let response = post ~headers ~body ~endpoint in
       match Response.status response with
       | `OK ->
-        Response.body response |> Piaf.Body.to_string |> ( function
-        | Ok x ->
-          let json = Yojson.Safe.from_string x in
+        (try
+          let body_str = Cohttp_eio.Body.to_string (Response.body response) in
+          let json = Yojson.Safe.from_string body_str in
           Eio.traceln "@[response from create_market_order:@[%a@]@.@]@."
             Yojson.Safe.pp json;
           let response_t = response_of_yojson json in
           Pmutex.set order.id response_t.id;
           Pmutex.set order.status response_t.status;
           Ok ()
-        | Error e ->
+        with
+        | e ->
           Eio.traceln
-            "@[Error when converting create_market_order reponse body to \
-             string: %a@]@."
-            Piaf.Error.pp_hum e;
+            "@[Error when converting create_market_order response body to \
+             string: %s@]@."
+            (Printexc.to_string e);
           Result.fail
           @@ `FatalError
-               "Error converting create_market_order response body to string" )
+               "Error converting create_market_order response body to string")
       | s ->
-        Eio.traceln "@[[error] Status %a in create_market_order@]@."
-          Status.pp_hum s;
+        Eio.traceln "@[[error] Status %s in create_market_order@]@."
+          (Status.string_of_status s);
         Eio.traceln "@[Order: %a@]@." Order.pp order;
         let _ =
           let+ account = Accounts.get_account () in
           Eio.traceln "@[Account: %a@]@." Accounts.pp account;
-          let+ body = Response.body response |> Piaf.Body.to_string in
-          Eio.traceln "@[Body: %s@]@." body
+          (try
+            let body_str = Cohttp_eio.Body.to_string (Response.body response) in
+            Eio.traceln "@[Body: %s@]@." body_str;
+            Ok ()
+          with
+          | e ->
+            Eio.traceln "@[Error reading body: %s@]@." (Printexc.to_string e);
+            Ok ())
         in
-        Eio.traceln "@[Response: %a@]@." Response.pp_hum response;
         Result.fail @@ `FatalError "Bad response in create_market_order"
 
     let get_all_orders () =
