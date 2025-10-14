@@ -12,6 +12,7 @@
              (gnu packages tmux)
              (gnu packages shellutils)
              (gnu packages maths)
+             (gnu packages finance)
              (gnu packages databases)
              (gnu packages libevent)
              (gnu packages python-web)
