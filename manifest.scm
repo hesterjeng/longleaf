@@ -45,6 +45,7 @@
   python-peewee
   python-ipython
   nlopt
+  ta-lib
   libev
   ;; Process orchestration
   tmux
