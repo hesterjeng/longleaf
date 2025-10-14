@@ -19,8 +19,8 @@
   longleaf-lib
   longleaf-strategies
   landmarks
-  lwt_eio
-  dream
+  cohttp
+  cohttp-eio
   eio_main)
  ; (preprocess
  ;  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
