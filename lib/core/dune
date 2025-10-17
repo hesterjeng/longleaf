@@ -2,8 +2,6 @@
  (name longleaf_core)
  (modules :standard)
  (public_name longleaf-lib.core)
- (instrumentation
-  (backend landmarks))
  (libraries
   longleaf_util
   fmt

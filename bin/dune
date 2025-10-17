@@ -6,8 +6,6 @@
   longleaf_shutdown
   longleaf_server)
  (package longleaf-strategies)
- (instrumentation
-  (backend landmarks))
  (libraries
   fmt
   fmt.tty
@@ -18,14 +16,14 @@
   yojson
   longleaf-lib
   longleaf-strategies
-  landmarks
+  
   cohttp
   cohttp-eio
   eio_main)
  ; (preprocess
- ;  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
+ ;  (pps ppx_deriving.std ppx_yojson_conv  --auto)))
  (preprocess
-  (pps ppx_deriving.std ppx_yojson_conv landmarks-ppx --auto)))
+  (pps ppx_deriving.std ppx_yojson_conv)))
 
 (env
  (dev

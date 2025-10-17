@@ -2,8 +2,8 @@
  (name longleaf_backend)
  (modules :standard)
  (public_name longleaf-lib.backend)
- (instrumentation
-  (backend landmarks))
+ ; (instrumentation
+ ;  (backend landmarks))
  (libraries
   longleaf_core
   longleaf_util
@@ -16,7 +16,6 @@
   containers-data
   ptime
   eio_main
-  landmarks
   yojson)
  (preprocess
   (pps

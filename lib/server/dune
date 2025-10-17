@@ -2,8 +2,6 @@
  (name longleaf_server)
  (modules :standard)
  (public_name longleaf-lib.server)
- (instrumentation
-  (backend landmarks))
  (libraries
   longleaf_core
   longleaf_util

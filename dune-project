@@ -25,7 +25,7 @@
   ppx_variants_conv
   ppx_fields_conv
   cmdliner
-  landmarks
+  ;
   iter
   containers-data
   ocamlgraph
@@ -35,7 +35,7 @@
   tacaml
   fileutils
   ocamlformat
-  landmarks-ppx
+  ;
   yojson
   uuidm
   tyxml

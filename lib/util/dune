@@ -2,8 +2,6 @@
  (name longleaf_util)
  (modules :standard)
  (public_name longleaf-lib.util)
- (instrumentation
-  (backend landmarks))
  (libraries
   fmt
   containers
@@ -12,7 +10,7 @@
   eio_main
   iter
   uuidm
-  landmarks
+  ; landmarks
   cohttp
   cohttp-eio)
  (preprocess

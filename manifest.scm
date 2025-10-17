@@ -18,41 +18,57 @@
              (gnu packages python-web)
              (gnu packages python-science)
              (gnu packages multiprecision)
+             (gnu packages ocaml)
+             (gnu packages longleaf)
              (gnu packages node))
 
-;; Load QuantStats server package
-(load "tearsheets/longleaf-quantstats.scm")
-
-;; Load React frontend package  
-(load "react/longleaf-frontend.scm")
-
-;; Warning message
-(format #t "~%WARNING: This manifest provides frontend and tearsheets dependencies only.~%")
-(format #t "~%OCaml is not handled by Guix yet.~%")
-
 ;; Create manifest with development packages and system dependencies
+;; (packages->manifest
+;;  (list ;; Frontend and tearsheets
+;;   ;; longleaf-quantstats-dev
+;;   ;; longleaf-frontend-dev
+;;   ;; Python web framework
+;;   python
+;;   direnv
+;;   gmp
+;;   python-fastapi
+;;   python-uvicorn
+;;   python-frozendict
+;;   python-wrapper
+;;   python-peewee
+;;   python-ipython
+;;   nlopt
+;;   ta-lib
+;;   libev
+;;   ;; Process orchestration
+;;   tmux
+;;   ;; System dependencies
+;;   pkg-config
+;;   zlib
+;;   openssl
+;;   curl
+;;   git
+;;   ))
+
 (packages->manifest
- (list ;; Frontend and tearsheets
-  longleaf-quantstats-dev
-  longleaf-frontend-dev
-  ;; Python web framework
-  python
-  direnv
-  gmp
-  python-fastapi
-  python-uvicorn
-  python-frozendict
-  python-wrapper
-  python-peewee
-  python-ipython
-  nlopt
-  ta-lib
-  libev
-  ;; Process orchestration
-  tmux
-  ;; System dependencies
-  pkg-config
-  zlib
-  openssl
-  curl
-  git))
+ (list
+   ocaml-ptime
+   ocaml-ppx-yojson-conv-lib
+   ocaml-ppx-deriving
+   ocaml-ppx-variants-conv
+   ocaml-ppx-fields-conv
+   ocaml-cmdliner
+   ocaml-graph
+   ocaml-eio-main
+   ocaml-tacaml
+   ocaml-fileutils
+   ocaml-yojson
+   ocaml-uuidm
+   ocaml-tyxml
+   ocaml-cohttp-eio
+   ocaml-ppx-yojson-conv
+   python-quantstats
+   python-yfinance
+   python-multitasking
+   nlopt
+   node))
