@@ -49,26 +49,33 @@
 ;;   curl
 ;;   git
 ;;   ))
-
-(packages->manifest
- (list
-   ocaml-ptime
-   ocaml-ppx-yojson-conv-lib
-   ocaml-ppx-deriving
-   ocaml-ppx-variants-conv
-   ocaml-ppx-fields-conv
-   ocaml-cmdliner
-   ocaml-graph
-   ocaml-eio-main
-   ocaml-tacaml
-   ocaml-fileutils
-   ocaml-yojson
-   ocaml-uuidm
-   ocaml-tyxml
-   ocaml-cohttp-eio
-   ocaml-ppx-yojson-conv
-   python-quantstats
-   python-yfinance
-   python-multitasking
-   nlopt
-   node))
+(specifications->manifest
+  (list "emacs-lsp-mode"
+        "emacs-lsp-ui"
+        "emacs-tuareg"
+        "ocaml-merlin"
+        "ocaml-lsp-server"
+        "ocaml"
+        "dune"
+        "ocamlformat"
+        "ocaml-nlopt"
+        "ocaml-ptime"
+        "ocaml-ppx-yojson-conv-lib"
+        "ocaml-ppx-deriving"
+        "ocaml-ppx-variants-conv"
+        "ocaml-ppx-fields-conv"
+        "ocaml-cmdliner"
+        "ocaml-graph"
+        "ocaml-eio-main"
+        "ocaml-tacaml"
+        "ocaml-fileutils"
+        "ocaml-yojson"
+        "ocaml-uuidm"
+        "ocaml-tyxml"
+        "ocaml-cohttp-eio"
+        "ocaml-ppx-yojson-conv"
+        "python-quantstats"
+        "python-yfinance"
+        "python-multitasking"
+        "nlopt"
+        "node"))
