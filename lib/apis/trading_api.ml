@@ -146,8 +146,8 @@ module Make (Alpaca : Client.CLIENT) = struct
     [@@deriving show { with_path = false }, yojson]
     [@@yojson.allow_extra_fields]
 
-    let create_market_order (order : Order.t) =
-      let ( let+ ) = Result.( let+ ) in
+    let create_market_order (order : Order.t) : (unit, _) result =
+      let ( let* ) = Result.( let* ) in
       let endpoint = "/v2/orders" in
       let body : Yojson.Safe.t =
         `Assoc
@@ -159,8 +159,8 @@ module Make (Alpaca : Client.CLIENT) = struct
             ("qty", `String (Int.to_string order.qty));
           ]
       in
-      let+ response = post ~headers ~body ~endpoint in
-      let+ response_t =
+      let* response = post ~headers ~body ~endpoint in
+      let* response_t =
         try Ok (response_of_yojson response) with
         | _ ->
           Error.fatal "Error converting create market order response to json"
@@ -168,6 +168,7 @@ module Make (Alpaca : Client.CLIENT) = struct
       Pmutex.set order.id response_t.id;
       Pmutex.set order.status response_t.status;
       Ok ()
+
     (* match Response.status response with *)
     (* | `OK -> *)
     (*   (try *)

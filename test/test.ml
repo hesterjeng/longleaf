@@ -10,7 +10,7 @@ let good_time () =
 let mock_client env =
   (* We'll use a simple mock that doesn't actually make HTTP requests *)
   Cohttp_eio.Client.make
-    ~https:(Some (Eio.Stdenv.secure_random env, Eio.Stdenv.tls env))
+    ~https:None
     (Eio.Stdenv.net env)
 
 (* Test function for get_account *)

@@ -18,10 +18,10 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let save_received = opts.flags.save_received
   let received_data = Bars.empty ()
 
+  open Cohttp_eio
+
   let trading_client =
-    Cohttp_eio.Client.make
-      ~https:(Some (Eio.Stdenv.secure_random env, Eio.Stdenv.tls env))
-      (Eio.Stdenv.net env)
+    Client.make ~https:None (Eio.Stdenv.net env)
 
   let tiingo_client = Tiingo_api.tiingo_client env switch
 
@@ -33,9 +33,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   module Tiingo = Tiingo_api.Make (Tiingo_client)
 
   let data_client =
-    Cohttp_eio.Client.make
-      ~https:(Some (Eio.Stdenv.secure_random env, Eio.Stdenv.tls env))
-      (Eio.Stdenv.net env)
+    Client.make ~https:None (Eio.Stdenv.net env)
 
   let get_trading_client _ = Ok trading_client
   let get_data_client _ = Ok data_client
