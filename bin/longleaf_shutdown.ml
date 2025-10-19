@@ -6,7 +6,8 @@ let () =
     let client = Cohttp_eio.Client.make (Eio.Stdenv.net env) in
     let resp, _body = Cohttp_eio.Client.get client uri in
     let status = Cohttp.Response.status resp in
-    Eio.traceln "@[Response status: %s@]@." (Cohttp.Code.string_of_status status);
+    Eio.traceln "@[Response status: %s@]@."
+      (Cohttp.Code.string_of_status status);
     Eio.traceln "@[Shutdown command sent.@]@.";
     exit 0
   with

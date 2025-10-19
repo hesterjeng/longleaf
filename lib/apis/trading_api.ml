@@ -163,15 +163,15 @@ module Make (Alpaca : Client.CLIENT) = struct
       match Response.status response with
       | `OK ->
         (try
-          let body_str = Cohttp_eio.Body.to_string (Response.body response) in
-          let json = Yojson.Safe.from_string body_str in
-          Eio.traceln "@[response from create_market_order:@[%a@]@.@]@."
-            Yojson.Safe.pp json;
-          let response_t = response_of_yojson json in
-          Pmutex.set order.id response_t.id;
-          Pmutex.set order.status response_t.status;
-          Ok ()
-        with
+           let body_str = Cohttp_eio.Body.to_string (Response.body response) in
+           let json = Yojson.Safe.from_string body_str in
+           Eio.traceln "@[response from create_market_order:@[%a@]@.@]@."
+             Yojson.Safe.pp json;
+           let response_t = response_of_yojson json in
+           Pmutex.set order.id response_t.id;
+           Pmutex.set order.status response_t.status;
+           Ok ()
+         with
         | e ->
           Eio.traceln
             "@[Error when converting create_market_order response body to \
@@ -187,14 +187,14 @@ module Make (Alpaca : Client.CLIENT) = struct
         let _ =
           let+ account = Accounts.get_account () in
           Eio.traceln "@[Account: %a@]@." Accounts.pp account;
-          (try
+          try
             let body_str = Cohttp_eio.Body.to_string (Response.body response) in
             Eio.traceln "@[Body: %s@]@." body_str;
             Ok ()
           with
           | e ->
             Eio.traceln "@[Error reading body: %s@]@." (Printexc.to_string e);
-            Ok ())
+            Ok ()
         in
         Result.fail @@ `FatalError "Bad response in create_market_order"
 

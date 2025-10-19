@@ -40,7 +40,9 @@ let t_of_yojson (l : Yojson.Safe.t) =
   | _ -> Result.fail @@ `JsonError "Expected a list in Tiingo_api.t_of_yojson"
 
 let tiingo_client eio_env _sw =
-  Cohttp_eio.Client.make ~https:(Some (Eio.Stdenv.secure_random eio_env, Eio.Stdenv.tls eio_env)) (Eio.Stdenv.net eio_env)
+  Cohttp_eio.Client.make
+  (* ~https:(Some (Eio.Stdenv.secure_random eio_env, Eio.Stdenv.tls eio_env)) *)
+    ~https:None (Eio.Stdenv.net eio_env)
 
 module Make (Tiingo : Client.CLIENT) = struct
   let client = Tiingo.client

@@ -9,7 +9,9 @@ let good_time () =
 (* (\* Mock cohttp-eio client for testing *\) *)
 let mock_client env =
   (* We'll use a simple mock that doesn't actually make HTTP requests *)
-  Cohttp_eio.Client.make ~https:(Some (Eio.Stdenv.secure_random env, Eio.Stdenv.tls env)) (Eio.Stdenv.net env)
+  Cohttp_eio.Client.make
+    ~https:(Some (Eio.Stdenv.secure_random env, Eio.Stdenv.tls env))
+    (Eio.Stdenv.net env)
 
 (* Test function for get_account *)
 let test_get_account env () =
