@@ -11,22 +11,22 @@ module Ty = struct
   let conv = Cmdliner.Arg.conv (of_string, pp)
 end
 
-let data_client switch eio_env =
-  let res =
-    Piaf.Client.create ~sw:switch eio_env Longleaf_util.apca_api_data_url
-  in
-  match res with
-  | Ok x -> x
-  | Error _ -> invalid_arg "Unable to create data client"
+let data_client eio_env =
+  (* let res = *)
+    Cohttp_eio.Client.make ~https:None eio_env#net
+    (* Piaf.Client.create ~sw:switch eio_env Longleaf_util.apca_api_data_url *)
+  (* match res with *)
+  (* | Ok x -> x *)
+  (* | Error _ -> invalid_arg "Unable to create data client" *)
 
 let download eio_env request (downloader_arg : Ty.t option) afterhours =
   Eio.Switch.run @@ fun switch ->
   let ( let* ) = Result.( let* ) in
   (* Util.yojson_safe true @@ fun () -> *)
   let longleaf_env = Longleaf_core.Environment.make () in
-  let data_client = data_client switch eio_env in
+  (* let data_client = data_client switch eio_env in *)
   let module Conn : Client.CLIENT = struct
-    let client = data_client
+    let client = data_client eio_env
     let longleaf_env = longleaf_env
   end in
   let module MDA = Market_data_api.Make (Conn) in
@@ -46,11 +46,9 @@ let download eio_env request (downloader_arg : Ty.t option) afterhours =
       end in
       let module Tiingo = Tiingo_api.Make (Param) in
       let res = Tiingo.Download.top ~afterhours request in
-      Piaf.Client.shutdown Param.client;
       res
     | None -> invalid_arg "Need to specify downloader type for data_downloader."
   in
-  Piaf.Client.shutdown data_client;
   Result.return bars
 
 let request today timeframe symbols begin_arg end_arg timeframe_arg interval_arg
