@@ -20,13 +20,21 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   open Cohttp_eio
 
-  let trading_client =
-    Client.make ~https:None (Eio.Stdenv.net env)
+  (* Initialize RNG for TLS - must be called before creating HTTPS clients *)
+  let () = Longleaf_apis.Https.init_rng ()
 
-  let tiingo_client = Tiingo_api.tiingo_client env switch
+  (* Create HTTPS wrapper for all clients *)
+  let authenticator = Longleaf_apis.Https.authenticator ()
+  let https = Longleaf_apis.Https.make_https ~authenticator
+
+  let trading_client =
+    Client.make ~https:(Some https) (Eio.Stdenv.net env)
+
+  let tiingo_client =
+    Client.make ~https:(Some https) (Eio.Stdenv.net env)
 
   let data_client =
-    Client.make ~https:None (Eio.Stdenv.net env)
+    Client.make ~https:(Some https) (Eio.Stdenv.net env)
 
   let get_trading_client _ = Ok trading_client
   let get_data_client _ = Ok data_client

@@ -6,11 +6,13 @@ let good_time () =
   let _ = Longleaf_core.Time.of_string "2025-03-03T16:59:00Z" in
   ()
 
-(* (\* Mock cohttp-eio client for testing *\) *)
+(* Mock cohttp-eio client for testing with HTTPS enabled *)
 let mock_client env =
-  (* We'll use a simple mock that doesn't actually make HTTP requests *)
+  let () = Longleaf_apis.Https.init_rng () in
+  let authenticator = Longleaf_apis.Https.authenticator () in
+  let https = Longleaf_apis.Https.make_https ~authenticator in
   Cohttp_eio.Client.make
-    ~https:None
+    ~https:(Some https)
     (Eio.Stdenv.net env)
 
 (* Test function for get_account *)

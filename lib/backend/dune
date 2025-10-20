@@ -16,6 +16,9 @@
   containers-data
   ptime
   eio_main
+  tls-eio
+  x509
+  mirage-crypto-rng
   yojson)
  (preprocess
   (pps

@@ -14,6 +14,9 @@
   eio_main
   cohttp
   cohttp-eio
+  tls-eio
+  x509
+  mirage-crypto-rng
   yojson)
  (preprocess
   (pps
