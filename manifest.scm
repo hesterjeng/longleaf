@@ -18,7 +18,7 @@
              (gnu packages python-web)
              (gnu packages python-science)
              (gnu packages multiprecision)
-             (gnu packages ocaml)
+             (gnu packages longleaf-ocaml)
              (gnu packages longleaf)
              (gnu packages node))
 
@@ -50,11 +50,12 @@
 ;;   git
 ;;   ))
 (specifications->manifest
-  (list "emacs-lsp-mode"
-        "emacs-lsp-ui"
-        "emacs-tuareg"
-        "ocaml-merlin"
-        "ocaml-lsp-server"
+ (list
+  ;; "emacs-lsp-mode"
+  ;;       "emacs-lsp-ui"
+  ;;       "emacs-tuareg"
+  ;;       "ocaml-merlin"
+  ;;       "ocaml-lsp-server"
         "ocaml"
         "dune"
         "ocamlformat"
@@ -77,5 +78,6 @@
         "python-quantstats"
         "python-yfinance"
         "python-multitasking"
+	"python-fastapi"
         "nlopt"
         "node"))
