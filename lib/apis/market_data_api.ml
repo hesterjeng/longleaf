@@ -81,27 +81,32 @@ module Request = struct
       rs
 end
 
-module Make (Alpaca : Client.CLIENT) = struct
-  let client = Alpaca.client
-  let longleaf_env = Alpaca.longleaf_env
-  let get = Tools.get_piaf ~client
-  let delete = Tools.delete_piaf ~client
-  let post = Tools.post_piaf ~client
+(* Base URL for Alpaca market data *)
+let base_url = "https://data.alpaca.markets"
+let make_url path = base_url ^ path
 
-  let headers () =
+module type CONFIG = sig
+  val client : Cohttp_eio.Client.t
+  val longleaf_env : Environment.t
+end
+
+module Make (Config : CONFIG) = struct
+  let headers =
     Headers.of_list
       [
-        ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
-        ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);
+        ("APCA-API-KEY-ID", Config.longleaf_env.apca_api_key_id);
+        ("APCA-API-SECRET-KEY", Config.longleaf_env.apca_api_secret_key);
       ]
+
+  let get path =
+    Tools.get_cohttp ~client:Config.client ~headers ~endpoint:(make_url path)
 
   module Stock = struct
     let historical_bars (request : Request.t) =
       let ( let* ) = Result.( let* ) in
       let symbols = String.concat "," request.symbols in
-      let headers = headers () in
       let endpoint =
-        Uri.of_string "/v2/stocks/bars" |> fun e ->
+        Uri.of_string (make_url "/v2/stocks/bars") |> fun e ->
         Uri.add_query_params' e
         @@ [
              ("symbols", symbols);
@@ -114,10 +119,10 @@ module Make (Alpaca : Client.CLIENT) = struct
         | None -> uri)
         |> Uri.to_string
       in
-      let rec collect_data ~endpoint ~headers acc =
+      let rec collect_data ~endpoint acc =
         Eio.traceln "Sending a get request";
         let* acc = acc in
-        let* resp_body_json = get ~headers ~endpoint in
+        let* resp_body_json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
         let* new_bars = Bars.t_of_yojson resp_body_json in
         let acc = new_bars :: acc in
         match Util.get_next_page_token resp_body_json with
@@ -127,32 +132,29 @@ module Make (Alpaca : Client.CLIENT) = struct
             Uri.remove_query_param u "page_token" |> fun u ->
             Uri.add_query_param' u ("page_token", npt) |> Uri.to_string
           in
-          let res = collect_data ~endpoint ~headers (Ok acc) in
+          let res = collect_data ~endpoint (Ok acc) in
           res
         | None -> Ok acc
       in
-      let* paginated = collect_data ~endpoint ~headers (Ok []) in
+      let* paginated = collect_data ~endpoint (Ok []) in
       Result.return @@ Bars.combine paginated
 
     let latest_bars (symbols : string list) =
       let symbols = String.concat "," symbols in
       let endpoint =
-        Uri.of_string "/v2/stocks/bars/latest" |> fun u ->
+        Uri.of_string (make_url "/v2/stocks/bars/latest") |> fun u ->
         Uri.add_query_param' u ("symbols", symbols) |> Uri.to_string
       in
-      let headers = headers () in
-      let resp_body_json = get ~headers ~endpoint in
+      let resp_body_json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
       Result.map Bars.t_of_yojson resp_body_json
 
     let latest_quotes (symbols : string list) =
       let symbols = String.concat "," symbols in
       let endpoint =
-        Uri.of_string "/v2/stocks/quotes/latest" |> fun u ->
+        Uri.of_string (make_url "/v2/stocks/quotes/latest") |> fun u ->
         Uri.add_query_param' u ("symbols", symbols) |> Uri.to_string
       in
-      let headers = headers () in
-      let resp_body_json = get ~headers ~endpoint in
-      resp_body_json
+      Tools.get_cohttp ~client:Config.client ~headers ~endpoint
   end
 
   module Contract = struct
@@ -162,29 +164,21 @@ module Make (Alpaca : Client.CLIENT) = struct
     (*  The important thing is the symbol of the contract you want. *)
     (*   You can then buy/sell this option normally, like other securities.  *)
     (* i/e using a function of type Backend_intf.place_order *)
-    let rec get_all (longleaf_env : Environment.t) client (request : Request.t)
-        =
+    let rec get_all (request : Request.t) =
       let ( let* ) = Result.( let* ) in
-      let headers =
-        Cohttp.Header.of_list
-          [
-            ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
-            ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);
-          ]
-      in
       let endpoint =
-        Uri.of_string "/v2/positions" |> fun u ->
+        Uri.of_string (make_url "/v2/positions") |> fun u ->
         Uri.add_query_params' u (Request.to_query_params request)
         |> Uri.to_string
       in
-      let* res = Tools.get_piaf ~client ~headers ~endpoint in
+      let* res = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
       let* response = response_of_yojson_res res in
       let* next =
         match response.next_page_token with
         | None -> Result.return []
         | Some page_token ->
           let next_request = { request with page_token = Some page_token } in
-          let* res = get_all longleaf_env client next_request in
+          let* res = get_all next_request in
           Result.return res
       in
       Result.return @@ response.option_contracts @ next

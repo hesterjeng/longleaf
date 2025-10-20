@@ -25,7 +25,7 @@ let download eio_env request (downloader_arg : Ty.t option) afterhours =
   (* Util.yojson_safe true @@ fun () -> *)
   let longleaf_env = Longleaf_core.Environment.make () in
   (* let data_client = data_client switch eio_env in *)
-  let module Conn : Client.CLIENT = struct
+  let module Conn : Market_data_api.CONFIG = struct
     let client = data_client eio_env
     let longleaf_env = longleaf_env
   end in
@@ -40,7 +40,7 @@ let download eio_env request (downloader_arg : Ty.t option) afterhours =
         Eio.traceln "error in MDA.Stock.historical_bars: %a" Error.pp e;
         invalid_arg "Error downloading historical bars" )
     | Some Tiingo ->
-      let module Param = struct
+      let module Param : Tiingo_api.CONFIG = struct
         let longleaf_env = longleaf_env
         let client = Tiingo_api.tiingo_client eio_env switch
       end in

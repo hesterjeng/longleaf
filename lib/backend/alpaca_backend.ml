@@ -25,13 +25,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let tiingo_client = Tiingo_api.tiingo_client env switch
 
-  module Tiingo_client : Longleaf_apis.Client.CLIENT = struct
-    let longleaf_env = opts.longleaf_env
-    let client = tiingo_client
-  end
-
-  module Tiingo = Tiingo_api.Make (Tiingo_client)
-
   let data_client =
     Client.make ~https:None (Eio.Stdenv.net env)
 
@@ -41,10 +34,16 @@ module Make (Input : BACKEND_INPUT) : S = struct
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
     let longleaf_env = opts.longleaf_env
+    let runtype = opts.flags.runtype
   end)
 
   module Market_data_api = Market_data_api.Make (struct
     let client = data_client
+    let longleaf_env = opts.longleaf_env
+  end)
+
+  module Tiingo = Tiingo_api.Make (struct
+    let client = tiingo_client
     let longleaf_env = opts.longleaf_env
   end)
 

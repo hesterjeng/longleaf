@@ -44,11 +44,18 @@ let tiingo_client eio_env _sw =
   (* ~https:(Some (Eio.Stdenv.secure_random eio_env, Eio.Stdenv.tls eio_env)) *)
     ~https:None (Eio.Stdenv.net eio_env)
 
-module Make (Tiingo : Client.CLIENT) = struct
-  let client = Tiingo.client
+(* Base URL for Tiingo API *)
+let base_url = "https://api.tiingo.com"
+let make_url path = base_url ^ path
 
+module type CONFIG = sig
+  val client : Cohttp_eio.Client.t
+  val longleaf_env : Environment.t
+end
+
+module Make (Config : CONFIG) = struct
   let tiingo_key =
-    match Tiingo.longleaf_env.tiingo_key with
+    match Config.longleaf_env.tiingo_key with
     | Some s -> s
     | None -> invalid_arg "No tiingo key when trying to make tiingo connection"
 
@@ -59,22 +66,22 @@ module Make (Tiingo : Client.CLIENT) = struct
         ("Authorization", Format.asprintf "Token %s" tiingo_key);
       ]
 
-  let get = Tools.get_piaf ~client:Tiingo.client
-  let iex_endpoint = Uri.of_string "/iex/"
+  let get path =
+    Tools.get_cohttp ~client:Config.client ~headers ~endpoint:(make_url path)
 
   let test () =
-    let endpoint = Uri.of_string "/api/test" |> Uri.to_string in
-    get ~headers ~endpoint
+    get "/api/test"
 
   let latest bars tickers tick =
     let ( let* ) = Result.( let* ) in
     let symbols = List.map Instrument.symbol tickers |> String.concat "," in
     let endpoint =
-      Uri.add_query_params' iex_endpoint [ ("tickers", symbols) ]
+      Uri.of_string (make_url "/iex/")
+      |> fun u -> Uri.add_query_params' u [ ("tickers", symbols) ]
       |> Uri.to_string
     in
     (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
-    let* resp = get ~headers ~endpoint in
+    let* resp = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
     (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp; *)
     let* tiingo = t_of_yojson resp in
     if not @@ List.is_sorted ~cmp:compare_item tiingo then
@@ -167,9 +174,8 @@ module Make (Tiingo : Client.CLIENT) = struct
     let build_base_endpoint (request : Request.t) symbol =
       match request.timeframe with
       | Day ->
-        Uri.of_string
-          ("/tiingo/daily/" ^ String.lowercase_ascii symbol ^ "/prices")
-      | _ -> Uri.of_string ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices")
+        make_url ("/tiingo/daily/" ^ String.lowercase_ascii symbol ^ "/prices")
+      | _ -> make_url ("/iex/" ^ String.lowercase_ascii symbol ^ "/prices")
 
     let build_query_params (request : Request.t) symbol =
       [
@@ -194,7 +200,7 @@ module Make (Tiingo : Client.CLIENT) = struct
              | Some y -> Some (x, y))
 
     let build_endpoint ?(afterhours = false) (request : Request.t) symbol =
-      build_base_endpoint request symbol |> fun e ->
+      Uri.of_string (build_base_endpoint request symbol) |> fun e ->
       Uri.add_query_params' e (build_query_params request symbol)
       |> (fun uri ->
       match request.end_ with
@@ -211,7 +217,7 @@ module Make (Tiingo : Client.CLIENT) = struct
       let symbol = Instrument.symbol instrument in
       let endpoint = build_endpoint ~afterhours request symbol in
       Eio.traceln "%s" endpoint;
-      let* json = get ~headers ~endpoint in
+      let* json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
       Eio.traceln "Tiingo_api.ml: Converting data directly from JSON";
       let* data = json_to_data_direct json in
       Result.return @@ (instrument, data)

@@ -15,10 +15,11 @@ let mock_client env =
 
 (* Test function for get_account *)
 let test_get_account env () =
-  (* Create a test client module that implements the CLIENT interface *)
-  let module Test_client : Longleaf_apis.Client.CLIENT = struct
+  (* Create a test client module that implements the CONFIG interface *)
+  let module Test_client : Longleaf_apis.Trading_api.CONFIG = struct
     let longleaf_env = Longleaf_core.Environment.make ()
     let client = mock_client env
+    let runtype = Longleaf_core.Runtype.Paper
   end in
   let module Test_trading_api = Longleaf_apis.Trading_api.Make (Test_client) in
   (* Since we're using a mock client, this will likely fail with a network error
