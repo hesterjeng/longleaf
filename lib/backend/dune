@@ -15,10 +15,13 @@
   containers
   containers-data
   ptime
+  ptime.clock.os
   eio_main
   tls-eio
   x509
+  cstruct
   mirage-crypto-rng
+  mirage-crypto-rng.unix
   yojson)
  (preprocess
   (pps

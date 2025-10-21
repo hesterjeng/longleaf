@@ -20,7 +20,7 @@ let download eio_env request (downloader_arg : Ty.t option) afterhours =
   let authenticator = Https.authenticator () in
   let https = Https.make_https ~authenticator in
 
-  Eio.Switch.run @@ fun switch ->
+  Eio.Switch.run @@ fun _switch ->
   let ( let* ) = Result.( let* ) in
   (* Util.yojson_safe true @@ fun () -> *)
   let longleaf_env = Longleaf_core.Environment.make () in

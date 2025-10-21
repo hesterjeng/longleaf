@@ -11,12 +11,15 @@
   containers
   containers-data
   ptime
+  ptime.clock.os
   eio_main
   cohttp
   cohttp-eio
   tls-eio
   x509
+  cstruct
   mirage-crypto-rng
+  mirage-crypto-rng.unix
   yojson)
  (preprocess
   (pps
