@@ -192,6 +192,7 @@ type t = {
   longleaf_env : Environment.t; [@opaque]
   eio_env : Eio_unix.Stdenv.base; [@opaque]
   switch : Eio.Switch.t; [@opaque]
+  executor_pool : Eio.Executor_pool.t; [@opaque]
   target : Target.t; [@opaque]
   flags : CLI.t; (* mutices : Longleaf_mutex.t; *)
 }

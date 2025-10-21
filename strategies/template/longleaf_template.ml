@@ -228,7 +228,7 @@ module Make
     State.value res
 end
 
-let mk_options switch eio_env flags target tacaml_indicators : Options.t =
+let mk_options switch eio_env executor_pool flags target tacaml_indicators : Options.t =
   let module Ticker_collections = Longleaf_util.Ticker_collections in
   let longleaf_env = Environment.make () in
   (* let mutices = Server.Longleaf_mutex.create () in *)
@@ -237,6 +237,7 @@ let mk_options switch eio_env flags target tacaml_indicators : Options.t =
     eio_env;
     longleaf_env;
     switch;
+    executor_pool;
     flags;
     tick = 600.0;
     target;

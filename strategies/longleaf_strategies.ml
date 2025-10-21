@@ -30,11 +30,11 @@ let find_gadt_strategy name =
 module Run = struct
   module Target = Longleaf_core.Target
 
-  let run_strategy eio_env flags target mutices () =
+  let run_strategy eio_env executor_pool flags target mutices () =
     (* Load target bars with eio_env if needed *)
     let ( let* ) = Result.( let* ) in
     Eio.Switch.run @@ fun sw ->
-    let options = Longleaf_template.mk_options sw eio_env flags target [] in
+    let options = Longleaf_template.mk_options sw eio_env executor_pool flags target [] in
     let* bars =
       match target with
       | Longleaf_core.Target.File s ->
@@ -86,7 +86,7 @@ module Run = struct
       | None -> Longleaf_state.Mutex.create []
       | Some m -> m
     in
-    let handler = run_strategy env flags target mutices in
+    let handler = run_strategy env pool flags target mutices in
     let strat_result =
       Eio.Executor_pool.submit_fork ~sw ~weight:1.0 pool handler
     in
