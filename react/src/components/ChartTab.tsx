@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
-import { Card, Button, Alert, Select, Typography, Row, Col, Spin, Statistic, Collapse } from 'antd';
-import { LineChartOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Card, Alert, Typography, Row, Col, Spin, Statistic, Collapse, Radio } from 'antd';
 import type { ServerData, ChartData, APIError } from '../types';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 const { Panel } = Collapse;
 
 interface ChartTabProps {
@@ -228,26 +226,23 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
       ) : (
         // Case 3: symbols available and populated
         <div>
-          <Card>
-            <Text strong>Select Symbol</Text>
-            <div>
-              {Array.isArray(symbols) && (() => {
-                console.log('[DEBUG] ChartTab.tsx:233 - About to map symbols:', symbols, 'Type:', typeof symbols, 'IsArray:', Array.isArray(symbols));
-                return symbols.map(symbol => (
-                  <Button
-                    key={symbol}
-                    size="small"
-                    type={selectedSymbol === symbol ? 'primary' : 'default'}
-                    onClick={() => setSelectedSymbol(symbol)}
-                  >
-                    {symbol}
-                  </Button>
-                ));
-              })()}
+          <Card title="Select Symbol">
+            <Radio.Group value={selectedSymbol} onChange={(e) => setSelectedSymbol(e.target.value)} buttonStyle="solid">
+              <Row gutter={[8, 8]}>
+                {Array.isArray(symbols) && symbols.map(symbol => (
+                  <Col xs={12} sm={8} md={6} lg={4} key={symbol}>
+                    <Radio.Button value={symbol} style={{ width: '100%', textAlign: 'center' }}>
+                      {symbol}
+                    </Radio.Button>
+                  </Col>
+                ))}
+              </Row>
+            </Radio.Group>
+            <div style={{ marginTop: 8 }}>
+              <Text type="secondary">
+                Choose a symbol to automatically load its price chart with technical indicators
+              </Text>
             </div>
-            <Text type="secondary">
-              Choose a symbol to automatically load its price chart with technical indicators
-            </Text>
           </Card>
 
           {error && (

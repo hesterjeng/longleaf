@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Layout, Tabs, Alert, Typography } from 'antd';
+import { Layout, Tabs, Alert } from 'antd';
 import type { TabsProps } from 'antd';
 import OverviewTab from './components/OverviewTab';
 import ChartTab from './components/ChartTab';
@@ -8,8 +8,7 @@ import DataTab from './components/DataTab';
 import StrategiesTab from './components/StrategiesTab';
 import type { ServerData } from './types';
 
-const { Header, Content } = Layout;
-const { Title, Text } = Typography;
+const { Content } = Layout;
 
 const App: React.FC = () => {
   const [serverUrl, setServerUrl] = useState<string>('http://localhost:8080');

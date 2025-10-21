@@ -1,5 +1,5 @@
 import axios, { Method, AxiosRequestConfig } from 'axios';
-import type { CLISettings, OCamlTarget, ApiResponse, APIError, PerformanceData, ServerData } from '../types';
+import type { CLISettings, OCamlTarget, ApiResponse, APIError, PerformanceData } from '../types';
 
 /**
  * Runtime type validation utilities
