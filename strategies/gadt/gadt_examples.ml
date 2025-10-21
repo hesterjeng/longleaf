@@ -489,4 +489,19 @@ let roc_momentum_cross =
        position_size = 0.5;
      }
 
+let always_trading =
+  (* Maximum churn strategy - always generates buy and sell signals for all symbols *)
+  register
+  @@ {
+       name = "AlwaysTrading";
+       (* Always buy - price is always >= 0 *)
+       buy_trigger = close >. Const (0.0, Float);
+       (* Always sell - price is always >= 0 *)
+       sell_trigger = close >. Const (0.0, Float);
+       max_positions = 10;
+       (* Hold up to 10 positions *)
+       position_size = 0.10;
+       (* 10% per position = 100% max allocation *)
+     }
+
 let all_strategies = !all_strategies
