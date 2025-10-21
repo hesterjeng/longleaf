@@ -1,25 +1,41 @@
 open Trading_types
-module Headers = Piaf.Headers
-module Response = Piaf.Response
-module Status = Piaf.Status
+module Headers = Cohttp.Header
+module Response = Cohttp.Response
+module Status = Cohttp.Code
 module Util = Longleaf_util
 module Pmutex = Longleaf_util.Pmutex
 
-(* Create the headers based on the current environment *)
+(* Base URL determination based on runtype *)
+let base_url runtype =
+  match runtype with
+  | Runtype.Live -> "https://api.alpaca.markets"
+  | Runtype.Paper -> "https://paper-api.alpaca.markets"
+  | _ -> "https://paper-api.alpaca.markets" (* default to paper for non-live modes *)
 
-module Make (Alpaca : Client.CLIENT) = struct
-  let client = Alpaca.client
-  let longleaf_env = Alpaca.longleaf_env
-  let get = Tools.get_piaf ~client
-  let delete = Tools.delete_piaf ~client
-  let post = Tools.post_piaf ~client
+(* Helper to construct full URL from base and path *)
+let make_url base path = base ^ path
 
+module type CONFIG = sig
+  val client : Cohttp_eio.Client.t
+  val longleaf_env : Environment.t
+  val runtype : Runtype.t
+end
+
+module Make (Config : CONFIG) = struct
+  let base = base_url Config.runtype
   let headers =
     Headers.of_list
       [
-        ("APCA-API-KEY-ID", longleaf_env.apca_api_key_id);
-        ("APCA-API-SECRET-KEY", longleaf_env.apca_api_secret_key);
+        ("APCA-API-KEY-ID", Config.longleaf_env.apca_api_key_id);
+        ("APCA-API-SECRET-KEY", Config.longleaf_env.apca_api_secret_key);
       ]
+
+  let get path =
+    Tools.get_cohttp ~client:Config.client ~headers ~endpoint:(make_url base path)
+  let delete path =
+    Tools.delete_cohttp ~client:Config.client ~headers ~endpoint:(make_url base path)
+  let post path body =
+    Tools.post_cohttp ~client:Config.client ~headers ~endpoint:(make_url base path) ~body
 
   module Clock = struct
     type t = {
@@ -31,8 +47,7 @@ module Make (Alpaca : Client.CLIENT) = struct
     [@@deriving show, yojson]
 
     let get () =
-      let endpoint = "/v2/clock" in
-      Result.map t_of_yojson @@ get ~headers ~endpoint
+      Result.map t_of_yojson @@ get "/v2/clock"
   end
 
   module Accounts = struct
@@ -110,8 +125,7 @@ module Make (Alpaca : Client.CLIENT) = struct
 
     let get_account () =
       let ( let* ) = Result.( let* ) in
-      let endpoint = "/v2/account" in
-      let* received = get ~headers ~endpoint in
+      let* received = get "/v2/account" in
       let* res = t_of_yojson received in
       Result.return res
   end
@@ -123,22 +137,20 @@ module Make (Alpaca : Client.CLIENT) = struct
     type t = asset list [@@deriving show, yojson]
 
     let get_assets () =
-      let endpoint = "/v2/assets" in
-      get ~headers ~endpoint
+      get "/v2/assets"
   end
 
   module Positions = struct
     let get_all_open_positions () =
-      let endpoint = "/v2/positions" in
-      get ~headers ~endpoint
+      get "/v2/positions"
 
     let close_all_positions (cancel_orders : bool) =
-      let cancel_orders = if cancel_orders then "true" else "false" in
+      let cancel_orders_str = if cancel_orders then "true" else "false" in
       let endpoint =
-        Uri.of_string "/v2/positions" |> fun u ->
-        Uri.add_query_param' u ("cancel_orders", cancel_orders) |> Uri.to_string
+        Uri.of_string (make_url base "/v2/positions") |> fun u ->
+        Uri.add_query_param' u ("cancel_orders", cancel_orders_str) |> Uri.to_string
       in
-      delete ~headers ~endpoint
+      Tools.delete_cohttp ~client:Config.client ~headers ~endpoint
   end
 
   module Orders = struct
@@ -146,9 +158,8 @@ module Make (Alpaca : Client.CLIENT) = struct
     [@@deriving show { with_path = false }, yojson]
     [@@yojson.allow_extra_fields]
 
-    let create_market_order (order : Order.t) =
-      let ( let+ ) = Result.( let+ ) in
-      let endpoint = "/v2/orders" in
+    let create_market_order (order : Order.t) : (unit, _) result =
+      let ( let* ) = Result.( let* ) in
       let body : Yojson.Safe.t =
         `Assoc
           [
@@ -159,53 +170,64 @@ module Make (Alpaca : Client.CLIENT) = struct
             ("qty", `String (Int.to_string order.qty));
           ]
       in
-      let response = post ~headers ~body ~endpoint in
-      match Response.status response with
-      | `OK ->
-        Response.body response |> Piaf.Body.to_string |> ( function
-        | Ok x ->
-          let json = Yojson.Safe.from_string x in
-          Eio.traceln "@[response from create_market_order:@[%a@]@.@]@."
-            Yojson.Safe.pp json;
-          let response_t = response_of_yojson json in
-          Pmutex.set order.id response_t.id;
-          Pmutex.set order.status response_t.status;
-          Ok ()
-        | Error e ->
-          Eio.traceln
-            "@[Error when converting create_market_order reponse body to \
-             string: %a@]@."
-            Piaf.Error.pp_hum e;
-          Result.fail
-          @@ `FatalError
-               "Error converting create_market_order response body to string" )
-      | s ->
-        Eio.traceln "@[[error] Status %a in create_market_order@]@."
-          Status.pp_hum s;
-        Eio.traceln "@[Order: %a@]@." Order.pp order;
-        let _ =
-          let+ account = Accounts.get_account () in
-          Eio.traceln "@[Account: %a@]@." Accounts.pp account;
-          let+ body = Response.body response |> Piaf.Body.to_string in
-          Eio.traceln "@[Body: %s@]@." body
-        in
-        Eio.traceln "@[Response: %a@]@." Response.pp_hum response;
-        Result.fail @@ `FatalError "Bad response in create_market_order"
+      let* response = post "/v2/orders" body in
+      let* response_t =
+        try Ok (response_of_yojson response) with
+        | _ ->
+          Error.fatal "Error converting create market order response to json"
+      in
+      Pmutex.set order.id response_t.id;
+      Pmutex.set order.status response_t.status;
+      Ok ()
+
+    (* match Response.status response with *)
+    (* | `OK -> *)
+    (*   (try *)
+    (*      let body_str = Cohttp_eio.Body.to_string (Response.body response) in *)
+    (*      let json = Yojson.Safe.from_string body_str in *)
+    (*      Eio.traceln "@[response from create_market_order:@[%a@]@.@]@." *)
+    (*        Yojson.Safe.pp json; *)
+    (*      let response_t = response_of_yojson json in *)
+    (*      Pmutex.set order.id response_t.id; *)
+    (*      Pmutex.set order.status response_t.status; *)
+    (*      Ok () *)
+    (*    with *)
+    (*   | e -> *)
+    (*     Eio.traceln *)
+    (*       "@[Error when converting create_market_order response body to \ *)
+      (*        string: %s@]@." *)
+    (*       (Printexc.to_string e); *)
+    (*     Result.fail *)
+    (*     @@ `FatalError *)
+    (*          "Error converting create_market_order response body to string") *)
+    (* | s -> *)
+    (*   Eio.traceln "@[[error] Status %s in create_market_order@]@." *)
+    (*     (Status.string_of_status s); *)
+    (*   Eio.traceln "@[Order: %a@]@." Order.pp order; *)
+    (*   let _ = *)
+    (*     let+ account = Accounts.get_account () in *)
+    (*     Eio.traceln "@[Account: %a@]@." Accounts.pp account; *)
+    (*     try *)
+    (*       let body_str = Cohttp_eio.Body.to_string (Response.body response) in *)
+    (*       Eio.traceln "@[Body: %s@]@." body_str; *)
+    (*       Ok () *)
+    (*     with *)
+    (*     | e -> *)
+    (*       Eio.traceln "@[Error reading body: %s@]@." (Printexc.to_string e); *)
+    (*       Ok () *)
+    (*   in *)
+    (*   Result.fail @@ `FatalError "Bad response in create_market_order" *)
 
     let get_all_orders () =
-      let endpoint = "/v2/orders" in
-      get ~headers ~endpoint
+      get "/v2/orders"
 
     let delete_all_orders () =
-      let endpoint = "/v2/orders" in
-      delete ~headers ~endpoint
+      delete "/v2/orders"
 
     let get_order_by_id (id : OrderId.t) =
-      let endpoint = Format.asprintf "/v2/orders/%s" (OrderId.to_string id) in
-      get ~headers ~endpoint
+      get (Format.asprintf "/v2/orders/%s" (OrderId.to_string id))
 
     let delete_order_by_id (id : OrderId.t) =
-      let endpoint = Format.asprintf "/v2/orders/%s" (OrderId.to_string id) in
-      delete ~headers ~endpoint
+      delete (Format.asprintf "/v2/orders/%s" (OrderId.to_string id))
   end
 end

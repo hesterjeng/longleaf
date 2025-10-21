@@ -2,8 +2,6 @@
  (name longleaf_template)
  (modules :standard)
  (public_name longleaf-strategies.template)
- (instrumentation
-  (backend landmarks))
  (libraries
   longleaf_core
   longleaf_util
@@ -15,7 +13,8 @@
   containers-data
   ptime
   eio_main
-  piaf
+  cohttp
+  cohttp-eio
   yojson)
  (preprocess
   (pps

@@ -2,8 +2,8 @@
  (name longleaf_bars)
  (modules :standard)
  (public_name longleaf-lib.bars)
- (instrumentation
-  (backend landmarks))
+ ; (instrumentation
+ ;  (backend landmarks))
  (libraries
   longleaf_core
   longleaf_util

@@ -1,4 +1,7 @@
 _build/
+node_modules/
+package.json
+package-lock.json
 notes.org
 .envrc
 server.exe

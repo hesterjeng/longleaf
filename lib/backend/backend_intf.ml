@@ -27,8 +27,8 @@ module type S = sig
   (* Save data that is received in a live/paper run *)
   (* val save_received : bool *)
   val received_data : Bars.t
-  val get_trading_client : unit -> (Piaf.Client.t, Error.t) result
-  val get_data_client : unit -> (Piaf.Client.t, Error.t) result
+  val get_trading_client : unit -> (Cohttp_eio.Client.t, Error.t) result
+  val get_data_client : unit -> (Cohttp_eio.Client.t, Error.t) result
   val init_state : unit -> (State.t, Error.t) result
   val symbols : Instrument.t list
   val shutdown : unit -> unit

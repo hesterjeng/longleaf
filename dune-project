@@ -25,16 +25,17 @@
   ppx_variants_conv
   ppx_fields_conv
   cmdliner
-  landmarks
+  ;
   iter
   containers-data
   ocamlgraph
   eio_main
-  piaf
+  cohttp
+  cohttp-eio
   tacaml
   fileutils
   ocamlformat
-  landmarks-ppx
+  ;
   yojson
   uuidm
   tyxml

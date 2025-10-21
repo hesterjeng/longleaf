@@ -1,7 +1,7 @@
 (executable
  (name test)
  (modes exe)
- (libraries alcotest astring longleaf-lib eio eio.unix piaf uri))
+ (libraries alcotest astring longleaf-lib eio eio.unix cohttp cohttp-eio uri))
 
 ; This fails at runtime, so just build the executable
 

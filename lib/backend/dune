@@ -2,8 +2,8 @@
  (name longleaf_backend)
  (modules :standard)
  (public_name longleaf-lib.backend)
- (instrumentation
-  (backend landmarks))
+ ; (instrumentation
+ ;  (backend landmarks))
  (libraries
   longleaf_core
   longleaf_util
@@ -15,8 +15,13 @@
   containers
   containers-data
   ptime
+  ptime.clock.os
   eio_main
-  landmarks
+  tls-eio
+  x509
+  cstruct
+  mirage-crypto-rng
+  mirage-crypto-rng.unix
   yojson)
  (preprocess
   (pps

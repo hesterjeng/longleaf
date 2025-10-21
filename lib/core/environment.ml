@@ -15,10 +15,16 @@ let getenv_opt s =
     Eio.traceln "error: Could not find environment variable %s" s;
     None
 
+let getenv_exn s =
+  try Unix.getenv s with
+  | Not_found ->
+    Eio.traceln "error: Could not find environment variable %s" s;
+    raise Not_found
+
 let make () =
   try
-    let apca_api_key_id = Unix.getenv "APCA_API_KEY_ID" in
-    let apca_api_secret_key = Unix.getenv "APCA_API_SECRET_KEY" in
+    let apca_api_key_id = getenv_exn "APCA_API_KEY_ID" in
+    let apca_api_secret_key = getenv_exn "APCA_API_SECRET_KEY" in
     let tiingo_key = getenv_opt "TIINGO_KEY" in
     (* let apca_api_base_url = Unix.getenv "APCA_API_BASE_URL" |> Uri.of_string in *)
     (* let apca_api_data_url = Unix.getenv "APCA_API_DATA_URL" |> Uri.of_string in *)

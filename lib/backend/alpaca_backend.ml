@@ -18,33 +18,23 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let save_received = opts.flags.save_received
   let received_data = Bars.empty ()
 
+  open Cohttp_eio
+
+  (* Initialize RNG for TLS - must be called before creating HTTPS clients *)
+  let () = Longleaf_apis.Https.init_rng ()
+
+  (* Create HTTPS wrapper for all clients *)
+  let authenticator = Longleaf_apis.Https.authenticator ()
+  let https = Longleaf_apis.Https.make_https ~authenticator
+
   let trading_client =
-    let res =
-      let ty =
-        match opts.flags.runtype with
-        | Live -> `Live
-        | _ -> `Paper
-      in
-      Piaf.Client.create ~sw:switch env @@ Util.apca_api_base_url ty
-    in
-    match res with
-    | Ok x -> x
-    | Error _ -> invalid_arg "Unable to create trading client"
+    Client.make ~https:(Some https) (Eio.Stdenv.net env)
 
-  let tiingo_client = Tiingo_api.tiingo_client env switch
-
-  module Tiingo_client : Longleaf_apis.Client.CLIENT = struct
-    let longleaf_env = opts.longleaf_env
-    let client = tiingo_client
-  end
-
-  module Tiingo = Tiingo_api.Make (Tiingo_client)
+  let tiingo_client =
+    Client.make ~https:(Some https) (Eio.Stdenv.net env)
 
   let data_client =
-    let res = Piaf.Client.create ~sw:switch env Util.apca_api_data_url in
-    match res with
-    | Ok x -> x
-    | Error _ -> invalid_arg "Unable to create data client"
+    Client.make ~https:(Some https) (Eio.Stdenv.net env)
 
   let get_trading_client _ = Ok trading_client
   let get_data_client _ = Ok data_client
@@ -52,10 +42,16 @@ module Make (Input : BACKEND_INPUT) : S = struct
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
     let longleaf_env = opts.longleaf_env
+    let runtype = opts.flags.runtype
   end)
 
   module Market_data_api = Market_data_api.Make (struct
     let client = data_client
+    let longleaf_env = opts.longleaf_env
+  end)
+
+  module Tiingo = Tiingo_api.Make (struct
+    let client = tiingo_client
     let longleaf_env = opts.longleaf_env
   end)
 
@@ -89,9 +85,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let shutdown () =
     Eio.traceln "Alpaca backend shutdown";
-    Piaf.Client.shutdown trading_client;
-    Piaf.Client.shutdown data_client;
-    Piaf.Client.shutdown tiingo_client;
+    (* cohttp-eio clients don't require explicit shutdown *)
     ()
 
   let symbols = List.map Instrument.security Input.options.symbols

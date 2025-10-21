@@ -2,8 +2,8 @@
  (name longleaf)
  (modules :standard)
  (public_name longleaf-lib)
- (instrumentation
-  (backend landmarks))
+ ; (instrumentation
+ ;  (backend landmarks))
  (libraries
   longleaf_core
   longleaf_util
@@ -21,9 +21,9 @@
   iter
   uuidm
   cmdliner
-  landmarks
   tacaml
-  piaf
+  cohttp
+  cohttp-eio
   yojson)
  (preprocess
   (pps

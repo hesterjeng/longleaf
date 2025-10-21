@@ -12,45 +12,77 @@
              (gnu packages tmux)
              (gnu packages shellutils)
              (gnu packages maths)
+             (gnu packages finance)
              (gnu packages databases)
              (gnu packages libevent)
              (gnu packages python-web)
              (gnu packages python-science)
              (gnu packages multiprecision)
+             (gnu packages longleaf-ocaml)
+             (gnu packages longleaf)
              (gnu packages node))
 
-;; Load QuantStats server package
-(load "tearsheets/longleaf-quantstats.scm")
-
-;; Load React frontend package  
-(load "react/longleaf-frontend.scm")
-
-;; Warning message
-(format #t "~%WARNING: This manifest provides frontend and tearsheets dependencies only.~%")
-(format #t "~%OCaml is not handled by Guix yet.~%")
-
 ;; Create manifest with development packages and system dependencies
-(packages->manifest
- (list ;; Frontend and tearsheets
-  longleaf-quantstats-dev
-  longleaf-frontend-dev
-  ;; Python web framework
-  python
-  direnv
-  gmp
-  python-fastapi
-  python-uvicorn
-  python-frozendict
-  python-wrapper
-  python-peewee
-  python-ipython
-  nlopt
-  libev
-  ;; Process orchestration
-  tmux
-  ;; System dependencies
-  pkg-config
-  zlib
-  openssl
-  curl
-  git))
+;; (packages->manifest
+;;  (list ;; Frontend and tearsheets
+;;   ;; longleaf-quantstats-dev
+;;   ;; longleaf-frontend-dev
+;;   ;; Python web framework
+;;   python
+;;   direnv
+;;   gmp
+;;   python-fastapi
+;;   python-uvicorn
+;;   python-frozendict
+;;   python-wrapper
+;;   python-peewee
+;;   python-ipython
+;;   nlopt
+;;   ta-lib
+;;   libev
+;;   ;; Process orchestration
+;;   tmux
+;;   ;; System dependencies
+;;   pkg-config
+;;   zlib
+;;   openssl
+;;   curl
+;;   git
+;;   ))
+(specifications->manifest
+ (list
+  ;; "emacs-lsp-mode"
+  ;;       "emacs-lsp-ui"
+  ;;       "emacs-tuareg"
+  ;;       "ocaml-merlin"
+  ;;       "ocaml-lsp-server"
+        "ocaml"
+        "dune"
+        "ocamlformat"
+        "ocaml-nlopt"
+        "ocaml-ptime"
+        "ocaml-ppx-yojson-conv-lib"
+        "ocaml-ppx-deriving"
+        "ocaml-ppx-variants-conv"
+        "ocaml-ppx-fields-conv"
+        "ocaml-cmdliner"
+        "ocaml-graph"
+        "ocaml-eio-main"
+        "ocaml-tacaml"
+        "ocaml-fileutils"
+        "ocaml-yojson"
+        "ocaml-uuidm"
+        "ocaml-tyxml"
+        "ocaml-cohttp-eio"
+        "ocaml-ppx-yojson-conv"
+        "ocaml-tls"
+        "ocaml-x509"
+	"ocaml-ca-certs"
+        "ocaml-mirage-crypto-rng"
+	"ocaml-tls-eio"
+        "python-quantstats"
+        "python-yfinance"
+        "python-multitasking"
+	"python-fastapi"
+        "nlopt"
+        "node"))

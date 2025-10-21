@@ -6,23 +6,22 @@ let good_time () =
   let _ = Longleaf_core.Time.of_string "2025-03-03T16:59:00Z" in
   ()
 
-(* (\* Mock Piaf client for testing *\) *)
-let mock_client env sw =
-  (* We'll use a simple mock that doesn't actually make HTTP requests *)
-  let uri = Uri.of_string "https://paper-api.alpaca.markets" in
-  Piaf.Client.create ~sw env uri
+(* Mock cohttp-eio client for testing with HTTPS enabled *)
+let mock_client env =
+  let () = Longleaf_apis.Https.init_rng () in
+  let authenticator = Longleaf_apis.Https.authenticator () in
+  let https = Longleaf_apis.Https.make_https ~authenticator in
+  Cohttp_eio.Client.make
+    ~https:(Some https)
+    (Eio.Stdenv.net env)
 
 (* Test function for get_account *)
 let test_get_account env () =
-  (* Create a test client module that implements the CLIENT interface *)
-  Eio.Switch.run @@ fun sw ->
-  let module Test_client : Longleaf_apis.Client.CLIENT = struct
+  (* Create a test client module that implements the CONFIG interface *)
+  let module Test_client : Longleaf_apis.Trading_api.CONFIG = struct
     let longleaf_env = Longleaf_core.Environment.make ()
-
-    let client =
-      match mock_client env sw with
-      | Ok client -> client
-      | Error e -> invalid_arg @@ Longleaf_core.Error.show e
+    let client = mock_client env
+    let runtype = Longleaf_core.Runtype.Paper
   end in
   let module Test_trading_api = Longleaf_apis.Trading_api.Make (Test_client) in
   (* Since we're using a mock client, this will likely fail with a network error
@@ -37,7 +36,7 @@ let test_get_account env () =
       Eio.traceln "ERROR: %a" Longleaf_core.Error.pp e;
       false
   in
-  Piaf.Client.shutdown Test_client.client;
+  (* cohttp-eio clients don't require explicit shutdown *)
   res
 
 let () =

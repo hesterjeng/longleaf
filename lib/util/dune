@@ -2,8 +2,6 @@
  (name longleaf_util)
  (modules :standard)
  (public_name longleaf-lib.util)
- (instrumentation
-  (backend landmarks))
  (libraries
   fmt
   containers
@@ -12,8 +10,9 @@
   eio_main
   iter
   uuidm
-  landmarks
-  piaf)
+  ; landmarks
+  cohttp
+  cohttp-eio)
  (preprocess
   (pps
    ppx_deriving.std

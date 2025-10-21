@@ -2,8 +2,8 @@
  (name longleaf_indicators)
  (modules :standard)
  (public_name longleaf-lib.indicators)
- (instrumentation
-  (backend landmarks))
+ ; (instrumentation
+ ;  (backend landmarks))
  (libraries
   longleaf_core
   longleaf_bars
