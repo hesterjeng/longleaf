@@ -239,7 +239,7 @@ let mk_options switch eio_env executor_pool flags target tacaml_indicators : Opt
     switch;
     executor_pool;
     flags;
-    tick = 600.0;
+    tick = 60.0;
     target;
     tacaml_indicators;
   }

@@ -154,8 +154,8 @@ end = struct
 
     let top_continue state =
       let* state = Backend.liquidate state in
-      Eio.traceln "liquidate continue 10 minute wait...";
-      Ticker.tick ~runtype eio_env 600.0;
+      Eio.traceln "liquidate continue 1 minute wait...";
+      Ticker.tick ~runtype eio_env 60.0;
       Result.return state
   end
 

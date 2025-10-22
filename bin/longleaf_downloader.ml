@@ -53,7 +53,7 @@ module Cmd = struct
     let bars =
       Eio_main.run @@ fun eio_env ->
       let request =
-        Downloader.request today (Trading_types.Timeframe.Min 10) collection
+        Downloader.request today (Trading_types.Timeframe.Min 1) collection
           begin_arg end_arg timeframe_arg interval_arg
       in
       Downloader.download eio_env request downloader_arg afterhours_arg
