@@ -55,6 +55,26 @@ img[alt="Valley"] {
 }
 
 /* ============================================
+   Radio Button Styling (for selectors)
+   ============================================ */
+.ant-radio-button-wrapper {
+  min-width: 120px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Fix text color consistency - always readable */
+.ant-radio-button-wrapper-checked {
+  color: #fff !important;
+}
+
+.ant-radio-button-wrapper:not(.ant-radio-button-wrapper-checked) {
+  color: rgba(0, 0, 0, 0.88) !important;
+}
+
+/* ============================================
    Code and Pre Formatting
    ============================================ */
 code {

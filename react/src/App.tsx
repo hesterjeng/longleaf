@@ -25,22 +25,34 @@ const App: React.FC = () => {
 
   const fetchAllData = useCallback(async () => {
     if (!serverOnline) return;
-    
+
     setLoading(true);
+    console.log('[API-POLL] 🔄 Starting fetchAllData...');
     try {
+      console.log('[API-POLL] 📡 Fetching: /status, /settings, /data, /strategies');
       const [statusRes, settingsRes, dataRes, strategiesRes] = await Promise.all([
-        axios.get('/status', { timeout: 5000 }).catch(() => null),
-        axios.get('/settings', { timeout: 5000 }).catch(() => null),
-        axios.get('/data', { timeout: 5000 }).catch(() => null),
-        axios.get('/strategies', { timeout: 5000 }).catch(() => null),
+        axios.get('/status', { timeout: 5000 })
+          .then(res => { console.log('[API-POLL] ✅ /status success'); return res; })
+          .catch(err => { console.log('[API-POLL] ❌ /status failed:', err.message); return null; }),
+        axios.get('/settings', { timeout: 5000 })
+          .then(res => { console.log('[API-POLL] ✅ /settings success'); return res; })
+          .catch(err => { console.log('[API-POLL] ❌ /settings failed:', err.message); return null; }),
+        axios.get('/data', { timeout: 5000 })
+          .then(res => { console.log('[API-POLL] ✅ /data success'); return res; })
+          .catch(err => { console.log('[API-POLL] ❌ /data failed:', err.message); return null; }),
+        axios.get('/strategies', { timeout: 5000 })
+          .then(res => { console.log('[API-POLL] ✅ /strategies success'); return res; })
+          .catch(err => { console.log('[API-POLL] ❌ /strategies failed:', err.message); return null; }),
       ]);
 
       let symbolsData = [];
       try {
+        console.log('[API-POLL] 📡 Fetching: /symbols');
         const symbolsRes = await axios.get('/symbols', { timeout: 5000 });
+        console.log('[API-POLL] ✅ /symbols success');
         symbolsData = Array.isArray(symbolsRes.data) ? symbolsRes.data : [];
       } catch (error) {
-        // Symbols endpoint may not be implemented
+        console.log('[API-POLL] ❌ /symbols failed:', (error as Error).message);
         symbolsData = [];
       }
 
@@ -52,8 +64,9 @@ const App: React.FC = () => {
         symbols: symbolsData
       });
       setLastUpdate(new Date());
+      console.log('[API-POLL] ✅ fetchAllData completed successfully');
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('[API-POLL] ❌ Error in fetchAllData:', error);
     } finally {
       setLoading(false);
     }
@@ -61,14 +74,18 @@ const App: React.FC = () => {
 
   const checkServerConnection = useCallback(async () => {
     try {
+      console.log('[API-CONNECT] 🔌 Checking server connection...');
       const response = await axios.get('/status', { timeout: 2000 });
       if (response.status === 200) {
+        console.log('[API-CONNECT] ✅ Server is online');
         setServerOnline(true);
         fetchAllData();
       } else {
+        console.log('[API-CONNECT] ⚠️ Server returned non-200 status:', response.status);
         setServerOnline(false);
       }
     } catch (error) {
+      console.log('[API-CONNECT] ❌ Server connection failed:', (error as Error).message);
       setServerOnline(false);
     }
   }, [fetchAllData]);

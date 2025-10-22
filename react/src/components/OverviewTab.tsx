@@ -64,12 +64,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
 
     try {
+      console.log(`[API-STRATEGY] 📡 Fetching details for: ${strategyName}`);
       const response = await axios.get(`/strategy/${encodeURIComponent(strategyName)}`, { timeout: 5000 });
+      console.log(`[API-STRATEGY] ✅ Got details for: ${strategyName}`);
       const details = response.data;
       setStrategyTooltips(prev => ({ ...prev, [strategyName]: details }));
       return details;
     } catch (error) {
-      console.error('Error fetching strategy details:', error);
+      console.error(`[API-STRATEGY] ❌ Failed to fetch ${strategyName}:`, error);
       return null;
     }
   };
@@ -109,13 +111,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const fetchPerformanceData = async (includeOrders = true) => {
     setPerformanceLoading(true);
     setPerformanceError(null);
-    
+
     try {
       const endpoint = includeOrders ? '/performance?orders=true' : '/performance';
+      console.log(`[API-PERFORMANCE] 📡 Fetching: ${endpoint}`);
       const response = await axios.get(endpoint, { timeout: 60000 });
+      console.log('[API-PERFORMANCE] ✅ Performance data received');
       setPerformanceData(response.data);
     } catch (error) {
-      console.error('Error fetching performance data:', error);
+      console.error('[API-PERFORMANCE] ❌ Failed:', error);
       setPerformanceError(formatError(error as APIError, 'fetch performance data'));
       setPerformanceData(null);
     } finally {
@@ -162,31 +166,37 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   }, [settings, settingsForm, strategies, dataFiles]);
 
   const executeStrategyHandler = async () => {
-    console.log('🚀 Starting strategy execution...');
+    console.log('[API-EXECUTE] 🚀 Starting strategy execution...');
     setExecuting(true);
     setExecuteResult(null);
     setExecuteError(null);
-    
+
     try {
-      console.log('📡 Calling executeStrategy API...');
+      console.log('[API-EXECUTE] 📡 Calling /execute endpoint...');
+      const startTime = Date.now();
       const result = await executeStrategy();
-      console.log('✅ Got result from server:', result);
-      
+      const elapsed = Date.now() - startTime;
+      console.log(`[API-EXECUTE] ✅ /execute responded in ${elapsed}ms with:`, result);
+
       // Server now responds immediately with "strategy execution started"
       if (typeof result.data === 'string' && result.data.includes('started')) {
         setExecuteResult('Strategy execution started - running in background');
-        console.log('🎯 Strategy started in background, will check status via refresh');
+        console.log('[API-EXECUTE] 🎯 Strategy started in background, will check status via refresh');
       } else {
         setExecuteResult('Strategy execution initiated');
       }
-      
+
       setExecuting(false);
+      console.log('[API-EXECUTE] 🔄 Triggering data refresh...');
       // Refresh data to get updated status and last_value
       refreshData();
+      console.log('[API-EXECUTE] 📊 Fetching performance data...');
       // Also refresh performance data after execution
       fetchPerformanceData();
     } catch (error) {
-      console.error('❌ Strategy execution error:', error);
+      console.error('[API-EXECUTE] ❌ Strategy execution error:', error);
+      console.error('[API-EXECUTE] ❌ Error type:', (error as Error).name);
+      console.error('[API-EXECUTE] ❌ Error message:', (error as Error).message);
       setExecuteError(formatError(error as APIError, 'execute strategy'));
       setExecuting(false);
     }
