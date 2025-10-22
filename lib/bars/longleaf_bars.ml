@@ -97,14 +97,15 @@ let length (x : t) =
 
 let timestamp (x : t) (tick : int) =
   let res =
-    fold x None @@ fun _symbol data acc ->
+    fold x None @@ fun symbol data acc ->
     let timestamp = Data.get data Time tick in
     match acc with
     | None -> Some timestamp
     | Some prev ->
-      if Float.abs @@ (timestamp -. prev) >. 1.0 then
+      if Float.abs @@ (timestamp -. prev) >. 10.0 then
         Eio.traceln
-          "warning:  significantly different timestamps in Bars.timestamp %a %a"
+          "warning:  significantly different timestamps in Bars.timestamp for %a: %a vs %a"
+          Instrument.pp symbol
           Time.pp
           (Time.of_float_res timestamp |> Result.get_exn)
           Time.pp

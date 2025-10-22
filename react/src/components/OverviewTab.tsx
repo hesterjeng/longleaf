@@ -766,20 +766,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
               <Form.Item name="target_file" noStyle>
                 <Radio.Group buttonStyle="solid">
                   <Row gutter={[8, 8]}>
-                    <Col xs={12} sm={8} md={6} lg={4}>
-                      <Radio.Button value="download" style={{ width: '100%', textAlign: 'center' }}>
-                        Download (Live Data)
-                      </Radio.Button>
-                    </Col>
-                    <Col xs={12} sm={8} md={6} lg={4}>
-                      <Radio.Button value="" style={{ width: '100%', textAlign: 'center' }}>
-                        None
-                      </Radio.Button>
-                    </Col>
-                    {dataFiles && Array.isArray(dataFiles) && dataFiles.map((file: string) => (
-                      <Col xs={12} sm={8} md={6} lg={4} key={file}>
+                    {['download', '', ...(dataFiles || [])].map((file: string) => (
+                      <Col xs={12} sm={8} md={6} lg={4} key={file || 'none'}>
                         <Radio.Button value={file} style={{ width: '100%', textAlign: 'center' }}>
-                          {file}
+                          {file === 'download' ? 'Download' : file === '' ? 'None' : file}
                         </Radio.Button>
                       </Col>
                     ))}
