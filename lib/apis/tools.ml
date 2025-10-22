@@ -23,7 +23,19 @@ let get_cohttp ~client ~headers ~endpoint : (Yojson.Safe.t, Error.t) result =
   in
   let* () =
     if Http.Status.compare resp.status `OK = 0 then Ok ()
-    else Error.fatal "tools.ml:  bad response status get"
+    else
+      (* Read response body to get error details *)
+      let error_body =
+        match read_body body with
+        | Ok body_text -> body_text
+        | Error _ -> "<unable to read response body>"
+      in
+      let headers_str = Headers.to_lines headers |> String.concat "\n  " in
+      Eio.traceln
+        "@[<v>GET REQUEST FAILED@,Endpoint: %s@,Status: %s@,Request Headers:@,  %s@,Response Body:@,  %s@]"
+        endpoint (Http.Status.to_string resp.status) headers_str error_body;
+      Error.fatal @@ Format.sprintf "tools.ml: bad response status get (status=%s)"
+        (Http.Status.to_string resp.status)
   in
   let* body_string = read_body body in
   Result.return @@ Yojson.Safe.from_string body_string
@@ -42,7 +54,19 @@ let delete_cohttp ~client ~headers ~endpoint : (Yojson.Safe.t, Error.t) result =
   in
   let* () =
     if Http.Status.compare resp.status `OK = 0 then Ok ()
-    else Error.fatal "tools.ml:  bad response status delete"
+    else
+      (* Read response body to get error details *)
+      let error_body =
+        match read_body body with
+        | Ok body_text -> body_text
+        | Error _ -> "<unable to read response body>"
+      in
+      let headers_str = Headers.to_lines headers |> String.concat "\n  " in
+      Eio.traceln
+        "@[<v>DELETE REQUEST FAILED@,Endpoint: %s@,Status: %s@,Request Headers:@,  %s@,Response Body:@,  %s@]"
+        endpoint (Http.Status.to_string resp.status) headers_str error_body;
+      Error.fatal @@ Format.sprintf "tools.ml: bad response status delete (status=%s)"
+        (Http.Status.to_string resp.status)
   in
   let* body_string = read_body body in
   Result.return @@ Yojson.Safe.from_string body_string
@@ -62,7 +86,19 @@ let post_cohttp ~client ~body:json_body ~headers ~endpoint :
   in
   let* () =
     if Http.Status.compare resp.status `OK = 0 then Ok ()
-    else Error.fatal "tools.ml:  bad response status post"
+    else
+      (* Read response body to get error details *)
+      let error_body =
+        match read_body body with
+        | Ok body_text -> body_text
+        | Error _ -> "<unable to read response body>"
+      in
+      let headers_str = Headers.to_lines headers |> String.concat "\n  " in
+      Eio.traceln
+        "@[<v>POST REQUEST FAILED@,Endpoint: %s@,Status: %s@,Request Headers:@,  %s@,Request Body:@,  %s@,Response Body:@,  %s@]"
+        endpoint (Http.Status.to_string resp.status) headers_str body_string error_body;
+      Error.fatal @@ Format.sprintf "tools.ml: bad response status post (status=%s)"
+        (Http.Status.to_string resp.status)
   in
   let* body_string = read_body body in
   Result.return @@ Yojson.Safe.from_string body_string
