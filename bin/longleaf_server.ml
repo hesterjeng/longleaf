@@ -277,11 +277,9 @@ let handler env _conn request body =
         Cohttp.Header.of_list [ ("Content-Type", "application/json") ]
       in
       let body_json = Yojson.Safe.from_string request in
-      let* response_json =
-        Tools.post_cohttp ~client ~body:body_json ~headers
+      (* Use post_cohttp_html since tearsheet returns HTML, not JSON *)
+      Tools.post_cohttp_html ~client ~body:body_json ~headers
           ~endpoint:"http://localhost:5000/tearsheet"
-      in
-      Result.return @@ Yojson.Safe.to_string response_json
     in
     Result.return @@ respond_html ~status:`OK json_response
 
