@@ -79,14 +79,11 @@ img[alt="Valley"] {
    ============================================ */
 code {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  background-color: #f5f5f5;
   padding: 2px 6px;
   border-radius: 3px;
-  font-size: 0.9em;
 }
 
 pre {
-  background-color: #f5f5f5;
   padding: var(--spacing-md);
   border-radius: var(--border-radius);
   overflow-x: auto;
@@ -94,16 +91,6 @@ pre {
   word-wrap: break-word;
   max-height: 400px;
   overflow-y: auto;
-}
-
-/* ============================================
-   Tooltip Pre Blocks (Strategy Details)
-   ============================================ */
-.ant-tooltip pre {
-  margin: 4px 0;
-  font-size: 12px;
-  max-height: 200px;
-  padding: var(--spacing-sm);
 }
 
 /* ============================================
