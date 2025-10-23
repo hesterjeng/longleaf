@@ -13,8 +13,6 @@ module Options = Longleaf_core.Options
 (* Re-use types and modules from the original gadt.ml *)
 open Gadt
 
-exception OptimizationException
-
 (* Communication types for atomic domain approach *)
 type work_request = {
   params : float array;
@@ -40,30 +38,39 @@ module Worker = struct
       | Some work ->
         Eio.traceln "Worker domain processing request";
         let result =
-          let ( let* ) = Result.( let* ) in
-          let env = Subst.env_of_arr work.params work.vars in
-          let* instantiated_buy =
-            Subst.instantiate env work.strategy.buy_trigger
-          in
-          let* instantiated_sell =
-            Subst.instantiate env work.strategy.sell_trigger
-          in
-          let instantiated_strategy =
-            {
-              work.strategy with
-              buy_trigger = instantiated_buy;
-              sell_trigger = instantiated_sell;
-            }
-          in
-          let* res =
-            try
-              Gadt_strategy.run bars options mutices instantiated_strategy
-            with
-            | e ->
-              let e = Printexc.to_string e in
-              Error.fatal @@ "[error: gadt_atomic]" ^ e
-          in
-          Ok (Some res)
+          try
+            let ( let* ) = Result.( let* ) in
+            let env = Subst.env_of_arr work.params work.vars in
+            let* instantiated_buy =
+              Subst.instantiate env work.strategy.buy_trigger
+            in
+            let* instantiated_sell =
+              Subst.instantiate env work.strategy.sell_trigger
+            in
+            let instantiated_strategy =
+              {
+                work.strategy with
+                buy_trigger = instantiated_buy;
+                sell_trigger = instantiated_sell;
+              }
+            in
+            let* res =
+              try
+                Gadt_strategy.run bars options mutices instantiated_strategy
+              with
+              | e ->
+                (* Log error but return 0.0 instead of failing *)
+                let e = Printexc.to_string e in
+                Eio.traceln "Strategy execution error (returning 0.0): %s" e;
+                Ok 0.0
+            in
+            Ok (Some res)
+          with
+          | e ->
+            (* Catch any other errors during substitution/instantiation *)
+            let error_msg = Printexc.to_string e in
+            Eio.traceln "Optimization parameter error (returning 0.0): %s" error_msg;
+            Ok (Some 0.0)
         in
 
         (* Store result and clear request *)
@@ -94,8 +101,9 @@ module Worker = struct
         Eio.traceln "C callback got result: %f" result;
         result
       | Error err ->
-        Eio.traceln "C callback got error: %a" Error.pp err;
-        raise OptimizationException
+        (* Return 0.0 for errors instead of crashing optimization *)
+        Eio.traceln "C callback got error (returning 0.0): %a" Error.pp err;
+        0.0
     in
     wait_for_result ()
 end
@@ -146,10 +154,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
     Array.init len (fun _ -> Float.random_range 2.0 100.0 Util.random_state)
   in
   Eio.traceln "Optimization start %a" (Array.pp Float.pp) start;
-  let* res, xopt, fopt =
-    try Result.return @@ Nlopt.optimize opt start with
-    | OptimizationException -> Error.fatal "OptimizationException"
-  in
+  let res, xopt, fopt = Nlopt.optimize opt start in
 
   (* Print detailed optimization results *)
   Eio.traceln "";
