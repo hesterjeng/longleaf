@@ -617,4 +617,36 @@ let mean_reversion_opt =
        position_size = 0.10;
      }
 
+(** MeanReversion_8_27 - Optimized 1-Minute Mean Reversion Strategy
+
+    This strategy was discovered through NLopt ISRES optimization over 1000 evaluations
+    on September-October 2025 data. It uses an 8-period RSI and 27-period Bollinger Bands.
+
+    Optimization Results:
+    - Objective value: 105,749.10
+    - RSI period: 8 (vs. standard 2 or 14)
+    - BB period: 27 (vs. standard 20)
+    - Both longer than typical settings, suggesting this catches medium-term reversions
+
+    Entry: RSI(8) < 30 AND Last < BB_lower(27, 2σ)
+    Exit: Last > BB_middle OR RSI(8) > 70 OR Last > BB_upper
+*)
+let mean_reversion_8_27 =
+  let rsi_8 = Real.rsi 8 () in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  register
+  @@ {
+       name = "MeanReversion_8_27";
+       buy_trigger =
+         (rsi_8 <. Const (30.0, Float)) &&. (last <. bb_lower_27);
+       sell_trigger =
+         (last >. bb_middle_27)
+         ||. (rsi_8 >. Const (70.0, Float))
+         ||. (last >. bb_upper_27);
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
 let all_strategies = !all_strategies
