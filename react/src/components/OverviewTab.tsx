@@ -709,6 +709,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                             <Tooltip
                               title={renderStrategyTooltip(strategy)}
                               placement="top"
+                              mouseEnterDelay={0.5}
                               onOpenChange={(visible) => {
                                 if (visible && !strategyTooltips[strategy]) {
                                   fetchStrategyDetails(strategy);
@@ -767,7 +768,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                 <Radio.Group buttonStyle="solid">
                   <Row gutter={[8, 8]}>
                     {['download', '', ...(dataFiles || [])].map((file: string) => (
-                      <Col xs={12} sm={8} md={6} lg={4} key={file || 'none'}>
+                      <Col xs={24} sm={12} md={8} lg={6} key={file || 'none'}>
                         <Radio.Button value={file} style={{ width: '100%', textAlign: 'center' }}>
                           {file === 'download' ? 'Download' : file === '' ? 'None' : file}
                         </Radio.Button>

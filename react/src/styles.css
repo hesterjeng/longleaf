@@ -22,7 +22,6 @@ img[alt="Niagara"],
 img[alt="Cole"],
 img[alt="Valley"] {
   width: 100%;
-  max-width: 1200px;
   height: 120px;
   object-fit: cover;
   border-radius: var(--border-radius);
@@ -58,7 +57,6 @@ img[alt="Valley"] {
    Radio Button Styling (for selectors)
    ============================================ */
 .ant-radio-button-wrapper {
-  min-width: 120px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
