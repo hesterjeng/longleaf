@@ -537,12 +537,12 @@ let mean_reversion_1min =
        name = "MeanReversion1Min";
        (* Buy: Oversold (RSI < 30) AND price touched lower Bollinger Band *)
        buy_trigger =
-         (rsi_2 <. Const (30.0, Float)) &&. (close <. bb_lower);
+         (rsi_2 <. Const (30.0, Float)) &&. (last <. bb_lower);
        (* Sell: Return to mean OR overbought OR price hit upper band *)
        sell_trigger =
-         (close >. bb_middle)  (* Price returned to mean *)
+         (last >. bb_middle)  (* Price returned to mean *)
          ||. (rsi_2 >. Const (70.0, Float))  (* Overbought *)
-         ||. (close >. bb_upper);  (* Overshot to upper band *)
+         ||. (last >. bb_upper);  (* Overshot to upper band *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -607,12 +607,12 @@ let mean_reversion_opt =
        name = "MeanReversionOpt";
        (* Buy: Oversold RSI AND price touched lower Bollinger Band *)
        buy_trigger =
-         (rsi_var <. Const (30.0, Float)) &&. (close <. bb_lower_var);
+         (rsi_var <. Const (30.0, Float)) &&. (last <. bb_lower_var);
        (* Sell: Return to mean OR overbought OR price hit upper band *)
        sell_trigger =
-         (close >. bb_middle_var)
+         (last >. bb_middle_var)
          ||. (rsi_var >. Const (70.0, Float))
-         ||. (close >. bb_upper_var);
+         ||. (last >. bb_upper_var);
        max_positions = 10;
        position_size = 0.10;
      }
