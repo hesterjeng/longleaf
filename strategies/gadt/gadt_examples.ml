@@ -547,4 +547,74 @@ let mean_reversion_1min =
        position_size = 0.10;
      }
 
+(** 1-Minute Mean Reversion Strategy - Optimizable Version
+
+    This version uses Variables instead of Constants, allowing NLopt to optimize:
+    - RSI period (search range: 2-14)
+    - RSI oversold threshold (search range: 20-40)
+    - RSI overbought threshold (search range: 60-80)
+    - Bollinger Band period (search range: 10-30)
+    - Bollinger Band std devs (search range: 1.5-3.0)
+
+    NLopt will run this strategy with different parameter combinations and
+    find the values that maximize returns (or Sharpe ratio).
+
+    To optimize:
+      longleaf Backtest MeanReversionOpt --target data/jan24_1min.json
+
+    Expected optimization bounds:
+      - rsi_period: [2.0, 14.0]
+      - rsi_oversold: [20.0, 40.0]
+      - rsi_overbought: [60.0, 80.0]
+      - bb_period: [10.0, 30.0]
+      - bb_stddev: [1.5, 3.0]
+*)
+let mean_reversion_opt =
+  (* Simplified version with only 2 variables: RSI period and BB period
+     This reduces optimization complexity from 10+ variables to just 2
+     BB std dev is fixed at 2.0 to keep the search space manageable *)
+  let rsi_period_var = Gadt_fo.var Gadt.Type.Int in  (* Variable: RSI period (2-14) *)
+  let bb_period_var = Gadt_fo.var Gadt.Type.Int in   (* Variable: BB period (10-30) *)
+
+  (* Create indicators with mixed variable/constant parameters *)
+  let rsi_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var)))
+  in
+  let bb_lower_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period_var,
+        Const (2.0, Float),  (* Fixed: std dev multiplier *)
+        Const (2.0, Float)))) (* Fixed: deviation *)
+  in
+  let bb_middle_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period_var,  (* Same period variable reused *)
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  let bb_upper_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
+        bb_period_var,  (* Same period variable reused *)
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  register
+  @@ {
+       name = "MeanReversionOpt";
+       (* Buy: Oversold RSI AND price touched lower Bollinger Band *)
+       buy_trigger =
+         (rsi_var <. Const (30.0, Float)) &&. (close <. bb_lower_var);
+       (* Sell: Return to mean OR overbought OR price hit upper band *)
+       sell_trigger =
+         (close >. bb_middle_var)
+         ||. (rsi_var >. Const (70.0, Float))
+         ||. (close >. bb_upper_var);
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
 let all_strategies = !all_strategies
