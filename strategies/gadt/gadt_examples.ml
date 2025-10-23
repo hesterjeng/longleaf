@@ -489,4 +489,164 @@ let roc_momentum_cross =
        position_size = 0.5;
      }
 
+let always_trading =
+  (* Maximum churn strategy - always generates buy and sell signals for all symbols *)
+  register
+  @@ {
+       name = "AlwaysTrading";
+       (* Always buy - price is always >= 0 *)
+       buy_trigger = close >. Const (0.0, Float);
+       (* Always sell - price is always >= 0 *)
+       sell_trigger = close >. Const (0.0, Float);
+       max_positions = 10;
+       (* Hold up to 10 positions *)
+       position_size = 0.10;
+       (* 10% per position = 100% max allocation *)
+     }
+
+(** 1-Minute Mean Reversion Strategy
+
+    Based on research showing that:
+    - 2-period RSI is best for mean reversion (85% success rate)
+    - Bollinger Bands (20-period, 2 std devs) identify stretched prices
+    - Mean reversion works best on 1-minute bars for intraday trading
+
+    Entry Logic:
+    - Buy when price touches lower Bollinger Band AND RSI < 30 (oversold)
+    - This catches stocks that have temporarily dropped below their mean
+
+    Exit Logic:
+    - Sell when price reaches middle Bollinger Band (the mean)
+    - Or RSI > 70 (overbought - momentum reversal)
+    - Or price touches upper Bollinger Band (overshot mean)
+
+    Parameters optimized for 1-minute bars:
+    - RSI period: 2 (fast response to price changes)
+    - Bollinger Band period: 20 (covers 20 minutes of data)
+    - BB std devs: 2.0 (standard setting)
+    - Max positions: 10 (diversification across mean-reverting stocks)
+    - Position size: 10% (allows full deployment across 10 stocks)
+*)
+let mean_reversion_1min =
+  let rsi_2 = Real.rsi 2 () in
+  let bb_lower = Real.lower_bband 20 2.0 2.0 () in
+  let bb_middle = Real.middle_bband 20 2.0 2.0 () in
+  let bb_upper = Real.upper_bband 20 2.0 2.0 () in
+  register
+  @@ {
+       name = "MeanReversion1Min";
+       (* Buy: Oversold (RSI < 30) AND price touched lower Bollinger Band *)
+       buy_trigger =
+         (rsi_2 <. Const (30.0, Float)) &&. (last <. bb_lower);
+       (* Sell: Return to mean OR overbought OR price hit upper band *)
+       sell_trigger =
+         (last >. bb_middle)  (* Price returned to mean *)
+         ||. (rsi_2 >. Const (70.0, Float))  (* Overbought *)
+         ||. (last >. bb_upper);  (* Overshot to upper band *)
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
+(** 1-Minute Mean Reversion Strategy - Optimizable Version
+
+    This version uses Variables instead of Constants, allowing NLopt to optimize:
+    - RSI period (search range: 2-14)
+    - RSI oversold threshold (search range: 20-40)
+    - RSI overbought threshold (search range: 60-80)
+    - Bollinger Band period (search range: 10-30)
+    - Bollinger Band std devs (search range: 1.5-3.0)
+
+    NLopt will run this strategy with different parameter combinations and
+    find the values that maximize returns (or Sharpe ratio).
+
+    To optimize:
+      longleaf Backtest MeanReversionOpt --target data/jan24_1min.json
+
+    Expected optimization bounds:
+      - rsi_period: [2.0, 14.0]
+      - rsi_oversold: [20.0, 40.0]
+      - rsi_overbought: [60.0, 80.0]
+      - bb_period: [10.0, 30.0]
+      - bb_stddev: [1.5, 3.0]
+*)
+let mean_reversion_opt =
+  (* Simplified version with only 2 variables: RSI period and BB period
+     This reduces optimization complexity from 10+ variables to just 2
+     BB std dev is fixed at 2.0 to keep the search space manageable *)
+  let rsi_period_var = Gadt_fo.var Gadt.Type.Int in  (* Variable: RSI period (2-14) *)
+  let bb_period_var = Gadt_fo.var Gadt.Type.Int in   (* Variable: BB period (10-30) *)
+
+  (* Create indicators with mixed variable/constant parameters *)
+  let rsi_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var)))
+  in
+  let bb_lower_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period_var,
+        Const (2.0, Float),  (* Fixed: std dev multiplier *)
+        Const (2.0, Float)))) (* Fixed: deviation *)
+  in
+  let bb_middle_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period_var,  (* Same period variable reused *)
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  let bb_upper_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
+        bb_period_var,  (* Same period variable reused *)
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  register
+  @@ {
+       name = "MeanReversionOpt";
+       (* Buy: Oversold RSI AND price touched lower Bollinger Band *)
+       buy_trigger =
+         (rsi_var <. Const (30.0, Float)) &&. (last <. bb_lower_var);
+       (* Sell: Return to mean OR overbought OR price hit upper band *)
+       sell_trigger =
+         (last >. bb_middle_var)
+         ||. (rsi_var >. Const (70.0, Float))
+         ||. (last >. bb_upper_var);
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
+(** MeanReversion_8_27 - Optimized 1-Minute Mean Reversion Strategy
+
+    This strategy was discovered through NLopt ISRES optimization over 1000 evaluations
+    on September-October 2025 data. It uses an 8-period RSI and 27-period Bollinger Bands.
+
+    Optimization Results:
+    - Objective value: 105,749.10
+    - RSI period: 8 (vs. standard 2 or 14)
+    - BB period: 27 (vs. standard 20)
+    - Both longer than typical settings, suggesting this catches medium-term reversions
+
+    Entry: RSI(8) < 30 AND Last < BB_lower(27, 2σ)
+    Exit: Last > BB_middle OR RSI(8) > 70 OR Last > BB_upper
+*)
+let mean_reversion_8_27 =
+  let rsi_8 = Real.rsi 8 () in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  register
+  @@ {
+       name = "MeanReversion_8_27";
+       buy_trigger =
+         (rsi_8 <. Const (30.0, Float)) &&. (last <. bb_lower_27);
+       sell_trigger =
+         (last >. bb_middle_27)
+         ||. (rsi_8 >. Const (70.0, Float))
+         ||. (last >. bb_upper_27);
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
 let all_strategies = !all_strategies

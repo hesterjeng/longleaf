@@ -42,12 +42,13 @@ module Calc = struct
 
   let compute_linear = compute
 
-  let compute_parallel ?i eio_env (config : Config.t) (bars : Bars.t) =
+  let compute_parallel ?i ?pool eio_env (config : Config.t) (bars : Bars.t) =
     let start_total = Unix.gettimeofday () in
 
     let indicators = List.map tacaml config.tacaml_indicators in
     Eio.traceln "Starting indicator computation for... %a" (List.pp pp)
       indicators;
+
     (* Check if we should use parallel computation *)
     let result =
       (* Pre-extract all symbol-data pairs to avoid hashtable operations in domains *)
@@ -72,16 +73,26 @@ module Calc = struct
           () indicators
       in
 
-      (* Use Work_pool for parallel processing with pre-extracted data *)
-      let domain_mgr = Eio.Stdenv.domain_mgr eio_env in
       let clock = Eio.Stdenv.clock eio_env in
-      let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
-      Eio.Switch.run (fun sw ->
-          let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
-          Util.Work_pool.Work_pool.parallel_map ~pool ~clock
+
+      (* Use provided pool or create a temporary one *)
+      match pool with
+      | Some p ->
+          (* Reuse existing pool - no io_uring allocation! *)
+          Util.Work_pool.Work_pool.parallel_map ~pool:p ~clock
             ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
           |> Result.map_l Fun.id
-          |> Result.map @@ fun _ -> ())
+          |> Result.map @@ fun _ -> ()
+      | None ->
+          (* Create temporary pool only for initialization *)
+          let domain_mgr = Eio.Stdenv.domain_mgr eio_env in
+          let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
+          Eio.Switch.run (fun sw ->
+              let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
+              Util.Work_pool.Work_pool.parallel_map ~pool ~clock
+                ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
+              |> Result.map_l Fun.id
+              |> Result.map @@ fun _ -> ())
     in
     let end_total = Unix.gettimeofday () in
     Eio.traceln "%a Total indicator computation took %.3fs"
@@ -89,14 +100,14 @@ module Calc = struct
       result (end_total -. start_total);
     result
 
-  let compute_all eio_env (config : Config.t) bars =
+  let compute_all ?pool eio_env (config : Config.t) bars =
     match config.compute_all_parallel with
-    | true -> compute_parallel eio_env config bars
+    | true -> compute_parallel ?pool eio_env config bars
     | false -> compute config bars
 
-  let compute_single i eio_env (config : Config.t) bars =
+  let compute_single ?pool i eio_env (config : Config.t) bars =
     match config.compute_live with
-    | true -> compute_parallel ~i eio_env config bars
+    | true -> compute_parallel ~i ?pool eio_env config bars
     | false -> Result.return ()
 end
 

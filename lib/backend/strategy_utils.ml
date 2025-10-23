@@ -27,7 +27,8 @@ end = struct
         | Live
         | Paper ->
           let indicator_config = (State.config state).indicator_config in
-          Indicators.Calc.compute_single (State.tick state) eio_env
+          let pool = Input.options.executor_pool in
+          Indicators.Calc.compute_single ~pool (State.tick state) eio_env
             indicator_config
           @@ State.bars state
         | _ -> Result.return ()
@@ -46,7 +47,8 @@ end = struct
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
       let* () =
         let indicator_config = (State.config state).indicator_config in
-        Indicators.Calc.compute_all eio_env indicator_config @@ State.bars state
+        let pool = Input.options.executor_pool in
+        Indicators.Calc.compute_all ~pool eio_env indicator_config @@ State.bars state
       in
       let* state =
         (* If we are in live or paper, we need to grow the bars to have somewhere \ *)
@@ -152,8 +154,8 @@ end = struct
 
     let top_continue state =
       let* state = Backend.liquidate state in
-      Eio.traceln "liquidate continue 10 minute wait...";
-      Ticker.tick ~runtype eio_env 600.0;
+      Eio.traceln "liquidate continue 1 minute wait...";
+      Ticker.tick ~runtype eio_env 60.0;
       Result.return state
   end
 

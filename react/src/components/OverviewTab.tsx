@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Button, Alert, Typography, Row, Col, Spin, Form, Switch, InputNumber, Input, Badge, message, Tooltip } from 'antd';
-import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, StopOutlined, LineChartOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Card, Button, Alert, Typography, Row, Col, Spin, Form, InputNumber, Input, Badge, message, Tooltip, Radio } from 'antd';
+import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, FileTextOutlined } from '@ant-design/icons';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
@@ -34,7 +34,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const [showServerUrlInput, setShowServerUrlInput] = useState<boolean>(false);
   const [stacktraceActive, setStacktraceActive] = useState<boolean>(false);
   const [printTickActive, setPrintTickActive] = useState<boolean>(false);
-  const [comparePreloadedActive, setComparePreloadedActive] = useState<boolean>(false);
   const [saveReceivedActive, setSaveReceivedActive] = useState<boolean>(false);
   const [saveToFileActive, setSaveToFileActive] = useState<boolean>(false);
   const [precomputeIndicatorsActive, setPrecomputeIndicatorsActive] = useState<boolean>(false);
@@ -65,12 +64,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
 
     try {
+      console.log(`[API-STRATEGY] 📡 Fetching details for: ${strategyName}`);
       const response = await axios.get(`/strategy/${encodeURIComponent(strategyName)}`, { timeout: 5000 });
+      console.log(`[API-STRATEGY] ✅ Got details for: ${strategyName}`);
       const details = response.data;
       setStrategyTooltips(prev => ({ ...prev, [strategyName]: details }));
       return details;
     } catch (error) {
-      console.error('Error fetching strategy details:', error);
+      console.error(`[API-STRATEGY] ❌ Failed to fetch ${strategyName}:`, error);
       return null;
     }
   };
@@ -110,13 +111,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const fetchPerformanceData = async (includeOrders = true) => {
     setPerformanceLoading(true);
     setPerformanceError(null);
-    
+
     try {
       const endpoint = includeOrders ? '/performance?orders=true' : '/performance';
+      console.log(`[API-PERFORMANCE] 📡 Fetching: ${endpoint}`);
       const response = await axios.get(endpoint, { timeout: 60000 });
+      console.log('[API-PERFORMANCE] ✅ Performance data received');
       setPerformanceData(response.data);
     } catch (error) {
-      console.error('Error fetching performance data:', error);
+      console.error('[API-PERFORMANCE] ❌ Failed:', error);
       setPerformanceError(formatError(error as APIError, 'fetch performance data'));
       setPerformanceData(null);
     } finally {
@@ -163,52 +166,59 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   }, [settings, settingsForm, strategies, dataFiles]);
 
   const executeStrategyHandler = async () => {
-    console.log('🚀 Starting strategy execution...');
+    console.log('[API-EXECUTE] 🚀 Starting strategy execution...');
     setExecuting(true);
     setExecuteResult(null);
     setExecuteError(null);
-    
+
     try {
-      console.log('📡 Calling executeStrategy API...');
+      console.log('[API-EXECUTE] 📡 Calling /execute endpoint...');
+      const startTime = Date.now();
       const result = await executeStrategy();
-      console.log('✅ Got result from server:', result);
-      
+      const elapsed = Date.now() - startTime;
+      console.log(`[API-EXECUTE] ✅ /execute responded in ${elapsed}ms with:`, result);
+
       // Server now responds immediately with "strategy execution started"
       if (typeof result.data === 'string' && result.data.includes('started')) {
         setExecuteResult('Strategy execution started - running in background');
-        console.log('🎯 Strategy started in background, will check status via refresh');
+        console.log('[API-EXECUTE] 🎯 Strategy started in background, will check status via refresh');
       } else {
         setExecuteResult('Strategy execution initiated');
       }
-      
+
       setExecuting(false);
+      console.log('[API-EXECUTE] 🔄 Triggering data refresh...');
       // Refresh data to get updated status and last_value
       refreshData();
+      console.log('[API-EXECUTE] 📊 Fetching performance data...');
       // Also refresh performance data after execution
       fetchPerformanceData();
     } catch (error) {
-      console.error('❌ Strategy execution error:', error);
+      console.error('[API-EXECUTE] ❌ Strategy execution error:', error);
+      console.error('[API-EXECUTE] ❌ Error type:', (error as Error).name);
+      console.error('[API-EXECUTE] ❌ Error message:', (error as Error).message);
       setExecuteError(formatError(error as APIError, 'execute strategy'));
       setExecuting(false);
     }
   };
 
-  const stopServerHandler = async () => {
-    setSettingsLoading(true);
-    try {
-      const response = await fetch('/shutdown');
-      if (response.ok) {
-        message.success('Server shutdown initiated');
-        refreshData();
-      } else {
-        throw new Error('Failed to shutdown server');
-      }
-    } catch (error) {
-      message.error(formatError(error as APIError, 'shutdown server'));
-    } finally {
-      setSettingsLoading(false);
-    }
-  };
+  // Shutdown handler - currently not exposed in UI but kept for future use
+  // const stopServerHandler = async () => {
+  //   setSettingsLoading(true);
+  //   try {
+  //     const response = await fetch('/shutdown');
+  //     if (response.ok) {
+  //       message.success('Server shutdown initiated');
+  //       refreshData();
+  //     } else {
+  //       throw new Error('Failed to shutdown server');
+  //     }
+  //   } catch (error) {
+  //     message.error(formatError(error as APIError, 'shutdown server'));
+  //   } finally {
+  //     setSettingsLoading(false);
+  //   }
+  // };
 
   const openTearsheet = () => {
     // Open tearsheet in a new tab
@@ -666,141 +676,106 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         }}
       >
 
-        <Row gutter={6} >
+        <Row gutter={6}>
           <Col span={24}>
-            <Card title="Run Type" styles={{ body: { padding: '8px' } }}>
-              <Form.Item label="" name="runtype">
-                <Form.Item noStyle shouldUpdate>
-                  {({ getFieldValue, setFieldsValue }) => (
-                    <div >
-                      {(() => {
-                        console.log('[DEBUG] OverviewTab.tsx:675 - About to map runtypeOptions:', runtypeOptions, 'Type:', typeof runtypeOptions, 'IsArray:', Array.isArray(runtypeOptions));
-                        return runtypeOptions.map(type => (
-                        <Button
-                          key={type}
-                          size="small"
-                          type={getFieldValue('runtype') === type ? 'primary' : 'default'}
-                          onClick={() => setFieldsValue({ runtype: type })}
-                                                  >
+            <Card title="Run Type">
+              <Form.Item name="runtype" noStyle>
+                <Radio.Group buttonStyle="solid">
+                  <Row gutter={[8, 8]}>
+                    {runtypeOptions.map(type => (
+                      <Col xs={12} sm={8} md={6} lg={4} key={type}>
+                        <Radio.Button value={type} style={{ width: '100%', textAlign: 'center' }}>
                           {type}
+                        </Radio.Button>
+                      </Col>
+                    ))}
+                  </Row>
+                </Radio.Group>
+              </Form.Item>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={6}>
+          <Col span={24}>
+            <Card title="Strategy">
+              {strategies && strategies.length > 0 ? (
+                <>
+                  <Form.Item name="strategy_arg" noStyle>
+                    <Radio.Group buttonStyle="solid">
+                      <Row gutter={[8, 8]}>
+                        {displayedStrategies.map((strategy: string) => (
+                          <Col xs={12} sm={8} md={6} lg={4} key={strategy}>
+                            <Tooltip
+                              title={renderStrategyTooltip(strategy)}
+                              placement="top"
+                              mouseEnterDelay={0.5}
+                              onOpenChange={(visible) => {
+                                if (visible && !strategyTooltips[strategy]) {
+                                  fetchStrategyDetails(strategy);
+                                }
+                              }}
+                            >
+                              <Radio.Button value={strategy} style={{ width: '100%', textAlign: 'center' }}>
+                                {strategy}
+                              </Radio.Button>
+                            </Tooltip>
+                          </Col>
+                        ))}
+                      </Row>
+                    </Radio.Group>
+                  </Form.Item>
+
+                  {totalPages > 1 && (
+                    <Row justify="center" style={{ marginTop: 16 }}>
+                      <Col>
+                        <Button
+                          size="small"
+                          onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                          disabled={currentPage === 0}
+                        >
+                          ← Previous
                         </Button>
-                        ));
-                      })()}
-                    </div>
+                      </Col>
+                      <Col style={{ margin: '0 16px', lineHeight: '32px' }}>
+                        <Text>
+                          Page {currentPage + 1} of {totalPages} ({strategies.length} strategies)
+                        </Text>
+                      </Col>
+                      <Col>
+                        <Button
+                          size="small"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                          disabled={currentPage === totalPages - 1}
+                        >
+                          Next →
+                        </Button>
+                      </Col>
+                    </Row>
                   )}
-                </Form.Item>
-              </Form.Item>
+                </>
+              ) : (
+                <Alert type="info" message="No strategies available" />
+              )}
             </Card>
           </Col>
         </Row>
 
-        <Row gutter={6} >
+        <Row gutter={6}>
           <Col span={24}>
-            <Card title="Strategy" styles={{ body: { padding: '8px' } }}>
-              <Form.Item label="" name="strategy_arg">
-                <Form.Item noStyle shouldUpdate>
-                  {({ getFieldValue, setFieldsValue }) => {
-                    return (
-                      <div>
-                        {strategies && strategies.length > 0 ? (
-                          <>
-                            <div>
-                              {(() => {
-                                console.log('[DEBUG] OverviewTab.tsx:704 - About to map displayedStrategies:', displayedStrategies, 'Type:', typeof displayedStrategies, 'IsArray:', Array.isArray(displayedStrategies));
-                                return displayedStrategies.map((strategy: string) => (
-                                <Tooltip
-                                  key={strategy}
-                                  title={renderStrategyTooltip(strategy)}
-                                  placement="right"
-                                  onOpenChange={(visible) => {
-                                    if (visible && !strategyTooltips[strategy]) {
-                                      fetchStrategyDetails(strategy);
-                                    }
-                                  }}
-                                >
-                                  <Button
-                                    size="small"
-                                    type={getFieldValue('strategy_arg') === strategy ? 'primary' : 'default'}
-                                    onClick={() => setFieldsValue({ strategy_arg: strategy })}
-                                  >
-                                    {strategy}
-                                  </Button>
-                                </Tooltip>
-                                ));
-                              })()}
-                            </div>
-                            
-                            {totalPages > 1 && (
-                              <div>
-                                <Button
-                                  size="small"
-                                  onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-                                  disabled={currentPage === 0}
-                                >
-                                  ← Previous
-                                </Button>
-                                <span>
-                                  Page {currentPage + 1} of {totalPages} ({strategies.length} strategies)
-                                </span>
-                                <Button
-                                  size="small"
-                                  onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
-                                  disabled={currentPage === totalPages - 1}
-                                >
-                                  Next →
-                                </Button>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <Button disabled size="small">No strategies available</Button>
-                        )}
-                      </div>
-                    );
-                  }}
-                </Form.Item>
-              </Form.Item>
-            </Card>
-          </Col>
-        </Row>
-
-        <Row gutter={6} >
-          <Col span={24}>
-            <Card title="Target" styles={{ body: { padding: '8px' } }}>
-              <Form.Item label="" name="target_file">
-                <Form.Item noStyle shouldUpdate>
-                  {({ getFieldValue, setFieldsValue }) => (
-                    <div >
-                      <Button
-                        size="small"
-                        type={getFieldValue('target_file') === 'download' ? 'primary' : 'default'}
-                        onClick={() => setFieldsValue({ target_file: 'download' })}
-                                              >
-                        Download (Live Data)
-                      </Button>
-                      <Button
-                        size="small"
-                        type={getFieldValue('target_file') === '' ? 'primary' : 'default'}
-                        onClick={() => setFieldsValue({ target_file: '' })}
-                                              >
-                        None
-                      </Button>
-                      {dataFiles && Array.isArray(dataFiles) && dataFiles.length > 0 ? (() => {
-                        console.log('[DEBUG] OverviewTab.tsx:781 - About to map dataFiles:', dataFiles, 'Type:', typeof dataFiles, 'IsArray:', Array.isArray(dataFiles));
-                        return dataFiles.map((file: string) => (
-                          <Button
-                            key={file}
-                            size="small"
-                            type={getFieldValue('target_file') === file ? 'primary' : 'default'}
-                            onClick={() => setFieldsValue({ target_file: file })}
-                          >
-                            {file}
-                          </Button>
-                        ));
-                      })() : null}
-                    </div>
-                  )}
-                </Form.Item>
+            <Card title="Target">
+              <Form.Item name="target_file" noStyle>
+                <Radio.Group buttonStyle="solid">
+                  <Row gutter={[8, 8]}>
+                    {['download', '', ...(dataFiles || [])].map((file: string) => (
+                      <Col xs={24} sm={12} md={8} lg={6} key={file || 'none'}>
+                        <Radio.Button value={file} style={{ width: '100%', textAlign: 'center' }}>
+                          {file === 'download' ? 'Download' : file === '' ? 'None' : file}
+                        </Radio.Button>
+                      </Col>
+                    ))}
+                  </Row>
+                </Radio.Group>
               </Form.Item>
             </Card>
           </Col>

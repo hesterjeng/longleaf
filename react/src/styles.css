@@ -1,0 +1,147 @@
+/*
+ * Longleaf Trading Platform - Minimal Global Styles
+ * Simple CSS for consistent spacing and visual polish
+ */
+
+/* ============================================
+   CSS Variables for Easy Customization
+   ============================================ */
+:root {
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --border-radius: 8px;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* ============================================
+   Banner Images (Top of Each Tab)
+   ============================================ */
+img[alt="Hairpine"],
+img[alt="Niagara"],
+img[alt="Cole"],
+img[alt="Valley"] {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: var(--card-shadow);
+  display: block;
+}
+
+/* ============================================
+   Layout Spacing
+   ============================================ */
+.ant-layout-content {
+  padding: var(--spacing-lg);
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+/* ============================================
+   Card Enhancements
+   ============================================ */
+.ant-card {
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-md);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow 0.3s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ============================================
+   Radio Button Styling (for selectors)
+   ============================================ */
+.ant-radio-button-wrapper {
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Fix text color consistency - always readable */
+.ant-radio-button-wrapper-checked {
+  color: #fff !important;
+}
+
+.ant-radio-button-wrapper:not(.ant-radio-button-wrapper-checked) {
+  color: rgba(0, 0, 0, 0.88) !important;
+}
+
+/* ============================================
+   Code and Pre Formatting
+   ============================================ */
+code {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+pre {
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ============================================
+   Plotly Chart Container
+   ============================================ */
+.js-plotly-plot {
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  margin-bottom: var(--spacing-md);
+}
+
+/* ============================================
+   Responsive - Mobile & Tablet
+   ============================================ */
+@media (max-width: 768px) {
+  .ant-layout-content {
+    padding: var(--spacing-md);
+  }
+
+  img[alt="Hairpine"],
+  img[alt="Niagara"],
+  img[alt="Cole"],
+  img[alt="Valley"] {
+    height: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ant-layout-content {
+    padding: var(--spacing-sm);
+  }
+
+  img[alt="Hairpine"],
+  img[alt="Niagara"],
+  img[alt="Cole"],
+  img[alt="Valley"] {
+    height: 60px;
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+@media print {
+  .ant-btn,
+  .ant-tabs-nav {
+    display: none;
+  }
+
+  img[alt="Hairpine"],
+  img[alt="Niagara"],
+  img[alt="Cole"],
+  img[alt="Valley"] {
+    height: 100px;
+  }
+}
