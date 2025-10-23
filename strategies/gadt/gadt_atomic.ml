@@ -156,16 +156,37 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   Eio.traceln "Optimization start %a" (Array.pp Float.pp) start;
   let res, xopt, fopt = Nlopt.optimize opt start in
 
-  (* Print detailed optimization results *)
+  (* Print detailed optimization results with instantiated strategy *)
   Eio.traceln "";
   Eio.traceln "=== OPTIMIZATION COMPLETE ===";
   Eio.traceln "Strategy: %s" strategy.name;
   Eio.traceln "Result: %s" (Nlopt.string_of_result res);
   Eio.traceln "Best objective value: %.6f" fopt;
-  Eio.traceln "Best parameters:";
-  Array.iteri (fun i value ->
-    Eio.traceln "  Parameter %d: %.2f" (i + 1) value
-  ) xopt;
+  Eio.traceln "";
+
+  (* Instantiate the winning strategy to show actual parameters *)
+  let env = Subst.env_of_arr xopt vars in
+  let instantiated_buy_result = Subst.instantiate env strategy.buy_trigger in
+  let instantiated_sell_result = Subst.instantiate env strategy.sell_trigger in
+
+  (match instantiated_buy_result with
+   | Ok buy_expr ->
+     Eio.traceln "Winning Buy Trigger:";
+     Eio.traceln "  %s" (Gadt.to_string buy_expr)
+   | Error e ->
+     Eio.traceln "Error instantiating buy trigger: %a" Error.pp e);
+
+  Eio.traceln "";
+
+  (match instantiated_sell_result with
+   | Ok sell_expr ->
+     Eio.traceln "Winning Sell Trigger:";
+     Eio.traceln "  %s" (Gadt.to_string sell_expr)
+   | Error e ->
+     Eio.traceln "Error instantiating sell trigger: %a" Error.pp e);
+
+  Eio.traceln "";
+  Eio.traceln "Raw parameters: %a" (Array.pp Float.pp) xopt;
   Eio.traceln "============================";
   Eio.traceln "";
 
