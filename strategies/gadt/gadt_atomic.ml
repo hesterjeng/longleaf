@@ -138,7 +138,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   let opt = Nlopt.create Nlopt.isres len in
   Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 2.0);
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
-  Nlopt.set_maxeval opt 10;
+  Nlopt.set_maxeval opt 1000;  (* Increased from 10 to 1000 evaluations *)
   (* Nlopt.set_population opt (len * 10); *)
   Nlopt.set_max_objective opt
     (Worker.f strategy vars work_request_atomic work_result_atomic);
@@ -150,7 +150,19 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
     try Result.return @@ Nlopt.optimize opt start with
     | OptimizationException -> Error.fatal "OptimizationException"
   in
-  Eio.traceln "optimization res: %s" (Nlopt.string_of_result res);
-  Eio.traceln "%a : %f" (Array.pp Float.pp) xopt fopt;
+
+  (* Print detailed optimization results *)
+  Eio.traceln "";
+  Eio.traceln "=== OPTIMIZATION COMPLETE ===";
+  Eio.traceln "Strategy: %s" strategy.name;
+  Eio.traceln "Result: %s" (Nlopt.string_of_result res);
+  Eio.traceln "Best objective value: %.6f" fopt;
+  Eio.traceln "Best parameters:";
+  Array.iteri (fun i value ->
+    Eio.traceln "  Parameter %d: %.2f" (i + 1) value
+  ) xopt;
+  Eio.traceln "============================";
+  Eio.traceln "";
+
   Atomic.set shutdown_atomic true;
   Result.return fopt
