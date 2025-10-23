@@ -10,6 +10,13 @@ import sys
 # Import quantstats
 import quantstats as qs
 
+# Configure matplotlib to use available fonts and suppress font warnings
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Liberation Sans', 'sans-serif']
+
 app = FastAPI(title="QuantStats Server", description="Portfolio analytics service")
 
 def align_benchmark_to_strategy(strategy_returns, strategy_dates, benchmark_returns, benchmark_dates, benchmark_name):
