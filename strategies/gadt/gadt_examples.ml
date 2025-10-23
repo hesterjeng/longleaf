@@ -504,4 +504,47 @@ let always_trading =
        (* 10% per position = 100% max allocation *)
      }
 
+(** 1-Minute Mean Reversion Strategy
+
+    Based on research showing that:
+    - 2-period RSI is best for mean reversion (85% success rate)
+    - Bollinger Bands (20-period, 2 std devs) identify stretched prices
+    - Mean reversion works best on 1-minute bars for intraday trading
+
+    Entry Logic:
+    - Buy when price touches lower Bollinger Band AND RSI < 30 (oversold)
+    - This catches stocks that have temporarily dropped below their mean
+
+    Exit Logic:
+    - Sell when price reaches middle Bollinger Band (the mean)
+    - Or RSI > 70 (overbought - momentum reversal)
+    - Or price touches upper Bollinger Band (overshot mean)
+
+    Parameters optimized for 1-minute bars:
+    - RSI period: 2 (fast response to price changes)
+    - Bollinger Band period: 20 (covers 20 minutes of data)
+    - BB std devs: 2.0 (standard setting)
+    - Max positions: 10 (diversification across mean-reverting stocks)
+    - Position size: 10% (allows full deployment across 10 stocks)
+*)
+let mean_reversion_1min =
+  let rsi_2 = Real.rsi 2 () in
+  let bb_lower = Real.lower_bband 20 2.0 2.0 () in
+  let bb_middle = Real.middle_bband 20 2.0 2.0 () in
+  let bb_upper = Real.upper_bband 20 2.0 2.0 () in
+  register
+  @@ {
+       name = "MeanReversion1Min";
+       (* Buy: Oversold (RSI < 30) AND price touched lower Bollinger Band *)
+       buy_trigger =
+         (rsi_2 <. Const (30.0, Float)) &&. (close <. bb_lower);
+       (* Sell: Return to mean OR overbought OR price hit upper band *)
+       sell_trigger =
+         (close >. bb_middle)  (* Price returned to mean *)
+         ||. (rsi_2 >. Const (70.0, Float))  (* Overbought *)
+         ||. (close >. bb_upper);  (* Overshot to upper band *)
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
 let all_strategies = !all_strategies
