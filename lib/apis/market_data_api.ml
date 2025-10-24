@@ -140,18 +140,6 @@ module Make (Config : CONFIG) = struct
       let* paginated = collect_data ~endpoint (Ok []) in
       Result.return @@ Bars.combine paginated
 
-    let latest_bars (symbols : string list) =
-      let ( let* ) = Result.( let* ) in
-      let symbols = String.concat "," symbols in
-      let endpoint =
-        Uri.of_string (make_url "/v2/stocks/bars/latest") |> fun u ->
-        Uri.add_query_param' u ("symbols", symbols) |> Uri.to_string
-      in
-      (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
-      let* resp_body_json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
-      (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp_body_json; *)
-      Bars.t_of_yojson resp_body_json
-
     let latest_quotes (symbols : string list) =
       let symbols = String.concat "," symbols in
       let endpoint =
@@ -164,27 +152,39 @@ module Make (Config : CONFIG) = struct
     let latest bars tickers tick =
       let ( let* ) = Result.( let* ) in
       let symbols = List.map Instrument.symbol tickers in
-      let* latest_bars_result = latest_bars symbols in
-      (* Iterate through the returned bars and update existing bars at current tick *)
-      Bars.fold latest_bars_result (Ok ()) @@ fun symbol latest_data acc ->
-        let* () = acc in
-        let* existing_data = Bars.get bars symbol in
-        (* Alpaca returns single latest bar at index 0 *)
-        Data.set existing_data Data.Type.Time tick
-          (Data.get latest_data Data.Type.Time 0);
-        Data.set existing_data Data.Type.Open tick
-          (Data.get latest_data Data.Type.Open 0);
-        Data.set existing_data Data.Type.High tick
-          (Data.get latest_data Data.Type.High 0);
-        Data.set existing_data Data.Type.Low tick
-          (Data.get latest_data Data.Type.Low 0);
-        Data.set existing_data Data.Type.Close tick
-          (Data.get latest_data Data.Type.Close 0);
-        Data.set existing_data Data.Type.Last tick
-          (Data.get latest_data Data.Type.Last 0);
-        Data.set existing_data Data.Type.Volume tick
-          (Data.get latest_data Data.Type.Volume 0);
-        Result.return ()
+      let symbols_str = String.concat "," symbols in
+      let endpoint =
+        Uri.of_string (make_url "/v2/stocks/bars/latest") |> fun u ->
+        Uri.add_query_param' u ("symbols", symbols_str) |> Uri.to_string
+      in
+      (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
+      let* resp_body_json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
+      (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp_body_json; *)
+
+      (* Parse the response: {"bars": {"AAPL": {...}, "MSFT": {...}}} *)
+      let bars_json = Yojson.Safe.Util.member "bars" resp_body_json in
+      let assoc = Yojson.Safe.Util.to_assoc bars_json in
+
+      (* Parse each symbol's bar and update existing bars *)
+      let* () =
+        List.fold_left
+          (fun acc (symbol_str, bar_json) ->
+            let* () = acc in
+            let* symbol = Instrument.of_string_res symbol_str in
+            let bar_item = Item.t_of_yojson bar_json in
+            let* data = Bars.get bars symbol in
+            (* Update data at current tick *)
+            Data.set data Data.Type.Time tick (Ptime.to_float_s bar_item.timestamp);
+            Data.set data Data.Type.Open tick bar_item.open_;
+            Data.set data Data.Type.High tick bar_item.high;
+            Data.set data Data.Type.Low tick bar_item.low;
+            Data.set data Data.Type.Close tick bar_item.close;
+            Data.set data Data.Type.Last tick bar_item.close;  (* For Alpaca, last = close *)
+            Data.set data Data.Type.Volume tick (Float.of_int bar_item.volume);
+            Result.return ())
+          (Ok ()) assoc
+      in
+      Result.return ()
   end
 
   module Contract = struct
