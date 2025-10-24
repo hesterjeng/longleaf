@@ -105,15 +105,14 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Result.return state
     | _ ->
       let+ () =
-        match Tiingo.latest bars symbols tick with
+        match Market_data_api.Stock.latest bars symbols tick with
         | Ok x -> Result.return x
         | Error s ->
           Eio.traceln
-            "Error %a from Tiingo.latest, trying again after 5 seconds."
+            "Error %a from Alpaca latest bars, trying again after 5 seconds."
             Error.pp s;
           Unix.sleep 5;
-          (* Ticker.tick ~runtype:opts.flags.runtype env 5.0; *)
-          Tiingo.latest bars symbols tick
+          Market_data_api.Stock.latest bars symbols tick
       in
       state
 

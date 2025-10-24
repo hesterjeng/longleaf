@@ -102,14 +102,10 @@ let timestamp (x : t) (tick : int) =
     match acc with
     | None -> Some timestamp
     | Some prev ->
-      if Float.abs @@ (timestamp -. prev) >. 10.0 then
-        Eio.traceln
-          "warning:  significantly different timestamps in Bars.timestamp for %a: %a vs %a"
-          Instrument.pp symbol
-          Time.pp
-          (Time.of_float_res timestamp |> Result.get_exn)
-          Time.pp
-          (Time.of_float_res prev |> Result.get_exn);
+      let diff = Float.abs (timestamp -. prev) in
+      if diff >. 10.0 then
+        Eio.traceln "warning: timestamp diff for %a: %.1fs late"
+          Instrument.pp symbol diff;
       Some prev
   in
   match res with

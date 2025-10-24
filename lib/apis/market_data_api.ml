@@ -2,6 +2,7 @@ open Trading_types
 module Headers = Cohttp.Header
 module Util = Longleaf_util
 module Bars = Longleaf_bars
+module Data = Bars.Data
 
 module Request = struct
   (* Type for requesting historical bars *)
@@ -140,13 +141,16 @@ module Make (Config : CONFIG) = struct
       Result.return @@ Bars.combine paginated
 
     let latest_bars (symbols : string list) =
+      let ( let* ) = Result.( let* ) in
       let symbols = String.concat "," symbols in
       let endpoint =
         Uri.of_string (make_url "/v2/stocks/bars/latest") |> fun u ->
         Uri.add_query_param' u ("symbols", symbols) |> Uri.to_string
       in
-      let resp_body_json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
-      Result.map Bars.t_of_yojson resp_body_json
+      (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
+      let* resp_body_json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
+      (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp_body_json; *)
+      Bars.t_of_yojson resp_body_json
 
     let latest_quotes (symbols : string list) =
       let symbols = String.concat "," symbols in
@@ -155,6 +159,32 @@ module Make (Config : CONFIG) = struct
         Uri.add_query_param' u ("symbols", symbols) |> Uri.to_string
       in
       Tools.get_cohttp ~client:Config.client ~headers ~endpoint
+
+    (* Alpaca version of Tiingo.latest - mutates existing bars with latest data *)
+    let latest bars tickers tick =
+      let ( let* ) = Result.( let* ) in
+      let symbols = List.map Instrument.symbol tickers in
+      let* latest_bars_result = latest_bars symbols in
+      (* Iterate through the returned bars and update existing bars at current tick *)
+      Bars.fold latest_bars_result (Ok ()) @@ fun symbol latest_data acc ->
+        let* () = acc in
+        let* existing_data = Bars.get bars symbol in
+        (* Alpaca returns single latest bar at index 0 *)
+        Data.set existing_data Data.Type.Time tick
+          (Data.get latest_data Data.Type.Time 0);
+        Data.set existing_data Data.Type.Open tick
+          (Data.get latest_data Data.Type.Open 0);
+        Data.set existing_data Data.Type.High tick
+          (Data.get latest_data Data.Type.High 0);
+        Data.set existing_data Data.Type.Low tick
+          (Data.get latest_data Data.Type.Low 0);
+        Data.set existing_data Data.Type.Close tick
+          (Data.get latest_data Data.Type.Close 0);
+        Data.set existing_data Data.Type.Last tick
+          (Data.get latest_data Data.Type.Last 0);
+        Data.set existing_data Data.Type.Volume tick
+          (Data.get latest_data Data.Type.Volume 0);
+        Result.return ()
   end
 
   module Contract = struct
