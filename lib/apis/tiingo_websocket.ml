@@ -18,7 +18,20 @@ and subscribe_data = {
 }
 [@@deriving yojson]
 
-(* Tiingo data format *)
+(* Tiingo response structure *)
+type tiingo_response = {
+  code : int;
+  message : string;
+}
+[@@deriving show, yojson] [@@yojson.allow_extra_fields]
+
+(* Tiingo subscription data *)
+type subscription_data = {
+  subscriptionId : int;
+}
+[@@deriving show, yojson] [@@yojson.allow_extra_fields]
+
+(* Tiingo market data format *)
 type tiingo_data = {
   ticker : string;
   timestamp : string;
@@ -28,13 +41,25 @@ type tiingo_data = {
   low : float;
   volume : int;
 }
+[@@deriving show, yojson] [@@yojson.allow_extra_fields]
+
+(* Tiingo message - different formats depending on messageType *)
+(* For "I" messages, data is an object with subscriptionId *)
+(* For "A" messages, data is a list of market data *)
+(* For "H" messages, data field is absent *)
+(* We'll parse this manually to handle both cases *)
+type tiingo_message_raw = {
+  messageType : string;
+  response : tiingo_response option; [@default None]
+}
 [@@deriving yojson] [@@yojson.allow_extra_fields]
 
 type tiingo_message = {
   messageType : string;
+  response : tiingo_response option;
   data : tiingo_data list;
 }
-[@@deriving yojson] [@@yojson.allow_extra_fields]
+[@@deriving show]
 
 (* WebSocket client for Tiingo *)
 module Client = struct
@@ -109,7 +134,7 @@ module Client = struct
       eventName = "subscribe";
       authorization = client.tiingo_key;
       eventData = {
-        thresholdLevel = 5; (* Adjust based on needs *)
+        thresholdLevel = 6; (* Set based on subscription tier *)
         tickers = ticker_symbols;
       };
     } in
@@ -144,21 +169,71 @@ module Client = struct
         Eio.traceln "Tiingo WebSocket: Raw JSON received:";
         Eio.traceln "%s" (Yojson.Safe.pretty_to_string json);
 
-        let msg = tiingo_message_of_yojson json in
+        (* Parse base message to get messageType *)
+        let msg_raw = tiingo_message_raw_of_yojson json in
 
-        (* Log parsed message details *)
-        Eio.traceln "Tiingo WebSocket: messageType=%s, data_count=%d"
-          msg.messageType (List.length msg.data);
+        (* Extract data field based on messageType *)
+        let data = match msg_raw.messageType with
+          | "I" | "H" ->
+            (* Info and Heartbeat messages don't have market data *)
+            []
+          | "A" ->
+            (* Market data message - parse data as list *)
+            (match Yojson.Safe.Util.member "data" json with
+             | `List data_list ->
+               List.filter_map (fun item ->
+                 try Some (tiingo_data_of_yojson item)
+                 with _ -> None
+               ) data_list
+             | _ -> [])
+          | _ ->
+            (* Unknown message type *)
+            []
+        in
 
-        (* Log first data item if present for debugging *)
-        (match msg.data with
-         | first :: _ ->
-           Eio.traceln "Tiingo WebSocket: First item - ticker=%s, timestamp=%s, last=%f, open=%f, high=%f, low=%f, volume=%d"
-             first.ticker first.timestamp first.last first.open_ first.high first.low first.volume
-         | [] ->
-           Eio.traceln "Tiingo WebSocket: Empty data array");
+        let msg = {
+          messageType = msg_raw.messageType;
+          response = msg_raw.response;
+          data = data;
+        } in
 
-        Ok msg.data
+        (* Handle different message types *)
+        (match msg.messageType with
+         | "I" ->
+           (* Info/Subscription confirmation *)
+           Eio.traceln "Tiingo WebSocket: Subscription confirmed (messageType=I)";
+           (match msg.response with
+            | Some resp -> Eio.traceln "Tiingo WebSocket: Response: code=%d, message=%s" resp.code resp.message
+            | None -> ());
+           Ok []  (* No data to process *)
+
+         | "H" ->
+           (* Heartbeat *)
+           Eio.traceln "Tiingo WebSocket: Heartbeat received (messageType=H)";
+           (match msg.response with
+            | Some resp -> Eio.traceln "Tiingo WebSocket: Heartbeat: code=%d, message=%s" resp.code resp.message
+            | None -> ());
+           Ok []  (* No data to process *)
+
+         | "A" ->
+           (* Market data *)
+           Eio.traceln "Tiingo WebSocket: Market data received (messageType=A), data_count=%d"
+             (List.length msg.data);
+
+           (* Log first data item if present for debugging *)
+           (match msg.data with
+            | first :: _ ->
+              Eio.traceln "Tiingo WebSocket: First item - ticker=%s, timestamp=%s, last=%f, open=%f, high=%f, low=%f, volume=%d"
+                first.ticker first.timestamp first.last first.open_ first.high first.low first.volume
+            | [] ->
+              Eio.traceln "Tiingo WebSocket: Empty data array");
+
+           Ok msg.data
+
+         | other ->
+           (* Unknown message type *)
+           Eio.traceln "Tiingo WebSocket: Unknown messageType=%s" other;
+           Ok [])
       with
       | Yojson.Json_error e ->
         Eio.traceln "Tiingo WebSocket: JSON parse error: %s" e;
@@ -314,6 +389,9 @@ module Client = struct
            | Error e ->
              Eio.traceln "Tiingo WebSocket: Background fiber error updating bars: %s"
                (Error.show e));
+
+          (* Explicit yield to prevent starving other fibers during message floods *)
+          Eio.Fiber.yield ();
 
           (* Continue loop *)
           update_loop client_ref
