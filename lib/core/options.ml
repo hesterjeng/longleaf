@@ -13,6 +13,7 @@ module CLI = struct
     start : int;
     random_drop_chance : int;
     slippage_pct : float;
+    opening_wait_minutes : int;
   }
   [@@deriving show, yojson]
 
@@ -122,6 +123,13 @@ module CLI = struct
         "Prices will be multiplied by a random value in (1-pct,1+pct)"
       in
       Cmdliner.Arg.(value & opt float 0.0 & info [ "slippage" ] ~doc)
+
+    let opening_wait_minutes =
+      let doc =
+        "Number of minutes to wait after market open before starting to trade \
+         (to avoid opening volatility). Default is 0 (trade immediately)."
+      in
+      Cmdliner.Arg.(value & opt int 0 & info [ "opening-wait" ] ~doc)
   end
 
   let default =
@@ -139,6 +147,7 @@ module CLI = struct
       start = 0;
       random_drop_chance = 0;
       slippage_pct = 0.0;
+      opening_wait_minutes = 0;
     }
 
   let term =
@@ -155,7 +164,8 @@ module CLI = struct
     and+ compare_preloaded = Args.compare_preload
     and+ start = Args.start_arg
     and+ random_drop_chance = Args.random_drop_chance
-    and+ slippage_pct = Args.slippage_pct in
+    and+ slippage_pct = Args.slippage_pct
+    and+ opening_wait_minutes = Args.opening_wait_minutes in
     {
       runtype;
       stacktrace;
@@ -170,6 +180,7 @@ module CLI = struct
       start;
       random_drop_chance;
       slippage_pct;
+      opening_wait_minutes;
     }
 
   module Full = struct

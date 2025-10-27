@@ -68,7 +68,19 @@ end = struct
 
   exception FinalState of State.t
 
+  (* Track when market opened to skip opening volatility window *)
+  let market_open_time : float option ref = ref None
+
   module Listen = struct
+    (* Check if we're in the opening volatility window *)
+    let in_opening_window env =
+      match !market_open_time with
+      | None -> false  (* Market hasn't opened yet *)
+      | Some open_ts ->
+        let now = Eio.Time.now env#clock in
+        let elapsed_minutes = (now -. open_ts) /. 60.0 in
+        elapsed_minutes <. Float.of_int options.flags.opening_wait_minutes
+
     let listen_tick state env : (unit, Error.t) result =
       match runtype with
       | Live
@@ -79,28 +91,49 @@ end = struct
                let* nmo = Backend.next_market_open () in
                match nmo with
                | None ->
-                 if options.flags.print_tick_arg then
-                   Eio.traceln "strategy_utils: ticking %d %a"
-                     (State.tick state) (Option.pp Time.pp)
-                     (Eio.Time.now env#clock |> Ptime.of_float_s);
-                 Ticker.tick ~runtype env Input.options.tick;
-                 Result.return ()
+                 (* Market is open - check if we need to track opening time *)
+                 if Option.is_none !market_open_time then (
+                   let now = Eio.Time.now env#clock in
+                   market_open_time := Some now;
+                   if options.flags.opening_wait_minutes > 0 then
+                     Eio.traceln "@[Market is open. Waiting %d minutes to avoid opening volatility.@]@."
+                       options.flags.opening_wait_minutes
+                 );
+
+                 (* Check if we're still in opening window *)
+                 if in_opening_window env then (
+                   let now = Eio.Time.now env#clock in
+                   let elapsed = match !market_open_time with
+                     | Some open_ts -> (now -. open_ts) /. 60.0
+                     | None -> 0.0
+                   in
+                   let remaining = Float.of_int options.flags.opening_wait_minutes -. elapsed in
+                   Eio.traceln "@[Still in opening window: %.1f minutes remaining before trading@]@." remaining;
+                   Ticker.tick ~runtype env Input.options.tick;
+                   Result.return ()
+                 ) else (
+                   if options.flags.print_tick_arg then
+                     Eio.traceln "strategy_utils: ticking %d %a"
+                       (State.tick state) (Option.pp Time.pp)
+                       (Eio.Time.now env#clock |> Ptime.of_float_s);
+                   Ticker.tick ~runtype env Input.options.tick;
+                   Result.return ()
+                 )
                | Some open_time ->
                  Eio.traceln "@[Current time: %a@]@." (Option.pp Time.pp)
                    (Eio.Time.now env#clock |> Ptime.of_float_s);
                  Eio.traceln "@[Open time: %a@]@." Time.pp open_time;
-                 let open_time = Ptime.to_float_s open_time in
+                 let open_time_ts = Ptime.to_float_s open_time in
                  Eio.traceln "@[Waiting until market open...@]@.";
-                 Eio.Time.sleep_until env#clock open_time;
+                 Eio.Time.sleep_until env#clock open_time_ts;
                  Eio.traceln "@[Market is open, resuming.@]@.";
-                 Eio.Time.now env#clock |> Ptime.of_float_s |> ( function
-                 | Some t ->
-                   Eio.traceln "@[Current time: %a@]@." Time.pp t;
-                   Ticker.tick ~runtype env 5.0;
-                   Eio.traceln "@[Waited five seconds.@]@.";
-                   Result.return ()
-                 | None ->
-                   Error.fatal "Detected an illegal time! strategy_util.ml" ));
+                 (* Record market open time *)
+                 market_open_time := Some open_time_ts;
+                 if options.flags.opening_wait_minutes > 0 then
+                   Eio.traceln "@[Will wait %d minutes before starting to trade.@]@."
+                     options.flags.opening_wait_minutes;
+                 Ticker.tick ~runtype env Input.options.tick;
+                 Result.return ());
              (fun () ->
                while
                  let shutdown = Pmutex.get mutices.shutdown_mutex in
@@ -110,32 +143,20 @@ end = struct
                  Ticker.tick ~runtype env 1.0
                done;
                raise (FinalState state));
-             (* (fun () -> *)
-             (*   let* close_time = Backend.next_market_close () in *)
-             (*   let* now = *)
-             (*     Eio.Time.now env#clock |> Ptime.of_float_s |> function *)
-             (*     | Some t -> Result.return t *)
-             (*     | None -> *)
-             (*       Error.fatal *)
-             (*         "Unable to get clock time in listen_tick for market close" *)
-             (*   in *)
-             (*   let time_until_close = *)
-             (*     Ptime.diff close_time now |> Ptime.Span.to_float_s *)
-             (*   in *)
-             (*   while time_until_close >=. 600.0 do *)
-             (*     Eio.Fiber.yield () *)
-             (*   done; *)
-             (*   Eio.traceln *)
-             (*     "@[Liquidating because we are within 10 minutes to market \ *)
-           (*      close.@]@."; *)
-             (*   Result.return ()); *)
            ]
       | _ -> Result.return ()
 
-    let top (state : State.t) : (State.t, Error.t) result =
+    (* Returns Ok state only when we're ready to trade (past opening window or not applicable) *)
+    (* Loops internally during the opening window, only returning when ready to trade *)
+    let rec top (state : State.t) : (State.t, Error.t) result =
       if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
       let* () = listen_tick state eio_env in
-      Ok state
+      (* If we're in opening window, wait and try again *)
+      if in_opening_window eio_env then (
+        Eio.traceln "@[Skipping strategy execution during opening volatility window@]@.";
+        top state  (* Recursively call until we're past the opening window *)
+      ) else
+        Ok state
   end
 
   module Increment = struct
@@ -234,8 +255,10 @@ end = struct
   let go order (x : State.t) =
     let* init = Initialize.top x in
     let rec loop state =
-      GetData.top state >>= LiveIndicators.top >>= order >>= Increment.top
-      >>= Listen.top >>= loop
+      (* Check market status and wait BEFORE getting data/placing orders *)
+      (* Listen.top will loop internally if we're in the opening window *)
+      Listen.top state >>= GetData.top >>= LiveIndicators.top >>= order
+      >>= Increment.top >>= loop
     in
     let res =
       try loop init with
