@@ -121,19 +121,22 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
   let init_state () =
     let ( let* ) = Result.( let* ) in
+    Eio.traceln "Alpaca backend: Fetching account information...";
     let* account_status = Trading_api.Accounts.get_account () in
-    Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
-      account_status;
+    Eio.traceln "Alpaca backend: Account cash: $%.2f" account_status.cash;
     let account_cash = account_status.cash in
+    Eio.traceln "Alpaca backend: Loading historical data...";
     let* bars =
       match Input.target with
       | None -> Error.fatal "No historical data for alpaca backend"
       | Some b -> Result.return b
     in
+    Eio.traceln "Alpaca backend: Creating indicator configuration...";
     let config =
       Indicators_config.make Input.options.flags.runtype
         Input.options.tacaml_indicators
     in
+    Eio.traceln "Alpaca backend: Initializing state...";
     State.make 0 bars config account_cash
 
   let next_market_open () =

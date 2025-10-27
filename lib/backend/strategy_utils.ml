@@ -40,29 +40,35 @@ end = struct
     val top : State.t -> (State.t, Error.t) result
   end = struct
     let top (state : State.t) =
-      Eio.traceln "Initialize state...";
+      Eio.traceln "=== Initialization started ===";
+      Eio.traceln "[1/4] Setting up symbols...";
       let symbols_str =
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
+      Eio.traceln "[2/4] Computing indicators for %d symbols..." (List.length Backend.symbols);
       let* () =
         let indicator_config = (State.config state).indicator_config in
         let pool = Input.options.executor_pool in
         Indicators.Calc.compute_all ~pool eio_env indicator_config @@ State.bars state
       in
+      Eio.traceln "[3/4] Indicators computed successfully";
       let* state =
         (* If we are in live or paper, we need to grow the bars to have somewhere \ *)
         (* to put the received data. *)
         match Input.options.flags.runtype with
         | Live
         | Paper ->
+          Eio.traceln "[4/4] Preparing bars for live data reception...";
           let* bars_length = Bars.length @@ State.bars state in
           let* state = State.set_tick state (bars_length - 1) |> State.grow in
-          Eio.traceln "Initialize state: %a" State.pp state;
+          Eio.traceln "State prepared: tick=%d" (State.tick state);
           Result.return state
-        | _ -> Result.return state
+        | _ ->
+          Eio.traceln "[4/4] Backtest mode - no bar growth needed";
+          Result.return state
       in
-      Eio.traceln "Finished with initialization: %d..." (State.tick state);
+      Eio.traceln "=== Initialization complete (tick %d) ===" (State.tick state);
       Result.return state
   end
 
@@ -153,10 +159,13 @@ end = struct
       let* () = listen_tick state eio_env in
       (* If we're in opening window, wait and try again *)
       if in_opening_window eio_env then (
-        Eio.traceln "@[Skipping strategy execution during opening volatility window@]@.";
+        (* Silent recursion - details already logged in listen_tick *)
         top state  (* Recursively call until we're past the opening window *)
-      ) else
+      ) else (
+        if Option.is_some !market_open_time && options.flags.opening_wait_minutes > 0 then
+          Eio.traceln "=== Opening volatility window passed, starting to trade ===";
         Ok state
+      )
   end
 
   module Increment = struct
@@ -254,6 +263,7 @@ end = struct
 
   let go order (x : State.t) =
     let* init = Initialize.top x in
+    Eio.traceln "=== Starting main strategy loop ===";
     let rec loop state =
       (* Check market status and wait BEFORE getting data/placing orders *)
       (* Listen.top will loop internally if we're in the opening window *)
@@ -262,7 +272,9 @@ end = struct
     in
     let res =
       try loop init with
-      | FinalState s -> Liquidate.top s >>= Finish.top
+      | FinalState s ->
+        Eio.traceln "=== Strategy loop ended, finalizing ===";
+        Liquidate.top s >>= Finish.top
     in
     res
 end

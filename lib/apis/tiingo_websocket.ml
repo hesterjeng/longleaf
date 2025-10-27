@@ -165,10 +165,6 @@ module Client = struct
       (try
         let json = Yojson.Safe.from_string frame.payload in
 
-        (* Log raw JSON for debugging *)
-        Eio.traceln "Tiingo WebSocket: Raw JSON received:";
-        Eio.traceln "%s" (Yojson.Safe.pretty_to_string json);
-
         (* Parse base message to get messageType *)
         let msg_raw = tiingo_message_raw_of_yojson json in
 
@@ -201,34 +197,19 @@ module Client = struct
         (match msg.messageType with
          | "I" ->
            (* Info/Subscription confirmation *)
-           Eio.traceln "Tiingo WebSocket: Subscription confirmed (messageType=I)";
-           (match msg.response with
-            | Some resp -> Eio.traceln "Tiingo WebSocket: Response: code=%d, message=%s" resp.code resp.message
-            | None -> ());
+           Eio.traceln "Tiingo WebSocket: Subscription confirmed";
            Ok []  (* No data to process *)
 
          | "H" ->
-           (* Heartbeat *)
-           Eio.traceln "Tiingo WebSocket: Heartbeat received (messageType=H)";
-           (match msg.response with
-            | Some resp -> Eio.traceln "Tiingo WebSocket: Heartbeat: code=%d, message=%s" resp.code resp.message
-            | None -> ());
+           (* Heartbeat - silent, connection is alive *)
            Ok []  (* No data to process *)
 
          | "A" ->
-           (* Market data *)
-           Eio.traceln "Tiingo WebSocket: Market data received (messageType=A), data_count=%d"
-             (List.length msg.data);
-
-           (* Log first data item if present for debugging *)
-           (match msg.data with
-            | first :: _ ->
-              Eio.traceln "Tiingo WebSocket: First item - ticker=%s, timestamp=%s, last=%f, open=%f, high=%f, low=%f, volume=%d"
-                first.ticker first.timestamp first.last first.open_ first.high first.low first.volume
-            | [] ->
-              Eio.traceln "Tiingo WebSocket: Empty data array");
-
-           Ok msg.data
+           (* Market data - only log if non-empty *)
+           if List.length msg.data > 0 then
+             Ok msg.data
+           else
+             Ok []
 
          | other ->
            (* Unknown message type *)
@@ -335,10 +316,7 @@ module Client = struct
     let* data_items = receive_loop 0 in
     (* Convert Error.t to generic error for compatibility *)
     match update_bars bars tick data_items with
-    | Ok () ->
-      Eio.traceln "Tiingo WebSocket: Successfully updated %d instruments at tick %d"
-        (List.length data_items) tick;
-      Ok ()
+    | Ok () -> Ok ()
     | Error e ->
       Eio.traceln "Tiingo WebSocket: Error updating bars: %s" (Error.show e);
       Error (`MissingData (Error.show e))
@@ -383,12 +361,9 @@ module Client = struct
 
           (* Update bars with new data *)
           (match update_bars bars current_tick data_items with
-           | Ok () ->
-             Eio.traceln "Tiingo WebSocket: Background fiber updated %d instruments at tick %d"
-               (List.length data_items) current_tick
+           | Ok () -> ()  (* Silent on success *)
            | Error e ->
-             Eio.traceln "Tiingo WebSocket: Background fiber error updating bars: %s"
-               (Error.show e));
+             Eio.traceln "Tiingo WebSocket: Error updating bars: %s" (Error.show e));
 
           (* Explicit yield to prevent starving other fibers during message floods *)
           Eio.Fiber.yield ();
@@ -399,14 +374,14 @@ module Client = struct
           (* Ping handled, continue *)
           update_loop client_ref
         | Error `ConnectionClosed ->
-          Eio.traceln "Tiingo WebSocket: Background fiber detected connection closed, attempting reconnect";
+          Eio.traceln "Tiingo WebSocket: Connection closed, reconnecting...";
           (match reconnect ~sw ~env !client_ref with
            | Ok new_client ->
              client_ref := new_client;
-             Eio.traceln "Tiingo WebSocket: Background fiber reconnected successfully";
+             Eio.traceln "Tiingo WebSocket: Reconnected successfully";
              update_loop client_ref
            | Error e ->
-             Eio.traceln "Tiingo WebSocket: Background fiber reconnection failed: %s"
+             Eio.traceln "Tiingo WebSocket: Reconnection failed: %s"
                (match e with
                 | `ConnectionClosed -> "Connection closed"
                 | `InvalidScheme s -> "Invalid scheme: " ^ s
@@ -419,19 +394,19 @@ module Client = struct
              Eio.Time.sleep (Eio.Stdenv.clock env) 5.0;
              update_loop client_ref)
         | Error (`JsonError s) ->
-          Eio.traceln "Tiingo WebSocket: Background fiber JSON error: %s" s;
+          Eio.traceln "Tiingo WebSocket: JSON error: %s" s;
           update_loop client_ref
         | Error (`ParseError s) ->
-          Eio.traceln "Tiingo WebSocket: Background fiber parse error: %s" s;
+          Eio.traceln "Tiingo WebSocket: Parse error: %s" s;
           update_loop client_ref
         | Error (`ReadError s) ->
-          Eio.traceln "Tiingo WebSocket: Background fiber read error: %s" s;
+          Eio.traceln "Tiingo WebSocket: Read error: %s" s;
           update_loop client_ref
         | Error (`UnexpectedFrame s) ->
-          Eio.traceln "Tiingo WebSocket: Background fiber unexpected frame: %s" s;
+          Eio.traceln "Tiingo WebSocket: Unexpected frame: %s" s;
           update_loop client_ref
         | Error (`InvalidOpcode i) ->
-          Eio.traceln "Tiingo WebSocket: Background fiber invalid opcode: %d" i;
+          Eio.traceln "Tiingo WebSocket: Invalid opcode: %d" i;
           update_loop client_ref
       in
 
