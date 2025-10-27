@@ -155,7 +155,9 @@ module Make (Config : CONFIG) = struct
       let symbols_str = String.concat "," symbols in
       let endpoint =
         Uri.of_string (make_url "/v2/stocks/bars/latest") |> fun u ->
-        Uri.add_query_param' u ("symbols", symbols_str) |> Uri.to_string
+        Uri.add_query_params' u
+          [ ("symbols", symbols_str); ("feed", "iex") ]
+        |> Uri.to_string
       in
       (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
       let* resp_body_json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
@@ -165,6 +167,9 @@ module Make (Config : CONFIG) = struct
       let bars_json = Yojson.Safe.Util.member "bars" resp_body_json in
       let assoc = Yojson.Safe.Util.to_assoc bars_json in
 
+      (* Get current real time for latency calculation *)
+      let now = Ptime_clock.now () in
+
       (* Parse each symbol's bar and update existing bars *)
       let* () =
         List.fold_left
@@ -172,6 +177,12 @@ module Make (Config : CONFIG) = struct
             let* () = acc in
             let* symbol = Instrument.of_string_res symbol_str in
             let bar_item = Item.t_of_yojson bar_json in
+
+            (* Check how old this bar is compared to real time *)
+            let bar_age = Ptime.diff now bar_item.timestamp |> Ptime.Span.to_float_s in
+            if bar_age >. 10.0 then
+              Eio.traceln "warning: %a bar is %.1fs old" Instrument.pp symbol bar_age;
+
             let* data = Bars.get bars symbol in
             (* Update data at current tick *)
             Data.set data Data.Type.Time tick (Ptime.to_float_s bar_item.timestamp);

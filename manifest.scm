@@ -80,6 +80,7 @@
 	"ocaml-ca-certs"
         "ocaml-mirage-crypto-rng"
 	"ocaml-tls-eio"
+        "ocaml-base64"
         "python-quantstats"
         "python-yfinance"
         "python-multitasking"

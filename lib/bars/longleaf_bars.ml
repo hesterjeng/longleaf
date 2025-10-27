@@ -97,16 +97,11 @@ let length (x : t) =
 
 let timestamp (x : t) (tick : int) =
   let res =
-    fold x None @@ fun symbol data acc ->
+    fold x None @@ fun _symbol data acc ->
     let timestamp = Data.get data Time tick in
     match acc with
     | None -> Some timestamp
-    | Some prev ->
-      let diff = Float.abs (timestamp -. prev) in
-      if diff >. 10.0 then
-        Eio.traceln "warning: timestamp diff for %a: %.1fs late"
-          Instrument.pp symbol diff;
-      Some prev
+    | Some prev -> Some prev
   in
   match res with
   | None -> Error.fatal "Could not get Bars.timestamp"

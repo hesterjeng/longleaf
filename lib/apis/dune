@@ -20,6 +20,7 @@
   cstruct
   mirage-crypto-rng
   mirage-crypto-rng.unix
+  base64
   yojson)
  (preprocess
   (pps
