@@ -156,6 +156,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
         strategy_arg: cliData.strategy_arg || 'Listener',
         target_file: targetData.type === 'Download' ? 'download' : targetData.file
       });
+
+      // Sync button states with loaded settings
+      setStacktraceActive(cliData.stacktrace || false);
+      setPrintTickActive(cliData.print_tick_arg || false);
+      setSaveReceivedActive(cliData.save_received || false);
+      setSaveToFileActive(cliData.save_to_file || false);
+      setPrecomputeIndicatorsActive(cliData.precompute_indicators_arg || false);
+      setNowaitMarketOpenActive(cliData.nowait_market_open || false);
     } else {
       // Set defaults when no settings are available
       settingsForm.setFieldsValue({

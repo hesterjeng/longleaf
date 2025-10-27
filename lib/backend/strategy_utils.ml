@@ -156,6 +156,9 @@ end = struct
     (* Loops internally during the opening window, only returning when ready to trade *)
     let rec top (state : State.t) : (State.t, Error.t) result =
       if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
+      (* Print tick at start of strategy iteration to show loop is progressing *)
+      if options.flags.print_tick_arg && not (in_opening_window eio_env) then
+        Eio.traceln "=== Starting strategy iteration for tick %d ===" (State.tick state);
       let* () = listen_tick state eio_env in
       (* If we're in opening window, wait and try again *)
       if in_opening_window eio_env then (
@@ -174,9 +177,12 @@ end = struct
       State.tick state >= length - 1 |> function
       | true -> raise (FinalState state)
       | false ->
+        let current_tick = State.tick state in
+        let* new_state = State.increment_tick state in
         if options.flags.print_tick_arg then
-          Eio.traceln "[ Increment.top ] %d" (State.tick state + 1);
-        State.increment_tick state
+          Eio.traceln "=== Strategy loop completed tick %d, moving to tick %d ==="
+            current_tick (State.tick new_state);
+        Result.return new_state
   end
 
   module Liquidate = struct

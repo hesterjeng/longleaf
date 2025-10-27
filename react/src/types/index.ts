@@ -17,6 +17,11 @@ export interface CLIBooleanFields {
   stacktrace?: boolean;
   no_gui?: boolean;
   save_received?: boolean;
+  print_tick_arg?: boolean;
+  save_to_file?: boolean;
+  nowait_market_open?: boolean;
+  precompute_indicators_arg?: boolean;
+  compare_preloaded?: boolean;
 }
 
 export interface CLINumericFields {
@@ -28,11 +33,6 @@ export interface CLINumericFields {
 
 // Unknown fields that need proper typing when we understand them better
 export interface CLIUnknownFields {
-  save_to_file?: unknown;
-  nowait_market_open?: unknown;
-  print_tick_arg?: unknown;
-  precompute_indicators_arg?: unknown;
-  compare_preloaded?: unknown;
 }
 
 // CLI settings from the backend - now composed of smaller interfaces

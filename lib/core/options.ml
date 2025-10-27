@@ -1,18 +1,18 @@
 module CLI = struct
   type t = {
     runtype : Runtype.t;
-    stacktrace : bool;
+    stacktrace : bool; [@default false]
     strategy_arg : string;
-    no_gui : bool;
-    save_received : bool;
-    save_to_file : bool;
-    nowait_market_open : bool;
-    print_tick_arg : bool;
-    precompute_indicators_arg : bool;
-    compare_preloaded : bool;
-    start : int;
-    random_drop_chance : int;
-    slippage_pct : float;
+    no_gui : bool; [@default false]
+    save_received : bool; [@default false]
+    save_to_file : bool; [@default false]
+    nowait_market_open : bool; [@default false]
+    print_tick_arg : bool; [@default false]
+    precompute_indicators_arg : bool; [@default false]
+    compare_preloaded : bool; [@default false]
+    start : int; [@default 0]
+    random_drop_chance : int; [@default 0]
+    slippage_pct : float; [@default 0.0]
     opening_wait_minutes : int; [@default 0]
   }
   [@@deriving show, yojson]
