@@ -13,7 +13,7 @@ module CLI = struct
     start : int;
     random_drop_chance : int;
     slippage_pct : float;
-    opening_wait_minutes : int;
+    opening_wait_minutes : int; [@default 0]
   }
   [@@deriving show, yojson]
 

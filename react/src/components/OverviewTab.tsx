@@ -803,14 +803,28 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           <Col span={12}>
             <Card title="Slippage %" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="slippage_pct">
-                <InputNumber 
-                  min={0} 
-                  max={1} 
-                  step={0.001} 
+                <InputNumber
+                  min={0}
+                  max={1}
+                  step={0.001}
                   precision={3}
-                  size="large" 
-                   
+                  size="large"
+
                   placeholder="0.010 (1%)"
+                />
+              </Form.Item>
+            </Card>
+          </Col>
+
+          <Col span={12}>
+            <Card title="Opening Wait (Minutes)" styles={{ body: { padding: '8px' } }}>
+              <Form.Item label="" name="opening_wait_minutes">
+                <InputNumber
+                  min={0}
+                  max={120}
+                  size="large"
+
+                  placeholder="0 (trade immediately)"
                 />
               </Form.Item>
             </Card>
