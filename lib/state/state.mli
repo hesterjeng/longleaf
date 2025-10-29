@@ -8,7 +8,7 @@ type t
 type 'a res = ('a, Error.t) result
 
 (* Create a new state with index, data, and content *)
-val make : int -> Bars.t -> Indicators_config.t -> float -> t res
+val make : int -> Bars.t -> Indicators_config.t -> float -> bool -> t res
 
 (* Print basic info about the state *)
 val pp : t Format.printer

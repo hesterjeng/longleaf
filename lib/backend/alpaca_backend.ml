@@ -138,7 +138,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
         Input.options.tacaml_indicators
     in
     Eio.traceln "Alpaca backend: Initializing state...";
-    State.make 0 bars config account_cash
+    State.make 0 bars config account_cash opts.flags.print_tick_arg
 
   let next_market_open () =
     let ( let* ) = Result.( let* ) in

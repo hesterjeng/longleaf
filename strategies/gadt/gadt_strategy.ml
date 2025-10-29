@@ -65,6 +65,7 @@ end = struct
     | EntryTick -> Error.fatal "Cannot evaluate EntryTick in eval_simple"
     | TicksHeld -> Error.fatal "Cannot evaluate TicksHeld in eval_simple"
     | HasPosition -> Error.fatal "Cannot evaluate HasPosition in eval_simple"
+    | TickTime -> Error.fatal "Cannot evaluate TickTime in eval_simple"
   (* | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple" *)
 
   (* Collect all t from GADT expressions *)
@@ -94,6 +95,7 @@ end = struct
     | EntryTick -> []
     | TicksHeld -> []
     | HasPosition -> []
+    | TickTime -> []
 
   let collect_indicators x =
     let tys = collect_data_types x in

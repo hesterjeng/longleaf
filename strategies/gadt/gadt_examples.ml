@@ -774,4 +774,63 @@ let mean_reversion_safe_opt =
        position_size = 0.10;
      }
 
+(** RocketReef - Optimized Mean Reversion Strategy
+
+    This strategy emerged from NLopt optimization achieving an objective value of 106,246.32.
+
+    What makes it unique:
+    - Uses 53-period RSI (highly unusual - most strategies use 2-14)
+    - Tight RSI thresholds around 50 (49.96 for buy, 51.43 for sell)
+    - This captures mean reversion around RSI midpoint, not traditional oversold/overbought
+    - 27-period Bollinger Bands (slightly wider than standard 20)
+
+    The 53-period RSI smooths out noise while the tight thresholds around 50
+    catch subtle shifts in momentum. Combined with Bollinger Bands touching the
+    lower band, it identifies stocks that are temporarily weak but not crashed.
+
+    Entry Logic:
+    - RSI(53) dips below 49.96 (just starting to weaken)
+    - Price touches lower Bollinger Band (27-period)
+    - This catches early weakness, not deep oversold
+
+    Exit Logic (OR of any condition):
+    - Price returns to middle Bollinger Band (mean reversion complete)
+    - RSI(53) rises above 51.43 (momentum turning positive)
+    - Price hits upper Bollinger Band (overshot the mean)
+    - 2% stop-loss (risk management)
+    - 5% profit target (lock in gains)
+    - 60-minute max hold (prevent overnight exposure)
+
+    Optimization Results:
+    - Objective value: 106,246.32
+    - RSI period: 53 (optimized from range 5-100)
+    - RSI buy threshold: 49.96 (optimized from range 20-50)
+    - RSI sell threshold: 51.43 (optimized from range 50-80)
+    - BB period: 27 (optimized from range 15-35)
+*)
+let rocket_reef =
+  let rsi_53 = Real.rsi 53 () in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  register
+  @@ {
+       name = "RocketReef";
+       (* Buy: RSI(53) dips below 49.96 AND price touches lower BB *)
+       buy_trigger =
+         (rsi_53 <. Const (49.961254, Float)) &&. (last <. bb_lower_27);
+       (* Sell: Mean reversion signals OR risk management exits *)
+       sell_trigger =
+         (* Mean reversion complete signals *)
+         (last >. bb_middle_27)  (* Price returned to mean *)
+         ||. (rsi_53 >. Const (51.425345, Float))  (* Momentum turning positive *)
+         ||. (last >. bb_upper_27)  (* Overshot to upper band *)
+         (* Risk management exits *)
+         ||. stop_loss 0.02       (* 2% stop-loss *)
+         ||. profit_target 0.05   (* 5% profit target *)
+         ||. max_holding_time 60; (* 60 minutes max hold *)
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
 let all_strategies = !all_strategies

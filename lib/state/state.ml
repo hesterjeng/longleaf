@@ -28,6 +28,7 @@ let empty runtype (indicators : Tacaml.t list) : t =
       {
         placeholder = false;
         indicator_config = Indicators_config.make runtype indicators;
+        print_tick_arg = false;
       };
     cash = 0.0;
     positions = Positions.empty;
@@ -45,8 +46,8 @@ type 'a res = ('a, Error.t) result
 
 let config x = x.config
 
-let make current_tick bars indicator_config cash =
-  let config = Config.{ placeholder = true; indicator_config } in
+let make current_tick bars indicator_config cash print_tick_arg =
+  let config = Config.{ placeholder = true; indicator_config; print_tick_arg } in
   Result.return
     {
       bars;
@@ -132,8 +133,9 @@ let place_order state0 (order : Order.t) =
           orders_placed = state0.orders_placed + 1;
         }
       in
-      Eio.traceln "[%d] BUY %s qty=%d price=%f, cash: %f -> %f"
-        tick (Instrument.symbol order.symbol) order.qty order.price state0.cash new_state.cash;
+      if state0.config.print_tick_arg then
+        Eio.traceln "[%d] BUY %s qty=%d price=%f, cash: %f -> %f"
+          tick (Instrument.symbol order.symbol) order.qty order.price state0.cash new_state.cash;
       Result.return new_state
     else (
       Eio.traceln "Insufficient cash for buy order (need %f, have %f)" order_value state0.cash;
@@ -151,8 +153,9 @@ let place_order state0 (order : Order.t) =
           orders_placed = state0.orders_placed + 1;
         }
       in
-      Eio.traceln "[%d] SELL %s qty=%d price=%f, cash: %f -> %f"
-        tick (Instrument.symbol order.symbol) order.qty order.price state0.cash new_state.cash;
+      if state0.config.print_tick_arg then
+        Eio.traceln "[%d] SELL %s qty=%d price=%f, cash: %f -> %f"
+          tick (Instrument.symbol order.symbol) order.qty order.price state0.cash new_state.cash;
       Result.return new_state
     else (
       Eio.traceln "Insufficient shares for sell order (need %d, have %d)" order.qty qty_held;

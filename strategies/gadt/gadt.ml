@@ -52,6 +52,7 @@ type _ t =
   | EntryTick : int t
   | TicksHeld : int t
   | HasPosition : bool t
+  | TickTime : float t  (* Current tick timestamp as Unix time *)
 
 let data x = Data (Const (x, Data))
 let close = data Data.Type.Close
@@ -123,6 +124,9 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
       | None -> Result.return 0)  (* No position = 0 ticks held *)
     | HasPosition ->
       Result.return (not (List.is_empty orders))
+    | TickTime ->
+      (* Get current tick's timestamp *)
+      Result.return (Data.get data Data.Type.Time index)
 (* | Indicator ty -> *)
 (*   let* ty = eval context ty in *)
 (*   Error.guard (Error.fatal "Error in GADT evaluation at Data node") *)
@@ -157,6 +161,7 @@ module Subst = struct
     | EntryTick -> []
     | TicksHeld -> []
     | HasPosition -> []
+    | TickTime -> []
 
   let collect_variables : 'a t -> (Uuidm.t * Type.shadow) list =
    fun x ->
@@ -231,6 +236,7 @@ module Subst = struct
       | EntryTick -> Result.return EntryTick
       | TicksHeld -> Result.return TicksHeld
       | HasPosition -> Result.return HasPosition
+      | TickTime -> Result.return TickTime
   (* | Indicator ty -> *)
   (*   let* ty' = instantiate env ty in *)
   (*   Result.return @@ Indicator ty' *)
@@ -280,6 +286,7 @@ let rec pp : type a. Format.formatter -> a t -> unit =
   | EntryTick -> Format.fprintf fmt "EntryTick"
   | TicksHeld -> Format.fprintf fmt "TicksHeld"
   | HasPosition -> Format.fprintf fmt "HasPosition"
+  | TickTime -> Format.fprintf fmt "TickTime"
   | App1 (f, x) -> Format.fprintf fmt "@[%a@ %a@]" pp f pp x
   | App2 (f, x, y) -> Format.fprintf fmt "@[%a@ %a@ %a@]" pp f pp x pp y
   | App3 (f, x, y, z) ->
