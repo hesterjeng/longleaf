@@ -703,4 +703,75 @@ let mean_reversion_8_27_safe =
        position_size = 0.10;
      }
 
+(** MeanReversion_Safe_Opt - Optimizable Version with Fixed Risk Controls
+
+    ISRES-optimizable version of the safe mean reversion strategy.
+    Indicator periods and thresholds are variables; risk management is fixed.
+
+    Variables to optimize (4 total):
+    1. rsi_period: [5, 15] - RSI lookback period
+    2. bb_period: [15, 35] - Bollinger Band period
+    3. rsi_oversold: [20.0, 35.0] - RSI buy threshold
+    4. rsi_overbought: [65.0, 80.0] - RSI sell threshold
+
+    Fixed risk management:
+    - 2% stop-loss
+    - 5% profit target
+    - 60-minute maximum holding time
+
+    Entry: RSI(var) < var AND Last < BB_lower(var)
+    Exit: Signals OR stop-loss(fixed) OR profit(fixed) OR max_hold(fixed)
+*)
+let mean_reversion_safe_opt =
+  (* Create variables for optimizable parameters *)
+  let rsi_period_var = Gadt_fo.var Gadt.Type.Int in       (* Variable 1: RSI period *)
+  let bb_period_var = Gadt_fo.var Gadt.Type.Int in        (* Variable 2: BB period *)
+  let rsi_oversold_var = Gadt_fo.var Gadt.Type.Float in   (* Variable 3: RSI oversold threshold *)
+  let rsi_overbought_var = Gadt_fo.var Gadt.Type.Float in (* Variable 4: RSI overbought threshold *)
+
+  (* Create indicators with variable parameters *)
+  let rsi_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var)))
+  in
+  let bb_lower_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period_var,
+        Const (2.0, Float),  (* Fixed: std dev multiplier *)
+        Const (2.0, Float)))) (* Fixed: deviation *)
+  in
+  let bb_middle_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period_var,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  let bb_upper_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
+        bb_period_var,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+
+  register
+  @@ {
+       name = "MeanReversion_Safe_Opt";
+       buy_trigger =
+         (rsi_var <. rsi_oversold_var) &&. (last <. bb_lower_var);
+       sell_trigger =
+         (* Original exit signals with variable thresholds *)
+         (last >. bb_middle_var)
+         ||. (rsi_var >. rsi_overbought_var)
+         ||. (last >. bb_upper_var)
+         (* Fixed risk management exits *)
+         ||. stop_loss 0.02       (* 2% stop-loss *)
+         ||. profit_target 0.05   (* 5% profit target *)
+         ||. max_holding_time 60; (* 60 minutes max hold *)
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
 let all_strategies = !all_strategies

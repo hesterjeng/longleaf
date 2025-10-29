@@ -224,8 +224,13 @@ module Make
   let run () =
     let ( let* ) = Result.( let* ) in
     let* init_state = init_state () in
+    Eio.traceln "Initial state - tick: %d, cash: %f" (State.tick init_state) (State.cash init_state);
     let* res = SU.go order init_state in
-    State.value res
+    Eio.traceln "Final state - tick: %d, cash: %f, orders_placed: %d"
+      (State.tick res) (State.cash res) (State.orders_placed res);
+    let* final_value = State.value res in
+    Eio.traceln "Final portfolio value: %f" final_value;
+    Result.return final_value
 end
 
 let mk_options switch eio_env executor_pool flags target tacaml_indicators : Options.t =
