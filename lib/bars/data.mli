@@ -158,6 +158,10 @@ val grow : t -> (t, Error.t) result
 (** [grow x] returns a new data matrix with double the capacity, preserving
     existing data. *)
 
+val forward_fill_next_tick : t -> tick:int -> unit
+(** [forward_fill_next_tick x ~tick] copies price data from [tick] to [tick+1].
+    Used for live trading to ensure valid data when no trade occurs. *)
+
 val size : t -> int
 
 (** {1 Setting Data} *)

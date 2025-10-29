@@ -89,6 +89,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (* WebSocket client and background fiber state *)
   let tiingo_ws_client = ref None
   let tiingo_ws_background_started = ref false
+  let tiingo_ws_initial_fetch_done = ref false
 
   (* Track current tick for background fiber *)
   let current_tick = ref 0
@@ -178,14 +179,27 @@ module Make (Input : BACKEND_INPUT) : S = struct
       let+ () =
         match data_source with
         | TiingoWebSocket ->
-          (* Background fiber is continuously updating bars *)
-          (* Just ensure the WebSocket client is initialized and fiber is running *)
-          Eio.traceln "Alpaca backend: Using background WebSocket updates (tick %d)" tick;
+          (* On first call, populate the next tick with REST to have initial data *)
+          (* After that, WebSocket updates continuously in background *)
           (match get_or_create_ws_client bars () with
            | Ok _client ->
-             (* Background fiber is running, bars are being updated continuously *)
-             (* No need to block here - just verify connection is alive *)
-             Ok ()
+             if not !tiingo_ws_initial_fetch_done then (
+               (* First time - fetch next tick via REST to seed the data *)
+               let next_tick = tick + 1 in
+               Eio.traceln "Alpaca backend: First update_bars call - fetching tick %d via REST" next_tick;
+               tiingo_ws_initial_fetch_done := true;
+               match Tiingo.latest bars symbols_list next_tick with
+               | Ok () ->
+                 Eio.traceln "Alpaca backend: Initial tick %d populated, WebSocket will update from here" next_tick;
+                 Ok ()
+               | Error e ->
+                 Eio.traceln "Alpaca backend: Warning - failed to populate initial tick: %a" Error.pp e;
+                 (* Continue anyway - WebSocket will fill in data eventually *)
+                 Ok ()
+             ) else (
+               (* WebSocket is running and updating continuously *)
+               Ok ()
+             )
            | Error e ->
              Eio.traceln "Alpaca backend: Failed to initialize WebSocket: %s" (ws_error_to_string e);
              Error (`MissingData ("WebSocket initialization failed: " ^ ws_error_to_string e)))

@@ -324,6 +324,26 @@ let grow_ (x : t) =
       Array2.set new_int_data i j (Array2.get x.int_data i j)
     done
   done;
+  (* Forward-fill: copy last old slot to first new slot for PRICE DATA ONLY *)
+  (* Indicators will be recomputed, so don't forward-fill them *)
+  if x.size > 0 then begin
+    let last_old_idx = x.size - 1 in
+    let first_new_idx = x.size in
+    (* Only forward-fill raw market data types, not computed indicators *)
+    let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
+                            Type.High; Type.Low; Type.Close; Type.Volume] in
+    List.iter (fun data_type ->
+      (* Check if this data type exists in the index *)
+      match Index.IndexTable.find_opt x.index.tbl data_type with
+      | Some row ->
+        (* Data type exists - forward-fill it *)
+        if Type.is_int_ty data_type then
+          Array2.set new_int_data row first_new_idx (Array2.get x.int_data row last_old_idx)
+        else
+          Array2.set new_data row first_new_idx (Array2.get x.data row last_old_idx)
+      | None -> ()  (* Data type doesn't exist yet - skip *)
+    ) price_data_types
+  end;
   {
     data = new_data;
     int_data = new_int_data;
@@ -338,6 +358,25 @@ let grow x =
   | Invalid_argument s ->
     Eio.traceln "Data.grow: %s" s;
     Error.fatal s
+
+(* Forward-fill: copy price data from tick to tick+1 *)
+(* Used for live trading when no trade occurs - carry forward last price *)
+let forward_fill_next_tick (x : t) ~tick =
+  let source_idx = tick in
+  let dest_idx = tick + 1 in
+  if source_idx >= 0 && source_idx < x.size && dest_idx >= 0 && dest_idx < x.size then begin
+    let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
+                            Type.High; Type.Low; Type.Close; Type.Volume] in
+    List.iter (fun data_type ->
+      match Index.IndexTable.find_opt x.index.tbl data_type with
+      | Some row ->
+        if Type.is_int_ty data_type then
+          Array2.set x.int_data row dest_idx (Array2.get x.int_data row source_idx)
+        else
+          Array2.set x.data row dest_idx (Array2.get x.data row source_idx)
+      | None -> ()
+    ) price_data_types
+  end
 
 let set_item (x : t) (i : int) (item : Item.t) =
   try

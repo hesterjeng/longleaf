@@ -27,7 +27,12 @@ module Type = struct
   let shadow x = A x
 end
 
-type context = { instrument : Instrument.t; data : Data.t; index : int }
+type context = {
+  instrument : Instrument.t;
+  data : Data.t;
+  index : int;
+  orders : Order.t list;  (* Order history for this instrument - for position risk management *)
+}
 
 (* GADT AST with phantom types for compile-time type safety *)
 type _ t =
@@ -42,6 +47,11 @@ type _ t =
   | ContextModifier : 'a t * (context -> 'a -> context) * 'b t -> 'b t
   | Var : Uuidm.t * 'a Type.t -> 'a t
   | Symbol : unit -> Instrument.t t
+  (* Position risk management nodes *)
+  | EntryPrice : float t
+  | EntryTick : int t
+  | TicksHeld : int t
+  | HasPosition : bool t
 
 let data x = Data (Const (x, Data))
 let close = data Data.Type.Close
@@ -52,9 +62,14 @@ let open_ = data @@ Data.Type.Open
 let high = data @@ Data.Type.High
 let low = data @@ Data.Type.Low
 
+(* Helper: Find entry (Buy) order from the order list *)
+let find_entry_order orders =
+  List.find_opt (fun (order : Order.t) ->
+    match order.side with Buy -> true | Sell -> false) orders
+
 (* Type-safe evaluation *)
 let rec eval : type a. context -> a t -> (a, Error.t) result =
- fun ({ instrument; data; index } as context) t ->
+ fun ({ instrument; data; index; orders } as context) t ->
   let ( let* ) = Result.( let* ) in
   (* Bounds checking *)
   if index < 0 || index >= Data.length data then
@@ -94,6 +109,20 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
       let* ty = eval context ty in
       Error.guard (Error.fatal "Error in GADT evaluation at Data node")
       @@ fun () -> Data.get data ty index
+    | EntryPrice ->
+      (match find_entry_order orders with
+      | Some order -> Result.return order.price
+      | None -> Error.fatal "No entry order found for EntryPrice")
+    | EntryTick ->
+      (match find_entry_order orders with
+      | Some order -> Result.return order.tick
+      | None -> Error.fatal "No entry order found for EntryTick")
+    | TicksHeld ->
+      (match find_entry_order orders with
+      | Some order -> Result.return (index - order.tick)
+      | None -> Result.return 0)  (* No position = 0 ticks held *)
+    | HasPosition ->
+      Result.return (not (List.is_empty orders))
 (* | Indicator ty -> *)
 (*   let* ty = eval context ty in *)
 (*   Error.guard (Error.fatal "Error in GADT evaluation at Data node") *)
@@ -124,6 +153,10 @@ module Subst = struct
       collect_variables f @ collect_variables x @ collect_variables y
       @ collect_variables z
     | Fun _ -> []
+    | EntryPrice -> []
+    | EntryTick -> []
+    | TicksHeld -> []
+    | HasPosition -> []
 
   let collect_variables : 'a t -> (Uuidm.t * Type.shadow) list =
    fun x ->
@@ -194,6 +227,10 @@ module Subst = struct
         let* ty' = instantiate env x in
         let* arg' = instantiate env arg in
         Result.return @@ ContextModifier (arg', f, ty')
+      | EntryPrice -> Result.return EntryPrice
+      | EntryTick -> Result.return EntryTick
+      | TicksHeld -> Result.return TicksHeld
+      | HasPosition -> Result.return HasPosition
   (* | Indicator ty -> *)
   (*   let* ty' = instantiate env ty in *)
   (*   Result.return @@ Indicator ty' *)
@@ -239,6 +276,10 @@ let rec pp : type a. Format.formatter -> a t -> unit =
     Format.fprintf fmt "(@[%a@ <.@ %a@])" pp x pp y
   | App2 (Fun (">.", _), x, y) ->
     Format.fprintf fmt "(@[%a@ >.@ %a@])" pp x pp y
+  | EntryPrice -> Format.fprintf fmt "EntryPrice"
+  | EntryTick -> Format.fprintf fmt "EntryTick"
+  | TicksHeld -> Format.fprintf fmt "TicksHeld"
+  | HasPosition -> Format.fprintf fmt "HasPosition"
   | App1 (f, x) -> Format.fprintf fmt "@[%a@ %a@]" pp f pp x
   | App2 (f, x, y) -> Format.fprintf fmt "@[%a@ %a@ %a@]" pp f pp x pp y
   | App3 (f, x, y, z) ->

@@ -8,6 +8,27 @@ let register x =
   List.Ref.push all_strategies x;
   x
 
+(* Risk management helper functions - return bool Gadt.t expressions *)
+
+(* Stop-loss: sell if current price is below entry price by stop_loss_pct (as decimal) *)
+let stop_loss stop_loss_pct : bool Gadt.t =
+  (* current_price < entry_price * (1 - stop_loss) *)
+  let multiplier = Float.((-) 1.0 stop_loss_pct) in
+  last <. (EntryPrice *. Const (multiplier, Float))
+
+(* Profit target: sell if current price is above entry price by profit_target_pct (as decimal) *)
+let profit_target profit_target_pct : bool Gadt.t =
+  (* current_price > entry_price * (1 + profit_target) *)
+  let multiplier = Float.((+) 1.0 profit_target_pct) in
+  last >. (EntryPrice *. Const (multiplier, Float))
+
+(* Max holding time: sell if held for more than max_ticks *)
+let max_holding_time max_ticks : bool Gadt.t =
+  (* Need to compare TicksHeld (int Gadt.t) with max_ticks - create custom comparison *)
+  let max_ticks_expr = Const (max_ticks, Int) in
+  (* Create a Fun that compares the two int values *)
+  App2 (Fun (">", (>)), TicksHeld, max_ticks_expr)
+
 (** A data collection listener strategy that never buys or sells *)
 let listener_strategy =
   register
@@ -645,6 +666,39 @@ let mean_reversion_8_27 =
          (last >. bb_middle_27)
          ||. (rsi_8 >. Const (70.0, Float))
          ||. (last >. bb_upper_27);
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
+(** MeanReversion_8_27_Safe - Production-Ready Version with Risk Controls
+
+    Same entry/exit logic as MeanReversion_8_27, but adds critical risk management:
+    - 2% stop-loss to limit downside on losing trades
+    - 5% profit target to lock in gains
+    - 60-tick (60 minute) maximum holding time to prevent overnight risk
+
+    Entry: RSI(8) < 30 AND Last < BB_lower(27, 2σ)
+    Exit: Original signals OR stop-loss OR profit target OR max hold time
+*)
+let mean_reversion_8_27_safe =
+  let rsi_8 = Real.rsi 8 () in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  register
+  @@ {
+       name = "MeanReversion_8_27_Safe";
+       buy_trigger =
+         (rsi_8 <. Const (30.0, Float)) &&. (last <. bb_lower_27);
+       sell_trigger =
+         (* Original exit signals *)
+         (last >. bb_middle_27)
+         ||. (rsi_8 >. Const (70.0, Float))
+         ||. (last >. bb_upper_27)
+         (* Risk management exits *)
+         ||. stop_loss 0.02       (* 2% stop-loss *)
+         ||. profit_target 0.05   (* 5% profit target *)
+         ||. max_holding_time 60; (* 60 minutes max hold *)
        max_positions = 10;
        position_size = 0.10;
      }

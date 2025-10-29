@@ -2,6 +2,7 @@ module Mode = Mode
 module Config = Config
 module Stats = Stats
 module Bars = Longleaf_bars
+module Positions = Positions
 module Pmutex = Longleaf_util.Pmutex
 
 type t = {
@@ -88,10 +89,16 @@ let increment_tick x =
   let ( let* ) = Result.( let* ) in
   let* value = value x in
   let* time = time x in
+  (* Forward-fill price data for live trading: copy current tick to next tick *)
+  let current_tick = x.current_tick in
+  let () =
+    Bars.fold x.bars () (fun _instrument data () ->
+      Bars.Data.forward_fill_next_tick data ~tick:current_tick)
+  in
   Result.return
   @@ {
        x with
-       current_tick = x.current_tick + 1;
+       current_tick = current_tick + 1;
        value_history = (time, value) :: x.value_history;
        cash_history = (time, x.cash) :: x.cash_history;
      }
