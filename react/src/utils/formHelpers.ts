@@ -73,9 +73,9 @@ export const validateFormValues = (values: SettingsFormValues): Record<string, s
     errors.random_drop_chance = 'Random drop chance must be between 0 and 100';
   }
 
-  if (values.slippage_pct !== undefined && 
+  if (values.slippage_pct !== undefined &&
       (values.slippage_pct < 0 || values.slippage_pct > 1)) {
-    errors.slippage_pct = 'Slippage percentage must be between 0 and 1 (e.g., 0.01 for 1%)';
+    errors.slippage_pct = 'Slippage factor must be between 0 and 1 (e.g., 0.01 for ±1% slippage)';
   }
 
   return errors;

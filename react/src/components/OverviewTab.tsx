@@ -809,7 +809,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
         <Row gutter={[16, 16]} >
           <Col span={12}>
-            <Card title="Slippage %" styles={{ body: { padding: '8px' } }}>
+            <Card title="Slippage Factor" styles={{ body: { padding: '8px' } }}>
               <Form.Item label="" name="slippage_pct">
                 <InputNumber
                   min={0}
@@ -818,7 +818,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                   precision={3}
                   size="large"
 
-                  placeholder="0.010 (1%)"
+                  placeholder="0.010 (±1%)"
                 />
               </Form.Item>
             </Card>
