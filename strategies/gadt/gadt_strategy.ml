@@ -1,4 +1,5 @@
 module Data = Longleaf_bars.Data
+module State = Longleaf_state
 
 exception InvalidGADT of Error.t
 exception OptimizationException
@@ -60,6 +61,11 @@ end = struct
     | Var _ ->
       invalid_arg "Cannot evalute gadts with variables in them (eval_simple)"
     | Data _ -> Error.fatal "Cannot evaluate Data in eval_simple"
+    | EntryPrice -> Error.fatal "Cannot evaluate EntryPrice in eval_simple"
+    | EntryTick -> Error.fatal "Cannot evaluate EntryTick in eval_simple"
+    | TicksHeld -> Error.fatal "Cannot evaluate TicksHeld in eval_simple"
+    | HasPosition -> Error.fatal "Cannot evaluate HasPosition in eval_simple"
+    | TickTime -> Error.fatal "Cannot evaluate TickTime in eval_simple"
   (* | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple" *)
 
   (* Collect all t from GADT expressions *)
@@ -85,6 +91,11 @@ end = struct
           | Ok x -> x
           | Error e -> raise @@ InvalidGADT e );
       ]
+    | EntryPrice -> []
+    | EntryTick -> []
+    | TicksHeld -> []
+    | HasPosition -> []
+    | TickTime -> []
 
   let collect_indicators x =
     let tys = collect_data_types x in
@@ -122,8 +133,10 @@ end = struct
       (* State.get_bars state symbol *)
     in
     let current_index = State.tick state in
+    let positions = State.positions state in
+    let orders = State.Positions.get positions symbol in
     let context : Gadt.context =
-      { instrument = symbol; data; index = current_index }
+      { instrument = symbol; data; index = current_index; orders }
     in
     match Gadt.eval context strategy_expr with
     | Ok should_signal -> Result.return @@ Signal.make symbol should_signal

@@ -24,7 +24,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Indicators_config.make Input.options.flags.runtype
         Input.options.tacaml_indicators
     in
-    State.make Input.options.flags.start bars config 100000.0
+    State.make Input.options.flags.start bars config 100000.0 Input.options.flags.print_tick_arg
 
   let opts = Input.options
 

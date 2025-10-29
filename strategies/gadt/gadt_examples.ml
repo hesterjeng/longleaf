@@ -8,6 +8,27 @@ let register x =
   List.Ref.push all_strategies x;
   x
 
+(* Risk management helper functions - return bool Gadt.t expressions *)
+
+(* Stop-loss: sell if current price is below entry price by stop_loss_pct (as decimal) *)
+let stop_loss stop_loss_pct : bool Gadt.t =
+  (* current_price < entry_price * (1 - stop_loss) *)
+  let multiplier = Float.((-) 1.0 stop_loss_pct) in
+  last <. (EntryPrice *. Const (multiplier, Float))
+
+(* Profit target: sell if current price is above entry price by profit_target_pct (as decimal) *)
+let profit_target profit_target_pct : bool Gadt.t =
+  (* current_price > entry_price * (1 + profit_target) *)
+  let multiplier = Float.((+) 1.0 profit_target_pct) in
+  last >. (EntryPrice *. Const (multiplier, Float))
+
+(* Max holding time: sell if held for more than max_ticks *)
+let max_holding_time max_ticks : bool Gadt.t =
+  (* Need to compare TicksHeld (int Gadt.t) with max_ticks - create custom comparison *)
+  let max_ticks_expr = Const (max_ticks, Int) in
+  (* Create a Fun that compares the two int values *)
+  App2 (Fun (">", (>)), TicksHeld, max_ticks_expr)
+
 (** A data collection listener strategy that never buys or sells *)
 let listener_strategy =
   register
@@ -645,6 +666,169 @@ let mean_reversion_8_27 =
          (last >. bb_middle_27)
          ||. (rsi_8 >. Const (70.0, Float))
          ||. (last >. bb_upper_27);
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
+(** MeanReversion_8_27_Safe - Production-Ready Version with Risk Controls
+
+    Same entry/exit logic as MeanReversion_8_27, but adds critical risk management:
+    - 2% stop-loss to limit downside on losing trades
+    - 5% profit target to lock in gains
+    - 60-tick (60 minute) maximum holding time to prevent overnight risk
+
+    Entry: RSI(8) < 30 AND Last < BB_lower(27, 2σ)
+    Exit: Original signals OR stop-loss OR profit target OR max hold time
+*)
+let mean_reversion_8_27_safe =
+  let rsi_8 = Real.rsi 8 () in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  register
+  @@ {
+       name = "MeanReversion_8_27_Safe";
+       buy_trigger =
+         (rsi_8 <. Const (30.0, Float)) &&. (last <. bb_lower_27);
+       sell_trigger =
+         (* Original exit signals *)
+         (last >. bb_middle_27)
+         ||. (rsi_8 >. Const (70.0, Float))
+         ||. (last >. bb_upper_27)
+         (* Risk management exits *)
+         ||. stop_loss 0.02       (* 2% stop-loss *)
+         ||. profit_target 0.05   (* 5% profit target *)
+         ||. max_holding_time 60; (* 60 minutes max hold *)
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
+(** MeanReversion_Safe_Opt - Optimizable Version with Fixed Risk Controls
+
+    ISRES-optimizable version of the safe mean reversion strategy.
+    Indicator periods and thresholds are variables; risk management is fixed.
+
+    Variables to optimize (4 total):
+    1. rsi_period: [5, 15] - RSI lookback period
+    2. bb_period: [15, 35] - Bollinger Band period
+    3. rsi_oversold: [20.0, 35.0] - RSI buy threshold
+    4. rsi_overbought: [65.0, 80.0] - RSI sell threshold
+
+    Fixed risk management:
+    - 2% stop-loss
+    - 5% profit target
+    - 60-minute maximum holding time
+
+    Entry: RSI(var) < var AND Last < BB_lower(var)
+    Exit: Signals OR stop-loss(fixed) OR profit(fixed) OR max_hold(fixed)
+*)
+let mean_reversion_safe_opt =
+  (* Create variables for optimizable parameters *)
+  let rsi_period_var = Gadt_fo.var Gadt.Type.Int in       (* Variable 1: RSI period *)
+  let bb_period_var = Gadt_fo.var Gadt.Type.Int in        (* Variable 2: BB period *)
+  let rsi_oversold_var = Gadt_fo.var Gadt.Type.Float in   (* Variable 3: RSI oversold threshold *)
+  let rsi_overbought_var = Gadt_fo.var Gadt.Type.Float in (* Variable 4: RSI overbought threshold *)
+
+  (* Create indicators with variable parameters *)
+  let rsi_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var)))
+  in
+  let bb_lower_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period_var,
+        Const (2.0, Float),  (* Fixed: std dev multiplier *)
+        Const (2.0, Float)))) (* Fixed: deviation *)
+  in
+  let bb_middle_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period_var,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  let bb_upper_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
+        bb_period_var,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+
+  register
+  @@ {
+       name = "MeanReversion_Safe_Opt";
+       buy_trigger =
+         (rsi_var <. rsi_oversold_var) &&. (last <. bb_lower_var);
+       sell_trigger =
+         (* Original exit signals with variable thresholds *)
+         (last >. bb_middle_var)
+         ||. (rsi_var >. rsi_overbought_var)
+         ||. (last >. bb_upper_var)
+         (* Fixed risk management exits *)
+         ||. stop_loss 0.02       (* 2% stop-loss *)
+         ||. profit_target 0.05   (* 5% profit target *)
+         ||. max_holding_time 60; (* 60 minutes max hold *)
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
+(** RocketReef - Optimized Mean Reversion Strategy
+
+    This strategy emerged from NLopt optimization achieving an objective value of 106,246.32.
+
+    What makes it unique:
+    - Uses 53-period RSI (highly unusual - most strategies use 2-14)
+    - Tight RSI thresholds around 50 (49.96 for buy, 51.43 for sell)
+    - This captures mean reversion around RSI midpoint, not traditional oversold/overbought
+    - 27-period Bollinger Bands (slightly wider than standard 20)
+
+    The 53-period RSI smooths out noise while the tight thresholds around 50
+    catch subtle shifts in momentum. Combined with Bollinger Bands touching the
+    lower band, it identifies stocks that are temporarily weak but not crashed.
+
+    Entry Logic:
+    - RSI(53) dips below 49.96 (just starting to weaken)
+    - Price touches lower Bollinger Band (27-period)
+    - This catches early weakness, not deep oversold
+
+    Exit Logic (OR of any condition):
+    - Price returns to middle Bollinger Band (mean reversion complete)
+    - RSI(53) rises above 51.43 (momentum turning positive)
+    - Price hits upper Bollinger Band (overshot the mean)
+    - 2% stop-loss (risk management)
+    - 5% profit target (lock in gains)
+    - 60-minute max hold (prevent overnight exposure)
+
+    Optimization Results:
+    - Objective value: 106,246.32
+    - RSI period: 53 (optimized from range 5-100)
+    - RSI buy threshold: 49.96 (optimized from range 20-50)
+    - RSI sell threshold: 51.43 (optimized from range 50-80)
+    - BB period: 27 (optimized from range 15-35)
+*)
+let rocket_reef =
+  let rsi_53 = Real.rsi 53 () in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  register
+  @@ {
+       name = "RocketReef";
+       (* Buy: RSI(53) dips below 49.96 AND price touches lower BB *)
+       buy_trigger =
+         (rsi_53 <. Const (49.961254, Float)) &&. (last <. bb_lower_27);
+       (* Sell: Mean reversion signals OR risk management exits *)
+       sell_trigger =
+         (* Mean reversion complete signals *)
+         (last >. bb_middle_27)  (* Price returned to mean *)
+         ||. (rsi_53 >. Const (51.425345, Float))  (* Momentum turning positive *)
+         ||. (last >. bb_upper_27)  (* Overshot to upper band *)
+         (* Risk management exits *)
+         ||. stop_loss 0.02       (* 2% stop-loss *)
+         ||. profit_target 0.05   (* 5% profit target *)
+         ||. max_holding_time 60; (* 60 minutes max hold *)
        max_positions = 10;
        position_size = 0.10;
      }

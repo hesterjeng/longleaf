@@ -1,18 +1,19 @@
 module CLI = struct
   type t = {
     runtype : Runtype.t;
-    stacktrace : bool;
+    stacktrace : bool; [@default false]
     strategy_arg : string;
-    no_gui : bool;
-    save_received : bool;
-    save_to_file : bool;
-    nowait_market_open : bool;
-    print_tick_arg : bool;
-    precompute_indicators_arg : bool;
-    compare_preloaded : bool;
-    start : int;
-    random_drop_chance : int;
-    slippage_pct : float;
+    no_gui : bool; [@default false]
+    save_received : bool; [@default false]
+    save_to_file : bool; [@default false]
+    nowait_market_open : bool; [@default false]
+    print_tick_arg : bool; [@default false]
+    precompute_indicators_arg : bool; [@default false]
+    compare_preloaded : bool; [@default false]
+    start : int; [@default 0]
+    random_drop_chance : int; [@default 0]
+    slippage_pct : float; [@default 0.0]
+    opening_wait_minutes : int; [@default 0]
   }
   [@@deriving show, yojson]
 
@@ -122,6 +123,13 @@ module CLI = struct
         "Prices will be multiplied by a random value in (1-pct,1+pct)"
       in
       Cmdliner.Arg.(value & opt float 0.0 & info [ "slippage" ] ~doc)
+
+    let opening_wait_minutes =
+      let doc =
+        "Number of minutes to wait after market open before starting to trade \
+         (to avoid opening volatility). Default is 0 (trade immediately)."
+      in
+      Cmdliner.Arg.(value & opt int 0 & info [ "opening-wait" ] ~doc)
   end
 
   let default =
@@ -139,6 +147,7 @@ module CLI = struct
       start = 0;
       random_drop_chance = 0;
       slippage_pct = 0.0;
+      opening_wait_minutes = 0;
     }
 
   let term =
@@ -155,7 +164,8 @@ module CLI = struct
     and+ compare_preloaded = Args.compare_preload
     and+ start = Args.start_arg
     and+ random_drop_chance = Args.random_drop_chance
-    and+ slippage_pct = Args.slippage_pct in
+    and+ slippage_pct = Args.slippage_pct
+    and+ opening_wait_minutes = Args.opening_wait_minutes in
     {
       runtype;
       stacktrace;
@@ -170,6 +180,7 @@ module CLI = struct
       start;
       random_drop_chance;
       slippage_pct;
+      opening_wait_minutes;
     }
 
   module Full = struct

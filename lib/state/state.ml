@@ -2,6 +2,7 @@ module Mode = Mode
 module Config = Config
 module Stats = Stats
 module Bars = Longleaf_bars
+module Positions = Positions
 module Pmutex = Longleaf_util.Pmutex
 
 type t = {
@@ -27,6 +28,7 @@ let empty runtype (indicators : Tacaml.t list) : t =
       {
         placeholder = false;
         indicator_config = Indicators_config.make runtype indicators;
+        print_tick_arg = false;
       };
     cash = 0.0;
     positions = Positions.empty;
@@ -44,8 +46,8 @@ type 'a res = ('a, Error.t) result
 
 let config x = x.config
 
-let make current_tick bars indicator_config cash =
-  let config = Config.{ placeholder = true; indicator_config } in
+let make current_tick bars indicator_config cash print_tick_arg =
+  let config = Config.{ placeholder = true; indicator_config; print_tick_arg } in
   Result.return
     {
       bars;
@@ -88,10 +90,19 @@ let increment_tick x =
   let ( let* ) = Result.( let* ) in
   let* value = value x in
   let* time = time x in
+  let current_tick = x.current_tick in
+  (* Forward-fill price data ONLY for live trading (not backtesting) *)
+  (* In backtesting, historical data is already present; forward-fill would overwrite it *)
+  let () =
+    if x.config.indicator_config.compute_live then
+      Bars.fold x.bars () (fun _instrument data () ->
+        Bars.Data.forward_fill_next_tick data ~tick:current_tick)
+    else ()
+  in
   Result.return
   @@ {
        x with
-       current_tick = x.current_tick + 1;
+       current_tick = current_tick + 1;
        value_history = (time, value) :: x.value_history;
        cash_history = (time, x.cash) :: x.cash_history;
      }
@@ -115,15 +126,19 @@ let place_order state0 (order : Order.t) =
   | Buy ->
     if state0.cash >=. order_value then
       let* () = Bars.Data.add_order data tick order in
-      Result.return
-        {
+      let new_state = {
           state0 with
           cash = state0.cash -. order_value;
           positions = positions_upd state0;
           orders_placed = state0.orders_placed + 1;
         }
+      in
+      if state0.config.print_tick_arg then
+        Eio.traceln "[%d] BUY %s qty=%d price=%f, cash: %f -> %f"
+          tick (Instrument.symbol order.symbol) order.qty order.price state0.cash new_state.cash;
+      Result.return new_state
     else (
-      Eio.traceln "Insufficient cash for buy order";
+      Eio.traceln "Insufficient cash for buy order (need %f, have %f)" order_value state0.cash;
       Result.return state0 (* Error.fatal "Insufficient cash for buy order" *))
   | Sell ->
     let qty_held = qty state0 order.symbol in
@@ -131,14 +146,20 @@ let place_order state0 (order : Order.t) =
       let positions = positions_upd state0 in
       let new_cash = state0.cash +. order_value in
       let* () = Bars.Data.add_order data tick order in
-      Result.return
-        {
+      let new_state = {
           state0 with
           cash = new_cash;
           positions;
           orders_placed = state0.orders_placed + 1;
         }
-    else Error.fatal "Insufficient shares for sell order"
+      in
+      if state0.config.print_tick_arg then
+        Eio.traceln "[%d] SELL %s qty=%d price=%f, cash: %f -> %f"
+          tick (Instrument.symbol order.symbol) order.qty order.price state0.cash new_state.cash;
+      Result.return new_state
+    else (
+      Eio.traceln "Insufficient shares for sell order (need %d, have %d)" order.qty qty_held;
+      Error.fatal "Insufficient shares for sell order")
 
 let tick t = t.current_tick
 let options t = t.config

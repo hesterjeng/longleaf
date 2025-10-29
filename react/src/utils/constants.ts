@@ -77,7 +77,7 @@ export const FORM_LABELS = {
   save_received: 'Save Received Data',
   start: 'Start Position',
   random_drop_chance: 'Random Drop Chance (%)',
-  slippage_pct: 'Slippage Percentage (%)'
+  slippage_pct: 'Slippage Factor'
 } as const;
 
 // Tooltip descriptions
@@ -91,5 +91,5 @@ export const FORM_TOOLTIPS = {
   save_received: 'Save incoming market data to disk',
   start: 'Position to start processing from',
   random_drop_chance: 'Percentage of data to randomly drop for testing',
-  slippage_pct: 'Price slippage factor for realistic order simulation (0.01 = 1%)'
+  slippage_pct: 'Decimal multiplier for price slippage simulation. Order prices are multiplied by random value in range (1-factor, 1+factor). E.g., 0.01 = ±1% slippage'
 } as const;

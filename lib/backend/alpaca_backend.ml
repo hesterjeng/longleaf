@@ -1,10 +1,17 @@
 open Backend_intf
 module Util = Longleaf_util
 module Tiingo_api = Longleaf_apis.Tiingo_api
+module Tiingo_websocket = Longleaf_apis.Tiingo_websocket
 module Trading_api = Longleaf_apis.Trading_api
 module Market_data_api = Longleaf_apis.Market_data_api
 
 (* type runtype = Live | Paper *)
+
+(* Data source configuration *)
+type data_source =
+  | AlpacaRest  (* Use Alpaca's REST API for latest bars *)
+  | TiingoWebSocket  (* Use Tiingo's WebSocket for real-time data *)
+  | TiingoRest  (* Use Tiingo's REST API (legacy, has latency issues) *)
 
 module Make (Input : BACKEND_INPUT) : S = struct
   open Trading_types
@@ -17,6 +24,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let opts = Input.options
   let save_received = opts.flags.save_received
   let received_data = Bars.empty ()
+
+  (* Configure data source - WebSocket for live/paper, REST for others *)
+  let data_source = match opts.flags.runtype with
+    | Live | Paper -> TiingoWebSocket  (* Use WebSocket for real-time *)
+    | _ -> AlpacaRest  (* Use REST for other modes *)
 
   open Cohttp_eio
 
@@ -55,22 +67,78 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let longleaf_env = opts.longleaf_env
   end)
 
+  (* Extract symbols early so we can use it in WebSocket initialization *)
+  let symbols = List.map Instrument.security Input.options.symbols
+
+  (* Helper to convert WebSocket errors to string *)
+  let ws_error_to_string = function
+    | `ConnectionClosed -> "Connection closed"
+    | `InvalidOpcode i -> "Invalid opcode: " ^ string_of_int i
+    | `JsonError s -> "JSON error: " ^ s
+    | `MissingData s -> "Missing data: " ^ s
+    | `ParseError s -> "Parse error: " ^ s
+    | `ReadError s -> "Read error: " ^ s
+    | `UnexpectedFrame s -> "Unexpected frame: " ^ s
+    | `DnsError s -> "DNS error: " ^ s
+    | `HandshakeError s -> "Handshake error: " ^ s
+    | `InvalidScheme s -> "Invalid scheme: " ^ s
+    | `InvalidUrl s -> "Invalid URL: " ^ s
+    | `TlsError s -> "TLS error: " ^ s
+    | `WriteError s -> "Write error: " ^ s
+
+  (* WebSocket client and background fiber state *)
+  let tiingo_ws_client = ref None
+  let tiingo_ws_background_started = ref false
+  let tiingo_ws_initial_fetch_done = ref false
+
+  (* Track current tick for background fiber *)
+  let current_tick = ref 0
+
+  let get_or_create_ws_client bars () =
+    match !tiingo_ws_client with
+    | Some client -> Ok client
+    | None ->
+      Eio.traceln "Alpaca backend: Initializing Tiingo WebSocket client";
+      let ( let* ) = Result.( let* ) in
+      let* tiingo_key = match opts.longleaf_env.tiingo_key with
+        | Some key -> Ok key
+        | None -> Error (`MissingData "Tiingo API key not configured")
+      in
+      let* client = Tiingo_websocket.Client.connect ~sw:switch ~env ~tiingo_key () in
+      (* Subscribe to all symbols *)
+      let* () = Tiingo_websocket.Client.subscribe client symbols in
+      tiingo_ws_client := Some client;
+
+      (* Start background fiber for continuous updates *)
+      if not !tiingo_ws_background_started then begin
+        Tiingo_websocket.Client.start_background_updates
+          ~sw:switch ~env client bars (fun () -> !current_tick);
+        tiingo_ws_background_started := true;
+        Eio.traceln "Alpaca backend: Background WebSocket update fiber started"
+      end;
+
+      Eio.traceln "Alpaca backend: Tiingo WebSocket client initialized and subscribed";
+      Ok client
+
   let init_state () =
     let ( let* ) = Result.( let* ) in
+    Eio.traceln "Alpaca backend: Fetching account information...";
     let* account_status = Trading_api.Accounts.get_account () in
-    Eio.traceln "@[Account status:@]@.@[%a@]@." Trading_api.Accounts.pp
-      account_status;
+    Eio.traceln "Alpaca backend: Account cash: $%.2f" account_status.cash;
     let account_cash = account_status.cash in
+    Eio.traceln "Alpaca backend: Loading historical data...";
     let* bars =
       match Input.target with
       | None -> Error.fatal "No historical data for alpaca backend"
       | Some b -> Result.return b
     in
+    Eio.traceln "Alpaca backend: Creating indicator configuration...";
     let config =
       Indicators_config.make Input.options.flags.runtype
         Input.options.tacaml_indicators
     in
-    State.make 0 bars config account_cash
+    Eio.traceln "Alpaca backend: Initializing state...";
+    State.make 0 bars config account_cash opts.flags.print_tick_arg
 
   let next_market_open () =
     let ( let* ) = Result.( let* ) in
@@ -88,7 +156,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
     (* cohttp-eio clients don't require explicit shutdown *)
     ()
 
-  let symbols = List.map Instrument.security Input.options.symbols
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
 
@@ -99,20 +166,60 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let ( let+ ) = Result.( let+ ) in
     let bars = State.bars state in
     let tick = State.tick state in
-    match symbols with
+    let symbols_list = symbols in  (* Capture symbols in local scope *)
+
+    (* Update current tick for background fiber *)
+    current_tick := tick;
+
+    match symbols_list with
     | [] ->
       Eio.traceln "No symbols in latest bars request.";
       Result.return state
     | _ ->
       let+ () =
-        match Market_data_api.Stock.latest bars symbols tick with
-        | Ok x -> Result.return x
-        | Error s ->
-          Eio.traceln
-            "Error %a from Alpaca latest bars, trying again after 5 seconds."
-            Error.pp s;
-          Unix.sleep 5;
-          Market_data_api.Stock.latest bars symbols tick
+        match data_source with
+        | TiingoWebSocket ->
+          (* On first call, populate the next tick with REST to have initial data *)
+          (* After that, WebSocket updates continuously in background *)
+          (match get_or_create_ws_client bars () with
+           | Ok _client ->
+             if not !tiingo_ws_initial_fetch_done then (
+               (* First time - fetch next tick via REST to seed the data *)
+               let next_tick = tick + 1 in
+               Eio.traceln "Alpaca backend: First update_bars call - fetching tick %d via REST" next_tick;
+               tiingo_ws_initial_fetch_done := true;
+               match Tiingo.latest bars symbols_list next_tick with
+               | Ok () ->
+                 Eio.traceln "Alpaca backend: Initial tick %d populated, WebSocket will update from here" next_tick;
+                 Ok ()
+               | Error e ->
+                 Eio.traceln "Alpaca backend: Warning - failed to populate initial tick: %a" Error.pp e;
+                 (* Continue anyway - WebSocket will fill in data eventually *)
+                 Ok ()
+             ) else (
+               (* WebSocket is running and updating continuously *)
+               Ok ()
+             )
+           | Error e ->
+             Eio.traceln "Alpaca backend: Failed to initialize WebSocket: %s" (ws_error_to_string e);
+             Error (`MissingData ("WebSocket initialization failed: " ^ ws_error_to_string e)))
+        | AlpacaRest ->
+          (* Use Alpaca REST API *)
+          Eio.traceln "Alpaca backend: Fetching data via Alpaca REST API (tick %d)" tick;
+          (match Market_data_api.Stock.latest bars symbols_list tick with
+           | Ok x -> Result.return x
+           | Error s ->
+             Eio.traceln "Error %a from Alpaca latest bars, trying again after 5 seconds." Error.pp s;
+             Unix.sleep 5;
+             (match Market_data_api.Stock.latest bars symbols_list tick with
+              | Ok () -> Ok ()
+              | Error e -> Error e))
+        | TiingoRest ->
+          (* Legacy Tiingo REST API (not recommended due to latency) *)
+          Eio.traceln "Alpaca backend: Fetching data via Tiingo REST API (tick %d)" tick;
+          (match Tiingo.latest bars symbols_list tick with
+           | Ok () -> Ok ()
+           | Error e -> Error e)
       in
       state
 
