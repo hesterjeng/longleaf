@@ -283,8 +283,13 @@ let validate_no_nan (bars : t) =
   let result = fold bars (Ok 0) @@ fun symbol data acc ->
     let* count = acc in
     (* Validate this symbol's data *)
-    let* () = Data.validate_no_nan data ~start_tick ~end_tick in
-    Result.return (count + 1)
+    match Data.validate_no_nan data ~start_tick ~end_tick with
+    | Ok () -> Result.return (count + 1)
+    | Error e ->
+      (* Add symbol context to the error *)
+      Eio.traceln "✗ Validation failed for symbol: %a" Instrument.pp symbol;
+      Error.fatal @@
+      Format.asprintf "Symbol %a: %a" Instrument.pp symbol Error.pp e
   in
 
   match result with

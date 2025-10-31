@@ -389,6 +389,7 @@ let () =
   Eio.Switch.run @@ fun sw ->
   let port = 8080 in
   Eio.traceln "Starting server on http://localhost:%d" port;
+  Eio.traceln "Frontend available at http://localhost:3000 (by default)";
   let socket =
     Eio.Net.listen env#net ~sw ~backlog:128 ~reuse_addr:true ~reuse_port:true
       (`Tcp (Eio.Net.Ipaddr.V4.any, port))

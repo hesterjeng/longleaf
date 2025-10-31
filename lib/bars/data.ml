@@ -466,6 +466,8 @@ let load_json_item (data : t) i (json : Yojson.Safe.t) =
     set data Close i @@ float_member "c" json;
     set data Last i @@ float_member "c" json;
     set data Volume i @@ Float.of_int @@ int_member "v" json;
+    (* Set Index to the tick number - this ensures Index is in the index table *)
+    set data Index i (Float.of_int i);
     Result.return ()
   with
   | _ ->
