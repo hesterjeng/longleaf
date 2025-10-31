@@ -73,13 +73,16 @@ You can also run strategies directly from the command line:
 longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 --interval=10 --timeframe=minute data/24.json
 
 # Run backtest
-longleaf Backtest SEAKING data/24.json -i 100
+# Usage: longleaf Backtest <strategy> <data-file> -i <starting-index>
+# Starting index should be 200+ to allow indicators to compute
+longleaf Backtest SEAKING data/24.json -i 200
 
 # Paper trading
-longleaf Paper --preload download -o papertrading.log
+# Usage: longleaf Paper <strategy> <download|data-file> [options]
+longleaf Paper SEAKING download -o papertrading.log
 
 # Live trading (⚠️ trades real money!)
-longleaf Live --preload download -o live_trading.log
+longleaf Live SEAKING download -o live_trading.log
 ```
 
 ## Creating Custom Strategies

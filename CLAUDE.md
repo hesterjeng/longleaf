@@ -27,17 +27,20 @@ odep dune | dot -Tsvg > dune-odep.svg
 
 ### Running the Platform
 ```bash
-# Download market data (example for 2023)
-longleaf_downloader tiingo --begin=2023-12-01 --end=2023-12-31 --interval=10 --timeframe=minute data/dec23.json
-
-# Download data for backtesting
-longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 --interval=10 --timeframe=minute data/24.json
+# Download market data (example for backtesting)
+longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 --interval=10 --timeframe=minute data/2024.json
 
 # Backtest a strategy
-longleaf Backtest ThrowingCrossover --preload data/dec23.json --target data/24.json
+# Usage: longleaf Backtest <strategy> <data-file> -i <starting-index>
+# The starting index should be high enough to allow indicators to compute (typically 200+)
+longleaf Backtest RocketReef data/2024.json -i 200
 
 # Paper trade (requires Alpaca API keys)
-longleaf Paper --preload download -o papertrading.log
+# Usage: longleaf Paper <strategy> <download|data-file> [options]
+longleaf Paper RocketReef download -o papertrading.log
+
+# Live trade (requires Alpaca API keys)
+longleaf Live RocketReef download -o trading.log
 
 # Graceful shutdown
 longleaf_shutdown
