@@ -81,8 +81,10 @@ module Worker = struct
     worker_loop ()
 
   (* Objective function that communicates with worker domain *)
-  let f strategy vars request_atomic result_atomic (l : float array) _grad =
-    Eio.traceln "C callback requesting work from domain";
+  let f strategy vars request_atomic result_atomic iteration_counter (l : float array) _grad =
+    let iteration = Atomic.fetch_and_add iteration_counter 1 in
+    Eio.traceln "=== OPTIMIZATION ITERATION %d ===" iteration;
+    Eio.traceln "Parameters: %a" (Array.pp Float.pp) l;
 
     (* Create work request *)
     let work = { params = Array.copy l; strategy; vars } in
@@ -98,11 +100,13 @@ module Worker = struct
         Domain.cpu_relax ();
         wait_for_result ()
       | Ok (Some result) ->
-        Eio.traceln "C callback got result: %f" result;
+        Eio.traceln "Iteration %d result: %f" iteration result;
         result
       | Error err ->
         (* Return 0.0 for errors instead of crashing optimization *)
-        Eio.traceln "C callback got error (returning 0.0): %a" Error.pp err;
+        Eio.traceln "=== ITERATION %d ERROR ===" iteration;
+        Eio.traceln "Parameters tried: %a" (Array.pp Float.pp) l;
+        Eio.traceln "Error: %a" Error.pp err;
         0.0
     in
     wait_for_result ()
@@ -128,6 +132,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   let work_request_atomic = Atomic.make None in
   let work_result_atomic = Atomic.make (Ok None) in
   let shutdown_atomic = Atomic.make false in
+  let iteration_counter = Atomic.make 0 in
 
   (* Create the worker domain *)
   let worker =
@@ -144,14 +149,16 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   Eio.traceln "Worker domain created";
 
   let opt = Nlopt.create Nlopt.isres len in
-  Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 2.0);
+  (* Set conservative bounds that work for most indicator periods and thresholds *)
+  (* Lower bound: 5 avoids very unstable indicators and index out of bounds errors *)
+  Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 5.0);
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
-  Nlopt.set_maxeval opt 1000;  (* Increased from 10 to 1000 evaluations *)
+  Nlopt.set_maxeval opt 1000;  (* Maximum optimization evaluations *)
   (* Nlopt.set_population opt (len * 10); *)
   Nlopt.set_max_objective opt
-    (Worker.f strategy vars work_request_atomic work_result_atomic);
+    (Worker.f strategy vars work_request_atomic work_result_atomic iteration_counter);
   let start =
-    Array.init len (fun _ -> Float.random_range 2.0 100.0 Util.random_state)
+    Array.init len (fun _ -> Float.random_range 5.0 100.0 Util.random_state)
   in
   Eio.traceln "Optimization start %a" (Array.pp Float.pp) start;
   let res, xopt, fopt = Nlopt.optimize opt start in

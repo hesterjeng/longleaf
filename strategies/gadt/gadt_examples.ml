@@ -833,4 +833,99 @@ let rocket_reef =
        position_size = 0.10;
      }
 
+(** RocketReef_Stoch - Optimizable Stricter Version with Fast Stochastic Filter
+
+    This builds on RocketReef by adding a Fast Stochastic Oscillator filter to create
+    stricter entry conditions. All indicator periods are variables for optimization.
+
+    Variables to optimize (5 total):
+    1. rsi_period: [40, 60] - RSI lookback period
+    2. bb_period: [20, 35] - Bollinger Band period
+    3. stoch_fastk_period: [10, 20] - Stochastic %K period
+    4. stoch_fastd_period: [2, 5] - Stochastic %D smoothing period
+    5. stoch_threshold: [15.0, 30.0] - Oversold threshold for stochastic
+
+    The stochastic filter adds confirmation that the stock is deeply oversold,
+    filtering out weak signals and improving entry quality.
+
+    Entry Logic:
+    - RSI(var) < 49.96 (subtle momentum weakness)
+    - Price < Lower Bollinger Band(var) (price stretched below mean)
+    - Fast Stochastic %K(var, var) < var (deeply oversold confirmation)
+
+    Exit Logic:
+    - Price returns to middle Bollinger Band (mean reversion complete)
+    - RSI(var) > 51.43 (momentum turning positive)
+    - Price hits upper Bollinger Band (overshot the mean)
+    - 2% stop-loss
+    - 5% profit target
+    - 60-minute max hold time
+*)
+let rocket_reef_stoch_opt =
+  (* Create variables for optimizable parameters *)
+  let rsi_period_var = Gadt_fo.var Gadt.Type.Int in           (* Variable 1: RSI period *)
+  let bb_period_var = Gadt_fo.var Gadt.Type.Int in            (* Variable 2: BB period *)
+  let stoch_fastk_period_var = Gadt_fo.var Gadt.Type.Int in   (* Variable 3: Stochastic %K period *)
+  let stoch_fastd_period_var = Gadt_fo.var Gadt.Type.Int in   (* Variable 4: Stochastic %D period *)
+  let stoch_threshold_var = Gadt_fo.var Gadt.Type.Float in    (* Variable 5: Stochastic oversold threshold *)
+
+  (* Create RSI indicator with variable period *)
+  let rsi_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var)))
+  in
+
+  (* Create Bollinger Band indicators with variable period *)
+  let bb_lower_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period_var,
+        Const (2.0, Float),  (* Fixed: std dev multiplier *)
+        Const (2.0, Float)))) (* Fixed: deviation *)
+  in
+  let bb_middle_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period_var,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  let bb_upper_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
+        bb_period_var,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+
+  (* Create Fast Stochastic indicator with variable periods *)
+  let stoch_fast_k_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App2 (Fun ("I.stoch_f_fast_k", Tacaml.Indicator.Raw.stoch_f_fast_k),
+        stoch_fastk_period_var,
+        stoch_fastd_period_var)))
+  in
+
+  register
+  @@ {
+       name = "RocketReef_Stoch";
+       (* Buy: All conditions must be met *)
+       buy_trigger =
+         (rsi_var <. Const (49.961254, Float))  (* RSI weakness *)
+         &&. (last <. bb_lower_var)              (* Price at lower BB *)
+         &&. (stoch_fast_k_var <. stoch_threshold_var);  (* Deep oversold *)
+       (* Sell: Mean reversion signals OR risk management exits *)
+       sell_trigger =
+         (* Mean reversion complete signals *)
+         (last >. bb_middle_var)  (* Price returned to mean *)
+         ||. (rsi_var >. Const (51.425345, Float))  (* Momentum turning positive *)
+         ||. (last >. bb_upper_var)  (* Overshot to upper band *)
+         (* Risk management exits *)
+         ||. stop_loss 0.02       (* 2% stop-loss *)
+         ||. profit_target 0.05   (* 5% profit target *)
+         ||. max_holding_time 60; (* 60 minutes max hold *)
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
 let all_strategies = !all_strategies

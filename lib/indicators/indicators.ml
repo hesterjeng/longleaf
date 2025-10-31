@@ -26,7 +26,7 @@ module Calc = struct
     Eio.traceln "Precomputing indicators because of Indicator_config.t";
     let indicators = List.map tacaml config.tacaml_indicators in
     let ( let* ) = Result.( let* ) in
-    Bars.fold bars (Ok ()) @@ fun _ data acc ->
+    Bars.fold bars (Ok ()) @@ fun symbol data acc ->
     let* _ = acc in
     (* Compute standard indicators *)
     let* () =
@@ -34,7 +34,21 @@ module Calc = struct
         (fun _ indicator ->
           match indicator with
           | Tacaml ind ->
-            let* () = Talib_binding.calculate ?i ind data in
+            let* () =
+              try Talib_binding.calculate ?i ind data with
+              | e ->
+                Eio.traceln "===== SEQUENTIAL INDICATOR ERROR =====";
+                Eio.traceln "Symbol: %a" Longleaf_core.Instrument.pp symbol;
+                Eio.traceln "Indicator: %a" Tacaml.pp ind;
+                Eio.traceln "Data size: %d" (Bars.Data.size data);
+                Eio.traceln "Exception: %s" (Printexc.to_string e);
+                Eio.traceln "======================================";
+                Error.fatal @@
+                  Format.asprintf "Symbol %a, Indicator %a: %s"
+                    Longleaf_core.Instrument.pp symbol
+                    Tacaml.pp ind
+                    (Printexc.to_string e)
+            in
             Result.return ())
         () indicators
     in
@@ -57,7 +71,7 @@ module Calc = struct
         Bars.fold bars [] (fun symbol data acc -> (symbol, data) :: acc)
       in
 
-      let compute_for_symbol_data (_symbol, data) =
+      let compute_for_symbol_data (symbol, data) =
         let ( let* ) = Result.( let* ) in
         (* Compute all indicators for this symbol using pre-extracted data *)
         Result.fold_l
@@ -67,8 +81,17 @@ module Calc = struct
               let* () =
                 try Talib_binding.calculate ?i ind data with
                 | e ->
-                  Eio.traceln "Error during indicator computation!";
-                  Error.fatal @@ Printexc.to_string e
+                  Eio.traceln "===== PARALLEL INDICATOR ERROR =====";
+                  Eio.traceln "Symbol: %a" Longleaf_core.Instrument.pp symbol;
+                  Eio.traceln "Indicator: %a" Tacaml.pp ind;
+                  Eio.traceln "Data size: %d" (Bars.Data.size data);
+                  Eio.traceln "Exception: %s" (Printexc.to_string e);
+                  Eio.traceln "====================================";
+                  Error.fatal @@
+                    Format.asprintf "Symbol %a, Indicator %a: %s"
+                      Longleaf_core.Instrument.pp symbol
+                      Tacaml.pp ind
+                      (Printexc.to_string e)
               in
               Result.return ())
           () indicators
