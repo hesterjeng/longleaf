@@ -134,8 +134,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
     in
     Eio.traceln "Alpaca backend: Creating indicator configuration...";
     let config =
-      Indicators_config.make Input.options.flags.runtype
-        Input.options.tacaml_indicators
+      Indicators_config.make_with_print_tick Input.options.flags.runtype
+        Input.options.tacaml_indicators opts.flags.print_tick_arg
     in
     Eio.traceln "Alpaca backend: Initializing state...";
     State.make 0 bars config account_cash opts.flags.print_tick_arg

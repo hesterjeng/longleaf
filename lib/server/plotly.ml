@@ -3,6 +3,14 @@
 module Bars = Longleaf_bars
 module Data = Bars.Data
 
+(** {1 Float Sanitization} *)
+
+(** Sanitize float values for Plotly - convert NaN/Inf to null *)
+let sanitize_float f =
+  match classify_float f with
+  | FP_normal | FP_subnormal | FP_zero -> `Float f
+  | FP_infinite | FP_nan -> `Null
+
 (** {1 Color Palette} *)
 
 (* Plotly default color palette with good visual distinction *)
@@ -65,10 +73,7 @@ let layout title =
       = `Assoc
           [
             "title" = `String "Time";
-            "type" = `String "category";
-            "tickmode" = `String "linear";
-            "dtick" = `Int 20;
-            "showticklabels" = `Bool false;
+            "type" = `String "date";
           ];
       "yaxis" = `Assoc [ "title" = `String "Price" ];
       "yaxis2"
@@ -101,7 +106,7 @@ let direct_price_trace ?(start = 0) ?(color = "#1f77b4") ?end_ (data : Data.t)
         |> Option.get_exn_or "Invalid timestamp in direct_price_trace"
       in
       let price = Data.get data Last i in
-      build_lists (i + 1) (`String timestamp :: acc_x) (`Float price :: acc_y)
+      build_lists (i + 1) (`String timestamp :: acc_x) (sanitize_float price :: acc_y)
   in
   let x, y = build_lists start [] [] in
 
@@ -148,7 +153,7 @@ let indicator_trace ?(show = false) ?(drop = 100) ?(yaxis = "y1")
           |> Option.get_exn_or "Illegal time stored in data table (plotly.ml)"
         in
         let value = Data.get data indicator i in
-        build_lists (i + 1) (`String timestamp :: acc_x) (`Float value :: acc_y)
+        build_lists (i + 1) (`String timestamp :: acc_x) (sanitize_float value :: acc_y)
     in
     let x, y = build_lists effective_start [] [] in
 
@@ -180,7 +185,7 @@ let order_trace (side : Trading_types.Side.t) (orders : Order.t list) :
         x.timestamp |> Ptime.to_rfc3339 |> fun t -> `String t)
       orders
   in
-  let y = List.map (fun (x : Order.t) -> `Float x.price) orders in
+  let y = List.map (fun (x : Order.t) -> sanitize_float x.price) orders in
   let hovertext =
     List.map
       (fun (x : Order.t) ->
@@ -245,7 +250,7 @@ let create_portfolio_order_trace (side : Trading_types.Side.t)
         (fun (time, _, _) -> `String (Ptime.to_rfc3339 time))
         order_points
     in
-    let y = List.map (fun (_, value, _) -> `Float value) order_points in
+    let y = List.map (fun (_, value, _) -> sanitize_float value) order_points in
     let hovertext =
       List.map
         (fun (_, _, (order : Order.t)) ->
@@ -290,7 +295,7 @@ let performance_graph_with_orders (state : Longleaf_state.t) : Yojson.Safe.t =
   let performance_trace =
     List.(
       let+ time, value = Longleaf_state.value_history state in
-      (Ptime.to_rfc3339 time |> yojson_of_string, yojson_of_float value))
+      (Ptime.to_rfc3339 time |> yojson_of_string, sanitize_float value))
     |> List.rev |> List.split
     |> Pair.map_same (yojson_of_list Fun.id)
     |> fun (x, y) ->
@@ -310,7 +315,7 @@ let performance_graph_with_orders (state : Longleaf_state.t) : Yojson.Safe.t =
   let cash_trace =
     List.(
       let+ time, cash = Longleaf_state.cash_history state in
-      (Ptime.to_rfc3339 time |> yojson_of_string, yojson_of_float cash))
+      (Ptime.to_rfc3339 time |> yojson_of_string, sanitize_float cash))
     |> List.rev |> List.split
     |> Pair.map_same (yojson_of_list Fun.id)
     |> fun (x, y) ->
