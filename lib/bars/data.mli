@@ -217,3 +217,9 @@ val validate_no_nan : t -> start_tick:int -> end_tick:int -> (unit, Error.t) res
 (** [validate_no_nan data ~start_tick ~end_tick] validates that no essential price
     data types (Time, Last, Open, High, Low, Close, Volume) contain NaN values
     in the specified tick range. Returns an error if any NaN values are found. *)
+
+val reset_indicators : t -> unit
+(** [reset_indicators x] resets the indicators_computed flag, forcing indicators to
+    be recomputed on next use. Mutates in place. Use between optimization iterations
+    to prevent state contamination. Old indicator values will be overwritten during
+    recomputation. *)

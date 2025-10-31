@@ -76,7 +76,7 @@ type t = {
   int_data : int_matrix;
   index : Index.t;
   size : int;
-  indicators_computed : bool;
+  mutable indicators_computed : bool;
   orders : Order.t list array;
 }
 
@@ -363,6 +363,33 @@ let grow x =
   | Invalid_argument s ->
     Eio.traceln "Data.grow: %s" s;
     Error.fatal s
+
+(* Reset indicator computation state - use between optimization iterations *)
+(* Clear indicator entries from index table to prevent row exhaustion *)
+let reset_indicators (x : t) =
+  (* Save the row numbers for price data types before clearing *)
+  let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
+                          Type.High; Type.Low; Type.Close; Type.Volume] in
+  let preserved_entries = List.filter_map (fun ty ->
+    match Index.IndexTable.find_opt x.index.tbl ty with
+    | Some row -> Some (ty, row)
+    | None -> None
+  ) price_data_types in
+
+  (* Find the max row used by price data *)
+  let max_price_row = List.fold_left (fun acc (_, row) -> max acc row) (-1) preserved_entries in
+
+  (* Clear the entire index table *)
+  Index.IndexTable.clear x.index.tbl;
+
+  (* Restore price data entries *)
+  List.iter (fun (ty, row) -> Index.IndexTable.replace x.index.tbl ty row) preserved_entries;
+
+  (* Reset next_float to just after the last price data row *)
+  x.index.next_float <- max_price_row + 1;
+  x.index.next_int <- 0;  (* Reset int counter *)
+
+  x.indicators_computed <- false
 
 (* Forward-fill: copy price data from tick to tick+1 *)
 (* Used for live trading when no trade occurs - carry forward last price *)

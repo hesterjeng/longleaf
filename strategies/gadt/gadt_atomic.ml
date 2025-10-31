@@ -30,13 +30,16 @@ module Worker = struct
     let rec worker_loop () =
       match Atomic.get request_atomic with
       | None ->
-        if Atomic.get shutdown_atomic then ()
+        if Atomic.get shutdown_atomic then (
+          Eio.traceln "Worker: Shutdown flag set, exiting";
+          ()
+        )
         else (
-          (* No work, yield and try again *)
-          Domain.cpu_relax ();
+          (* No work, yield to Eio scheduler and try again *)
+          Eio.Fiber.yield ();
           worker_loop ())
       | Some work ->
-        Eio.traceln "Worker domain processing request";
+
         let result =
           try
             let ( let* ) = Result.( let* ) in
@@ -59,9 +62,7 @@ module Worker = struct
                 Gadt_strategy.run bars options mutices instantiated_strategy
               with
               | e ->
-                (* Log error but return 0.0 instead of failing *)
-                let e = Printexc.to_string e in
-                Eio.traceln "Strategy execution error (returning 0.0): %s" e;
+                (* Return 0.0 for errors instead of failing *)
                 Ok 0.0
             in
             Ok (Some res)
@@ -73,9 +74,12 @@ module Worker = struct
             Ok (Some 0.0)
         in
 
-        (* Store result and clear request *)
+        (* Store result, clear request, THEN reset indicators *)
         Atomic.set result_atomic result;
         Atomic.set request_atomic None;
+
+        (* Reset indicator state for next iteration *)
+        Bars.reset_indicators bars;
         worker_loop ()
     in
     worker_loop ()
@@ -134,26 +138,35 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   let shutdown_atomic = Atomic.make false in
   let iteration_counter = Atomic.make 0 in
 
-  (* Create the worker domain *)
-  let worker =
-    Worker.top work_request_atomic work_result_atomic shutdown_atomic bars
-      options mutices
-  in
-  let domain_mgr = Eio.Stdenv.domain_mgr options.eio_env in
-  let pool =
-    Eio.Executor_pool.create ~sw:options.switch domain_mgr ~domain_count:2
-  in
-  Eio.traceln "Waiting on any fiber";
-  ( Eio.Fiber.fork ~sw:options.switch @@ fun () ->
-    Eio.Executor_pool.submit_exn ~weight:0.1 pool worker );
-  Eio.traceln "Worker domain created";
+  (* Log the options being used for optimization *)
+  Eio.traceln "Optimization options:";
+  Eio.traceln "  start tick: %d" options.flags.start;
+  Eio.traceln "  runtype: %a" Longleaf_core.Runtype.pp options.flags.runtype;
+
+  (* Create the worker in a separate domain with its own Eio runtime *)
+  (* This is necessary because NLopt blocks the main Eio event loop *)
+  Eio.traceln "Starting worker in separate domain";
+  let worker_domain = Domain.spawn (fun () ->
+    (* Run Eio in the worker domain *)
+    Eio_main.run (fun env ->
+      (* Create a switch for the worker *)
+      Eio.Switch.run (fun sw ->
+        let worker_options = { options with eio_env = env; switch = sw } in
+        Worker.top work_request_atomic work_result_atomic shutdown_atomic bars
+          worker_options mutices ()
+      )
+    )
+  ) in
+  Eio.traceln "Worker domain spawned";
+  (* Give worker time to start *)
+  Unix.sleepf 0.1;
 
   let opt = Nlopt.create Nlopt.isres len in
   (* Set conservative bounds that work for most indicator periods and thresholds *)
   (* Lower bound: 5 avoids very unstable indicators and index out of bounds errors *)
   Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 5.0);
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
-  Nlopt.set_maxeval opt 1000;  (* Maximum optimization evaluations *)
+  Nlopt.set_maxeval opt 150;  (* Reduced to debug state/bars reset issues *)
   (* Nlopt.set_population opt (len * 10); *)
   Nlopt.set_max_objective opt
     (Worker.f strategy vars work_request_atomic work_result_atomic iteration_counter);

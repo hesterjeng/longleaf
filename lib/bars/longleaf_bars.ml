@@ -299,3 +299,8 @@ let validate_no_nan (bars : t) =
   | Error e ->
     Eio.traceln "✗ Validation failed: NaN values detected";
     Error e
+
+let reset_indicators (bars : t) =
+  Hashtbl.iter (fun _symbol data ->
+    Data.reset_indicators data
+  ) bars

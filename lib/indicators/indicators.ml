@@ -34,21 +34,8 @@ module Calc = struct
         (fun _ indicator ->
           match indicator with
           | Tacaml ind ->
-            let* () =
-              try Talib_binding.calculate ?i ind data with
-              | e ->
-                Eio.traceln "===== SEQUENTIAL INDICATOR ERROR =====";
-                Eio.traceln "Symbol: %a" Longleaf_core.Instrument.pp symbol;
-                Eio.traceln "Indicator: %a" Tacaml.pp ind;
-                Eio.traceln "Data size: %d" (Bars.Data.size data);
-                Eio.traceln "Exception: %s" (Printexc.to_string e);
-                Eio.traceln "======================================";
-                Error.fatal @@
-                  Format.asprintf "Symbol %a, Indicator %a: %s"
-                    Longleaf_core.Instrument.pp symbol
-                    Tacaml.pp ind
-                    (Printexc.to_string e)
-            in
+            (* Don't catch errors - let them propagate and crash immediately *)
+            let* () = Talib_binding.calculate ?i ind data in
             Result.return ())
         () indicators
     in
@@ -78,21 +65,8 @@ module Calc = struct
           (fun _ indicator ->
             match indicator with
             | Tacaml ind ->
-              let* () =
-                try Talib_binding.calculate ?i ind data with
-                | e ->
-                  Eio.traceln "===== PARALLEL INDICATOR ERROR =====";
-                  Eio.traceln "Symbol: %a" Longleaf_core.Instrument.pp symbol;
-                  Eio.traceln "Indicator: %a" Tacaml.pp ind;
-                  Eio.traceln "Data size: %d" (Bars.Data.size data);
-                  Eio.traceln "Exception: %s" (Printexc.to_string e);
-                  Eio.traceln "====================================";
-                  Error.fatal @@
-                    Format.asprintf "Symbol %a, Indicator %a: %s"
-                      Longleaf_core.Instrument.pp symbol
-                      Tacaml.pp ind
-                      (Printexc.to_string e)
-              in
+              (* Don't catch errors - let them propagate and crash immediately *)
+              let* () = Talib_binding.calculate ?i ind data in
               Result.return ())
           () indicators
       in

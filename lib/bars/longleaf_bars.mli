@@ -47,5 +47,10 @@ val validate_no_nan : t -> (unit, Error.t) result
     values are detected. This should be called after loading data to ensure data
     integrity before running strategies. *)
 
+val reset_indicators : t -> unit
+(** [reset_indicators bars] clears all computed indicator data for all symbols and
+    resets their indicators_computed flags. Use between optimization iterations to
+    prevent state contamination. Price data is preserved. *)
+
 (* val last_bar : t -> (Latest.t, Error.t) result *)
 (* val to_queue : t -> (Latest.t Queue.t, Error.t) result *)
