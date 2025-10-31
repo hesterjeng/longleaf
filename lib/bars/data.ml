@@ -541,24 +541,38 @@ let get_all_orders (data : t) = data.orders
 (* Validation functions to detect NaN values early *)
 let validate_no_nan (data : t) ~start_tick ~end_tick =
   let ( let* ) = Result.( let* ) in
-  (* Essential data types that must never be NaN *)
+  (* Essential data types that must always be present *)
   let essential_types = [Type.Index; Type.Time; Type.Last; Type.Open;
                          Type.High; Type.Low; Type.Close; Type.Volume] in
 
-  (* Check each tick in the range *)
+  (* First check: Ensure ALL essential types exist in the index table *)
+  let* () =
+    List.fold_left (fun acc data_type ->
+      let* () = acc in
+      match Index.IndexTable.find_opt data.index.tbl data_type with
+      | None ->
+        (* CRITICAL ERROR: Essential data type completely missing from this symbol *)
+        Error.fatal @@
+        Format.asprintf
+          "CRITICAL: Symbol has NO data for essential type %a!\n\
+           This symbol has never received any data during download.\n\
+           Either the download failed for this symbol, or the symbol doesn't exist."
+          Type.pp data_type
+      | Some _ -> Result.return ()
+    ) (Result.return ()) essential_types
+  in
+
+  (* Second check: Validate no NaN values in the data range *)
   let rec check_tick tick =
     if tick > end_tick then Result.return ()
     else
       let* () =
         List.fold_left (fun acc data_type ->
           let* () = acc in
-          (* Check if this data type exists in the index *)
           match Index.IndexTable.find_opt data.index.tbl data_type with
           | None ->
-            (* Data type not in index - this is suspicious for essential types *)
-            Eio.traceln "WARNING: validate_no_nan: Essential data type %a not in index table (tick %d)"
-              Type.pp data_type tick;
-            Result.return ()
+            (* Should never happen - we checked above *)
+            Error.fatal "Unexpected: data type disappeared from index"
           | Some row ->
             (* Data type exists - check if it's NaN *)
             let value =
