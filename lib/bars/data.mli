@@ -38,6 +38,13 @@ module Type : sig
   val is_int_ty : t -> bool
 end
 
+(** {1 Exceptions} *)
+
+exception NaNInData of int * Type.t
+(** [NaNInData (tick, data_type)] is raised when a NaN (Not-a-Number) value is
+    encountered when reading data. The exception contains the tick index and the
+    data type that contained the NaN value. *)
+
 (** {1 Accessing Data} *)
 
 val get : t -> Type.t -> int -> float
@@ -203,3 +210,10 @@ val get_orders : t -> int -> (Order.t list, Error.t) result
 
 val get_all_orders : t -> Order.t list array
 (** [get_all_orders data] returns all orders indexed by tick. *)
+
+(** {1 Validation} *)
+
+val validate_no_nan : t -> start_tick:int -> end_tick:int -> (unit, Error.t) result
+(** [validate_no_nan data ~start_tick ~end_tick] validates that no essential price
+    data types (Time, Last, Open, High, Low, Close, Volume) contain NaN values
+    in the specified tick range. Returns an error if any NaN values are found. *)

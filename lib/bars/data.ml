@@ -118,8 +118,13 @@ let get (data : t) (ty : Type.t) i =
       | Some x -> x
       | None -> Ptime.min
     in
-    Eio.traceln "data.ml: (%a) raising exn %a index %d NaN (size %d)" Ptime.pp
-      time Type.pp ty i data.size;
+    Eio.traceln "===== NaN DETECTED =====";
+    Eio.traceln "data.ml.get: NaN value detected!";
+    Eio.traceln "  Tick: %d (data.size=%d)" i data.size;
+    Eio.traceln "  Data Type: %a" Type.pp ty;
+    Eio.traceln "  Timestamp: %a" Ptime.pp time;
+    Eio.traceln "  Note: Check which symbol this data belongs to in caller stack trace";
+    Eio.traceln "========================";
     raise (NaNInData (i, ty))
   | false -> res
 
@@ -374,7 +379,16 @@ let forward_fill_next_tick (x : t) ~tick =
           Array2.set x.int_data row dest_idx (Array2.get x.int_data row source_idx)
         else
           Array2.set x.data row dest_idx (Array2.get x.data row source_idx)
-      | None -> ()
+      | None ->
+        (* Essential data type missing from index - this is a critical issue *)
+        Eio.traceln "===== FORWARD-FILL WARNING =====";
+        Eio.traceln "data.ml.forward_fill_next_tick: Essential data type %a NOT in index table!" Type.pp data_type;
+        Eio.traceln "  Source tick: %d" source_idx;
+        Eio.traceln "  Dest tick: %d" dest_idx;
+        Eio.traceln "  This symbol has never received data for this type!";
+        Eio.traceln "  Future reads of this type will return NaN and may crash.";
+        Eio.traceln "================================";
+        ()
     ) price_data_types
   end
 
@@ -523,3 +537,43 @@ let get_orders (data : t) (tick : int) =
   else Error.fatal "Data.get_orders: tick index out of bounds"
 
 let get_all_orders (data : t) = data.orders
+
+(* Validation functions to detect NaN values early *)
+let validate_no_nan (data : t) ~start_tick ~end_tick =
+  let ( let* ) = Result.( let* ) in
+  (* Essential data types that must never be NaN *)
+  let essential_types = [Type.Index; Type.Time; Type.Last; Type.Open;
+                         Type.High; Type.Low; Type.Close; Type.Volume] in
+
+  (* Check each tick in the range *)
+  let rec check_tick tick =
+    if tick > end_tick then Result.return ()
+    else
+      let* () =
+        List.fold_left (fun acc data_type ->
+          let* () = acc in
+          (* Check if this data type exists in the index *)
+          match Index.IndexTable.find_opt data.index.tbl data_type with
+          | None ->
+            (* Data type not in index - this is suspicious for essential types *)
+            Eio.traceln "WARNING: validate_no_nan: Essential data type %a not in index table (tick %d)"
+              Type.pp data_type tick;
+            Result.return ()
+          | Some row ->
+            (* Data type exists - check if it's NaN *)
+            let value =
+              if Type.is_int_ty data_type then
+                Int32.to_float (get_ data.int_data row tick)
+              else
+                get_ data.data row tick
+            in
+            if Float.is_nan value then
+              Error.fatal @@
+              Format.asprintf "NaN detected at tick %d for data type %a" tick Type.pp data_type
+            else
+              Result.return ()
+        ) (Result.return ()) essential_types
+      in
+      check_tick (tick + 1)
+  in
+  check_tick start_tick

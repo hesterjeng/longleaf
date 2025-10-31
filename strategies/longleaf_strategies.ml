@@ -39,6 +39,7 @@ module Run = struct
       match target with
       | Longleaf_core.Target.File s ->
         let bars = Bars.of_file ~eio_env s in
+        let* () = Bars.validate_no_nan bars in
         Result.return bars
       | Download ->
         let module TF = Longleaf_core.Trading_types.Timeframe in
@@ -49,6 +50,8 @@ module Run = struct
         Eio.traceln "Downloading data with %d-minute intervals (tick=%.1fs)" tick_minutes options.tick;
         let request = D.previous_30_days timeframe options.symbols in
         let* bars = D.download eio_env request (Some Tiingo) true in
+        Eio.traceln "Validating downloaded data...";
+        let* () = Bars.validate_no_nan bars in
         Eio.traceln "Returning bars from download...";
         Result.return bars
     in

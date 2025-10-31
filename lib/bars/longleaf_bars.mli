@@ -39,5 +39,13 @@ val grow : t -> (t, Error.t) result
 (* List the bars json files in the data directory *)
 val files : unit -> string list
 
+(** Validation *)
+
+val validate_no_nan : t -> (unit, Error.t) result
+(** [validate_no_nan bars] validates that all symbols in bars contain no NaN values
+    in essential price data types across all ticks. Returns an error if any NaN
+    values are detected. This should be called after loading data to ensure data
+    integrity before running strategies. *)
+
 (* val last_bar : t -> (Latest.t, Error.t) result *)
 (* val to_queue : t -> (Latest.t Queue.t, Error.t) result *)

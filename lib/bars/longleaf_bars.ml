@@ -97,11 +97,21 @@ let length (x : t) =
 
 let timestamp (x : t) (tick : int) =
   let res =
-    fold x None @@ fun _symbol data acc ->
-    let timestamp = Data.get data Time tick in
-    match acc with
-    | None -> Some timestamp
-    | Some prev -> Some prev
+    fold x None @@ fun symbol data acc ->
+    try
+      let timestamp = Data.get data Time tick in
+      match acc with
+      | None -> Some timestamp
+      | Some prev -> Some prev
+    with
+    | Data.NaNInData (i, ty) ->
+      Eio.traceln "===== NaN ERROR CONTEXT =====";
+      Eio.traceln "bars.ml.timestamp: NaN encountered while getting timestamp";
+      Eio.traceln "  Symbol: %a" Instrument.pp symbol;
+      Eio.traceln "  Tick: %d" i;
+      Eio.traceln "  Data Type: %a" Data.Type.pp ty;
+      Eio.traceln "=============================";
+      raise (Data.NaNInData (i, ty))
   in
   match res with
   | None -> Error.fatal "Could not get Bars.timestamp"
@@ -259,3 +269,28 @@ let files () =
   Sys.readdir "data" |> Array.to_list
   |> (List.filter @@ fun x -> String.equal (Filename.extension x) ".json")
   |> List.map @@ fun x -> "data/" ^ x
+
+(* Validate that bars contain no NaN values *)
+let validate_no_nan (bars : t) =
+  let ( let* ) = Result.( let* ) in
+  Eio.traceln "Validating bars for NaN values...";
+  let* bar_length = length bars in
+  let start_tick = 0 in
+  let end_tick = bar_length - 1 in
+  Eio.traceln "  Checking ticks %d to %d across all symbols..." start_tick end_tick;
+
+  (* Validate each symbol's data *)
+  let result = fold bars (Ok 0) @@ fun symbol data acc ->
+    let* count = acc in
+    (* Validate this symbol's data *)
+    let* () = Data.validate_no_nan data ~start_tick ~end_tick in
+    Result.return (count + 1)
+  in
+
+  match result with
+  | Ok count ->
+    Eio.traceln "✓ Validation complete: %d symbols checked, no NaN values found" count;
+    Result.return ()
+  | Error e ->
+    Eio.traceln "✗ Validation failed: NaN values detected";
+    Error e
