@@ -46,8 +46,9 @@ module Calc = struct
     let start_total = Unix.gettimeofday () in
 
     let indicators = List.map tacaml config.tacaml_indicators in
-    Eio.traceln "Starting indicator computation for... %a" (List.pp pp)
-      indicators;
+    if config.print_tick_arg then
+      Eio.traceln "Starting indicator computation for... %a" (List.pp pp)
+        indicators;
 
     (* Check if we should use parallel computation *)
     let result =
@@ -80,7 +81,7 @@ module Calc = struct
       | Some p ->
           (* Reuse existing pool - no io_uring allocation! *)
           Util.Work_pool.Work_pool.parallel_map ~pool:p ~clock
-            ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
+            ~log_performance:config.print_tick_arg ~f:compute_for_symbol_data symbol_data_pairs
           |> Result.map_l Fun.id
           |> Result.map @@ fun _ -> ()
       | None ->
@@ -90,14 +91,15 @@ module Calc = struct
           Eio.Switch.run (fun sw ->
               let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
               Util.Work_pool.Work_pool.parallel_map ~pool ~clock
-                ~log_performance:true ~f:compute_for_symbol_data symbol_data_pairs
+                ~log_performance:config.print_tick_arg ~f:compute_for_symbol_data symbol_data_pairs
               |> Result.map_l Fun.id
               |> Result.map @@ fun _ -> ())
     in
     let end_total = Unix.gettimeofday () in
-    Eio.traceln "%a Total indicator computation took %.3fs"
-      (Result.pp' Format.cut Error.pp)
-      result (end_total -. start_total);
+    if config.print_tick_arg then
+      Eio.traceln "%a Total indicator computation took %.3fs"
+        (Result.pp' Format.cut Error.pp)
+        result (end_total -. start_total);
     result
 
   let compute_all ?pool eio_env (config : Config.t) bars =

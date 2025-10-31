@@ -244,6 +244,12 @@ module Client = struct
         (Websocket.Opcode.show frame.opcode);
       Error (`UnexpectedFrame (Websocket.Opcode.show frame.opcode))
 
+  (* Check if float is valid (not NaN or infinite) *)
+  let is_valid_float f =
+    match classify_float f with
+    | FP_normal | FP_subnormal | FP_zero -> true
+    | FP_infinite | FP_nan -> false
+
   (* Update bars with received data *)
   let update_bars bars tick data_items =
     let ( let* ) = Result.( let* ) in
@@ -261,19 +267,27 @@ module Client = struct
           with e -> Error (`JsonError ("Time parse error: " ^ Printexc.to_string e))
         in
 
-        (* Get or create data array for this instrument *)
-        let* data_array = Bars.get bars instrument in
+        (* Validate all price fields before updating *)
+        if not (is_valid_float item.open_ && is_valid_float item.high &&
+                is_valid_float item.low && is_valid_float item.last) then begin
+          Eio.traceln "Tiingo WebSocket: Skipping invalid data for %s (NaN/Inf values detected)"
+            item.ticker;
+          Ok ()  (* Skip this update but don't fail *)
+        end else begin
+          (* Get or create data array for this instrument *)
+          let* data_array = Bars.get bars instrument in
 
-        (* Update the bar data *)
-        Data.set data_array Data.Type.Time tick (Ptime.to_float_s timestamp);
-        Data.set data_array Data.Type.Open tick item.open_;
-        Data.set data_array Data.Type.High tick item.high;
-        Data.set data_array Data.Type.Low tick item.low;
-        Data.set data_array Data.Type.Close tick item.last; (* Use last as close *)
-        Data.set data_array Data.Type.Last tick item.last;
-        Data.set data_array Data.Type.Volume tick (Float.of_int item.volume);
+          (* Update the bar data - all values are validated *)
+          Data.set data_array Data.Type.Time tick (Ptime.to_float_s timestamp);
+          Data.set data_array Data.Type.Open tick item.open_;
+          Data.set data_array Data.Type.High tick item.high;
+          Data.set data_array Data.Type.Low tick item.low;
+          Data.set data_array Data.Type.Close tick item.last; (* Use last as close *)
+          Data.set data_array Data.Type.Last tick item.last;
+          Data.set data_array Data.Type.Volume tick (Float.of_int item.volume);
 
-        Ok ())
+          Ok ()
+        end)
       (Ok ()) data_items
 
   (* Main update loop - receives updates and applies to bars *)
