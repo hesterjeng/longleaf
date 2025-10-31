@@ -285,9 +285,13 @@ let handler env _conn request body =
 
   (* GET / - Root endpoint, return settings *)
   | `GET, "/" ->
-    Result.return @@
-    (Settings.yojson_of_t Settings.settings
-     |> Yojson.Safe.to_string |> respond_json)
+    Eio.traceln "=== GET / endpoint called ===";
+    Eio.traceln "Current CLI settings:";
+    Eio.traceln "  print_tick_arg: %b" Settings.settings.cli_vars.print_tick_arg;
+    Eio.traceln "  strategy_arg: %s" Settings.settings.cli_vars.strategy_arg;
+    let json = Settings.yojson_of_t Settings.settings |> Yojson.Safe.to_string in
+    Eio.traceln "Returning JSON: %s" json;
+    Result.return @@ respond_json json
 
   (* POST /set_status - Set status *)
   | `POST, "/set_status" ->
@@ -358,10 +362,17 @@ let handler env _conn request body =
   (* POST /set_cli - Set CLI vars *)
   | `POST, "/set_cli" ->
     let* body_string = Tools.read_body body in
+    Eio.traceln "=== /set_cli endpoint called ===";
+    Eio.traceln "Received JSON: %s" body_string;
     let r =
       Yojson.Safe.from_string body_string |> Core.Options.CLI.t_of_yojson
     in
+    Eio.traceln "Parsed CLI settings:";
+    Eio.traceln "  print_tick_arg: %b" r.print_tick_arg;
+    Eio.traceln "  strategy_arg: %s" r.strategy_arg;
+    Eio.traceln "  runtype: %a" Core.Runtype.pp r.runtype;
     Settings.settings.cli_vars <- r;
+    Eio.traceln "CLI settings updated in server state";
     Result.return @@
     (`Assoc [ ("message", `String "settings.cli_vars set") ]
      |> Yojson.Safe.to_string |> respond_json)

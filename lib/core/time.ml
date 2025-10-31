@@ -67,12 +67,12 @@ let of_float_res x =
   | None -> Error.fatal "Bad time in Time.of_float_res"
   | Some x -> Result.return x
 
-let subtract_30_days (ptime_value : Ptime.t) =
-  let thirty_days_in_seconds = -1 * (30 * 86400) in
-  (* 30 days * 86400 seconds/day *)
+let subtract_14_days (ptime_value : Ptime.t) =
+  let fourteen_days_in_seconds = -1 * (14 * 86400) in
+  (* 14 days * 86400 seconds/day *)
   let sub =
-    Ptime.add_span ptime_value (Ptime.Span.of_int_s thirty_days_in_seconds)
+    Ptime.add_span ptime_value (Ptime.Span.of_int_s fourteen_days_in_seconds)
   in
   match sub with
   | Some t -> t
-  | None -> invalid_arg "Time.subtract_30_days: invalid time"
+  | None -> invalid_arg "Time.subtract_14_days: invalid time"

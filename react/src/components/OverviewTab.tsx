@@ -150,6 +150,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
       const cliData = parseOCamlCLI(settings.cli_vars);
       const targetData = parseTarget(settings.target);
       console.log('Setting form values:', { cliData, targetData, strategies, dataFiles });
+      console.log('print_tick_arg from server:', settings.cli_vars.print_tick_arg);
+      console.log('print_tick_arg after parse:', cliData.print_tick_arg);
       settingsForm.setFieldsValue({
         ...cliData,
         runtype: cliData.runtype || 'Backtest',
@@ -683,6 +685,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           // This ensures form state is properly managed
         }}
       >
+        {/* Hidden form items for boolean toggles - required for form submission */}
+        <Form.Item name="stacktrace" hidden><input type="hidden" /></Form.Item>
+        <Form.Item name="print_tick_arg" hidden><input type="hidden" /></Form.Item>
+        <Form.Item name="save_received" hidden><input type="hidden" /></Form.Item>
+        <Form.Item name="save_to_file" hidden><input type="hidden" /></Form.Item>
+        <Form.Item name="nowait_market_open" hidden><input type="hidden" /></Form.Item>
+        <Form.Item name="precompute_indicators_arg" hidden><input type="hidden" /></Form.Item>
+        <Form.Item name="compare_preloaded" hidden><input type="hidden" /></Form.Item>
+        <Form.Item name="no_gui" hidden><input type="hidden" /></Form.Item>
 
         <Row gutter={6}>
           <Col span={24}>
