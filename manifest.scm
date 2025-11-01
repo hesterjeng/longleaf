@@ -69,6 +69,7 @@
         "ocaml-graph"
         "ocaml-eio-main"
         "ocaml-tacaml"
+        "ocaml-saturn"
         "ocaml-fileutils"
         "ocaml-yojson"
         "ocaml-uuidm"

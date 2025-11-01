@@ -1,17 +1,29 @@
-module Hashtbl_make = Hashtbl.Make
-module Hashtbl = Hashtbl_make (Instrument)
 module Data = Data
 module Util = Longleaf_util
 
-let fold (x : 'a Hashtbl.t) init f = Hashtbl.fold f x init
+(* Use Saturn's lock-free hash table for domain-safe concurrent access *)
+type t = (Instrument.t, Data.t) Saturn.Htbl.t
+
+(* Instrument hashed module for Saturn - must be a first-class module *)
+module InstrumentHashedType = struct
+  type t = Instrument.t
+  let equal = Instrument.equal
+  let hash = Instrument.hash
+end
+
+(* Helper to create instrument-keyed tables *)
+let create_table () = Saturn.Htbl.create ~hashed_type:(module InstrumentHashedType) ()
+
+let fold (x : t) init f =
+  Saturn.Htbl.to_seq x
+  |> Seq.fold_left (fun acc (k, v) -> f k v acc) init
 
 module Latest = Latest
 
-type t = Data.t Hashtbl.t
-
 let copy x =
-  let copied = Hashtbl.copy x in
-  Hashtbl.iter (fun s ph -> Hashtbl.replace copied s @@ Data.copy ph) x;
+  let copied = create_table () in
+  Saturn.Htbl.to_seq x
+  |> Seq.iter (fun (s, ph) -> Saturn.Htbl.set_exn copied s (Data.copy ph) |> ignore);
   copied
 
 (* Helper function to deserialize a single symbol *)
@@ -56,7 +68,9 @@ let t_of_yojson ?eio_env (json : Yojson.Safe.t) : (t, Error.t) result =
   in
 
   let seq = Seq.of_list mapped in
-  Result.return @@ Hashtbl.of_seq seq
+  let htbl = create_table () in
+  Seq.iter (fun (k, v) -> ignore (Saturn.Htbl.try_add htbl k v)) seq;
+  Result.return htbl
 
 let yojson_of_t (x : t) : (Yojson.Safe.t, Error.t) result =
   let ( let* ) = Result.( let* ) in
@@ -69,10 +83,10 @@ let yojson_of_t (x : t) : (Yojson.Safe.t, Error.t) result =
   let core : Yojson.Safe.t = `Assoc res in
   Result.return @@ `Assoc [ ("bars", core) ]
 
-let empty () = Hashtbl.create 100
+let empty () = create_table ()
 
 let get (x : t) instrument =
-  Hashtbl.find_opt x instrument |> function
+  Saturn.Htbl.find_opt x instrument |> function
   | Some x -> Result.return x
   | None -> Error.missing_data "Missing data for instrument in V2 bars"
 
@@ -210,7 +224,7 @@ let pp_stats = pp
 (*   in *)
 (*   Result.return q *)
 
-let keys (x : t) = Hashtbl.to_seq_keys x |> Seq.to_list
+let keys (x : t) = Saturn.Htbl.to_seq x |> Seq.map fst |> Seq.to_list
 
 let combine (l : t list) : (t, Error.t) result =
   let ( let* ) = Result.( let* ) in
@@ -229,19 +243,23 @@ let combine (l : t list) : (t, Error.t) result =
         Result.return @@ Seq.cons (key, combined) acc)
       (Ok Seq.empty) keys
   in
-  Result.return @@ Hashtbl.of_seq assoc_seq
+  let htbl = create_table () in
+  Seq.iter (fun (k, v) -> ignore (Saturn.Htbl.try_add htbl k v)) assoc_seq;
+  Result.return htbl
 
-let of_seq = Hashtbl.of_seq
+let of_seq seq =
+  let htbl = create_table () in
+  Seq.iter (fun (k, v) -> ignore (Saturn.Htbl.try_add htbl k v)) seq;
+  htbl
 let of_list l = of_seq @@ Seq.of_list l
 
 let grow bars =
   try
-    let new_bars = Hashtbl.create (Hashtbl.length bars) in
-    Hashtbl.iter
-      (fun instrument data ->
+    let new_bars = create_table () in
+    Saturn.Htbl.to_seq bars
+    |> Seq.iter (fun (instrument, data) ->
         let grown_data = Data.grow data |> Result.get_exn in
-        Hashtbl.add new_bars instrument grown_data)
-      bars;
+        ignore (Saturn.Htbl.try_add new_bars instrument grown_data));
     new_bars |> Result.return
   with
   | e -> Error.fatal @@ "Unhandled error in Bars.grow: " ^ Printexc.to_string e
@@ -301,8 +319,6 @@ let validate_no_nan (bars : t) =
     Error e
 
 let reset_indicators (bars : t) =
-  Eio.traceln "[RESET] Bars.reset_indicators: Starting hashtbl iteration";
-  Hashtbl.iter (fun _symbol data ->
-    Data.reset_indicators data
-  ) bars;
-  Eio.traceln "[RESET] Bars.reset_indicators: Complete"
+  Saturn.Htbl.to_seq bars
+  |> Seq.iter (fun (_symbol, data) ->
+    Data.reset_indicators data)

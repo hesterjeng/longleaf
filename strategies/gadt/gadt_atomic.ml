@@ -57,17 +57,14 @@ module Worker = struct
                 sell_trigger = instantiated_sell;
               }
             in
-            Eio.traceln "[WORKER] Running strategy";
             let* res =
               try
                 Gadt_strategy.run bars options mutices instantiated_strategy
               with
               | e ->
                 (* Return 0.0 for errors instead of failing *)
-                Eio.traceln "[WORKER] Strategy run exception: %s" (Printexc.to_string e);
                 Ok 0.0
             in
-            Eio.traceln "[WORKER] Strategy completed";
             Ok (Some res)
           with
           | e ->
@@ -82,9 +79,7 @@ module Worker = struct
         Atomic.set request_atomic None;
 
         (* Reset indicator state for next iteration *)
-        Eio.traceln "[WORKER] About to reset indicators";
         Bars.reset_indicators bars;
-        Eio.traceln "[WORKER] Indicators reset complete";
         worker_loop ()
     in
     worker_loop ()

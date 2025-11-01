@@ -280,6 +280,12 @@ let rec pp : type a. Format.formatter -> a t -> unit =
     Format.fprintf fmt "minutes_since_open(@[%a@])" pp x
   | App1 (Fun ("minutes_until_close", _), x) ->
     Format.fprintf fmt "minutes_until_close(@[%a@])" pp x
+  | App1 (Fun ("is_open", _), x) ->
+    Format.fprintf fmt "is_open(@[%a@])" pp x
+  | App2 (Fun ("is_close", _), x, y) ->
+    Format.fprintf fmt "is_close(@[%a,@ %a@])" pp x pp y
+  | App2 (Fun ("is_near_open", _), x, y) ->
+    Format.fprintf fmt "is_near_open(@[%a,@ %a@])" pp x pp y
   | App2 (Fun ("&&.", _), x, y) ->
     Format.fprintf fmt "(@[%a@ &&.@ %a@])" pp x pp y
   | App2 (Fun ("||", _), x, y) ->
@@ -399,3 +405,17 @@ let minutes_since_open timestamp =
 (* Negative values indicate after market close *)
 let minutes_until_close timestamp =
   App1 (Fun ("minutes_until_close", Time.minutes_until_close), timestamp)
+
+(* Check if currently within market hours (9:30 AM - 4:00 PM ET) *)
+let is_open timestamp =
+  App1 (Fun ("is_open", Time.is_open), timestamp)
+
+(* Check if within threshold minutes of market close *)
+(* Example: is_close(tick_time(), 30.0) returns true if less than 30 mins until close *)
+let is_close timestamp threshold =
+  App2 (Fun ("is_close", Time.is_close), timestamp, threshold)
+
+(* Check if within threshold minutes of market open *)
+(* Example: is_near_open(tick_time(), 15.0) returns true if less than 15 mins since open *)
+let is_near_open timestamp threshold =
+  App2 (Fun ("is_near_open", Time.is_near_open), timestamp, threshold)

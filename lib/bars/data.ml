@@ -36,22 +36,32 @@ module Type = struct
 end
 
 module Index = struct
-  module IndexTable = Hashtbl.Make (Type)
+  (* Use Saturn for thread-safe index table *)
+  module TypeHashedType = struct
+    type t = Type.t
+    let equal = Type.equal
+    let hash = Type.hash
+  end
 
-  type table = int IndexTable.t
+  type table = (Type.t, int) Saturn.Htbl.t
   type t = { mutable next_float : int; mutable next_int : int; tbl : table }
 
+  let create_table () = Saturn.Htbl.create ~hashed_type:(module TypeHashedType) ()
+
   let copy x =
+    let new_tbl = create_table () in
+    Saturn.Htbl.to_seq x.tbl
+    |> Seq.iter (fun (k, v) -> ignore (Saturn.Htbl.try_add new_tbl k v));
     {
       next_float = x.next_float;
       next_int = x.next_int;
-      tbl = IndexTable.copy x.tbl;
+      tbl = new_tbl;
     }
 
   (* Given a data type, look up the row of the correct matrix to find it. Can return a row *)
   (* of either the int matrix or the float matrix. *)
   let get (x : t) (ty : Type.t) : int =
-    match IndexTable.find_opt x.tbl ty with
+    match Saturn.Htbl.find_opt x.tbl ty with
     | None ->
       let next =
         match Type.is_int_ty ty with
@@ -64,11 +74,11 @@ module Index = struct
           x.next_float <- res + 1;
           res
       in
-      IndexTable.replace x.tbl ty next;
+      ignore (Saturn.Htbl.try_add x.tbl ty next);
       next
     | Some i -> i
 
-  let make () = { next_float = 0; next_int = 0; tbl = IndexTable.create 200 }
+  let make () = { next_float = 0; next_int = 0; tbl = create_table () }
 end
 
 type t = {
@@ -339,7 +349,7 @@ let grow_ (x : t) =
                             Type.High; Type.Low; Type.Close; Type.Volume] in
     List.iter (fun data_type ->
       (* Check if this data type exists in the index *)
-      match Index.IndexTable.find_opt x.index.tbl data_type with
+      match Saturn.Htbl.find_opt x.index.tbl data_type with
       | Some row ->
         (* Data type exists - forward-fill it *)
         if Type.is_int_ty data_type then
@@ -371,7 +381,7 @@ let reset_indicators (x : t) =
   let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
                           Type.High; Type.Low; Type.Close; Type.Volume] in
   let preserved_entries = List.filter_map (fun ty ->
-    match Index.IndexTable.find_opt x.index.tbl ty with
+    match Saturn.Htbl.find_opt x.index.tbl ty with
     | Some row -> Some (ty, row)
     | None -> None
   ) price_data_types in
@@ -380,19 +390,17 @@ let reset_indicators (x : t) =
   let max_price_row = List.fold_left (fun acc (_, row) -> max acc row) (-1) preserved_entries in
 
   (* Clear the entire index table *)
-  Index.IndexTable.clear x.index.tbl;
+  ignore (Saturn.Htbl.remove_all x.index.tbl |> Seq.length);
 
   (* Restore price data entries *)
-  List.iter (fun (ty, row) -> Index.IndexTable.replace x.index.tbl ty row) preserved_entries;
+  List.iter (fun (ty, row) -> ignore (Saturn.Htbl.try_set x.index.tbl ty row)) preserved_entries;
 
   (* Reset next_float to just after the last price data row *)
   x.index.next_float <- max_price_row + 1;
   x.index.next_int <- 0;  (* Reset int counter *)
 
   (* CRITICAL: Clear order history to prevent memory leak across iterations *)
-  Eio.traceln "[RESET] Data.reset_indicators: About to Array.fill";
   Array.fill x.orders 0 (Array.length x.orders) [];
-  Eio.traceln "[RESET] Data.reset_indicators: Array.fill complete";
 
   x.indicators_computed <- false
 
@@ -405,7 +413,7 @@ let forward_fill_next_tick (x : t) ~tick =
     let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
                             Type.High; Type.Low; Type.Close; Type.Volume] in
     List.iter (fun data_type ->
-      match Index.IndexTable.find_opt x.index.tbl data_type with
+      match Saturn.Htbl.find_opt x.index.tbl data_type with
       | Some row ->
         if Type.is_int_ty data_type then
           Array2.set x.int_data row dest_idx (Array2.get x.int_data row source_idx)
@@ -583,7 +591,7 @@ let validate_no_nan (data : t) ~start_tick ~end_tick =
   let* () =
     List.fold_left (fun acc data_type ->
       let* () = acc in
-      match Index.IndexTable.find_opt data.index.tbl data_type with
+      match Saturn.Htbl.find_opt data.index.tbl data_type with
       | None ->
         (* CRITICAL ERROR: Essential data type completely missing from this symbol *)
         Error.fatal @@
@@ -603,7 +611,7 @@ let validate_no_nan (data : t) ~start_tick ~end_tick =
       let* () =
         List.fold_left (fun acc data_type ->
           let* () = acc in
-          match Index.IndexTable.find_opt data.index.tbl data_type with
+          match Saturn.Htbl.find_opt data.index.tbl data_type with
           | None ->
             (* Should never happen - we checked above *)
             Error.fatal "Unexpected: data type disappeared from index"
