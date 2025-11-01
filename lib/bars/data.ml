@@ -389,6 +389,9 @@ let reset_indicators (x : t) =
   x.index.next_float <- max_price_row + 1;
   x.index.next_int <- 0;  (* Reset int counter *)
 
+  (* CRITICAL: Clear order history to prevent memory leak across iterations *)
+  Array.fill x.orders 0 (Array.length x.orders) [];
+
   x.indicators_computed <- false
 
 (* Forward-fill: copy price data from tick to tick+1 *)
