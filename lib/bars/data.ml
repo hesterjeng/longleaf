@@ -390,9 +390,9 @@ let reset_indicators (x : t) =
   x.index.next_int <- 0;  (* Reset int counter *)
 
   (* CRITICAL: Clear order history to prevent memory leak across iterations *)
-  let order_array_len = Array.length x.orders in
-  Eio.traceln "Data.reset_indicators: Clearing %d order slots" order_array_len;
-  Array.fill x.orders 0 order_array_len [];
+  Eio.traceln "[RESET] Data.reset_indicators: About to Array.fill";
+  Array.fill x.orders 0 (Array.length x.orders) [];
+  Eio.traceln "[RESET] Data.reset_indicators: Array.fill complete";
 
   x.indicators_computed <- false
 

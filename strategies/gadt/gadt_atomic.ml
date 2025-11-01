@@ -40,17 +40,13 @@ module Worker = struct
           worker_loop ())
       | Some work ->
 
-        Eio.traceln "Worker: Starting work processing";
         let result =
           try
             let ( let* ) = Result.( let* ) in
-            Eio.traceln "Worker: Creating env from params";
             let env = Subst.env_of_arr work.params work.vars in
-            Eio.traceln "Worker: Instantiating buy trigger";
             let* instantiated_buy =
               Subst.instantiate env work.strategy.buy_trigger
             in
-            Eio.traceln "Worker: Instantiating sell trigger";
             let* instantiated_sell =
               Subst.instantiate env work.strategy.sell_trigger
             in
@@ -61,17 +57,17 @@ module Worker = struct
                 sell_trigger = instantiated_sell;
               }
             in
-            Eio.traceln "Worker: Running strategy";
+            Eio.traceln "[WORKER] Running strategy";
             let* res =
               try
                 Gadt_strategy.run bars options mutices instantiated_strategy
               with
               | e ->
                 (* Return 0.0 for errors instead of failing *)
-                Eio.traceln "Worker: Strategy run exception: %s" (Printexc.to_string e);
+                Eio.traceln "[WORKER] Strategy run exception: %s" (Printexc.to_string e);
                 Ok 0.0
             in
-            Eio.traceln "Worker: Strategy completed with result %f" res;
+            Eio.traceln "[WORKER] Strategy completed";
             Ok (Some res)
           with
           | e ->
@@ -82,15 +78,13 @@ module Worker = struct
         in
 
         (* Store result, clear request, THEN reset indicators *)
-        Eio.traceln "Worker: Setting result atomic";
         Atomic.set result_atomic result;
-        Eio.traceln "Worker: Clearing request atomic";
         Atomic.set request_atomic None;
 
         (* Reset indicator state for next iteration *)
-        Eio.traceln "Worker: About to reset indicators";
+        Eio.traceln "[WORKER] About to reset indicators";
         Bars.reset_indicators bars;
-        Eio.traceln "Worker: Indicators reset complete";
+        Eio.traceln "[WORKER] Indicators reset complete";
         worker_loop ()
     in
     worker_loop ()

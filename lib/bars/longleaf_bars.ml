@@ -301,8 +301,8 @@ let validate_no_nan (bars : t) =
     Error e
 
 let reset_indicators (bars : t) =
-  Eio.traceln "Bars.reset_indicators: Starting (hashtbl size=%d)" (Hashtbl.length bars);
+  Eio.traceln "[RESET] Bars.reset_indicators: Starting hashtbl iteration";
   Hashtbl.iter (fun _symbol data ->
     Data.reset_indicators data
   ) bars;
-  Eio.traceln "Bars.reset_indicators: Complete"
+  Eio.traceln "[RESET] Bars.reset_indicators: Complete"
