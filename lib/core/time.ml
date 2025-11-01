@@ -160,3 +160,21 @@ let minutes_since_open (unix_time : float) : float =
 let minutes_until_close (unix_time : float) : float =
   let tod = time_of_day_et unix_time in
   market_close_minutes -. tod
+
+(* Check if within market hours (9:30 AM - 4:00 PM ET) *)
+let is_open (unix_time : float) : bool =
+  let tod = time_of_day_et unix_time in
+  Float.compare tod market_open_minutes >= 0 &&
+  Float.compare tod market_close_minutes < 0
+
+(* Check if within threshold minutes of market close *)
+let is_close (unix_time : float) (threshold_minutes : float) : bool =
+  let mins_until = minutes_until_close unix_time in
+  Float.compare mins_until 0.0 > 0 &&
+  Float.compare mins_until threshold_minutes <= 0
+
+(* Check if within threshold minutes of market open *)
+let is_near_open (unix_time : float) (threshold_minutes : float) : bool =
+  let mins_since = minutes_since_open unix_time in
+  Float.compare mins_since 0.0 >= 0 &&
+  Float.compare mins_since threshold_minutes <= 0

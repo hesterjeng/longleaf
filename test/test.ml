@@ -49,6 +49,54 @@ let test_minutes_until_close () =
   (* Should be approximately 30 minutes *)
   Alcotest.(check bool) "30 minutes until close" (Float.abs (mins -. 30.0) < 1.0) true
 
+let test_is_open () =
+  (* During market hours: 2024-01-15 15:00:00 UTC = 10:00 AM EST *)
+  let ptime_open = match Ptime.of_date_time ((2024, 1, 15), ((15, 0, 0), 0)) with
+    | Some t -> t
+    | None -> failwith "Invalid test timestamp" in
+  let timestamp_open = Ptime.to_float_s ptime_open in
+  Alcotest.(check bool) "Is open at 10 AM" (Longleaf_core.Time.is_open timestamp_open) true;
+
+  (* Before market hours: 2024-01-15 14:00:00 UTC = 9:00 AM EST *)
+  let ptime_before = match Ptime.of_date_time ((2024, 1, 15), ((14, 0, 0), 0)) with
+    | Some t -> t
+    | None -> failwith "Invalid test timestamp" in
+  let timestamp_before = Ptime.to_float_s ptime_before in
+  Alcotest.(check bool) "Is closed at 9 AM" (Longleaf_core.Time.is_open timestamp_before) false;
+
+  (* After market hours: 2024-01-15 21:30:00 UTC = 4:30 PM EST *)
+  let ptime_after = match Ptime.of_date_time ((2024, 1, 15), ((21, 30, 0), 0)) with
+    | Some t -> t
+    | None -> failwith "Invalid test timestamp" in
+  let timestamp_after = Ptime.to_float_s ptime_after in
+  Alcotest.(check bool) "Is closed at 4:30 PM" (Longleaf_core.Time.is_open timestamp_after) false
+
+let test_is_close () =
+  (* 20 minutes before close: 2024-01-15 20:40:00 UTC = 3:40 PM EST *)
+  let ptime_close = match Ptime.of_date_time ((2024, 1, 15), ((20, 40, 0), 0)) with
+    | Some t -> t
+    | None -> failwith "Invalid test timestamp" in
+  let timestamp_close = Ptime.to_float_s ptime_close in
+  (* Should be true with 30 minute threshold *)
+  Alcotest.(check bool) "Is close (20 mins, threshold 30)"
+    (Longleaf_core.Time.is_close timestamp_close 30.0) true;
+  (* Should be false with 15 minute threshold *)
+  Alcotest.(check bool) "Not close (20 mins, threshold 15)"
+    (Longleaf_core.Time.is_close timestamp_close 15.0) false
+
+let test_is_near_open () =
+  (* 10 minutes after open: 2024-01-15 14:40:00 UTC = 9:40 AM EST *)
+  let ptime_near = match Ptime.of_date_time ((2024, 1, 15), ((14, 40, 0), 0)) with
+    | Some t -> t
+    | None -> failwith "Invalid test timestamp" in
+  let timestamp_near = Ptime.to_float_s ptime_near in
+  (* Should be true with 15 minute threshold *)
+  Alcotest.(check bool) "Is near open (10 mins, threshold 15)"
+    (Longleaf_core.Time.is_near_open timestamp_near 15.0) true;
+  (* Should be false with 5 minute threshold *)
+  Alcotest.(check bool) "Not near open (10 mins, threshold 5)"
+    (Longleaf_core.Time.is_near_open timestamp_near 5.0) false
+
 (* Mock cohttp-eio client for testing with HTTPS enabled *)
 let mock_client env =
   let () = Longleaf_apis.Https.init_rng () in
@@ -91,6 +139,9 @@ let () =
         Alcotest.test_case "Time of day ET" `Quick test_time_of_day_et;
         Alcotest.test_case "Minutes since open" `Quick test_minutes_since_open;
         Alcotest.test_case "Minutes until close" `Quick test_minutes_until_close;
+        Alcotest.test_case "Is open" `Quick test_is_open;
+        Alcotest.test_case "Is close" `Quick test_is_close;
+        Alcotest.test_case "Is near open" `Quick test_is_near_open;
       ]);
       ( "trading_api",
         [
