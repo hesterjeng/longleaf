@@ -274,6 +274,12 @@ let rec pp : type a. Format.formatter -> a t -> unit =
   | Data e -> Format.fprintf fmt "(@[%a@])" pp e
   (* | Indicator e -> Format.fprintf fmt "Indicator(@[%a@])" pp e *)
   | App1 (Fun ("tacaml", _), x) -> Format.fprintf fmt "@[%a@]" pp x
+  | App1 (Fun ("time_of_day_et", _), x) ->
+    Format.fprintf fmt "time_of_day_et(@[%a@])" pp x
+  | App1 (Fun ("minutes_since_open", _), x) ->
+    Format.fprintf fmt "minutes_since_open(@[%a@])" pp x
+  | App1 (Fun ("minutes_until_close", _), x) ->
+    Format.fprintf fmt "minutes_until_close(@[%a@])" pp x
   | App2 (Fun ("&&.", _), x, y) ->
     Format.fprintf fmt "(@[%a@ &&.@ %a@])" pp x pp y
   | App2 (Fun ("||", _), x, y) ->
@@ -376,3 +382,20 @@ let moneyness underlying option =
   App2 (Fun ("moneyness", moneyness_fn), underlying, option)
 
 let days_to_expiry option = App1 (Fun ("dte", days_to_expiry_fn), option)
+
+(* Market timing functions (timezone-aware, DST-aware) *)
+
+(* Get time of day in Eastern Time as minutes since midnight (0-1440) *)
+(* Useful for time-of-day comparisons: time_of_day_et(tick_time()) >. 960.0 means "after 4 PM ET" *)
+let time_of_day_et timestamp =
+  App1 (Fun ("time_of_day_et", Time.time_of_day_et), timestamp)
+
+(* Get minutes since market open (9:30 AM ET) *)
+(* Negative values indicate before market open *)
+let minutes_since_open timestamp =
+  App1 (Fun ("minutes_since_open", Time.minutes_since_open), timestamp)
+
+(* Get minutes until market close (4:00 PM ET) *)
+(* Negative values indicate after market close *)
+let minutes_until_close timestamp =
+  App1 (Fun ("minutes_until_close", Time.minutes_until_close), timestamp)

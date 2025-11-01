@@ -6,6 +6,49 @@ let good_time () =
   let _ = Longleaf_core.Time.of_string "2025-03-03T16:59:00Z" in
   ()
 
+(* Test timezone-aware market timing functions *)
+let test_time_of_day_et () =
+  (* Create timestamp for 2024-01-15 14:30:00 UTC (should be 9:30 AM EST) *)
+  let ptime_est = match Ptime.of_date_time ((2024, 1, 15), ((14, 30, 0), 0)) with
+    | Some t -> t
+    | None -> failwith "Invalid test timestamp" in
+  let timestamp_market_open = Ptime.to_float_s ptime_est in
+  let tod = Longleaf_core.Time.time_of_day_et timestamp_market_open in
+  (* Debug: print actual value *)
+  Printf.printf "Time of day ET (EST): %.2f (expected 570.0)\n" tod;
+  (* Should be 570 minutes since midnight ET (9:30 AM) *)
+  Alcotest.(check bool) "Market open time" (Float.abs (tod -. 570.0) < 1.0) true;
+
+  (* Create timestamp for 2024-07-15 13:30:00 UTC (should be 9:30 AM EDT) *)
+  let ptime_edt = match Ptime.of_date_time ((2024, 7, 15), ((13, 30, 0), 0)) with
+    | Some t -> t
+    | None -> failwith "Invalid test timestamp DST" in
+  let timestamp_dst = Ptime.to_float_s ptime_edt in
+  let tod_dst = Longleaf_core.Time.time_of_day_et timestamp_dst in
+  Printf.printf "Time of day ET (EDT): %.2f (expected 570.0)\n" tod_dst;
+  (* Should also be 570 minutes since midnight ET (9:30 AM EDT) *)
+  Alcotest.(check bool) "Market open time (DST)" (Float.abs (tod_dst -. 570.0) < 1.0) true
+
+let test_minutes_since_open () =
+  (* Create timestamp for 2024-01-15 14:45:00 UTC (should be 9:45 AM EST = 15 mins after open) *)
+  let ptime = match Ptime.of_date_time ((2024, 1, 15), ((14, 45, 0), 0)) with
+    | Some t -> t
+    | None -> failwith "Invalid test timestamp" in
+  let timestamp = Ptime.to_float_s ptime in
+  let mins = Longleaf_core.Time.minutes_since_open timestamp in
+  (* Should be approximately 15 minutes *)
+  Alcotest.(check bool) "15 minutes since open" (Float.abs (mins -. 15.0) < 1.0) true
+
+let test_minutes_until_close () =
+  (* Create timestamp for 2024-01-15 20:30:00 UTC (should be 3:30 PM EST = 30 mins before close) *)
+  let ptime = match Ptime.of_date_time ((2024, 1, 15), ((20, 30, 0), 0)) with
+    | Some t -> t
+    | None -> failwith "Invalid test timestamp" in
+  let timestamp = Ptime.to_float_s ptime in
+  let mins = Longleaf_core.Time.minutes_until_close timestamp in
+  (* Should be approximately 30 minutes *)
+  Alcotest.(check bool) "30 minutes until close" (Float.abs (mins -. 30.0) < 1.0) true
+
 (* Mock cohttp-eio client for testing with HTTPS enabled *)
 let mock_client env =
   let () = Longleaf_apis.Https.init_rng () in
@@ -43,7 +86,12 @@ let () =
   let account = Eio_main.run @@ fun env -> test_get_account env () in
   Alcotest.run "Utils"
     [
-      ("time", [ Alcotest.test_case "With timezone" `Quick good_time ]);
+      ("time", [
+        Alcotest.test_case "With timezone" `Quick good_time;
+        Alcotest.test_case "Time of day ET" `Quick test_time_of_day_et;
+        Alcotest.test_case "Minutes since open" `Quick test_minutes_since_open;
+        Alcotest.test_case "Minutes until close" `Quick test_minutes_until_close;
+      ]);
       ( "trading_api",
         [
           ( Alcotest.test_case "trading api" `Quick @@ fun _ ->
