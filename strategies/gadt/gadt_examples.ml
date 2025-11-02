@@ -873,6 +873,107 @@ let rocket_reef_day_only =
        position_size = 0.10;
      }
 
+(** RocketReef_DayOnly_Opt - Optimizable Intraday Mean Reversion (Multi-Position)
+
+    Intraday-only mean reversion strategy with all parameters as variables.
+    Holds up to 10 positions (10% allocation each) with tight risk management.
+
+    Variables to optimize (7 total):
+    1. rsi_period: [40, 60] - RSI lookback period
+    2. rsi_buy_threshold: [20.0, 50.0] - RSI oversold entry level
+    3. rsi_sell_threshold: [50.0, 80.0] - RSI exit level
+    4. bb_period: [15, 35] - Bollinger Band period
+    5. stop_loss_pct: [0.01, 0.05] - Stop-loss percentage (1-5%)
+    6. profit_target_pct: [0.02, 0.10] - Profit target percentage (2-10%)
+    7. max_hold_ticks: [30, 120] - Maximum hold time in ticks
+
+    Entry Logic:
+    - RSI(var) < var (momentum weakness)
+    - Price < Lower Bollinger Band(var) (price stretched below mean)
+    - NOT within 10 minutes of market close
+
+    Exit Logic:
+    - Force exit within 10 minutes of close (no overnight)
+    - Price returns to middle Bollinger Band (mean reversion complete)
+    - RSI(var) > var (momentum turning positive)
+    - Price hits upper Bollinger Band (overshot the mean)
+    - Variable stop-loss
+    - Variable profit target
+    - Variable max hold time
+
+    Multiple positions allow portfolio diversification while maintaining strategy focus.
+*)
+let rocket_reef_day_only_opt =
+  (* Create variables for optimizable parameters *)
+  let rsi_period_var = Gadt_fo.var Gadt.Type.Int in             (* Variable 1 *)
+  let rsi_buy_threshold_var = Gadt_fo.var Gadt.Type.Float in    (* Variable 2 *)
+  let rsi_sell_threshold_var = Gadt_fo.var Gadt.Type.Float in   (* Variable 3 *)
+  let bb_period_var = Gadt_fo.var Gadt.Type.Int in              (* Variable 4 *)
+  let stop_loss_var = Gadt_fo.var Gadt.Type.Float in            (* Variable 5 *)
+  let profit_target_var = Gadt_fo.var Gadt.Type.Float in        (* Variable 6 *)
+  let max_hold_ticks_var = Gadt_fo.var Gadt.Type.Int in         (* Variable 7 *)
+
+  (* Create RSI indicator with variable period *)
+  let rsi_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var)))
+  in
+
+  (* Create Bollinger Band indicators with variable period *)
+  let bb_lower_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period_var,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  let bb_middle_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period_var,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  let bb_upper_var =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
+        bb_period_var,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+
+  (* Variable risk management *)
+  let stop_loss_var_risk =
+    last <. (EntryPrice *. (Const (1.0, Float) -. stop_loss_var))
+  in
+  let profit_target_var_risk =
+    last >. (EntryPrice *. (Const (1.0, Float) +. profit_target_var))
+  in
+  let max_hold_var_risk =
+    App2 (Fun (">", (>)), TicksHeld, max_hold_ticks_var)
+  in
+
+  register
+  @@ {
+       name = "RocketReef_DayOnly_Opt";
+       (* Buy: Mean reversion entry conditions + safe to enter *)
+       buy_trigger =
+         (rsi_var <. rsi_buy_threshold_var)
+         &&. (last <. bb_lower_var)
+         &&. safe_to_enter ();
+       (* Sell: End-of-day exit first, then mean reversion signals and risk management *)
+       sell_trigger =
+         force_exit_eod ()
+         ||. (last >. bb_middle_var)
+         ||. (rsi_var >. rsi_sell_threshold_var)
+         ||. (last >. bb_upper_var)
+         ||. stop_loss_var_risk
+         ||. profit_target_var_risk
+         ||. max_hold_var_risk;
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
 (** RocketReef_Stoch - Optimizable Stricter Version with Fast Stochastic Filter
 
     This builds on RocketReef by adding a Fast Stochastic Oscillator filter to create
