@@ -83,22 +83,21 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let received_data = Bars.empty ()
   let target = Input.target
 
-  let last_data_bar =
+  (* WORKAROUND: Define as function to defer evaluation until runtime.
+     Calling Saturn.Htbl.to_seq during functor body evaluation causes
+     Eio Hmap.find to raise Not_found. Deferring avoids this issue. *)
+  let last_data_bar () =
     let ( let* ) = Result.( let* ) in
     let last_data_bar = Bars.Latest.empty () in
     match target with
-    | None -> Error.missing_data "No target to create last data bar"
+    | None ->
+      Error.missing_data "No target to create last data bar"
     | Some target ->
       let* length = Bars.length target in
       let* () =
         Bars.fold target (Ok ()) @@ fun instrument data ok ->
         let* _ok = ok in
         let* col = Data.Column.of_data data (length - 1) in
-        (* Eio.traceln "%a" Instrument.pp instrument; *)
-        (* Eio.traceln "%a" Data.pp data; *)
-        (* let* start = Data.Column.of_data data 0 in *)
-        (* Eio.traceln "%a" Data.Column.pp col; *)
-        (* Eio.traceln "%a" Data.Column.pp start; *)
         Bars.Latest.set last_data_bar instrument col;
         assert (not @@ Float.is_nan @@ Data.Column.last_exn col);
         Result.return ()

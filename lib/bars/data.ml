@@ -74,7 +74,9 @@ module Index = struct
           x.next_float <- res + 1;
           res
       in
-      ignore (Saturn.Htbl.try_add x.tbl ty next);
+      (* Add to table - should always succeed since we have no concurrent access *)
+      if not (Saturn.Htbl.try_add x.tbl ty next) then
+        failwith (Format.asprintf "CRITICAL: try_add failed for %a - this should never happen!" Type.pp ty);
       next
     | Some i -> i
 
@@ -377,26 +379,30 @@ let grow x =
 (* Reset indicator computation state - use between optimization iterations *)
 (* Clear indicator entries from index table to prevent row exhaustion *)
 let reset_indicators (x : t) =
-  (* Save the row numbers for price data types before clearing *)
-  let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
-                          Type.High; Type.Low; Type.Close; Type.Volume] in
-  let preserved_entries = List.filter_map (fun ty ->
-    match Saturn.Htbl.find_opt x.index.tbl ty with
-    | Some row -> Some (ty, row)
-    | None -> None
-  ) price_data_types in
+  (* Price data types that should be preserved *)
+  let is_price_type = function
+    | Type.Index | Type.Time | Type.Last | Type.Open
+    | Type.High | Type.Low | Type.Close | Type.Volume -> true
+    | _ -> false
+  in
 
-  (* Find the max row used by price data *)
-  let max_price_row = List.fold_left (fun acc (_, row) -> max acc row) (-1) preserved_entries in
+  (* Find the max row used by price data, and collect indicator types to remove *)
+  let max_price_row = ref (-1) in
+  let to_remove = ref [] in
 
-  (* Clear the entire index table *)
-  ignore (Saturn.Htbl.remove_all x.index.tbl |> Seq.length);
+  Saturn.Htbl.to_seq x.index.tbl
+  |> Seq.iter (fun (ty, row) ->
+      if is_price_type ty then
+        max_price_row := max !max_price_row row
+      else
+        to_remove := ty :: !to_remove
+    );
 
-  (* Restore price data entries *)
-  List.iter (fun (ty, row) -> ignore (Saturn.Htbl.try_set x.index.tbl ty row)) preserved_entries;
+  (* Remove indicator entries *)
+  List.iter (fun ty -> ignore (Saturn.Htbl.try_remove x.index.tbl ty)) !to_remove;
 
   (* Reset next_float to just after the last price data row *)
-  x.index.next_float <- max_price_row + 1;
+  x.index.next_float <- !max_price_row + 1;
   x.index.next_int <- 0;  (* Reset int counter *)
 
   (* CRITICAL: Clear order history to prevent memory leak across iterations *)

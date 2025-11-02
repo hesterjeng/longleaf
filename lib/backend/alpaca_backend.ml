@@ -159,7 +159,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
 
-  let last_data_bar =
+  let last_data_bar () =
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
   let update_bars (state : State.t) =

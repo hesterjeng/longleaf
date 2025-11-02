@@ -38,6 +38,6 @@ module type S = sig
   val next_market_close : unit -> (Time.t, Error.t) result
   val place_order : State.t -> Order.t -> (State.t, Error.t) result
   val update_bars : State.t -> (State.t, Error.t) result
-  val last_data_bar : (Bars.Latest.t, Error.t) result
+  val last_data_bar : unit -> (Bars.Latest.t, Error.t) result
   val liquidate : State.t -> (State.t, Error.t) Result.t
 end

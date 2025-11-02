@@ -139,7 +139,10 @@ module Subst = struct
     let get id map =
       get id map |> function
       | Some x -> Ok x
-      | None -> Error.fatal "No binding for variable"
+      | None ->
+        Eio.traceln "BINDINGS GET FAILED: Variable UUID %a not found in map" Uuidm.pp id;
+        Eio.traceln "Map contains %d bindings" (cardinal map);
+        Error.fatal (Format.asprintf "No binding for variable %a" Uuidm.pp id)
   end
 
   let rec collect_variables : type a. a t -> 'b list = function

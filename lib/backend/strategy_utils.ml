@@ -15,8 +15,8 @@ module Make (Backend : Backend.S) : sig
 end = struct
   module Input = Backend.Input
 
-  let eio_env = Input.options.eio_env
   let options = Input.options
+  let eio_env = Input.options.eio_env
   let mutices : State.Mutex.t = Input.mutices
   let runtype = options.flags.runtype
 

@@ -25,6 +25,8 @@ let print_res fmt x =
   | Error e -> Format.fprintf fmt "%a" Longleaf_strategies.Error.pp e
 
 let () =
+  (* Enable exception backtraces for debugging *)
+  Printexc.record_backtrace true;
   match top () with
   | Error e ->
     Eio.traceln "Exiting with code %d" e;

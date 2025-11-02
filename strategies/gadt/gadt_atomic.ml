@@ -61,16 +61,37 @@ module Worker = struct
               try
                 Gadt_strategy.run bars options mutices instantiated_strategy
               with
+              | Not_found as exn ->
+                (* Log Not_found with more context *)
+                Eio.traceln "=== NOT_FOUND EXCEPTION ===";
+                Eio.traceln "This likely means Saturn.Htbl.find_exn or similar raised Not_found";
+                Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+                Eio.traceln "Backtrace recording enabled: %b" (Printexc.backtrace_status ());
+                Eio.traceln "Raw backtrace: %s" (Printexc.raw_backtrace_to_string (Printexc.get_raw_backtrace ()));
+                Eio.traceln "Get backtrace: %s" (Printexc.get_backtrace ());
+                Eio.traceln "===========================";
+                (* Try to get more info by re-raising in a controlled way *)
+                Eio.traceln "Attempting to get backtrace by re-raising...";
+                (try raise exn with Not_found ->
+                  Eio.traceln "Re-raised backtrace: %s" (Printexc.get_backtrace ()));
+                Ok 0.0
               | e ->
-                (* Return 0.0 for errors instead of failing *)
+                (* Log exception details but continue *)
+                Eio.traceln "=== STRATEGY EXECUTION EXCEPTION ===";
+                Eio.traceln "Exception: %s" (Printexc.to_string e);
+                Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
+                Eio.traceln "====================================";
                 Ok 0.0
             in
             Ok (Some res)
           with
           | e ->
             (* Catch any other errors during substitution/instantiation *)
-            let error_msg = Printexc.to_string e in
-            Eio.traceln "Optimization parameter error (returning 0.0): %s" error_msg;
+            Eio.traceln "=== INSTANTIATION ERROR ===";
+            Eio.traceln "Exception: %s" (Printexc.to_string e);
+            Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
+            Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+            Eio.traceln "===========================";
             Ok (Some 0.0)
         in
 
@@ -147,6 +168,8 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   (* This is necessary because NLopt blocks the main Eio event loop *)
   Eio.traceln "Starting worker in separate domain";
   let worker_domain = Domain.spawn (fun () ->
+    (* Enable backtraces in the worker domain too *)
+    Printexc.record_backtrace true;
     (* Run Eio in the worker domain *)
     Eio_main.run (fun env ->
       (* Create a switch for the worker *)
