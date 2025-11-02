@@ -928,4 +928,120 @@ let rocket_reef_stoch_opt =
        position_size = 0.10;
      }
 
+(** Stochness - Optimized RocketReef_Stoch
+
+    Found via NLopt ISRES optimization (50000 iterations).
+    Best objective: 106732.91 (6.73% return).
+
+    Optimized parameters:
+    - RSI period: 71
+    - BB period (buy): 66
+    - Stochastic Fast K period: 14
+    - Stochastic Fast D period: 8
+    - Stochastic threshold: 5.11
+    - BB period (sell): 66 (same as buy)
+
+    Entry: RSI < 50 AND price < lower BB AND fast stoch < 5.11
+    Exit: Mean reversion OR 2% stop OR 5% target OR 60-tick hold
+*)
+let stochness =
+  (* Optimized parameters *)
+  let rsi_period = 71 in
+  let bb_period = 66 in
+  let stoch_fastk_period = 14 in
+  let stoch_fastd_period = 8 in
+  let stoch_threshold = 5.108469 in
+
+  (* Create indicators *)
+  let rsi = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.rsi rsi_period, Tacaml))) in
+
+  let bb_lower = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.lower_bband bb_period 2.0 2.0, Tacaml))) in
+
+  let bb_middle = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.middle_bband bb_period 2.0 2.0, Tacaml))) in
+
+  let bb_upper = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.upper_bband bb_period 2.0 2.0, Tacaml))) in
+
+  let stoch_fast_k = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.stoch_f_fast_k stoch_fastk_period stoch_fastd_period, Tacaml))) in
+
+  register @@ {
+    name = "Stochness";
+    buy_trigger =
+      (rsi <. Const (49.961254, Float))
+      &&. (last <. bb_lower)
+      &&. (stoch_fast_k <. Const (stoch_threshold, Float));
+    sell_trigger =
+      (last >. bb_middle)
+      ||. (rsi >. Const (51.425345, Float))
+      ||. (last >. bb_upper)
+      ||. stop_loss 0.02
+      ||. profit_target 0.05
+      ||. max_holding_time 60;
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
+(** StochnessMonster - Optimized RocketReef_Stoch (Better Performance)
+
+    Found via NLopt ISRES optimization (iteration 49998).
+    Performance: 9.78% return with 3352 orders.
+
+    Raw parameters: 10.73, 92.41, 69.48, 6.32, 46.74, 93.33, 42.48
+
+    This version discovered different optimal parameters than Stochness,
+    achieving higher returns (9.78% vs 6.73%). Key differences:
+    - Much shorter RSI period (11 vs 71) - responds faster to momentum shifts
+    - Much longer initial BB period (92 vs 66) - more stable bands
+    - Very long stochastic Fast K (69) - smoother oversold readings
+    - Higher stochastic threshold (46.74 vs 5.11) - less strict filter
+    - Different BB period for sell (42) - faster mean reversion detection
+
+    The "monster" emerges from the depths with aggressive parameters!
+*)
+let stochness_monster =
+  (* Optimized parameters from iteration 49998 *)
+  let rsi_period = 11 in            (* Fast RSI *)
+  let bb_period_buy = 92 in         (* Very long BB for entries *)
+  let stoch_fastk_period = 69 in    (* Very long stochastic K *)
+  let stoch_fastd_period = 6 in     (* Standard D smoothing *)
+  let stoch_threshold = 46.74 in    (* Less strict oversold *)
+  let bb_period_sell = 42 in        (* Medium BB for exits *)
+
+  (* Create indicators *)
+  let rsi = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.rsi rsi_period, Tacaml))) in
+
+  let bb_lower = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.lower_bband bb_period_buy 2.0 2.0, Tacaml))) in
+
+  let bb_middle = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.middle_bband bb_period_sell 2.0 2.0, Tacaml))) in
+
+  let bb_upper = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.upper_bband bb_period_sell 2.0 2.0, Tacaml))) in
+
+  let stoch_fast_k = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+    Const (Tacaml.Indicator.Raw.stoch_f_fast_k stoch_fastk_period stoch_fastd_period, Tacaml))) in
+
+  register @@ {
+    name = "StochnessMonster";
+    buy_trigger =
+      (rsi <. Const (49.961254, Float))
+      &&. (last <. bb_lower)
+      &&. (stoch_fast_k <. Const (stoch_threshold, Float));
+    sell_trigger =
+      (last >. bb_middle)
+      ||. (rsi >. Const (51.425345, Float))
+      ||. (last >. bb_upper)
+      ||. stop_loss 0.02
+      ||. profit_target 0.05
+      ||. max_holding_time 60;
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
 let all_strategies = !all_strategies
