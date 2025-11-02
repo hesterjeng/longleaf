@@ -29,6 +29,17 @@ let max_holding_time max_ticks : bool Gadt.t =
   (* Create a Fun that compares the two int values *)
   App2 (Fun (">", (>)), TicksHeld, max_ticks_expr)
 
+(* Intraday trading helpers - avoid overnight positions and closing volatility *)
+
+(* Safe to enter: NOT within close_buffer minutes of market close
+   Default 10 minutes avoids closing auction volatility *)
+let safe_to_enter ?(close_buffer=10.0) () : bool Gadt.t =
+  App1 (Fun ("not", not), is_close TickTime (Const (close_buffer, Float)))
+
+(* Force exit: within close_buffer minutes of market close *)
+let force_exit_eod ?(close_buffer=10.0) () : bool Gadt.t =
+  is_close TickTime (Const (close_buffer, Float))
+
 (** A data collection listener strategy that never buys or sells *)
 let listener_strategy =
   register
@@ -829,6 +840,35 @@ let rocket_reef =
          ||. stop_loss 0.02       (* 2% stop-loss *)
          ||. profit_target 0.05   (* 5% profit target *)
          ||. max_holding_time 60; (* 60 minutes max hold *)
+       max_positions = 10;
+       position_size = 0.10;
+     }
+
+(** RocketReef_DayOnly - Intraday-only variant
+
+    RocketReef adapted for intraday trading with no overnight positions.
+    Avoids the closing auction volatility window (last 10 minutes).
+*)
+let rocket_reef_day_only =
+  let rsi_53 = Real.rsi 53 () in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  register
+  @@ {
+       name = "RocketReef_DayOnly";
+       buy_trigger =
+         (rsi_53 <. Const (49.961254, Float))
+         &&. (last <. bb_lower_27)
+         &&. safe_to_enter ();
+       sell_trigger =
+         force_exit_eod ()
+         ||. (last >. bb_middle_27)
+         ||. (rsi_53 >. Const (51.425345, Float))
+         ||. (last >. bb_upper_27)
+         ||. stop_loss 0.02
+         ||. profit_target 0.05
+         ||. max_holding_time 60;
        max_positions = 10;
        position_size = 0.10;
      }
