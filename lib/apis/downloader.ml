@@ -1,11 +1,12 @@
 module Bars = Longleaf_bars
 
 module Ty = struct
-  type t = Alpaca | Tiingo [@@deriving show]
+  type t = Alpaca | Tiingo | Massive [@@deriving show]
 
   let of_string = function
     | "alpaca" -> Ok Alpaca
     | "tiingo" -> Ok Tiingo
+    | "massive" -> Ok Massive
     | _ -> invalid_arg "Unknown downloader service"
 
   let conv = Cmdliner.Arg.conv (of_string, pp)
@@ -46,6 +47,14 @@ let download eio_env request (downloader_arg : Ty.t option) afterhours =
       end in
       let module Tiingo = Tiingo_api.Make (Param) in
       let res = Tiingo.Download.top ~afterhours request in
+      res
+    | Some Massive ->
+      let module Param : Massive_api.CONFIG = struct
+        let longleaf_env = longleaf_env
+        let client = data_client eio_env https
+      end in
+      let module Massive = Massive_api.Make (Param) in
+      let res = Massive.Download.top request in
       res
     | None -> invalid_arg "Need to specify downloader type for data_downloader."
   in

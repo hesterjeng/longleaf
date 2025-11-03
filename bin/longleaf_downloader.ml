@@ -13,7 +13,7 @@ module Args = struct
     Cmdliner.Arg.(value & flag & info [ "afterhours" ] ~doc)
 
   let downloader_arg =
-    let doc = "Choose downloader client.  Currently Tiingo or Alpaca." in
+    let doc = "Choose downloader client.  Currently Tiingo, Alpaca, or Massive." in
     Cmdliner.Arg.(value & pos 0 (some Ty.conv) None & info [] ~doc)
 
   let begin_arg =

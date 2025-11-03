@@ -49,7 +49,7 @@ module Run = struct
         let timeframe = TF.Min tick_minutes in
         Eio.traceln "Downloading 14 days of data with %d-minute intervals (tick=%.1fs)" tick_minutes options.tick;
         let request = D.previous_14_days timeframe options.symbols in
-        let* bars = D.download eio_env request (Some Tiingo) true in
+        let* bars = D.download eio_env request (Some Massive) true in
         Eio.traceln "Validating downloaded data...";
         let* () = Bars.validate_no_nan bars in
         Eio.traceln "Returning bars from download...";

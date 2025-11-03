@@ -1185,4 +1185,42 @@ let stochness_monster =
     position_size = 0.10;
   }
 
+(** RR1.0 - Optimized RocketReef_DayOnly
+
+    Result from 30000 iteration optimization: 108843.42 (8.84% return)
+
+    Optimized parameters:
+    - RSI period: 25 (fast momentum detection)
+    - BB period: 45 (medium-term bands)
+    - RSI buy threshold: 31.72 (oversold entry)
+    - RSI sell threshold: 46.07 (early exit on momentum shift)
+    - Stop loss: 0.403 (40.3% - very wide, relies on other exits)
+    - Profit target: 0.371 (37.1% - aggressive target)
+    - Max hold: 58 ticks
+
+    Intraday-only with 10-minute close buffer.
+*)
+let rr1_0 =
+  let rsi = Real.rsi 25 () in
+  let bb_lower = Real.lower_bband 45 2.0 2.0 () in
+  let bb_middle = Real.middle_bband 45 2.0 2.0 () in
+  let bb_upper = Real.upper_bband 45 2.0 2.0 () in
+  register @@ {
+    name = "RR1.0";
+    buy_trigger =
+      (rsi <. Const (31.717938, Float))
+      &&. (last <. bb_lower)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle)
+      ||. (rsi >. Const (46.067607, Float))
+      ||. (last >. bb_upper)
+      ||. (last <. (EntryPrice *. Const (0.59677297, Float)))  (* 40.3% stop loss *)
+      ||. (last >. (EntryPrice *. Const (1.37123664, Float)))  (* 37.1% profit target *)
+      ||. App2 (Fun (">", (>)), TicksHeld, Const (58, Int));
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
 let all_strategies = !all_strategies

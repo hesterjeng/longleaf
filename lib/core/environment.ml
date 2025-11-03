@@ -2,7 +2,7 @@ type t = {
   apca_api_key_id : string;
   apca_api_secret_key : string;
   (* openai_key : string option; *)
-  (* polygon_key : string option; *)
+  massive_key : string option;
   tiingo_key : string option;
       (* apca_api_base_url : Uri.t; *)
       (* apca_api_data_url : Uri.t; *)
@@ -29,14 +29,14 @@ let make () =
     (* let apca_api_base_url = Unix.getenv "APCA_API_BASE_URL" |> Uri.of_string in *)
     (* let apca_api_data_url = Unix.getenv "APCA_API_DATA_URL" |> Uri.of_string in *)
     (* let openai_key = getenv_opt "OPENAI_KEY" in *)
-    (* let polygon_key = getenv_opt "POLYGON_KEY" in *)
+    let massive_key = getenv_opt "MASSIVE_KEY" in
     {
       apca_api_key_id;
       apca_api_secret_key;
       (* apca_api_base_url; *)
       (* apca_api_data_url; *)
       (* openai_key; *)
-      (* polygon_key; *)
+      massive_key;
       tiingo_key;
     }
   with

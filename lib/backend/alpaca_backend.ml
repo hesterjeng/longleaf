@@ -2,6 +2,7 @@ open Backend_intf
 module Util = Longleaf_util
 module Tiingo_api = Longleaf_apis.Tiingo_api
 module Tiingo_websocket = Longleaf_apis.Tiingo_websocket
+module Massive_websocket = Longleaf_apis.Massive_websocket
 module Trading_api = Longleaf_apis.Trading_api
 module Market_data_api = Longleaf_apis.Market_data_api
 
@@ -11,6 +12,7 @@ module Market_data_api = Longleaf_apis.Market_data_api
 type data_source =
   | AlpacaRest  (* Use Alpaca's REST API for latest bars *)
   | TiingoWebSocket  (* Use Tiingo's WebSocket for real-time data *)
+  | MassiveWebSocket  (* Use Massive's WebSocket for real-time data *)
   | TiingoRest  (* Use Tiingo's REST API (legacy, has latency issues) *)
 
 module Make (Input : BACKEND_INPUT) : S = struct
@@ -25,9 +27,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let save_received = opts.flags.save_received
   let received_data = Bars.empty ()
 
-  (* Configure data source - WebSocket for live/paper, REST for others *)
+  (* Configure data source - Use Massive WebSocket if key configured, otherwise Tiingo *)
   let data_source = match opts.flags.runtype with
-    | Live | Paper -> TiingoWebSocket  (* Use WebSocket for real-time *)
+    | Live | Paper ->
+      (match opts.longleaf_env.massive_key with
+      | Some _ -> MassiveWebSocket  (* Use Massive WebSocket if key available *)
+      | None -> TiingoWebSocket)    (* Fall back to Tiingo WebSocket *)
     | _ -> AlpacaRest  (* Use REST for other modes *)
 
   open Cohttp_eio
@@ -91,8 +96,40 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let tiingo_ws_background_started = ref false
   let tiingo_ws_initial_fetch_done = ref false
 
+  let massive_ws_client = ref None
+  let massive_ws_background_started = ref false
+  let massive_ws_initial_fetch_done = ref false
+
   (* Track current tick for background fiber *)
   let current_tick = ref 0
+
+  let get_or_create_massive_ws_client bars () =
+    match !massive_ws_client with
+    | Some client -> Ok client
+    | None ->
+      Eio.traceln "Alpaca backend: Initializing Massive WebSocket client";
+      let ( let* ) = Result.( let* ) in
+      let* massive_key = match opts.longleaf_env.massive_key with
+        | Some key -> Ok key
+        | None -> Error (`MissingData "Massive API key not configured")
+      in
+      (* Use delayed endpoint if available, otherwise real-time *)
+      let use_delayed = false in  (* Set to true for delayed data *)
+      let* client = Massive_websocket.Client.connect ~sw:switch ~env ~massive_key ~use_delayed () in
+      (* Subscribe to all symbols *)
+      let* () = Massive_websocket.Client.subscribe client symbols in
+      massive_ws_client := Some client;
+
+      (* Start background fiber for continuous updates *)
+      if not !massive_ws_background_started then begin
+        Massive_websocket.Client.start_background_updates
+          ~sw:switch ~env ~use_delayed client bars (fun () -> !current_tick);
+        massive_ws_background_started := true;
+        Eio.traceln "Alpaca backend: Background Massive WebSocket update fiber started"
+      end;
+
+      Eio.traceln "Alpaca backend: Massive WebSocket client initialized and subscribed";
+      Ok client
 
   let get_or_create_ws_client bars () =
     match !tiingo_ws_client with
@@ -178,6 +215,24 @@ module Make (Input : BACKEND_INPUT) : S = struct
     | _ ->
       let+ () =
         match data_source with
+        | MassiveWebSocket ->
+          (* On first call, populate the next tick with REST to have initial data *)
+          (* After that, WebSocket updates continuously in background *)
+          (match get_or_create_massive_ws_client bars () with
+           | Ok _client ->
+             if not !massive_ws_initial_fetch_done then (
+               (* First time - just log that WebSocket is active *)
+               (* No initial REST fetch needed - WebSocket provides all data *)
+               Eio.traceln "Alpaca backend: Massive WebSocket initialized, waiting for data";
+               massive_ws_initial_fetch_done := true;
+               Ok ()
+             ) else (
+               (* WebSocket is running and updating continuously *)
+               Ok ()
+             )
+           | Error e ->
+             Eio.traceln "Alpaca backend: Failed to initialize Massive WebSocket: %s" (ws_error_to_string e);
+             Error (`MissingData ("Massive WebSocket initialization failed: " ^ ws_error_to_string e)))
         | TiingoWebSocket ->
           (* On first call, populate the next tick with REST to have initial data *)
           (* After that, WebSocket updates continuously in background *)
