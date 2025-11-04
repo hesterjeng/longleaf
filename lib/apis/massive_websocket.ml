@@ -26,9 +26,9 @@ type status_message = {
 }
 [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 
-(* Massive aggregate per minute message *)
+(* Massive aggregate per second message *)
 type aggregate_message = {
-  ev : string;          (* Event type: "AM" for aggregates per minute *)
+  ev : string;          (* Event type: "AS" for aggregates per second *)
   sym : string;         (* Stock ticker symbol *)
   v : int;              (* Tick volume *)
   av : int;             (* Accumulated volume for the day *)
@@ -42,9 +42,9 @@ type aggregate_message = {
   z : int;              (* Average trade size *)
   s : int;              (* Start timestamp (Unix milliseconds) *)
   e : int;              (* End timestamp (Unix milliseconds) *)
-  otc : bool option;    (* OTC ticker indicator (optional) *)
+  otc : bool option; [@yojson.option]  (* OTC ticker indicator (optional) *)
 }
-[@@deriving show, yojson] [@@yojson.allow_extra_fields]
+[@@deriving show, yojson]
 
 (* Parse message as aggregate or status *)
 type massive_message =
@@ -176,9 +176,9 @@ module Client = struct
     let ( let* ) = Result.( let* ) in
 
     let ticker_symbols = List.map Instrument.symbol tickers in
-    (* Build subscription params: "AM.AAPL,AM.MSFT,AM.TSLA" *)
+    (* Build subscription params: "AS.AAPL,AS.MSFT,AS.TSLA" *)
     let params =
-      List.map (fun sym -> "AM." ^ sym) ticker_symbols
+      List.map (fun sym -> "AS." ^ sym) ticker_symbols
       |> String.concat ","
     in
 
@@ -203,21 +203,36 @@ module Client = struct
 
   (* Parse a Massive message from JSON *)
   let parse_message json =
-    try
-      (* Try to parse as status message *)
-      match status_message_of_yojson json with
-      | msg when String.equal msg.ev "status" -> Status msg
-      | _ ->
-        (* Try to parse as aggregate *)
-        (match aggregate_message_of_yojson json with
-        | msg when String.equal msg.ev "AM" -> Aggregate msg
-        | msg -> Unknown msg.ev)
-    with
-    | _ ->
-      (* If all else fails, extract event type *)
-      match Yojson.Safe.Util.member "ev" json with
-      | `String ev -> Unknown ev
-      | _ -> Unknown "unknown"
+    (* First check what event type this is *)
+    let ev_type = match Yojson.Safe.Util.member "ev" json with
+      | `String s -> s
+      | _ -> "unknown"
+    in
+
+    match ev_type with
+    | "status" ->
+      (try
+        let msg = status_message_of_yojson json in
+        Status msg
+       with e ->
+         Eio.traceln "Massive WebSocket: Failed to parse status message: %s" (Printexc.to_string e);
+         Unknown ev_type)
+    | "AS" ->
+      (try
+        let msg = aggregate_message_of_yojson json in
+        Aggregate msg
+       with
+       | Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (exn, json_value) ->
+         Eio.traceln "Massive WebSocket: Failed to parse AS message";
+         Eio.traceln "  Error: %s" (Printexc.to_string exn);
+         Eio.traceln "  At JSON value: %s" (Yojson.Safe.to_string json_value);
+         Eio.traceln "  Full message: %s" (Yojson.Safe.to_string json);
+         Unknown ev_type
+       | e ->
+         Eio.traceln "Massive WebSocket: Failed to parse AS message: %s" (Printexc.to_string e);
+         Eio.traceln "Massive WebSocket: Raw JSON: %s" (Yojson.Safe.to_string json);
+         Unknown ev_type)
+    | _ -> Unknown ev_type
 
   (* Receive and parse next message *)
   let receive_update client =
@@ -238,7 +253,14 @@ module Client = struct
           | Status status ->
             Eio.traceln "Massive WebSocket: Status - %s: %s" status.status status.message;
             None
-          | Aggregate agg -> Some agg
+          | Aggregate agg ->
+            let timestamp = Ptime.of_float_s (Float.of_int agg.s /. 1000.0) in
+            let timestamp_str = match timestamp with
+              | Some t -> Ptime.to_rfc3339 t
+              | None -> "invalid"
+            in
+            Eio.traceln "Massive WebSocket: Received aggregate for %s at %s" agg.sym timestamp_str;
+            Some agg
           | Unknown ev ->
             Eio.traceln "Massive WebSocket: Unknown event type: %s" ev;
             None
@@ -256,7 +278,6 @@ module Client = struct
         Error (`ParseError (Printexc.to_string e)))
     | Ping ->
       (* Respond to ping with pong *)
-      Eio.traceln "Massive WebSocket: Received PING, responding with PONG";
       let pong_frame = Websocket.Frame.{
         fin = true;
         opcode = Pong;

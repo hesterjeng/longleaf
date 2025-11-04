@@ -13,135 +13,157 @@ module Options = Longleaf_core.Options
 (* Re-use types and modules from the original gadt.ml *)
 open Gadt
 
-(* Communication types for Eio-based worker approach *)
+(* Communication types for Saturn-based worker approach (works across C boundary) *)
 type work_request = {
   params : float array;
   strategy : Gadt_strategy.t;
   vars : (Uuidm.t * Type.shadow) array;
+  iteration : int;
 }
 
 type work_result = (float option, Error.t) Result.t
 
-(* Work request with reply channel *)
+(* Work request with Saturn queue for reply (domain-safe) *)
 type work_with_reply = {
   work : work_request;
-  reply : work_result Eio.Promise.u;
+  result_queue : work_result Saturn.Queue.t;
 }
 
 module Worker = struct
-  (* Worker loop that processes work from stream *)
-  let top work_stream bars (options : Options.t) mutices =
+  (* Worker loop that processes work from Saturn queue *)
+  let top work_queue bars (options : Options.t) mutices =
     let rec worker_loop () =
-      (* Block until work arrives *)
-      let { work; reply } = Eio.Stream.take work_stream in
-
-      let result =
-        try
-          let ( let* ) = Result.( let* ) in
-          let env = Subst.env_of_arr work.params work.vars in
-          let* instantiated_buy =
-            Subst.instantiate env work.strategy.buy_trigger
-          in
-          let* instantiated_sell =
-            Subst.instantiate env work.strategy.sell_trigger
-          in
-          let instantiated_strategy =
-            {
-              work.strategy with
-              buy_trigger = instantiated_buy;
-              sell_trigger = instantiated_sell;
-            }
-          in
-          let* res =
-            try
-              Gadt_strategy.run bars options mutices instantiated_strategy
-            with
-            | Not_found as exn ->
-              (* Log Not_found with more context *)
-              Eio.traceln "=== NOT_FOUND EXCEPTION ===";
-              Eio.traceln "This likely means Saturn.Htbl.find_exn or similar raised Not_found";
-              Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
-              Eio.traceln "Backtrace recording enabled: %b" (Printexc.backtrace_status ());
-              Eio.traceln "Raw backtrace: %s" (Printexc.raw_backtrace_to_string (Printexc.get_raw_backtrace ()));
-              Eio.traceln "Get backtrace: %s" (Printexc.get_backtrace ());
-              Eio.traceln "===========================";
-              (* Try to get more info by re-raising in a controlled way *)
-              Eio.traceln "Attempting to get backtrace by re-raising...";
-              (try raise exn with Not_found ->
-                Eio.traceln "Re-raised backtrace: %s" (Printexc.get_backtrace ()));
-              Ok 0.0
-            | e ->
-              (* Log exception details but continue *)
-              Eio.traceln "=== STRATEGY EXECUTION EXCEPTION ===";
-              Eio.traceln "Exception: %s" (Printexc.to_string e);
-              Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
-              Eio.traceln "====================================";
-              Ok 0.0
-          in
-          Ok (Some res)
-        with
-        | e ->
-          (* Catch any other errors during substitution/instantiation *)
-          Eio.traceln "=== INSTANTIATION ERROR ===";
-          Eio.traceln "Exception: %s" (Printexc.to_string e);
-          Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
-          Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
-          Eio.traceln "===========================";
-          Ok (Some 0.0)
+      Printf.printf "WORKER: waiting for work\n%!";
+      (* Block until work arrives - Saturn queue pop_opt with spin loop *)
+      let { work; result_queue } =
+        let rec wait () =
+          match Saturn.Queue.pop_opt work_queue with
+          | Some work ->
+            Printf.printf "WORKER: got work!\n%!";
+            work
+          | None ->
+            (* Yield to other fibers while waiting *)
+            Eio.Fiber.yield ();
+            wait ()
+        in
+        wait ()
       in
 
-      (* Send result back via promise and reset indicators *)
-      Eio.Promise.resolve reply result;
+      Printf.printf "WORKER: processing iteration %d\n%!" work.iteration;
+      Eio.traceln "=== OPTIMIZATION ITERATION %d ===" work.iteration;
+      Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+
+      let result =
+        (* Run strategy within its own switch to isolate cancellation context *)
+        Eio.Switch.run (fun sw ->
+          try
+            let ( let* ) = Result.( let* ) in
+            let env = Subst.env_of_arr work.params work.vars in
+            let* instantiated_buy =
+              Subst.instantiate env work.strategy.buy_trigger
+            in
+            let* instantiated_sell =
+              Subst.instantiate env work.strategy.sell_trigger
+            in
+            let instantiated_strategy =
+              {
+                work.strategy with
+                buy_trigger = instantiated_buy;
+                sell_trigger = instantiated_sell;
+              }
+            in
+            let options_with_sw = { options with Options.switch = sw } in
+            let* res =
+              try
+                Gadt_strategy.run bars options_with_sw mutices instantiated_strategy
+              with
+              | Not_found as exn ->
+                (* Log Not_found with more context *)
+                Eio.traceln "=== NOT_FOUND EXCEPTION ===";
+                Eio.traceln "This likely means Saturn.Htbl.find_exn or similar raised Not_found";
+                Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+                Eio.traceln "Backtrace recording enabled: %b" (Printexc.backtrace_status ());
+                Eio.traceln "Raw backtrace: %s" (Printexc.raw_backtrace_to_string (Printexc.get_raw_backtrace ()));
+                Eio.traceln "Get backtrace: %s" (Printexc.get_backtrace ());
+                Eio.traceln "===========================";
+                (* Try to get more info by re-raising in a controlled way *)
+                Eio.traceln "Attempting to get backtrace by re-raising...";
+                (try raise exn with Not_found ->
+                  Eio.traceln "Re-raised backtrace: %s" (Printexc.get_backtrace ()));
+                Ok 0.0
+              | e ->
+                (* Log exception details but continue *)
+                Eio.traceln "=== STRATEGY EXECUTION EXCEPTION ===";
+                Eio.traceln "Exception: %s" (Printexc.to_string e);
+                Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
+                Eio.traceln "====================================";
+                Ok 0.0
+            in
+            Eio.traceln "Iteration %d result: %f" work.iteration res;
+            Ok (Some res)
+          with
+          | e ->
+            (* Catch any other errors during substitution/instantiation *)
+            Eio.traceln "=== INSTANTIATION ERROR ===";
+            Eio.traceln "Exception: %s" (Printexc.to_string e);
+            Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
+            Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+            Eio.traceln "===========================";
+            Ok (Some 0.0)
+        )
+      in
+
+      (* Send result back via Saturn queue and reset indicators *)
+      Printf.printf "WORKER: pushing result back\n%!";
+      Saturn.Queue.push result_queue result;
+      Printf.printf "WORKER: result pushed, resetting indicators\n%!";
       Bars.reset_indicators bars;
 
       (* Continue processing *)
+      Printf.printf "WORKER: loop iteration complete\n%!";
       worker_loop ()
     in
     worker_loop ()
 
-  (* Objective function that communicates with worker via stream/promise *)
-  let f work_stream clock strategy vars iteration_counter timeout_seconds (l : float array) _grad =
+  (* Objective function that communicates with worker via Saturn queue (works from C) *)
+  let f work_queue strategy vars iteration_counter (l : float array) _grad =
     let iteration = Atomic.fetch_and_add iteration_counter 1 in
-    Eio.traceln "=== OPTIMIZATION ITERATION %d ===" iteration;
-    Eio.traceln "Parameters: %a" (Array.pp Float.pp) l;
+    Printf.printf "OBJ FUNC: iteration %d called from Nlopt\n%!" iteration;
 
-    (* Create promise for result *)
-    let result_promise, result_resolver = Eio.Promise.create () in
+    (* Create result queue for this iteration *)
+    let result_queue = Saturn.Queue.create () in
 
     (* Create work request *)
-    let work = { params = Array.copy l; strategy; vars } in
-    let work_with_reply = { work; reply = result_resolver } in
+    let work = { params = Array.copy l; strategy; vars; iteration } in
+    let work_with_reply = { work; result_queue } in
 
-    (* Send work to worker *)
-    Eio.Stream.add work_stream work_with_reply;
+    (* Send work to worker via Saturn queue (safe from C) *)
+    Printf.printf "OBJ FUNC: pushing work to queue\n%!";
+    Saturn.Queue.push work_queue work_with_reply;
+    Printf.printf "OBJ FUNC: work pushed, waiting for result\n%!";
 
-    (* Wait for result with timeout *)
-    let result =
-      match
-        Eio.Time.with_timeout_exn clock timeout_seconds (fun () ->
-          Eio.Promise.await result_promise)
-      with
-      | work_result -> (
-        (* Got result from worker *)
-        match work_result with
-        | Ok (Some value) ->
-          Eio.traceln "Iteration %d result: %f" iteration value;
-          value
-        | Ok None ->
-          Eio.traceln "Iteration %d: no result" iteration;
-          0.0
-        | Error err ->
-          Eio.traceln "=== ITERATION %d ERROR ===" iteration;
-          Eio.traceln "Parameters tried: %a" (Array.pp Float.pp) l;
-          Eio.traceln "Error: %a" Error.pp err;
-          0.0)
-      | exception Eio.Time.Timeout ->
-        Eio.traceln "=== ITERATION %d TIMEOUT ===" iteration;
-        Eio.traceln "Parameters tried: %a" (Array.pp Float.pp) l;
-        Eio.traceln "Timed out after %.0f seconds" timeout_seconds;
-        0.0
+    (* Wait for result from Saturn queue (blocking spin loop) *)
+    let work_result =
+      let rec wait () =
+        match Saturn.Queue.pop_opt result_queue with
+        | Some result ->
+          Printf.printf "OBJ FUNC: got result\n%!";
+          result
+        | None ->
+          (* Spin wait - no Eio operations allowed here (called from C) *)
+          Domain.cpu_relax ();
+          wait ()
+      in
+      wait ()
     in
-    result
+
+    (* Process result *)
+    match work_result with
+    | Ok (Some value) ->
+      Printf.printf "OBJ FUNC: returning value %f\n%!" value;
+      value
+    | Ok None -> 0.0
+    | Error _err -> 0.0
 end
 
 let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
@@ -160,42 +182,45 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   Eio.traceln "Buy trigger: %a" Gadt.pp strategy.buy_trigger;
   Eio.traceln "Sell trigger: %a" Gadt.pp strategy.sell_trigger;
 
-  (* Create Eio stream for work requests (rendezvous channel) *)
-  let work_stream = Eio.Stream.create 0 in
+  (* Create Saturn queue for work requests (works across C boundary) *)
+  let work_queue = Saturn.Queue.create () in
   let iteration_counter = Atomic.make 0 in
-  let timeout_seconds = 300.0 in  (* 5 minute timeout per iteration *)
-  let clock = Eio.Stdenv.clock options.eio_env in
 
   (* Log the options being used for optimization *)
   Eio.traceln "Optimization options:";
   Eio.traceln "  start tick: %d" options.flags.start;
   Eio.traceln "  runtype: %a" Longleaf_core.Runtype.pp options.flags.runtype;
-  Eio.traceln "  timeout per iteration: %.0f seconds" timeout_seconds;
 
-  (* Spawn worker using executor pool *)
-  Eio.traceln "Starting worker via executor pool";
+  (* Spawn worker in separate domain via executor pool (won't be blocked by Nlopt spin) *)
+  Eio.traceln "Starting worker domain via executor pool";
   let _worker_promise =
     Eio.Executor_pool.submit_fork
       ~sw:options.switch
       ~weight:1.0
       options.executor_pool
       (fun () ->
-        Eio.traceln "Worker started in executor pool";
-        Worker.top work_stream bars options mutices
+        (* This runs in a separate domain with its own Eio context *)
+        Eio_main.run (fun env ->
+          Eio.Switch.run (fun sw ->
+            let options_with_env = { options with Options.eio_env = env; switch = sw } in
+            Printf.printf "Worker domain started\n%!";
+            Worker.top work_queue bars options_with_env mutices
+          )
+        )
       )
   in
-  Eio.traceln "Worker spawned";
+  Eio.traceln "Worker spawned in domain";
 
   let opt = Nlopt.create Nlopt.isres len in
   (* Set conservative bounds that work for most indicator periods and thresholds *)
   (* Lower bound: 5 avoids very unstable indicators and index out of bounds errors *)
   Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 5.0);
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
-  Nlopt.set_maxeval opt 30000;
+  Nlopt.set_maxeval opt 150;
 
   (* Set objective function *)
   Nlopt.set_max_objective opt
-    (Worker.f work_stream clock strategy vars iteration_counter timeout_seconds);
+    (Worker.f work_queue strategy vars iteration_counter);
   let start =
     Array.init len (fun _ -> Float.random_range 5.0 100.0 Util.random_state)
   in

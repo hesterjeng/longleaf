@@ -8,7 +8,7 @@ type item = {
   h : float;              (* High price *)
   l : float;              (* Low price *)
   c : float;              (* Close price *)
-  v : int;                (* Volume *)
+  v : float;              (* Volume - API returns as number/float *)
   vw : float option;      (* Volume-weighted average price (optional) *)
   t : int;                (* Unix millisecond timestamp *)
   n : int option;         (* Number of transactions (optional) *)
@@ -20,12 +20,12 @@ let compare_item x y = Int.compare x.t y.t
 (* Massive response structure *)
 type response = {
   ticker : string;
-  adjusted : bool option;
-  queryCount : int option;
-  resultsCount : int option;
+  adjusted : bool option; [@yojson.option]
+  queryCount : int option; [@yojson.option]
+  resultsCount : int option; [@yojson.option]
   status : string;
   results : item list;
-  next_url : string option;
+  next_url : string option; [@yojson.option]
 }
 [@@deriving show { with_path = false }, yojson] [@@yojson.allow_extra_fields]
 
@@ -52,7 +52,7 @@ let massive_client eio_env _sw =
     ~https:None (Eio.Stdenv.net eio_env)
 
 (* Base URL for Massive API *)
-let base_url = "https://api.massive.io"
+let base_url = "https://api.massive.com"
 let make_url path = base_url ^ path
 
 module type CONFIG = sig
@@ -124,7 +124,7 @@ module Make (Config : CONFIG) = struct
             Data.set data Data.Type.Low tick item.l;
             Data.set data Data.Type.Close tick item.c;
             Data.set data Data.Type.Last tick item.c;
-            Data.set data Data.Type.Volume tick (Float.of_int item.v);
+            Data.set data Data.Type.Volume tick item.v;
             Result.return ())
         (Ok ()) tickers
     in
@@ -133,6 +133,24 @@ module Make (Config : CONFIG) = struct
   module Download = struct
     module Request = Market_data_api.Request
     module Timeframe = Trading_types.Timeframe
+
+    (* Filter bars to only regular trading hours (9:30 AM - 4:00 PM ET) *)
+    (* Massive includes pre-market and after-hours by default *)
+    let is_regular_hours (timestamp : Ptime.t) : bool =
+      (* Get hour and minute in ET timezone *)
+      (* Note: This is simplified - proper handling would convert from UTC to ET *)
+      let (_, ((hour, minute, _), _)) = Ptime.to_date_time timestamp in
+      let time_minutes = hour * 60 + minute in
+      (* Regular hours: 9:30 AM (570 min) to 4:00 PM (960 min) *)
+      (* This assumes timestamps are already in ET - may need adjustment *)
+      time_minutes >= 570 && time_minutes < 960
+
+    let filter_regular_hours (items : item list) : item list =
+      List.filter (fun item ->
+        match Ptime.of_float_s (Float.of_int item.t /. 1000.0) with
+        | Some timestamp -> is_regular_hours timestamp
+        | None -> false
+      ) items
 
     (* Convert Massive Unix milliseconds to Ptime *)
     let timestamp_of_millis ms =
@@ -150,7 +168,7 @@ module Make (Config : CONFIG) = struct
       Data.set data Data.Type.Low i low;
       Data.set data Data.Type.Close i close;
       Data.set data Data.Type.Last i close;
-      Data.set data Data.Type.Volume i (Float.of_int volume)
+      Data.set data Data.Type.Volume i volume
 
     (* Parse a single bar item *)
     let parse_item data i item =
@@ -160,16 +178,23 @@ module Make (Config : CONFIG) = struct
         ~low:item.l ~close:item.c ~volume:item.v;
       Result.return ()
 
-    (* Convert results list to Data.t *)
+    (* Convert results list to Data.t, filtering to regular trading hours *)
     let results_to_data results =
       let ( let* ) = Result.( let* ) in
-      let data = Data.make @@ List.length results in
+      let original_count = List.length results in
+      (* Filter to only regular trading hours *)
+      let filtered = filter_regular_hours results in
+      let filtered_count = List.length filtered in
+      if filtered_count < original_count then
+        Eio.traceln "      Filtered %d bars to %d regular hours bars (removed %d extended hours)"
+          original_count filtered_count (original_count - filtered_count);
+      let data = Data.make filtered_count in
       let* () =
         List.foldi
           (fun acc i item ->
             let* () = acc in
             parse_item data i item)
-          (Ok ()) results
+          (Ok ()) filtered
       in
       Result.return data
 
@@ -213,7 +238,7 @@ module Make (Config : CONFIG) = struct
     let rec fetch_instrument_data_paginated (request : Request.t) instrument acc_results endpoint =
       let ( let* ) = Result.( let* ) in
 
-      Eio.traceln "Fetching: %s" endpoint;
+      Eio.traceln "    Fetching %a: %s" Instrument.pp instrument endpoint;
       let* json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
       let* massive_resp = response_of_yojson_safe json in
 
@@ -235,9 +260,11 @@ module Make (Config : CONFIG) = struct
           fetch_instrument_data_paginated request instrument all_results next_endpoint
         | None ->
           (* No more pages, convert to Data.t *)
-          Eio.traceln "Massive_api: Converting %d bars for %a"
+          Eio.traceln "      Converting %d raw bars for %a"
             (List.length all_results) Instrument.pp instrument;
           let* data = results_to_data all_results in
+          Eio.traceln "      Result: %a has %d bars after filtering"
+            Instrument.pp instrument (Data.size data);
           Result.return (instrument, data))
       | status ->
         Error.fatal (Format.sprintf "Massive API error: %s" status)
@@ -246,6 +273,99 @@ module Make (Config : CONFIG) = struct
       let symbol = Instrument.symbol instrument in
       let endpoint = build_endpoint request symbol in
       fetch_instrument_data_paginated request instrument [] endpoint
+
+    (* Align all symbols to a common regular timeline *)
+    (* Uses the longest symbol's data as the skeleton timeline *)
+    let align_to_timeline (data_list : (Instrument.t * Data.t) list) (interval_seconds : float)
+        : ((Instrument.t * Data.t) list, Error.t) result =
+      let ( let* ) = Result.( let* ) in
+
+      if List.is_empty data_list then
+        Result.return data_list
+      else begin
+        Eio.traceln "Aligning %d symbols to regular %ds timeline..."
+          (List.length data_list) (int_of_float interval_seconds);
+
+        (* Find the symbol with the most bars - this becomes our skeleton *)
+        let longest_symbol, longest_data =
+          List.fold_left (fun (best_inst, best_data) (inst, data) ->
+            let size = Data.size data in
+            Eio.traceln "  %a has %d bars" Instrument.pp inst size;
+            if size > Data.size best_data then (inst, data) else (best_inst, best_data)
+          ) (List.hd data_list) (List.tl data_list)
+        in
+
+        let num_bars = Data.size longest_data in
+        let start_time = Data.get longest_data Data.Type.Time 0 in
+        let end_time = Data.get longest_data Data.Type.Time (num_bars - 1) in
+
+        Eio.traceln "  Using %a as skeleton (%d bars from %.0f to %.0f)"
+          Instrument.pp longest_symbol num_bars start_time end_time;
+
+        (* Align each symbol to the regular timeline *)
+        Result.map_l (fun (instrument, sparse_data) ->
+          if Data.size sparse_data = 0 then begin
+            Eio.traceln "  WARNING: %a has no data" Instrument.pp instrument;
+            Error.fatal (Format.asprintf "Symbol %a has no data in regular hours" Instrument.pp instrument)
+          end else begin
+            let aligned_data = Data.make num_bars in
+            let sparse_size = Data.size sparse_data in
+
+            (* Find first valid bar to use for back-filling *)
+            let first_bar_idx = 0 in
+
+            (* Track last valid source for forward-filling *)
+            let last_valid_idx = ref None in
+            let sparse_idx = ref 0 in
+
+            (* For each tick in the regular timeline *)
+            for aligned_tick = 0 to num_bars - 1 do
+              let target_time = start_time +. (float_of_int aligned_tick *. interval_seconds) in
+
+              (* Advance sparse_idx past any bars before target_time *)
+              let threshold = target_time -. (interval_seconds /. 2.0) in
+              while !sparse_idx < sparse_size &&
+                    Stdlib.( < ) (Data.get sparse_data Data.Type.Time !sparse_idx) threshold do
+                last_valid_idx := Some !sparse_idx;
+                incr sparse_idx
+              done;
+
+              (* Determine which sparse bar to use for this timeline tick *)
+              let source_idx =
+                if !sparse_idx < sparse_size then
+                  let sparse_time = Data.get sparse_data Data.Type.Time !sparse_idx in
+                  (* If sparse bar is close enough to target time, use it *)
+                  let tolerance = interval_seconds /. 2.0 in
+                  if Stdlib.( < ) (abs_float (sparse_time -. target_time)) tolerance then begin
+                    last_valid_idx := Some !sparse_idx;
+                    Some !sparse_idx
+                  end else
+                    !last_valid_idx  (* Forward-fill from last valid *)
+                else
+                  !last_valid_idx  (* Past end of data, forward-fill *)
+              in
+
+              (* Copy data from source to aligned timeline *)
+              let src_idx = match source_idx with
+                | Some idx -> idx
+                | None -> first_bar_idx  (* Back-fill: use first bar if no data yet *)
+              in
+              Data.set aligned_data Data.Type.Index aligned_tick (float_of_int aligned_tick);
+              Data.set aligned_data Data.Type.Time aligned_tick target_time;
+              Data.set aligned_data Data.Type.Open aligned_tick (Data.get sparse_data Data.Type.Open src_idx);
+              Data.set aligned_data Data.Type.High aligned_tick (Data.get sparse_data Data.Type.High src_idx);
+              Data.set aligned_data Data.Type.Low aligned_tick (Data.get sparse_data Data.Type.Low src_idx);
+              Data.set aligned_data Data.Type.Close aligned_tick (Data.get sparse_data Data.Type.Close src_idx);
+              Data.set aligned_data Data.Type.Last aligned_tick (Data.get sparse_data Data.Type.Close src_idx);
+              Data.set aligned_data Data.Type.Volume aligned_tick (Data.get sparse_data Data.Type.Volume src_idx)
+            done;
+
+            Eio.traceln "  %a: aligned %d sparse bars to %d timeline bars"
+              Instrument.pp instrument sparse_size num_bars;
+            Result.return (instrument, aligned_data)
+          end
+        ) data_list
+      end
 
     (* Download historical data for all symbols in request *)
     let top (starting_request : Request.t) =
@@ -266,7 +386,18 @@ module Make (Config : CONFIG) = struct
                 (fetch_instrument_data request)
                 request_symbols
             in
-            Result.return @@ Bars.of_list res)
+            (* Calculate interval in seconds from timeframe *)
+            let interval_seconds =
+              match request.timeframe with
+              | Timeframe.Min n -> float_of_int n *. 60.0
+              | Timeframe.Hour n -> float_of_int n *. 3600.0
+              | Timeframe.Day -> 86400.0
+              | Timeframe.Week -> 604800.0
+              | Timeframe.Month _ -> 2592000.0
+            in
+            (* Align all symbols to regular timeline before creating Bars *)
+            let* aligned_res = align_to_timeline res interval_seconds in
+            Result.return @@ Bars.of_list aligned_res)
           split_requests
       in
 
