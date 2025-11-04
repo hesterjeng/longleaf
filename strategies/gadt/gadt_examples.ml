@@ -1223,4 +1223,46 @@ let rr1_0 =
     position_size = 0.10;
   }
 
+(** DeepReef - Deep Momentum Mean Reversion
+
+    Result from 150 iteration optimization: 101739.81 (1.74% return)
+
+    Optimized parameters:
+    - RSI period: 95 (very long-term momentum - unique characteristic)
+    - BB period: 41 (medium-term bands)
+    - RSI buy threshold: 33.47 (deeper oversold than typical)
+    - RSI sell threshold: 40.29 (conservative exit)
+    - Stop loss: -0.04 (effectively 51.9% - very wide)
+    - Profit target: 0.82 (82.4% - extremely aggressive)
+    - Max hold: 55 ticks
+
+    The 95-period RSI is highly unusual and gives this strategy its "deep"
+    character - it waits for very long-term momentum signals before entering,
+    resulting in fewer but potentially higher-quality trades.
+
+    Intraday-only with 10-minute close buffer.
+*)
+let deep_reef =
+  let rsi = Real.rsi 95 () in
+  let bb_lower = Real.lower_bband 41 2.0 2.0 () in
+  let bb_middle = Real.middle_bband 41 2.0 2.0 () in
+  let bb_upper = Real.upper_bband 41 2.0 2.0 () in
+  register @@ {
+    name = "DeepReef";
+    buy_trigger =
+      (rsi <. Const (33.473369, Float))
+      &&. (last <. bb_lower)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle)
+      ||. (rsi >. Const (40.288297, Float))
+      ||. (last >. bb_upper)
+      ||. (last <. (EntryPrice -. Const (1.0, Float) *. Const (51.904005, Float)))
+      ||. (last >. (EntryPrice +. Const (1.0, Float) *. Const (82.403944, Float)))
+      ||. App2 (Fun (">", (>)), TicksHeld, Const (55, Int));
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
 let all_strategies = !all_strategies
