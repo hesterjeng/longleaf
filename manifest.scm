@@ -22,40 +22,8 @@
              (gnu packages longleaf)
              (gnu packages node))
 
-;; Create manifest with development packages and system dependencies
-;; (packages->manifest
-;;  (list ;; Frontend and tearsheets
-;;   ;; longleaf-quantstats-dev
-;;   ;; longleaf-frontend-dev
-;;   ;; Python web framework
-;;   python
-;;   direnv
-;;   gmp
-;;   python-fastapi
-;;   python-uvicorn
-;;   python-frozendict
-;;   python-wrapper
-;;   python-peewee
-;;   python-ipython
-;;   nlopt
-;;   ta-lib
-;;   libev
-;;   ;; Process orchestration
-;;   tmux
-;;   ;; System dependencies
-;;   pkg-config
-;;   zlib
-;;   openssl
-;;   curl
-;;   git
-;;   ))
 (specifications->manifest
  (list
-  ;; "emacs-lsp-mode"
-  ;;       "emacs-lsp-ui"
-  ;;       "emacs-tuareg"
-  ;;       "ocaml-merlin"
-  ;;       "ocaml-lsp-server"
         "ocaml"
         "dune"
         "ocamlformat"
@@ -66,6 +34,7 @@
         "ocaml-ppx-variants-conv"
         "ocaml-ppx-fields-conv"
         "ocaml-cmdliner"
+	"ocaml-backoff"
         "ocaml-graph"
         "ocaml-eio-main"
         "ocaml-tacaml"
