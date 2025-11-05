@@ -216,7 +216,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   (* Lower bound: 5 avoids very unstable indicators and index out of bounds errors *)
   Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 5.0);
   Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
-  Nlopt.set_maxeval opt 150;
+  Nlopt.set_maxeval opt 15000;
 
   (* Set objective function *)
   Nlopt.set_max_objective opt

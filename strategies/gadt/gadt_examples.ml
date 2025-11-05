@@ -1265,4 +1265,223 @@ let deep_reef =
     position_size = 0.10;
   }
 
+(** TrendRider - Optimizable Trend Following Strategy
+
+    A trend-following strategy that contrasts with mean reversion approaches.
+    Instead of buying weakness and selling strength, this strategy rides momentum.
+
+    Variables to optimize (6 total):
+    1. fast_ema_period: [8, 20] - Fast EMA period for trend detection
+    2. slow_ema_period: [20, 50] - Slow EMA period for trend confirmation
+    3. adx_period: [10, 20] - ADX period for trend strength measurement
+    4. adx_threshold: [20.0, 30.0] - Minimum ADX for trend entry
+    5. stop_loss_pct: [0.015, 0.035] - Stop loss (1.5-3.5%)
+    6. profit_target_pct: [0.03, 0.08] - Profit target (3-8%)
+
+    Entry Logic (Trend Start):
+    - Fast EMA crosses above Slow EMA (golden cross)
+    - ADX > threshold (strong trending market, not choppy)
+    - MACD main line > signal line (momentum confirmation)
+    - NOT within 10 minutes of market close
+
+    Exit Logic (Trend Break or Risk Management):
+    - Force exit within 10 minutes of close (no overnight)
+    - Fast EMA crosses below Slow EMA (death cross - trend breakdown)
+    - ADX drops below 15 (trend weakening into consolidation)
+    - MACD main line < signal line (momentum reversal)
+    - Variable stop loss (1.5-3.5%)
+    - Variable profit target (3-8%)
+    - 120-tick max hold (longer than mean reversion strategies)
+
+    Position Sizing:
+    - 5 positions at 20% each (fewer, larger positions for trend riding)
+    - Contrasts with mean reversion's 10 positions at 10%
+
+    Key Differences from Mean Reversion:
+    - Buys on strength (MA crossover up) vs weakness (RSI oversold)
+    - Requires trending markets (ADX > 25) vs choppy markets
+    - Longer hold times (up to 120 ticks) vs quick reversions (30-60 ticks)
+    - Larger position sizes to capitalize on sustained moves
+*)
+let trend_rider_opt =
+  (* Create variables for optimizable parameters *)
+  let fast_ema_period = Gadt_fo.var Gadt.Type.Int in        (* Variable 1 *)
+  let slow_ema_period = Gadt_fo.var Gadt.Type.Int in        (* Variable 2 *)
+  let adx_period = Gadt_fo.var Gadt.Type.Int in             (* Variable 3 *)
+  let adx_threshold = Gadt_fo.var Gadt.Type.Float in        (* Variable 4 *)
+  let stop_loss_var = Gadt_fo.var Gadt.Type.Float in        (* Variable 5 *)
+  let profit_target_var = Gadt_fo.var Gadt.Type.Float in    (* Variable 6 *)
+
+  (* Create EMA indicators with variable periods *)
+  let fast_ema =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), fast_ema_period)))
+  in
+  let slow_ema =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), slow_ema_period)))
+  in
+
+  (* Create ADX indicator with variable period *)
+  let adx =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period)))
+  in
+
+  (* MACD indicators with standard periods (12, 26, 9) *)
+  let macd_main =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      Const (Tacaml.Indicator.Raw.macd_macd 12 26 9, Tacaml)))
+  in
+  let macd_signal =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      Const (Tacaml.Indicator.Raw.macd_signal 12 26 9, Tacaml)))
+  in
+
+  (* Variable risk management *)
+  let stop_loss_var_risk =
+    last <. (EntryPrice *. (Const (1.0, Float) -. stop_loss_var))
+  in
+  let profit_target_var_risk =
+    last >. (EntryPrice *. (Const (1.0, Float) +. profit_target_var))
+  in
+
+  register @@ {
+    name = "TrendRider_Opt";
+    (* Entry: Trend establishment with multiple confirmations *)
+    buy_trigger =
+      cross_up fast_ema slow_ema          (* Golden cross *)
+      &&. (adx >. adx_threshold)           (* Strong trend *)
+      &&. (macd_main >. macd_signal)       (* MACD bullish *)
+      &&. (fast_ema >. slow_ema)           (* Trend intact *)
+      &&. safe_to_enter ();                (* Not near close *)
+    (* Exit: Trend breakdown or risk management *)
+    sell_trigger =
+      force_exit_eod ()                    (* No overnight *)
+      ||. cross_down fast_ema slow_ema    (* Death cross *)
+      ||. (adx <. Const (15.0, Float))    (* Trend weakening *)
+      ||. (macd_main <. macd_signal)      (* MACD bearish *)
+      ||. stop_loss_var_risk               (* Variable stop *)
+      ||. profit_target_var_risk           (* Variable target *)
+      ||. max_holding_time 120;            (* 120 ticks max *)
+    max_positions = 5;     (* Fewer positions for trend riding *)
+    position_size = 0.20;  (* 20% per position *)
+  }
+
+(** SlowGlide - Optimized TrendRider (Subtle Trend Following)
+
+    Result from ISRES optimization: 100792.15 (0.79% return over 2 weeks)
+
+    Optimized parameters reveal an interesting discovery:
+    - Fast EMA: 79 (very long, almost converged with slow)
+    - Slow EMA: 90 (extremely long)
+    - ADX period: 51 (unusually long trend measurement)
+    - ADX threshold: 32.22 (high - requires very strong trends)
+    - Stop loss: 14.09% (wide, allows for volatility)
+    - Profit target: 36.54% (aggressive, swing-for-the-fences)
+
+    The name "SlowGlide" reflects the strategy's character:
+    - EMAs at 79/90 detect only subtle, slow-moving trend shifts
+    - High ADX threshold (32.22) filters for only the strongest trends
+    - Wide stop (14%) and aggressive target (36%) suggest patience
+    - This is a "swing trading" approach, not day trading
+
+    The close convergence of EMAs (79 vs 90) suggests that dramatic
+    crossovers don't work for trends - instead, subtle shifts in
+    very long-term averages signal sustainable momentum.
+
+    Performance: Modest 0.79% in 2 weeks, suggesting trend-following
+    may struggle in choppy/mean-reverting markets where your other
+    strategies excel.
+*)
+let slow_glide =
+  (* Optimized parameters *)
+  let fast_ema_79 = Real.ema 79 () in
+  let slow_ema_90 = Real.ema 90 () in
+  let adx_51 = Real.adx 51 () in
+  let macd_main = Real.macd_macd 12 26 9 () in
+  let macd_signal = Real.macd_signal 12 26 9 () in
+
+  register @@ {
+    name = "SlowGlide";
+    buy_trigger =
+      cross_up fast_ema_79 slow_ema_90
+      &&. (adx_51 >. Const (32.224663, Float))
+      &&. (macd_main >. macd_signal)
+      &&. (fast_ema_79 >. slow_ema_90)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. cross_down fast_ema_79 slow_ema_90
+      ||. (adx_51 <. Const (15.0, Float))
+      ||. (macd_main <. macd_signal)
+      ||. (last <. (EntryPrice -. Const (1.0, Float) *. Const (14.087366, Float)))
+      ||. (last >. (EntryPrice +. Const (1.0, Float) *. Const (36.540345, Float)))
+      ||. max_holding_time 120;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** QuickSnap - Optimized RocketReef_DayOnly (Fast RSI + Stable Bands)
+
+    Result from ISRES optimization: 102598.18 (2.6% return over 2 weeks)
+    This significantly outperforms the original RocketReef variants.
+
+    Optimized parameters reveal a powerful "fast/slow" dynamic:
+    - RSI period: 11 (very fast, responsive to quick moves)
+    - RSI buy threshold: 21.18 (deep oversold)
+    - RSI sell threshold: 50.81 (exit near neutral - key insight!)
+    - BB period: 51 (very long, stable bands)
+    - Stop loss: 84.11% (effectively disabled)
+    - Profit target: 60.90% (swing trade target)
+    - Max hold: 88 ticks
+
+    The name "QuickSnap" reflects the strategy's dual nature:
+    - "Quick": Fast 11-period RSI catches rapid momentum shifts
+    - "Snap": Snaps back from oversold to neutral (exits at RSI ~50)
+
+    Key Innovation - Fast RSI, Slow Bands:
+    The 11-period RSI paired with 51-period Bollinger Bands creates a
+    "spring-loaded" effect:
+    - Slow BB (51) provides stable reference frame
+    - Fast RSI (11) detects quick dips within that frame
+    - This catches brief oversold moments in otherwise stable trends
+
+    Exit Strategy Innovation:
+    Unlike typical mean reversion (exit at RSI 70+), QuickSnap exits at
+    RSI 50.81 - just above neutral. This is brilliant:
+    - Takes profit as soon as momentum neutralizes
+    - Doesn't wait for full mean reversion to overbought
+    - Reduces exposure time and risk
+
+    Entry: RSI(11) < 21.18 AND price < lower BB(51)
+    Exit: RSI(11) > 50.81 OR price > middle BB(51) OR EOD OR 88 ticks
+
+    Performance: 2.6% in 2 weeks (solid for mean reversion)
+*)
+let quick_snap =
+  (* Optimized parameters *)
+  let rsi_11 = Real.rsi 11 () in
+  let bb_lower_51 = Real.lower_bband 51 2.0 2.0 () in
+  let bb_middle_51 = Real.middle_bband 51 2.0 2.0 () in
+  let bb_upper_51 = Real.upper_bband 51 2.0 2.0 () in
+
+  register @@ {
+    name = "QuickSnap";
+    buy_trigger =
+      (rsi_11 <. Const (21.178191, Float))
+      &&. (last <. bb_lower_51)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle_51)
+      ||. (rsi_11 >. Const (50.812802, Float))  (* Exit near neutral - key insight! *)
+      ||. (last >. bb_upper_51)
+      ||. (last <. (EntryPrice -. Const (1.0, Float) *. Const (84.109595, Float)))
+      ||. (last >. (EntryPrice +. Const (1.0, Float) *. Const (60.904661, Float)))
+      ||. max_holding_time 88;
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
 let all_strategies = !all_strategies
