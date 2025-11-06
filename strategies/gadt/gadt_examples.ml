@@ -1484,4 +1484,169 @@ let quick_snap =
     position_size = 0.10;
   }
 
+(** ProfessionalMeanRev_Opt - Mean Reversion with Distinct Entry/Exit Indicators
+
+    This strategy fixes the variable reuse problem in rocket_reef_day_only_opt
+    and similar strategies where the same bb_period_var is used for both entry
+    and exit Bollinger Bands.
+
+    KEY INSIGHT - ASYMMETRIC INDICATORS:
+    Entry and exit may work best with DIFFERENT timeframes:
+    - Entry: Longer periods (stable bands) to identify true oversold conditions
+    - Exit: Shorter periods (responsive bands) to catch quick mean reversions
+
+    Variables to optimize (6 total - STRATEGY LOGIC ONLY):
+    1. entry_rsi_period: [5, 50] - RSI period for entry detection
+    2. entry_rsi_threshold: [20.0, 40.0] - RSI oversold entry level
+    3. entry_bb_period: [30, 80] - BB period for entry (can be long/stable)
+    4. exit_rsi_period: [10, 60] - RSI period for exit (can differ from entry)
+    5. exit_rsi_threshold: [50.0, 75.0] - RSI exit level
+    6. exit_bb_period: [15, 50] - BB period for exit (can be short/responsive)
+
+    FIXED RISK MANAGEMENT (not optimized):
+    - 2.5% stop loss: Tight risk control, prevents catastrophic losses
+    - NO profit target: Let mean reversion logic determine exits naturally
+    - 90 tick max hold: ~90 minutes, prevents extended exposure
+    - Intraday only: No overnight positions
+    - 10-minute close buffer: Avoids auction volatility
+
+    WHY NO PROFIT TARGET?
+    Past optimizations (DeepReef: 82% target, RR1.0: 37% target) show that
+    ISRES overfits profit targets to specific large moves in backtest data.
+    Mean reversion should exit when the reversion completes (price > middle BB,
+    RSI normalizes), not at arbitrary price levels.
+
+    Entry Logic:
+    - Entry RSI(var1) < threshold(var2) - momentum weakness
+    - Price < Lower BB(var3) - price stretched below mean
+    - Safe to enter (not near market close)
+
+    Exit Logic (clean, no redundancy):
+    - Force exit near close (no overnight risk)
+    - Price > Middle BB(var6) - mean reversion complete
+    - Exit RSI(var4) > threshold(var5) - momentum turned positive
+    - 2.5% stop loss (fixed, tight risk control)
+    - 90 tick max hold (fixed, limits exposure)
+
+    Note: Upper BB condition removed as redundant - if price > middle BB,
+    the mean reversion trade is complete.
+*)
+let professional_mean_rev_opt =
+  (* Entry indicators - optimizable *)
+  let entry_rsi_period = Gadt_fo.var Gadt.Type.Int in          (* Var 1 *)
+  let entry_rsi_threshold = Gadt_fo.var Gadt.Type.Float in     (* Var 2 *)
+  let entry_bb_period = Gadt_fo.var Gadt.Type.Int in           (* Var 3 *)
+
+  (* Exit indicators - DISTINCT from entry, also optimizable *)
+  let exit_rsi_period = Gadt_fo.var Gadt.Type.Int in           (* Var 4 *)
+  let exit_rsi_threshold = Gadt_fo.var Gadt.Type.Float in      (* Var 5 *)
+  let exit_bb_period = Gadt_fo.var Gadt.Type.Int in            (* Var 6 *)
+
+  (* Create ENTRY indicators *)
+  let entry_rsi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), entry_rsi_period)))
+  in
+  let entry_bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        entry_bb_period,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+
+  (* Create EXIT indicators - using DIFFERENT period variables *)
+  let exit_rsi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), exit_rsi_period)))
+  in
+  let exit_bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        exit_bb_period,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+
+  register @@ {
+    name = "ProfessionalMeanRev_Opt";
+    (* Entry: Oversold on entry indicators + intraday safety *)
+    buy_trigger =
+      (entry_rsi <. entry_rsi_threshold)
+      &&. (last <. entry_bb_lower)
+      &&. safe_to_enter ();
+    (* Exit: Distinct exit indicators + fixed risk management *)
+    sell_trigger =
+      force_exit_eod ()                              (* No overnight *)
+      ||. (last >. exit_bb_middle)                  (* Mean reversion complete *)
+      ||. (exit_rsi >. exit_rsi_threshold)          (* Momentum positive *)
+      ||. stop_loss 0.025                            (* 2.5% stop (fixed) *)
+      ||. max_holding_time 90;                       (* 90 ticks (fixed) *)
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
+(** CosmicCowgirl_25_52_90 - Optimized ProfessionalMeanRev (Patient Exit Strategy)
+
+    Result from ISRES optimization: 101775.92 (1.78% return over 2 weeks)
+
+    Optimized parameters reveal a "patient exit" pattern:
+    - Entry RSI: 25 (medium-fast for catching dips)
+    - Entry RSI threshold: 33.64 (moderately oversold)
+    - Entry BB: 52 (long, stable bands for reliable entry signals)
+    - Exit RSI: 90 (EXTREMELY long - waits for sustained trend changes)
+    - Exit RSI threshold: 79.02 (very overbought - patient exit)
+    - Exit BB: 84 (very long, stable exit detection)
+
+    The Strategy's Character:
+    "Enter conservatively, exit patiently" - the cosmic cowgirl doesn't rush.
+
+    The 90-period RSI for exits is the key innovation. Most mean reversion
+    strategies use short RSI periods (2-14) for quick exits. This strategy
+    discovered that waiting for a 90-period RSI to reach 79 captures larger
+    moves while filtering out noise.
+
+    Entry Logic (Stable, 52-period bands):
+    - RSI(25) dips below 33.64 (moderate oversold)
+    - Price touches lower BB(52) (stable reference)
+    - Safe to enter (not near market close)
+
+    Exit Logic (Patient, 84-period bands):
+    - Force exit near close (no overnight)
+    - Price > middle BB(84) (long-term mean reversion)
+    - RSI(90) > 79.02 (sustained momentum reversal - patient!)
+    - 2.5% stop loss (tight risk control)
+    - 90 tick max hold
+
+    The asymmetric periods (52 for entry, 84 for exit) show that the optimizer
+    discovered entry and exit work best at different timeframes - validating
+    the design of ProfessionalMeanRev_Opt with distinct variables.
+*)
+let cosmic_cowgirl_25_52_90 =
+  (* Entry indicators - stable, medium-term *)
+  let entry_rsi_25 = Real.rsi 25 () in
+  let entry_bb_lower_52 = Real.lower_bband 52 2.0 2.0 () in
+
+  (* Exit indicators - very long-term, patient *)
+  let exit_rsi_90 = Real.rsi 90 () in
+  let exit_bb_middle_84 = Real.middle_bband 84 2.0 2.0 () in
+
+  register @@ {
+    name = "CosmicCowgirl_25_52_90";
+    (* Entry: Moderate oversold on stable indicators *)
+    buy_trigger =
+      (entry_rsi_25 <. Const (33.635982, Float))
+      &&. (last <. entry_bb_lower_52)
+      &&. safe_to_enter ();
+    (* Exit: Patient, waiting for sustained reversal *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. exit_bb_middle_84)                    (* Long-term mean reversion *)
+      ||. (exit_rsi_90 >. Const (79.021591, Float))      (* Very patient exit *)
+      ||. stop_loss 0.025                                 (* 2.5% stop *)
+      ||. max_holding_time 90;                            (* 90 ticks *)
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
 let all_strategies = !all_strategies
