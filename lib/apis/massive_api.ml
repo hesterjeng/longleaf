@@ -243,7 +243,11 @@ module Make (Config : CONFIG) = struct
       let* massive_resp = response_of_yojson_safe json in
 
       match massive_resp.status with
-      | "OK" ->
+      | "OK" | "DELAYED" ->
+        (* Log if we're receiving delayed data *)
+        if String.equal massive_resp.status "DELAYED" then
+          Eio.traceln "    Note: Receiving delayed data for %a" Instrument.pp instrument;
+
         let all_results = acc_results @ massive_resp.results in
 
         (* Check if there's a next page *)
