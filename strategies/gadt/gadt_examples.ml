@@ -1649,4 +1649,73 @@ let cosmic_cowgirl_25_52_90 =
     position_size = 0.10;
   }
 
+(** SharpEntry_PatientExit_50_16_98 - Optimized ProfessionalMeanRev (Reactive Entry, Patient Exit)
+
+    Result from ISRES optimization: 102,515.58 (2.52% return over 2 weeks)
+
+    Optimized parameters reveal a "reactive entry / patient exit" pattern:
+    - Entry RSI: 50 (medium, catches early weakness not extreme oversold)
+    - Entry RSI threshold: 39.68 (moderate oversold)
+    - Entry BB: 16 (VERY SHORT - most reactive among all strategies!)
+    - Exit RSI: 98 (EXTREMELY long - waits for sustained trend changes)
+    - Exit RSI threshold: 90.31 (very overbought)
+    - Exit BB: 60 (medium-term exit detection)
+
+    The Strategy's Character:
+    "Enter aggressively on sharp dips, exit patiently on sustained reversals"
+
+    Key Innovation - Shortest Entry BB (16):
+    The 16-period Bollinger Band for entry is among the shortest in all strategies.
+    This creates extremely reactive bands that catch brief, sharp price drops that
+    longer-period bands would smooth over. When combined with medium RSI (50), it
+    enters on early weakness, not waiting for extreme oversold conditions.
+
+    The 98-period RSI for exits provides extreme patience - it waits for a truly
+    sustained momentum reversal, not just short-term bounces. This asymmetry
+    (reactive entry, patient exit) aims to catch quick dips and ride them fully.
+
+    Entry Logic (Reactive, 16-period bands):
+    - RSI(50) dips below 39.68 (early weakness detection)
+    - Price touches lower BB(16) (catches sharp, brief dips)
+    - Safe to enter (not near market close)
+
+    Exit Logic (Patient, 60-period bands):
+    - Force exit near close (no overnight)
+    - Price > middle BB(60) (medium-term mean reversion)
+    - RSI(98) > 90.31 (extremely patient - waits for sustained reversal)
+    - 2.5% stop loss (tight risk control)
+    - 90 tick max hold
+
+    Performance: 2.52% in 2 weeks - second-best among strategies with realistic
+    risk management, just 0.08% behind QuickSnap. The short entry BB (16) vs
+    QuickSnap's long entry BB (51) represents a fundamentally different approach
+    to catching mean reversion opportunities.
+*)
+let sharp_entry_patient_exit =
+  (* Entry indicators - very reactive *)
+  let entry_rsi_50 = Real.rsi 50 () in
+  let entry_bb_lower_16 = Real.lower_bband 16 2.0 2.0 () in
+
+  (* Exit indicators - very patient *)
+  let exit_rsi_98 = Real.rsi 98 () in
+  let exit_bb_middle_60 = Real.middle_bband 60 2.0 2.0 () in
+
+  register @@ {
+    name = "SharpEntry_PatientExit_50_16_98";
+    (* Entry: Reactive to sharp dips *)
+    buy_trigger =
+      (entry_rsi_50 <. Const (39.682656, Float))
+      &&. (last <. entry_bb_lower_16)
+      &&. safe_to_enter ();
+    (* Exit: Patient, waiting for sustained reversal *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. exit_bb_middle_60)
+      ||. (exit_rsi_98 >. Const (90.309677, Float))
+      ||. stop_loss 0.025
+      ||. max_holding_time 90;
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
 let all_strategies = !all_strategies
