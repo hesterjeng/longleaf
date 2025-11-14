@@ -39,6 +39,7 @@ val data : t -> Instrument.t -> (Bars.Data.t, Error.t) result
 val bars : t -> Bars.t
 val value_history : t -> (Time.t * float) list
 val cash_history : t -> (Time.t * float) list
+val order_history : t -> Order.t list
 
 (* Get the value of the state's portfolio, plus the cash on hand *)
 val value : t -> float res

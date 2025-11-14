@@ -14,6 +14,12 @@ module Template = Longleaf_template
 type const = VFloat of float | VInt of int
 (* type env = (Uuidm.t, _ const) List.Assoc.t *)
 
+(* Bounds for optimizer variables *)
+type bounds = {
+  lower: float;
+  upper: float;
+}
+
 module Type = struct
   type _ t =
     | Bool : bool t
@@ -45,7 +51,7 @@ type _ t =
   | App3 : ('a -> 'b -> 'c -> 'd) t * 'a t * 'b t * 'c t -> 'd t
   | Fun : string * ('a -> 'b) -> ('a -> 'b) t
   | ContextModifier : 'a t * (context -> 'a -> context) * 'b t -> 'b t
-  | Var : Uuidm.t * 'a Type.t -> 'a t
+  | Var : Uuidm.t * 'a Type.t * bounds -> 'a t  (* Added bounds field *)
   | Symbol : unit -> Instrument.t t
   (* Position risk management nodes *)
   | EntryPrice : float t
@@ -105,7 +111,7 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
       let res = f x y z in
       Result.return res
     | Symbol () -> Result.return instrument
-    | Var _ -> invalid_arg "Cannot evalute gadts with variables in them"
+    | Var _ -> invalid_arg "Cannot evaluate gadts with variables in them"
     | Data ty ->
       let* ty = eval context ty in
       Error.guard (Error.fatal "Error in GADT evaluation at Data node")
@@ -146,7 +152,7 @@ module Subst = struct
   end
 
   let rec collect_variables : type a. a t -> 'b list = function
-    | Var (id, ty) -> [ (id, Type.A ty) ]
+    | Var (id, ty, bounds) -> [ (id, (Type.A ty, bounds)) ]
     | Const _ -> []
     | Symbol _ -> []
     | Data x -> collect_variables x
@@ -166,7 +172,7 @@ module Subst = struct
     | HasPosition -> []
     | TickTime -> []
 
-  let collect_variables : 'a t -> (Uuidm.t * Type.shadow) list =
+  let collect_variables : 'a t -> (Uuidm.t * (Type.shadow * bounds)) list =
    fun x ->
     let vars = collect_variables x in
     List.uniq ~eq:(fun (id0, _) (id1, _) -> Uuidm.equal id0 id1) vars
@@ -179,9 +185,9 @@ module Subst = struct
   (*     int_map = Bindings.empty; *)
   (*   } in *)
 
-  let env_of_arr params (arr : (Uuidm.t * Type.shadow) array) =
+  let env_of_arr params (arr : (Uuidm.t * (Type.shadow * bounds)) array) =
     Array.foldi
-      (fun env i (id, Type.A ty) ->
+      (fun env i (id, (Type.A ty, _bounds)) ->
         match ty with
         | Type.Bool -> invalid_arg "Gadt.env_of_arr Type.Bool"
         | Type.Data -> invalid_arg "Type.Data NYI (gadt.ml)"
@@ -197,9 +203,9 @@ module Subst = struct
   let rec instantiate : type a. env -> a t -> (a t, Error.t) result =
     let ( let* ) = Result.( let* ) in
     fun env -> function
-      | Var (id, ty) ->
+      | Var (id, ty, _bounds) ->
         (match ty with
-        | Bool -> invalid_arg "NYI Instnatiate bool"
+        | Bool -> invalid_arg "NYI Instantiate bool"
         | Data -> invalid_arg "NYI Instantiate Data variable"
         | Tacaml -> invalid_arg "NYI Instantiate Tacaml variable"
         | Float ->
@@ -264,7 +270,7 @@ let rec pp : type a. Format.formatter -> a t -> unit =
   | Symbol () -> Format.fprintf fmt "Symbol()"
   | ContextModifier (f, _, z) ->
     Format.fprintf fmt "ContextModifier(%a,%a)" pp f pp z
-  | Var (id, ty) ->
+  | Var (id, ty, bounds) ->
     let ty_str =
       match ty with
       | Type.Bool -> "Bool Var"
@@ -273,7 +279,7 @@ let rec pp : type a. Format.formatter -> a t -> unit =
       | Type.Float -> "Float Var"
       | Type.Int -> "Int Var"
     in
-    Format.fprintf fmt "Var(%s:%s)" (Uuidm.to_string id) ty_str
+    Format.fprintf fmt "Var(%s:%s[%.1f,%.1f])" (Uuidm.to_string id) ty_str bounds.lower bounds.upper
   | Data e -> Format.fprintf fmt "(@[%a@])" pp e
   (* | Indicator e -> Format.fprintf fmt "Indicator(@[%a@])" pp e *)
   | App1 (Fun ("tacaml", _), x) -> Format.fprintf fmt "@[%a@]" pp x
@@ -318,7 +324,7 @@ let debug_variables : type a. a t -> unit =
   Eio.traceln "Expression: %s" (to_string expr);
   Eio.traceln "Variables found: %d" (List.length vars);
   List.iteri
-    (fun i (id, Type.A ty) ->
+    (fun i (id, (Type.A ty, bounds)) ->
       let ty_str =
         match ty with
         | Type.Float -> "Float"
@@ -327,7 +333,7 @@ let debug_variables : type a. a t -> unit =
         | Type.Data -> "Data"
         | Type.Tacaml -> "Tacaml"
       in
-      Eio.traceln "  [%d] %s: %s" i (Uuidm.to_string id) ty_str)
+      Eio.traceln "  [%d] %s: %s [%.1f, %.1f]" i (Uuidm.to_string id) ty_str bounds.lower bounds.upper)
     vars;
   Eio.traceln "================================"
 

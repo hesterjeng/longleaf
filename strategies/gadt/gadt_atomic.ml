@@ -9,6 +9,7 @@ module Order = Longleaf_core.Order
 module Data = Bars.Data
 module Time = Longleaf_core.Time
 module Options = Longleaf_core.Options
+module Pmutex = Longleaf_util.Pmutex
 
 (* Re-use types and modules from the original gadt.ml *)
 open Gadt
@@ -17,16 +18,25 @@ open Gadt
 type work_request = {
   params : float array;
   strategy : Gadt_strategy.t;
-  vars : (Uuidm.t * Type.shadow) array;
+  vars : (Uuidm.t * (Type.shadow * Gadt.bounds)) array;
   iteration : int;
 }
 
 type work_result = (float option, Error.t) Result.t
 
+(* Stats storage: iteration -> (objective_value, trade_stats, final_cash) *)
+type stats_entry = {
+  objective_value : float;
+  final_cash : float;
+  trade_stats : State.Stats.TradeStats.t option;
+  params : float array;
+}
+
 (* Work request with Saturn queue for reply (domain-safe) *)
 type work_with_reply = {
   work : work_request;
   result_queue : work_result Saturn.Queue.t;
+  stats_htbl : (int, stats_entry) Saturn.Htbl.t;
 }
 
 module Worker = struct
@@ -35,7 +45,7 @@ module Worker = struct
     let rec worker_loop () =
       Printf.printf "WORKER: waiting for work\n%!";
       (* Block until work arrives - Saturn queue pop_opt with spin loop *)
-      let { work; result_queue } =
+      let { work; result_queue; stats_htbl } =
         let rec wait () =
           match Saturn.Queue.pop_opt work_queue with
           | Some work ->
@@ -65,11 +75,15 @@ module Worker = struct
             let* instantiated_sell =
               Subst.instantiate env work.strategy.sell_trigger
             in
+            let* instantiated_score =
+              Subst.instantiate env work.strategy.score
+            in
             let instantiated_strategy =
               {
                 work.strategy with
                 buy_trigger = instantiated_buy;
                 sell_trigger = instantiated_sell;
+                score = instantiated_score;
               }
             in
             let options_with_sw = { options with Options.switch = sw } in
@@ -100,6 +114,27 @@ module Worker = struct
                 Ok 0.0
             in
             Eio.traceln "Iteration %d result: %f" work.iteration res;
+
+            (* Compute and store trade statistics *)
+            (try
+              let state = Pmutex.get mutices.state_mutex in
+              let final_cash = State.cash state in
+              let all_orders = State.order_history state in
+              let trade_stats = State.Stats.TradeStats.compute all_orders in
+              let stats_entry = {
+                objective_value = res;
+                final_cash;
+                trade_stats;
+                params = Array.copy work.params;
+              } in
+              ignore (Saturn.Htbl.try_add stats_htbl work.iteration stats_entry);
+              Eio.traceln "Stored stats for iteration %d (cash: %.2f, objective: %.2f)"
+                work.iteration final_cash res
+            with
+            | e ->
+              Eio.traceln "Warning: Failed to compute stats for iteration %d: %s"
+                work.iteration (Printexc.to_string e));
+
             Ok (Some res)
           with
           | e ->
@@ -126,7 +161,7 @@ module Worker = struct
     worker_loop ()
 
   (* Objective function that communicates with worker via Saturn queue (works from C) *)
-  let f work_queue strategy vars iteration_counter (l : float array) _grad =
+  let f work_queue stats_htbl strategy vars iteration_counter (l : float array) _grad =
     let iteration = Atomic.fetch_and_add iteration_counter 1 in
     Printf.printf "OBJ FUNC: iteration %d called from Nlopt\n%!" iteration;
 
@@ -135,7 +170,7 @@ module Worker = struct
 
     (* Create work request *)
     let work = { params = Array.copy l; strategy; vars; iteration } in
-    let work_with_reply = { work; result_queue } in
+    let work_with_reply = { work; result_queue; stats_htbl } in
 
     (* Send work to worker via Saturn queue (safe from C) *)
     Printf.printf "OBJ FUNC: pushing work to queue\n%!";
@@ -186,6 +221,14 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   let work_queue = Saturn.Queue.create () in
   let iteration_counter = Atomic.make 0 in
 
+  (* Create hash table for storing stats per iteration *)
+  let module IntHashedType = struct
+    type t = int
+    let equal = Int.equal
+    let hash = Hashtbl.hash
+  end in
+  let stats_htbl = Saturn.Htbl.create ~hashed_type:(module IntHashedType) () in
+
   (* Log the options being used for optimization *)
   Eio.traceln "Optimization options:";
   Eio.traceln "  start tick: %d" options.flags.start;
@@ -211,18 +254,36 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   in
   Eio.traceln "Worker spawned in domain";
 
+  (* Extract per-variable bounds from GADT variable definitions *)
+  let lower_bounds = Array.map (fun (_, (_, bounds)) -> bounds.lower) vars in
+  let upper_bounds = Array.map (fun (_, (_, bounds)) -> bounds.upper) vars in
+
+  Eio.traceln "--- VARIABLE BOUNDS ---";
+  Array.iteri (fun i (_, (Type.A ty, bounds)) ->
+    let ty_str = match ty with
+      | Type.Int -> "Int"
+      | Type.Float -> "Float"
+      | Type.Bool -> "Bool"
+      | Type.Data -> "Data"
+      | Type.Tacaml -> "Tacaml"
+    in
+    Eio.traceln "  Var %d (%s): [%.2f, %.2f]" i ty_str bounds.lower bounds.upper
+  ) vars;
+
   let opt = Nlopt.create Nlopt.isres len in
-  (* Set conservative bounds that work for most indicator periods and thresholds *)
-  (* Lower bound: 5 avoids very unstable indicators and index out of bounds errors *)
-  Nlopt.set_lower_bounds opt @@ Array.init len (fun _ -> 5.0);
-  Nlopt.set_upper_bounds opt @@ Array.init len (fun _ -> 100.0);
+  (* Set per-variable bounds (extracted from GADT Var nodes) *)
+  Nlopt.set_lower_bounds opt lower_bounds;
+  Nlopt.set_upper_bounds opt upper_bounds;
   Nlopt.set_maxeval opt 15000;
 
   (* Set objective function *)
   Nlopt.set_max_objective opt
-    (Worker.f work_queue strategy vars iteration_counter);
+    (Worker.f work_queue stats_htbl strategy vars iteration_counter);
+  (* Generate random start point within each variable's bounds *)
   let start =
-    Array.init len (fun _ -> Float.random_range 5.0 100.0 Util.random_state)
+    Array.map (fun (_, (_, bounds)) ->
+      Float.random_range bounds.lower bounds.upper Util.random_state
+    ) vars
   in
   Eio.traceln "Optimization start %a" (Array.pp Float.pp) start;
   let res, xopt, fopt = Nlopt.optimize opt start in
@@ -259,6 +320,47 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   Eio.traceln "";
   Eio.traceln "Raw parameters: %a" (Array.pp Float.pp) xopt;
   Eio.traceln "============================";
+  Eio.traceln "";
+
+  (* Find and display the best trade statistics *)
+  Eio.traceln "=== SEARCHING FOR BEST TRADE STATISTICS ===";
+  let best_stats =
+    Saturn.Htbl.to_seq stats_htbl
+    |> Seq.fold_left
+      (fun acc (_iter, entry) ->
+        match acc with
+        | None -> Some entry
+        | Some best ->
+          if Float.compare entry.objective_value best.objective_value > 0 then
+            Some entry
+          else
+            Some best)
+      None
+  in
+
+  (match best_stats with
+  | Some { trade_stats = Some stats; objective_value; final_cash; params = _ } ->
+    Eio.traceln "";
+    Eio.traceln "=== BEST TRADE STATISTICS ===";
+    Eio.traceln "Final Cash: $%.2f" final_cash;
+    Eio.traceln "Objective Value: %.6f" objective_value;
+    Eio.traceln "";
+    Eio.traceln "%s" (State.Stats.TradeStats.to_string stats);
+    Eio.traceln "";
+
+    (* Display edge analysis *)
+    if State.Stats.TradeStats.has_edge stats then
+      Eio.traceln "✓ Strategy has a statistically significant edge!"
+    else
+      Eio.traceln "✗ Strategy does not have a statistically significant edge";
+    Eio.traceln ""
+  | Some { trade_stats = None; final_cash; objective_value; params = _ } ->
+    Eio.traceln "Best iteration had no completed trades";
+    Eio.traceln "Final Cash: $%.2f | Objective: %.6f" final_cash objective_value
+  | None ->
+    Eio.traceln "No statistics available (no iterations completed)");
+
+  Eio.traceln "============================================";
   Eio.traceln "";
 
   Result.return fopt

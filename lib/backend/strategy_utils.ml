@@ -236,6 +236,17 @@ end = struct
       Eio.traceln "@[Reached finished state %d. with %f after %d orders.@]@."
         tick (State.cash state)
         (State.orders_placed state);
+
+      (* Compute and display trade statistics *)
+      let all_orders = State.order_history state in
+      (match Longleaf_state.Stats.TradeStats.compute all_orders with
+      | None -> Eio.traceln "No completed trades to analyze"
+      | Some trade_stats ->
+        Eio.traceln "";
+        Eio.traceln "=== TRADE STATISTICS ===";
+        Eio.traceln "%s" (Longleaf_state.Stats.TradeStats.to_string trade_stats);
+        Eio.traceln "");
+
       (* TODO: get order history length from trading_state *)
       Eio.traceln "state.bars at finish: %a" Bars.pp bars;
       Eio.traceln "Done...";

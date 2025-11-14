@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Card, Button, Alert, Typography, Row, Col, Spin, Form, InputNumber, Input, Badge, message, Tooltip, Radio } from 'antd';
+import { Card, Button, Alert, Typography, Row, Col, Spin, Form, InputNumber, Input, Badge, message, Radio } from 'antd';
 import { PlayCircleOutlined, ReloadOutlined, CloseOutlined, SaveOutlined, FileTextOutlined } from '@ant-design/icons';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { formatError, parseOCamlCLI, toOCamlCLI, parseTarget, toOCamlTarget } from '../utils/oclFormat';
 import { executeStrategy, updateCLI, updateTarget } from '../utils/api';
-import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget, StrategyDetails, PerformanceData } from '../types';
+import type { ServerData, SettingsFormValues, CLIFormData, APIError, ParsedTarget, PerformanceData } from '../types';
 
 const { Title, Text } = Typography;
 
@@ -38,7 +38,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const [saveToFileActive, setSaveToFileActive] = useState<boolean>(false);
   const [precomputeIndicatorsActive, setPrecomputeIndicatorsActive] = useState<boolean>(false);
   const [nowaitMarketOpenActive, setNowaitMarketOpenActive] = useState<boolean>(false);
-  const [strategyTooltips, setStrategyTooltips] = useState<Record<string, StrategyDetails>>({});
   const strategiesPerPage = 12; // 3 columns × 4 rows = 12 strategies per page
 
   const { displayedStrategies, totalPages } = React.useMemo(() => {
@@ -57,56 +56,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     'MultiMontecarlo', 'RandomSliceBacktest', 'MultiRandomSliceBacktest',
     'RandomTickerBacktest', 'MultiRandomTickerBacktest'
   ];
-
-  const fetchStrategyDetails = async (strategyName: string) => {
-    if (strategyTooltips[strategyName]) {
-      return strategyTooltips[strategyName];
-    }
-
-    try {
-      console.log(`[API-STRATEGY] 📡 Fetching details for: ${strategyName}`);
-      const response = await axios.get(`/strategy/${encodeURIComponent(strategyName)}`, { timeout: 5000 });
-      console.log(`[API-STRATEGY] ✅ Got details for: ${strategyName}`);
-      const details = response.data;
-      setStrategyTooltips(prev => ({ ...prev, [strategyName]: details }));
-      return details;
-    } catch (error) {
-      console.error(`[API-STRATEGY] ❌ Failed to fetch ${strategyName}:`, error);
-      return null;
-    }
-  };
-
-  const renderStrategyTooltip = (strategyName: string) => {
-    const details = strategyTooltips[strategyName];
-    
-    if (!details) {
-      return (
-        <div>
-          <div>Loading strategy details...</div>
-        </div>
-      );
-    }
-
-    return (
-      <div>
-        <div><strong>Name:</strong> {details.name}</div>
-        <div><strong>Max Positions:</strong> {details.max_positions}</div>
-        <div><strong>Position Size:</strong> {(details.position_size * 100).toFixed(1)}%</div>
-        <div>
-          <strong>Buy Trigger:</strong>
-          <pre>
-            {details.buy_trigger}
-          </pre>
-        </div>
-        <div>
-          <strong>Sell Trigger:</strong>
-          <pre>
-            {details.sell_trigger}
-          </pre>
-        </div>
-      </div>
-    );
-  };
 
   const fetchPerformanceData = async (includeOrders = true) => {
     setPerformanceLoading(true);
@@ -449,7 +398,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
           <Card title="Server Status">
             {renderStatusDisplay(status)}
             <div>
-              <Badge 
+              <Badge
                 status={serverOnline ? 'success' : 'error'}
                 text={serverOnline ? 'Server Online' : 'Server Offline'}
               />
@@ -457,6 +406,23 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
             <Text type="secondary">
               Last updated: {lastUpdate.toLocaleString()}
             </Text>
+
+            {settings && settings.cli_vars && (
+              <div style={{ marginTop: 16 }}>
+                <Text strong>Current Configuration:</Text>
+                <div style={{ marginTop: 8, fontSize: '12px' }}>
+                  <div><strong>Runtype:</strong> {settings.cli_vars.runtype || 'N/A'}</div>
+                  <div><strong>Strategy:</strong> {settings.cli_vars.strategy_arg || 'N/A'}</div>
+                  <div><strong>Target:</strong> {settings.target || 'N/A'}</div>
+                  <div><strong>Start Index:</strong> {settings.cli_vars.start || 0}</div>
+                  <div><strong>Slippage:</strong> {settings.cli_vars.slippage_pct != null ? `${(settings.cli_vars.slippage_pct * 100).toFixed(1)}%` : 'N/A'}</div>
+                  <div><strong>Random Drop:</strong> {settings.cli_vars.random_drop_chance || 0}%</div>
+                  <div><strong>Stacktrace:</strong> {settings.cli_vars.stacktrace ? 'Yes' : 'No'}</div>
+                  <div><strong>Print Tick:</strong> {settings.cli_vars.print_tick_arg ? 'Yes' : 'No'}</div>
+                  <div><strong>Precompute Indicators:</strong> {settings.cli_vars.precompute_indicators_arg ? 'Yes' : 'No'}</div>
+                </div>
+              </div>
+            )}
           </Card>
         </Col>
         
@@ -725,20 +691,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                       <Row gutter={[8, 8]}>
                         {displayedStrategies.map((strategy: string) => (
                           <Col xs={12} sm={8} md={6} lg={4} key={strategy}>
-                            <Tooltip
-                              title={renderStrategyTooltip(strategy)}
-                              placement="top"
-                              mouseEnterDelay={0.5}
-                              onOpenChange={(visible) => {
-                                if (visible && !strategyTooltips[strategy]) {
-                                  fetchStrategyDetails(strategy);
-                                }
-                              }}
-                            >
-                              <Radio.Button value={strategy} style={{ width: '100%', textAlign: 'center' }}>
-                                {strategy}
-                              </Radio.Button>
-                            </Tooltip>
+                            <Radio.Button value={strategy} style={{ width: '100%', textAlign: 'center' }}>
+                              {strategy}
+                            </Radio.Button>
                           </Col>
                         ))}
                       </Row>

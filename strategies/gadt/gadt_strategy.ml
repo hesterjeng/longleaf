@@ -9,6 +9,7 @@ type t = {
   name : string;
   buy_trigger : bool Gadt.t;
   sell_trigger : bool Gadt.t;
+  score : float Gadt.t;  (* Ranking: higher score = better opportunity *)
   max_positions : int;
   position_size : float;
 }
@@ -25,7 +26,8 @@ let random () =
   in
   let max_positions = 4 in
   let position_size = 0.25 in
-  { name; buy_trigger; sell_trigger; max_positions; position_size }
+  let score = Gadt.Const (1.0, Float) in  (* Default score: all signals equal *)
+  { name; buy_trigger; sell_trigger; score; max_positions; position_size }
 
 module CollectIndicators : sig
   val top : t -> Tacaml.t list
@@ -142,12 +144,25 @@ end = struct
     | Ok should_signal -> Result.return @@ Signal.make symbol should_signal
     | Error e -> Error e
 
+  (* Helper function to evaluate score expressions *)
+  let eval_score (score_expr : float Gadt.t)
+      (state : Longleaf_state.t) symbol =
+    let ( let* ) = Result.( let* ) in
+    let* data = State.data state symbol in
+    let current_index = State.tick state in
+    let positions = State.positions state in
+    let orders = State.Positions.get positions symbol in
+    let context : Gadt.context =
+      { instrument = symbol; data; index = current_index; orders }
+    in
+    Gadt.eval context score_expr
+
   (* Convert GADT strategy to Template-compatible modules *)
-  let gadt_to_buy_trigger (buy_expr : bool Gadt.t) (max_positions : int)
-      (position_size : float) =
+  let gadt_to_buy_trigger (buy_expr : bool Gadt.t) (score_expr : float Gadt.t)
+      (max_positions : int) (position_size : float) =
     let module Buy_input : Longleaf_template.Buy_trigger.INPUT = struct
       let pass state symbol = eval_strategy_signal buy_expr state symbol
-      let score _state _symbol = Result.return 1.0
+      let score state symbol = eval_score score_expr state symbol
       let num_positions = max_positions
       let position_size = position_size
     end in
@@ -162,8 +177,8 @@ end = struct
 
   let top (strategy : t) =
     let buy_trigger =
-      gadt_to_buy_trigger strategy.buy_trigger strategy.max_positions
-        strategy.position_size
+      gadt_to_buy_trigger strategy.buy_trigger strategy.score
+        strategy.max_positions strategy.position_size
     in
     let sell_trigger = gadt_to_sell_trigger strategy.sell_trigger in
     let module StrategyBuilder =

@@ -134,16 +134,29 @@ module Make (Config : CONFIG) = struct
     module Request = Market_data_api.Request
     module Timeframe = Trading_types.Timeframe
 
-    (* Filter bars to only regular trading hours (9:30 AM - 4:00 PM ET) *)
-    (* Massive includes pre-market and after-hours by default *)
+    (* Filter bars to only regular trading hours (9:30 AM - 4:00 PM ET, weekdays only) *)
+    (* Massive includes pre-market, after-hours, and weekend data by default *)
     let is_regular_hours (timestamp : Ptime.t) : bool =
-      (* Get hour and minute in ET timezone *)
-      (* Note: This is simplified - proper handling would convert from UTC to ET *)
+      (* Get hour and minute from timestamp *)
+      (* Note: This assumes timestamps are already in ET - may need adjustment for true UTC *)
       let (_, ((hour, minute, _), _)) = Ptime.to_date_time timestamp in
+
+      (* Check if weekday (Monday=1 to Friday=5) using Zeller's congruence *)
+      let (y, m, d) = Ptime.to_date timestamp in
+      let y = if m < 3 then y - 1 else y in
+      let m = if m < 3 then m + 12 else m in
+      let q = d in
+      let k = y mod 100 in
+      let j = y / 100 in
+      let h = (q + ((13 * (m + 1)) / 5) + k + (k / 4) + (j / 4) - (2 * j)) mod 7 in
+      (* h: 0=Saturday, 1=Sunday, 2=Monday, ..., 6=Friday *)
+      let is_weekday = h >= 2 && h <= 6 in
+
+      (* Check if within regular trading hours: 9:30 AM (570 min) to 4:00 PM (960 min) *)
       let time_minutes = hour * 60 + minute in
-      (* Regular hours: 9:30 AM (570 min) to 4:00 PM (960 min) *)
-      (* This assumes timestamps are already in ET - may need adjustment *)
-      time_minutes >= 570 && time_minutes < 960
+      let is_regular_time = time_minutes >= 570 && time_minutes < 960 in
+
+      is_weekday && is_regular_time
 
     let filter_regular_hours (items : item list) : item list =
       List.filter (fun item ->
@@ -280,6 +293,7 @@ module Make (Config : CONFIG) = struct
 
     (* Align all symbols to a common regular timeline *)
     (* Uses the longest symbol's data as the skeleton timeline *)
+    (* Since data is pre-filtered to regular hours, skeleton only contains weekday 9:30-16:00 bars *)
     let align_to_timeline (data_list : (Instrument.t * Data.t) list) (interval_seconds : float)
         : ((Instrument.t * Data.t) list, Error.t) result =
       let ( let* ) = Result.( let* ) in
@@ -287,8 +301,8 @@ module Make (Config : CONFIG) = struct
       if List.is_empty data_list then
         Result.return data_list
       else begin
-        Eio.traceln "Aligning %d symbols to regular %ds timeline..."
-          (List.length data_list) (int_of_float interval_seconds);
+        Eio.traceln "Aligning %d symbols to regular hours timeline..."
+          (List.length data_list);
 
         (* Find the symbol with the most bars - this becomes our skeleton *)
         let longest_symbol, longest_data =
@@ -303,10 +317,12 @@ module Make (Config : CONFIG) = struct
         let start_time = Data.get longest_data Data.Type.Time 0 in
         let end_time = Data.get longest_data Data.Type.Time (num_bars - 1) in
 
-        Eio.traceln "  Using %a as skeleton (%d bars from %.0f to %.0f)"
-          Instrument.pp longest_symbol num_bars start_time end_time;
+        Eio.traceln "  Using %a as skeleton (%d bars, regular hours only)"
+          Instrument.pp longest_symbol num_bars;
+        Eio.traceln "  Time range: %.0f to %.0f" start_time end_time;
 
-        (* Align each symbol to the regular timeline *)
+        (* Align each symbol to the skeleton's exact timestamps *)
+        (* This preserves the regular-hours-only nature of the filtered data *)
         Result.map_l (fun (instrument, sparse_data) ->
           if Data.size sparse_data = 0 then begin
             Eio.traceln "  WARNING: %a has no data" Instrument.pp instrument;
@@ -322,9 +338,10 @@ module Make (Config : CONFIG) = struct
             let last_valid_idx = ref None in
             let sparse_idx = ref 0 in
 
-            (* For each tick in the regular timeline *)
+            (* For each tick in the skeleton timeline *)
             for aligned_tick = 0 to num_bars - 1 do
-              let target_time = start_time +. (float_of_int aligned_tick *. interval_seconds) in
+              (* Use skeleton's actual timestamp (already filtered to regular hours) *)
+              let target_time = Data.get longest_data Data.Type.Time aligned_tick in
 
               (* Advance sparse_idx past any bars before target_time *)
               let threshold = target_time -. (interval_seconds /. 2.0) in
@@ -364,7 +381,7 @@ module Make (Config : CONFIG) = struct
               Data.set aligned_data Data.Type.Volume aligned_tick (Data.get sparse_data Data.Type.Volume src_idx)
             done;
 
-            Eio.traceln "  %a: aligned %d sparse bars to %d timeline bars"
+            Eio.traceln "  %a: aligned %d sparse bars to %d skeleton bars"
               Instrument.pp instrument sparse_size num_bars;
             Result.return (instrument, aligned_data)
           end

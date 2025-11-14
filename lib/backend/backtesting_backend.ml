@@ -164,10 +164,19 @@ module Make (Input : BACKEND_INPUT) : S = struct
             let side = if qty > 0 then Side.Sell else Side.Buy in
             let abs_qty = Int.abs qty in
             let tick = State.tick prev in
+            let cost_basis = State.cost_basis prev symbol in
+            let profit =
+              if qty > 0 then
+                (* Selling to close long position *)
+                Some ((Float.of_int abs_qty *. last_price) +. cost_basis)
+              else
+                (* Buying to close short position *)
+                Some ((Float.of_int abs_qty *. last_price *. (-1.0)) +. cost_basis)
+            in
             let order : Order.t =
               Order.make ~symbol ~tick ~side ~tif:TimeInForce.GoodTillCanceled
                 ~order_type:OrderType.Market ~qty:abs_qty ~price:last_price
-                ~timestamp ~profit:None ~reason:[ "Liquidate position" ]
+                ~timestamp ~profit ~reason:[ "Liquidate position" ]
             in
             (* Eio.traceln "@[Liquidating %d shares of %a at %f@]@." abs_qty *)
             (*   Instrument.pp symbol last_price; *)

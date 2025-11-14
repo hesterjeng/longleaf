@@ -15,6 +15,7 @@ type t = {
   positions : Positions.t;
   value_history : (Time.t * float) list;
   cash_history : (Time.t * float) list;
+  order_history : Order.t list;
 }
 [@@deriving fields] [@@warning "-69"]
 
@@ -34,6 +35,7 @@ let empty runtype (indicators : Tacaml.t list) : t =
     positions = Positions.empty;
     value_history = [];
     cash_history = [];
+    order_history = [];
   }
 
 let set_tick x current_tick = { x with current_tick }
@@ -41,6 +43,7 @@ let bars x = x.bars
 let value_history x = x.value_history
 let cash_history x = x.cash_history
 let cost_basis x = Positions.cost_basis x.positions
+let order_history x = x.order_history
 
 type 'a res = ('a, Error.t) result
 
@@ -58,6 +61,7 @@ let make current_tick bars indicator_config cash print_tick_arg =
       positions = Positions.empty;
       value_history = [];
       cash_history = [];
+      order_history = [];
     }
 
 let pp : t Format.printer =
@@ -131,6 +135,7 @@ let place_order state0 (order : Order.t) =
           cash = state0.cash -. order_value;
           positions = positions_upd state0;
           orders_placed = state0.orders_placed + 1;
+          order_history = order :: state0.order_history;
         }
       in
       if state0.config.print_tick_arg then
@@ -151,6 +156,7 @@ let place_order state0 (order : Order.t) =
           cash = new_cash;
           positions;
           orders_placed = state0.orders_placed + 1;
+          order_history = order :: state0.order_history;
         }
       in
       if state0.config.print_tick_arg then

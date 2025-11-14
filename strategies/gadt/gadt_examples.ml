@@ -49,6 +49,8 @@ let listener_strategy =
        (* Never buy *)
        sell_trigger = Const (0.0, Float) <. Const (0.0, Float);
        (* Never sell *)
+       score = Const (0.0, Float);
+       (* Score irrelevant - never buys *)
        max_positions = 0;
        (* No positions allowed *)
        position_size = 0.0;
@@ -64,6 +66,7 @@ let stupid =
          >. Const (100.0, Float)
          &&. (Gadt_fo.Constant.rsi 18 () >. Const (40.0, Float));
        sell_trigger = close <. Const (100.0, Float);
+       score = Const (1.0, Float);  (* Simple test strategy - all equal *)
        max_positions = 1;
        position_size = 1.0;
      }
@@ -81,6 +84,7 @@ let dual_sma_rsi =
        sell_trigger =
          Gadt_fo.Variable.sma () <. Gadt_fo.Variable.tema ()
          ||. (Gadt_fo.Variable.rsi () >. Const (70.0, Float));
+       score = Const (100.0, Float) -. Gadt_fo.Variable.rsi ();  (* Lower RSI = higher score *)
        max_positions = 2;
        position_size = 0.5;
      }
@@ -96,6 +100,7 @@ let golden_cross_1 =
        buy_trigger = cross_up (Real.ema 50 ()) (Real.sma 57 ());
        (* Sell when fast EMA crosses below slow SMA *)
        sell_trigger = cross_down (Real.ema 60 ()) (Real.sma 58 ());
+       score = Const (1.0, Float);  (* Simple crossover - all signals equal *)
        max_positions = 1;
        position_size = 1.0;
      }
@@ -113,6 +118,7 @@ let smarsi0 =
     buy_trigger = sma >. tema &&. (rsi <. Const (30.0, Float));
     (* Sell when fast SMA < slow SMA or RSI > 70 (overbought) *)
     sell_trigger = sma <. tema ||. (rsi >. Const (70.0, Float));
+    score = Const (100.0, Float) -. rsi;  (* Lower RSI = higher score *)
     max_positions = 2;
     position_size = 0.5;
   }
@@ -130,6 +136,7 @@ let smarsi1 =
     buy_trigger = sma >. tema &&. (rsi <. Const (30.0, Float));
     (* Sell when fast SMA < slow SMA or RSI > 70 (overbought) *)
     sell_trigger = sma <. tema ||. (rsi >. Const (70.0, Float));
+    score = Const (100.0, Float) -. rsi;  (* Lower RSI = higher score *)
     max_positions = 2;
     position_size = 0.5;
   }
@@ -145,6 +152,7 @@ let golden_cross =
        (* Sell when fast EMA crosses below slow SMA *)
        sell_trigger =
          cross_down (Gadt_fo.Variable.ema ()) (Gadt_fo.Variable.sma ());
+       score = Const (1.0, Float);  (* Simple crossover - all signals equal *)
        max_positions = 1;
        position_size = 1.0;
      }
@@ -160,6 +168,7 @@ let golden_cross_0 =
        buy_trigger = cross_up ema sma;
        (* Sell when fast EMA crosses below slow SMA *)
        sell_trigger = cross_down ema sma;
+       score = Const (1.0, Float);  (* Simple crossover - all signals equal *)
        max_positions = 1;
        position_size = 1.0;
      }
@@ -175,6 +184,7 @@ let plurple =
        buy_trigger = cross_up ema sma;
        (* Sell when fast EMA crosses below SMA *)
        sell_trigger = cross_down ema sma;
+       score = Const (1.0, Float);  (* Simple crossover - all signals equal *)
        max_positions = 8;
        position_size = 0.5;
      }
@@ -190,6 +200,7 @@ let pflurple_kelly =
        buy_trigger = cross_up ema sma;
        (* Sell when fast EMA crosses below slow SMA *)
        sell_trigger = cross_down ema sma;
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 16;
        (* More diversification *)
        position_size = 0.125;
@@ -207,6 +218,7 @@ let pflurple_conservative =
        buy_trigger = cross_up ema sma;
        (* Sell when fast EMA crosses below slow SMA *)
        sell_trigger = cross_down ema sma;
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 20;
        (* Maximum diversification *)
        position_size = 0.08;
@@ -225,6 +237,7 @@ let pflurple_enhanced =
        (* Sell when EMA crosses below SMA OR momentum turns negative *)
        sell_trigger =
          cross_down ema sma ||. (Real.mom 10 () <. Const (-1.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 12;
        position_size = 0.15;
        (* 15% per position = 180% max allocation *)
@@ -243,6 +256,7 @@ let mean_reversion_lag =
          close
          >. lag (Real.sma 20 ()) 3
          ||. (Real.rsi 14 () >. Const (75.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 3;
        position_size = 0.33;
      }
@@ -262,6 +276,7 @@ let bollinger_breakout =
          close
          <. Real.middle_bband 20 2.0 2.0 ()
          ||. (Real.mom 10 () <. Const (-1.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 2;
        position_size = 0.6;
      }
@@ -281,6 +296,7 @@ let triple_crossover =
          Real.ema 12 () <. Real.sma 26 ()
          ||. (Real.sma 26 () <. Real.tema 50 ())
          ||. (volume <. lag volume 20);
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 1;
        position_size = 0.8;
      }
@@ -300,6 +316,7 @@ let momentum_divergence =
          Real.mom 10 ()
          <. lag (Real.mom 10 ()) 2
          ||. (close >. lag close 10 +. Const (2.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 2;
        position_size = 0.4;
      }
@@ -313,6 +330,7 @@ let adaptive_channels =
        buy_trigger = close >. Real.sma 20 () +. Real.atr 14 ();
        (* Sell when price breaks below SMA - ATR channel *)
        sell_trigger = close <. Real.sma 20 () -. Real.atr 14 ();
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 1;
        position_size = 1.0;
      }
@@ -332,6 +350,7 @@ let contrarian_spike =
          close
          >. lag (Real.sma 20 ()) 1
          ||. (Real.rsi 14 () >. Const (80.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 4;
        position_size = 0.25;
      }
@@ -349,6 +368,7 @@ let rsi_divergence_crossover =
        sell_trigger =
          cross_down (Real.rsi 14 ()) (Const (70.0, Float))
          ||. cross_down (Gadt_fo.Variable.ema ()) (Gadt_fo.Variable.sma ());
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 2;
        position_size = 0.5;
      }
@@ -369,6 +389,7 @@ let macd_momentum_lag =
          Real.macd_macd 12 26 9 ()
          <. Real.macd_signal 12 26 9 ()
          ||. (close <. lag (Real.sma 20 ()) 3);
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 1;
        position_size = 0.8;
      }
@@ -386,6 +407,7 @@ let stochastic_crossover_volume =
        sell_trigger =
          cross_down (Real.stoch_slow_k 14 3 3 ()) (Real.stoch_slow_d 14 3 3 ())
          ||. (volume <. lag volume 20 /. Const (2.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 3;
        position_size = 0.33;
      }
@@ -404,6 +426,7 @@ let williams_r_reversal =
        (* Sell when Williams %R overbought or price above lagged high *)
        sell_trigger =
          Real.willr 14 () >. Const (-20.0, Float) ||. (close >. lag high 2);
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 2;
        position_size = 0.6;
      }
@@ -423,6 +446,7 @@ let triple_ema_crossover =
          Real.ema 12 () <. Real.tema 26 ()
          ||. (Real.tema 26 () <. Real.dema 50 ())
          ||. cross_down (Real.ema 12 ()) (Real.tema 26 ());
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 1;
        position_size = 0.9;
      }
@@ -443,6 +467,7 @@ let cci_overbought_oversold =
          Real.cci 14 ()
          >. Const (100.0, Float)
          ||. cross_down (Real.mom 10 ()) (Const (0.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 2;
        position_size = 0.5;
      }
@@ -461,6 +486,7 @@ let aroon_trend_following =
        sell_trigger =
          Real.aroon_down 14 () >. Real.aroon_up 14 ()
          ||. (Real.aroon_osc 14 () <. Const (-50.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 1;
        position_size = 0.8;
      }
@@ -479,6 +505,7 @@ let parabolic_sar_trend =
        sell_trigger =
          cross_down close (Real.sar 0.02 0.2 ())
          ||. (Real.adx 14 () <. Const (20.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 1;
        position_size = 1.0;
      }
@@ -499,6 +526,7 @@ let multi_timeframe_rsi =
          Real.rsi 14 ()
          >. Const (70.0, Float)
          ||. (lag (Real.rsi 14 ()) 5 <. lag (Real.rsi 14 ()) 15);
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 3;
        position_size = 0.4;
      }
@@ -517,6 +545,7 @@ let roc_momentum_cross =
        sell_trigger =
          cross_down (Real.roc 10 ()) (lag (Real.roc 10 ()) 5)
          ||. (Real.roc 10 () <. Const (-2.0, Float));
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 2;
        position_size = 0.5;
      }
@@ -530,6 +559,7 @@ let always_trading =
        buy_trigger = close >. Const (0.0, Float);
        (* Always sell - price is always >= 0 *)
        sell_trigger = close >. Const (0.0, Float);
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 10;
        (* Hold up to 10 positions *)
        position_size = 0.10;
@@ -575,6 +605,7 @@ let mean_reversion_1min =
          (last >. bb_middle)  (* Price returned to mean *)
          ||. (rsi_2 >. Const (70.0, Float))  (* Overbought *)
          ||. (last >. bb_upper);  (* Overshot to upper band *)
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -645,6 +676,7 @@ let mean_reversion_opt =
          (last >. bb_middle_var)
          ||. (rsi_var >. Const (70.0, Float))
          ||. (last >. bb_upper_var);
+       score = Const (100.0, Float) -. rsi_var;  (* Lower RSI = higher score *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -677,6 +709,7 @@ let mean_reversion_8_27 =
          (last >. bb_middle_27)
          ||. (rsi_8 >. Const (70.0, Float))
          ||. (last >. bb_upper_27);
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -710,6 +743,7 @@ let mean_reversion_8_27_safe =
          ||. stop_loss 0.02       (* 2% stop-loss *)
          ||. profit_target 0.05   (* 5% profit target *)
          ||. max_holding_time 60; (* 60 minutes max hold *)
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -720,10 +754,10 @@ let mean_reversion_8_27_safe =
     Indicator periods and thresholds are variables; risk management is fixed.
 
     Variables to optimize (4 total):
-    1. rsi_period: [5, 15] - RSI lookback period
-    2. bb_period: [15, 35] - Bollinger Band period
-    3. rsi_oversold: [20.0, 35.0] - RSI buy threshold
-    4. rsi_overbought: [65.0, 80.0] - RSI sell threshold
+    1. rsi_period: [5, 30] - RSI lookback period (wider to find slow RSI like CosmicCowgirl)
+    2. bb_period: [15, 60] - Bollinger Band period (wider to allow longer bands)
+    3. rsi_oversold: [20.0, 40.0] - RSI buy threshold
+    4. rsi_overbought: [60.0, 85.0] - RSI sell threshold
 
     Fixed risk management:
     - 2% stop-loss
@@ -735,10 +769,10 @@ let mean_reversion_8_27_safe =
 *)
 let mean_reversion_safe_opt =
   (* Create variables for optimizable parameters *)
-  let rsi_period_var = Gadt_fo.var Gadt.Type.Int in       (* Variable 1: RSI period *)
-  let bb_period_var = Gadt_fo.var Gadt.Type.Int in        (* Variable 2: BB period *)
-  let rsi_oversold_var = Gadt_fo.var Gadt.Type.Float in   (* Variable 3: RSI oversold threshold *)
-  let rsi_overbought_var = Gadt_fo.var Gadt.Type.Float in (* Variable 4: RSI overbought threshold *)
+  let rsi_period_var = Gadt_fo.var ~lower:5.0 ~upper:30.0 Gadt.Type.Int in       (* Variable 1: RSI period *)
+  let bb_period_var = Gadt_fo.var ~lower:15.0 ~upper:60.0 Gadt.Type.Int in        (* Variable 2: BB period *)
+  let rsi_oversold_var = Gadt_fo.var ~lower:20.0 ~upper:40.0 Gadt.Type.Float in   (* Variable 3: RSI oversold threshold *)
+  let rsi_overbought_var = Gadt_fo.var ~lower:60.0 ~upper:85.0 Gadt.Type.Float in (* Variable 4: RSI overbought threshold *)
 
   (* Create indicators with variable parameters *)
   let rsi_var =
@@ -781,6 +815,7 @@ let mean_reversion_safe_opt =
          ||. stop_loss 0.02       (* 2% stop-loss *)
          ||. profit_target 0.05   (* 5% profit target *)
          ||. max_holding_time 60; (* 60 minutes max hold *)
+       score = Const (100.0, Float) -. rsi_var;  (* Lower RSI = higher score *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -840,6 +875,7 @@ let rocket_reef =
          ||. stop_loss 0.02       (* 2% stop-loss *)
          ||. profit_target 0.05   (* 5% profit target *)
          ||. max_holding_time 60; (* 60 minutes max hold *)
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -869,6 +905,7 @@ let rocket_reef_day_only =
          ||. stop_loss 0.02
          ||. profit_target 0.05
          ||. max_holding_time 60;
+       score = Const (1.0, Float);  (* Default score *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -970,6 +1007,7 @@ let rocket_reef_day_only_opt =
          ||. stop_loss_var_risk
          ||. profit_target_var_risk
          ||. max_hold_var_risk;
+       score = Const (100.0, Float) -. rsi_var;  (* Lower RSI = higher score *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -1065,6 +1103,7 @@ let rocket_reef_stoch_opt =
          ||. stop_loss 0.02       (* 2% stop-loss *)
          ||. profit_target 0.05   (* 5% profit target *)
          ||. max_holding_time 60; (* 60 minutes max hold *)
+       score = Const (100.0, Float) -. rsi_var;  (* Lower RSI = higher score *)
        max_positions = 10;
        position_size = 0.10;
      }
@@ -1122,6 +1161,7 @@ let stochness =
       ||. stop_loss 0.02
       ||. profit_target 0.05
       ||. max_holding_time 60;
+    score = Const (1.0, Float);  (* Default score *)
     max_positions = 10;
     position_size = 0.10;
   }
@@ -1181,6 +1221,7 @@ let stochness_monster =
       ||. stop_loss 0.02
       ||. profit_target 0.05
       ||. max_holding_time 60;
+    score = Const (1.0, Float);  (* Default score *)
     max_positions = 10;
     position_size = 0.10;
   }
@@ -1219,6 +1260,7 @@ let rr1_0 =
       ||. (last <. (EntryPrice *. Const (0.59677297, Float)))  (* 40.3% stop loss *)
       ||. (last >. (EntryPrice *. Const (1.37123664, Float)))  (* 37.1% profit target *)
       ||. App2 (Fun (">", (>)), TicksHeld, Const (58, Int));
+    score = Const (1.0, Float);  (* Default score *)
     max_positions = 10;
     position_size = 0.10;
   }
@@ -1261,6 +1303,7 @@ let deep_reef =
       ||. (last <. (EntryPrice -. Const (1.0, Float) *. Const (51.904005, Float)))
       ||. (last >. (EntryPrice +. Const (1.0, Float) *. Const (82.403944, Float)))
       ||. App2 (Fun (">", (>)), TicksHeld, Const (55, Int));
+    score = Const (1.0, Float);  (* Default score *)
     max_positions = 10;
     position_size = 0.10;
   }
@@ -1364,6 +1407,7 @@ let trend_rider_opt =
       ||. stop_loss_var_risk               (* Variable stop *)
       ||. profit_target_var_risk           (* Variable target *)
       ||. max_holding_time 120;            (* 120 ticks max *)
+    score = adx;  (* Higher ADX = stronger trend = higher score *)
     max_positions = 5;     (* Fewer positions for trend riding *)
     position_size = 0.20;  (* 20% per position *)
   }
@@ -1418,6 +1462,7 @@ let slow_glide =
       ||. (last <. (EntryPrice -. Const (1.0, Float) *. Const (14.087366, Float)))
       ||. (last >. (EntryPrice +. Const (1.0, Float) *. Const (36.540345, Float)))
       ||. max_holding_time 120;
+    score = Const (1.0, Float);  (* Default score *)
     max_positions = 5;
     position_size = 0.20;
   }
@@ -1480,6 +1525,7 @@ let quick_snap =
       ||. (last <. (EntryPrice -. Const (1.0, Float) *. Const (84.109595, Float)))
       ||. (last >. (EntryPrice +. Const (1.0, Float) *. Const (60.904661, Float)))
       ||. max_holding_time 88;
+    score = Const (1.0, Float);  (* Default score *)
     max_positions = 10;
     position_size = 0.10;
   }
@@ -1582,6 +1628,7 @@ let professional_mean_rev_opt =
       ||. (exit_rsi >. exit_rsi_threshold)          (* Momentum positive *)
       ||. stop_loss 0.025                            (* 2.5% stop (fixed) *)
       ||. max_holding_time 90;                       (* 90 ticks (fixed) *)
+    score = Const (100.0, Float) -. entry_rsi;  (* Lower entry RSI = higher score *)
     max_positions = 10;
     position_size = 0.10;
   }
@@ -1645,6 +1692,7 @@ let cosmic_cowgirl_25_52_90 =
       ||. (exit_rsi_90 >. Const (79.021591, Float))      (* Very patient exit *)
       ||. stop_loss 0.025                                 (* 2.5% stop *)
       ||. max_holding_time 90;                            (* 90 ticks *)
+    score = Const (1.0, Float);  (* Default score *)
     max_positions = 10;
     position_size = 0.10;
   }
@@ -1714,6 +1762,388 @@ let sharp_entry_patient_exit =
       ||. (exit_rsi_98 >. Const (90.309677, Float))
       ||. stop_loss 0.025
       ||. max_holding_time 90;
+    score = Const (1.0, Float);  (* Default score *)
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
+(** PatientEntry_77_46 - Optimized ProfessionalMeanRev (Glacial Entry, Medium Exit)
+
+    Result from ISRES optimization: 102,977.71 (2.56% return - best so far!)
+
+    Optimized parameters reveal an inverse "patient entry" pattern:
+    - Entry RSI: 77 (EXTREMELY long - smoothest entry signal)
+    - Entry RSI threshold: 39.72 (moderate oversold)
+    - Entry BB: 97 (VERY LONG - most stable bands)
+    - Exit RSI: 46 (medium-speed for exits)
+    - Exit RSI threshold: 74.27 (overbought)
+    - Exit BB: 80 (long but faster than entry)
+
+    The Strategy's Character:
+    "Wait for glacially smooth, deeply confirmed dips. Exit on medium-term strength."
+
+    Key Innovation - Inverse of CosmicCowgirl:
+    CosmicCowgirl used fast entry (RSI 25) with patient exit (RSI 90).
+    PatientEntry does the opposite: patient entry (RSI 77) with medium exit (RSI 46).
+
+    The 77-period RSI for entry is the longest among all optimized strategies.
+    This filters out ALL noise - only entering on very confirmed, smooth oversold
+    conditions. Combined with 97-period BBs, it catches only the deepest,
+    most stable dips.
+
+    Entry Logic (Glacial, 97-period bands):
+    - RSI(77) dips below 39.72 (very smooth oversold signal)
+    - Price touches lower BB(97) (extremely stable reference)
+    - Safe to enter (not near market close)
+
+    Exit Logic (Medium-speed, 80-period bands):
+    - Force exit near close (no overnight)
+    - Price > middle BB(80) (long-term mean reversion)
+    - RSI(46) > 74.27 (medium-term momentum reversal)
+    - 2.5% stop loss (tight risk control)
+    - 90 tick max hold
+
+    Performance Edge:
+    Slightly outperforms all other variants (102,977 vs 102,515 for SharpEntry).
+    The glacially smooth entry appears to reduce false signals and improve
+    entry quality, even though it means fewer trades overall.
+
+    Philosophy:
+    "The patient hunter waits for the perfect shot, not just any shot."
+*)
+let patient_entry_77_46 =
+  (* Entry indicators - glacially smooth *)
+  let entry_rsi_77 = Real.rsi 77 () in
+  let entry_bb_lower_97 = Real.lower_bband 97 2.0 2.0 () in
+
+  (* Exit indicators - medium-term *)
+  let exit_rsi_46 = Real.rsi 46 () in
+  let exit_bb_middle_80 = Real.middle_bband 80 2.0 2.0 () in
+
+  register @@ {
+    name = "PatientEntry_77_46";
+    (* Entry: Wait for extremely smooth, confirmed dips *)
+    buy_trigger =
+      (entry_rsi_77 <. Const (39.724033, Float))
+      &&. (last <. entry_bb_lower_97)
+      &&. safe_to_enter ();
+    (* Exit: Medium-speed mean reversion *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. exit_bb_middle_80)
+      ||. (exit_rsi_46 >. Const (74.271530, Float))
+      ||. stop_loss 0.025
+      ||. max_holding_time 90;
+    score = Const (100.0, Float) -. entry_rsi_77;  (* Lower RSI = higher score *)
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
+(** VolatilityBreakout_Opt - Catch Volatile Bursts with Volume Confirmation
+
+    THESIS: Market grows in bursts concentrated in few stocks. Volatility expansion
+    + volume surge identifies these "winner" stocks before major moves.
+
+    This strategy combines:
+    1. ATR (Average True Range) to measure volatility expansion
+    2. Volume surge detection to confirm institutional interest
+    3. RSI to avoid chasing overbought rallies
+    4. Bollinger Bands to gauge price extension
+
+    Variables to optimize (6 total):
+    1. atr_period: [10, 25] - ATR lookback for volatility measurement
+    2. atr_threshold: [1.2, 2.5] - How much ATR expansion required (multiplier)
+    3. volume_surge: [1.3, 2.5] - Volume multiplier vs recent average
+    4. rsi_period: [10, 30] - RSI period for momentum filter
+    5. rsi_max: [60.0, 85.0] - Maximum RSI for entry (avoid chasing)
+    6. bb_period: [15, 40] - Bollinger Band period for context
+
+    Entry Logic - "Volatility + Volume = Winner Stock":
+    - ATR(var1) > var2 * ATR_lagged (volatility expanding)
+    - Volume > var3 * Volume_lagged (volume surge - institutions entering)
+    - RSI(var4) < var5 (not yet overbought - room to run)
+    - Price > Middle BB (in uptrend, not catching falling knives)
+    - Safe to enter (not near close)
+
+    Exit Logic - "Volatility Fades or Risk Limits Hit":
+    - Force exit EOD (no overnight risk in skittish market)
+    - ATR contracts (volatility fading - move exhausted)
+    - Volume dries up (institutions exiting)
+    - 2.5% stop loss (tight risk control)
+    - 8% profit target (realistic for volatile bursts)
+    - 90 tick max hold
+
+    Why this works for your thesis:
+    - Catches concentrated growth in "few winner stocks" via volume + volatility
+    - Enters during expansion, exits when burst fades
+    - Avoids dead money in non-volatile stocks
+*)
+let volatility_breakout_opt =
+  (* Variables for optimization *)
+  let atr_period = Gadt_fo.var Gadt.Type.Int in          (* Var 1 *)
+  let atr_threshold = Gadt_fo.var Gadt.Type.Float in     (* Var 2 *)
+  let volume_surge = Gadt_fo.var Gadt.Type.Float in      (* Var 3 *)
+  let rsi_period = Gadt_fo.var Gadt.Type.Int in          (* Var 4 *)
+  let rsi_max = Gadt_fo.var Gadt.Type.Float in           (* Var 5 *)
+  let bb_period = Gadt_fo.var Gadt.Type.Int in           (* Var 6 *)
+
+  (* Create ATR indicator *)
+  let atr =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.atr", Tacaml.Indicator.Raw.atr), atr_period)))
+  in
+  let atr_lagged = lag atr 10 in  (* Compare to 10-period ago *)
+
+  (* Create RSI indicator *)
+  let rsi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period)))
+  in
+
+  (* Create Bollinger Band middle for trend context *)
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+
+  (* Volume comparisons *)
+  let volume_lagged = lag volume 10 in
+
+  register @@ {
+    name = "VolatilityBreakout_Opt";
+    (* Entry: Volatility expansion + volume surge + room to run *)
+    buy_trigger =
+      (atr >. (atr_lagged *. atr_threshold))      (* Volatility expanding *)
+      &&. (volume >. (volume_lagged *. volume_surge))  (* Volume surge *)
+      &&. (rsi <. rsi_max)                         (* Not overbought *)
+      &&. (last >. bb_middle)                      (* In uptrend *)
+      &&. safe_to_enter ();
+    (* Exit: Volatility/volume fade or risk limits *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (atr <. atr_lagged)                      (* Volatility contracting *)
+      ||. (volume <. (volume_lagged *. Const (0.7, Float)))  (* Volume dying *)
+      ||. stop_loss 0.025                           (* 2.5% stop *)
+      ||. profit_target 0.08                        (* 8% target *)
+      ||. max_holding_time 90;
+    score = atr *. volume;  (* Higher volatility * volume = higher score *)
+    max_positions = 8;   (* Concentrate on fewer "winner" stocks *)
+    position_size = 0.125;  (* 12.5% per position *)
+  }
+
+(** MomentumVolume_Opt - Pure Momentum with Volume Confirmation
+
+    THESIS: Growth is concentrated in historically performing stocks. Buy strength
+    with volume confirmation (institutions piling in), exit on momentum fade.
+
+    This is NOT mean reversion - this buys rising stocks and rides momentum.
+
+    Variables to optimize (6 total):
+    1. fast_ema_period: [8, 20] - Fast EMA for momentum
+    2. slow_ema_period: [20, 50] - Slow EMA for trend
+    3. rsi_period: [10, 25] - RSI period
+    4. rsi_min: [50.0, 70.0] - Minimum RSI (buy strength, not weakness)
+    5. volume_surge: [1.2, 2.0] - Volume surge multiplier
+    6. adx_period: [10, 20] - ADX for trend strength
+
+    Entry Logic - "Buy the Winners":
+    - Fast EMA > Slow EMA (uptrend established)
+    - RSI(var3) > var4 (buying strength, not dips!)
+    - Volume > var5 * lagged volume (institutions entering)
+    - ADX(var6) > 25 (strong trend, not choppy)
+    - Safe to enter
+
+    Exit Logic - "Momentum Fades":
+    - Force exit EOD
+    - Fast EMA < Slow EMA (trend breaking)
+    - RSI drops below 45 (momentum fading)
+    - Volume dries up
+    - 3% stop loss
+    - 10% profit target
+    - 120 tick max hold (longer for momentum rides)
+
+    Why this works for your thesis:
+    - Identifies "historically performing stocks" via EMA crossover + strong volume
+    - Buys concentrated winners, not diversified mediocrity
+    - Momentum + volume = institutional accumulation in growth leaders
+*)
+let momentum_volume_opt =
+  (* Variables *)
+  let fast_ema_period = Gadt_fo.var Gadt.Type.Int in     (* Var 1 *)
+  let slow_ema_period = Gadt_fo.var Gadt.Type.Int in     (* Var 2 *)
+  let rsi_period = Gadt_fo.var Gadt.Type.Int in          (* Var 3 *)
+  let rsi_min = Gadt_fo.var Gadt.Type.Float in           (* Var 4 *)
+  let volume_surge = Gadt_fo.var Gadt.Type.Float in      (* Var 5 *)
+  let adx_period = Gadt_fo.var Gadt.Type.Int in          (* Var 6 *)
+
+  (* Create EMAs *)
+  let fast_ema =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), fast_ema_period)))
+  in
+  let slow_ema =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), slow_ema_period)))
+  in
+
+  (* Create RSI *)
+  let rsi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period)))
+  in
+
+  (* Create ADX *)
+  let adx =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period)))
+  in
+
+  let volume_lagged = lag volume 10 in
+
+  register @@ {
+    name = "MomentumVolume_Opt";
+    (* Entry: Buy strength with volume confirmation *)
+    buy_trigger =
+      (fast_ema >. slow_ema)                        (* Uptrend *)
+      &&. (rsi >. rsi_min)                          (* Strength, not weakness! *)
+      &&. (volume >. (volume_lagged *. volume_surge))  (* Volume surge *)
+      &&. (adx >. Const (25.0, Float))              (* Strong trend *)
+      &&. safe_to_enter ();
+    (* Exit: Momentum fades *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (fast_ema <. slow_ema)                    (* Trend breaks *)
+      ||. (rsi <. Const (45.0, Float))              (* Momentum fading *)
+      ||. (volume <. (volume_lagged *. Const (0.6, Float)))
+      ||. stop_loss 0.03                             (* 3% stop *)
+      ||. profit_target 0.10                         (* 10% target *)
+      ||. max_holding_time 120;
+    score = rsi *. (volume /. volume_lagged);  (* Higher RSI * volume surge = higher score *)
+    max_positions = 6;    (* Concentrate in winners *)
+    position_size = 0.167;  (* ~16.7% per position *)
+  }
+
+(** VolatileDip_Opt - Mean Reversion in Volatile Winners (FIXED v2)
+
+    THESIS: Even "winner stocks" have intraday dips. Buy dips in volatile,
+    high-volume stocks (the winners), expecting quick mean reversion.
+
+    This combines mean reversion ENTRY with momentum/volatility FILTERS.
+
+    FIXES from v1:
+    - Changed from "ATR expansion" to "absolute ATR threshold" (avoid extreme multipliers)
+    - Changed from "volume surge" to "above average volume" (more stable)
+    - Changed from EMA(20) to variable SMA for trend (more generous, optimizable)
+    - Separates stock selection (filters) from entry timing (signals)
+
+    Variables to optimize (7 total):
+    1. rsi_period: [5, 20] - RSI for dip detection
+    2. rsi_oversold: [20.0, 40.0] - Oversold threshold
+    3. bb_period: [10, 30] - BB for reactive entry
+    4. atr_period: [10, 25] - ATR calculation period
+    5. atr_threshold: [0.3, 2.5] - Absolute minimum ATR (not multiplier!)
+    6. volume_multiplier: [1.0, 2.5] - Volume vs 20-lag baseline (capped at 2.5x)
+    7. trend_sma_period: [30, 80] - Longer-term trend filter
+
+    Entry Logic - "Dip in a Volatile, High-Volume Winner":
+    FILTERS (identify "winner stocks"):
+    - ATR(var4) > var5 (absolute threshold - stock is volatile enough)
+    - Volume > lag(volume, 20) * var6 (above baseline volume, capped multiplier)
+    - Price > SMA(var7) (longer-term uptrend context - generous)
+
+    ENTRY SIGNALS (mean reversion):
+    - RSI(var1) < var2 (temporary dip)
+    - Price < lower BB(var3) (oversold short-term)
+    - Safe to enter
+
+    Exit Logic - "Quick Mean Reversion":
+    - Force exit EOD
+    - Price > middle BB (dip recovered)
+    - RSI > 65 (momentum normalized)
+    - 2% stop loss (tight, this should bounce quickly)
+    - 6% profit target
+    - 60 tick max hold (quick reversions)
+
+    Why this works for your thesis:
+    - Filters for volatile, high-volume stocks (the "winners")
+    - Buys temporary dips in these winners
+    - Expects quick mean reversion in fundamentally strong stocks
+    - Doesn't waste capital on dead/low-volatility stocks
+    - Fixed geometry: no contradiction between uptrend filter and oversold entry
+*)
+let volatile_dip_opt =
+  (* Variables with explicit bounds for optimizer *)
+  let rsi_period = Gadt_fo.var ~lower:5.0 ~upper:20.0 Gadt.Type.Int in
+  let rsi_oversold = Gadt_fo.var ~lower:20.0 ~upper:40.0 Gadt.Type.Float in
+  let bb_period = Gadt_fo.var ~lower:10.0 ~upper:30.0 Gadt.Type.Int in
+  let atr_period = Gadt_fo.var ~lower:10.0 ~upper:25.0 Gadt.Type.Int in
+  let atr_threshold = Gadt_fo.var ~lower:0.3 ~upper:2.5 Gadt.Type.Float in  (* Absolute threshold, not multiplier! *)
+  let volume_multiplier = Gadt_fo.var ~lower:1.0 ~upper:2.5 Gadt.Type.Float in  (* Capped at 2.5x *)
+  let trend_sma_period = Gadt_fo.var ~lower:30.0 ~upper:80.0 Gadt.Type.Int in
+
+  (* Create RSI *)
+  let rsi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period)))
+  in
+
+  (* Create Bollinger Bands *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period,
+        Const (2.0, Float),
+        Const (2.0, Float))))
+  in
+
+  (* Create ATR for volatility filter - absolute threshold, not expansion *)
+  let atr =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.atr", Tacaml.Indicator.Raw.atr), atr_period)))
+  in
+
+  (* Create variable-period SMA for trend filter (more generous than EMA(20)) *)
+  let trend_sma =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+      App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), trend_sma_period)))
+  in
+
+  (* Volume: Use simple lagged comparison (stable baseline)
+     We compare current volume to volume 20 periods ago, multiplied by threshold.
+     This is simpler than trying to compute SMA of volume. *)
+  let volume_baseline = lag volume 20 in
+
+  register @@ {
+    name = "VolatileDip_Opt";
+    (* Entry: Dip in a volatile, high-volume winner *)
+    buy_trigger =
+      (* FILTERS: Identify "winner stocks" *)
+      (atr >. atr_threshold)                                  (* Absolute volatility threshold *)
+      &&. (volume >. (volume_baseline *. volume_multiplier))  (* Above baseline volume (capped) *)
+      &&. (last >. trend_sma)                                 (* Longer-term uptrend (generous) *)
+      (* ENTRY SIGNALS: Mean reversion *)
+      &&. (rsi <. rsi_oversold)                         (* Temporary dip *)
+      &&. (last <. bb_lower)                            (* Oversold short-term *)
+      &&. safe_to_enter ();
+    (* Exit: Quick mean reversion *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle)                           (* Recovered to mean *)
+      ||. (rsi >. Const (65.0, Float))                  (* Momentum normalized *)
+      ||. stop_loss 0.02                                (* 2% stop *)
+      ||. profit_target 0.06                            (* 6% target *)
+      ||. max_holding_time 60;                          (* Quick exit *)
+    score = (Const (100.0, Float) -. rsi) *. atr;  (* Lower RSI * higher volatility = higher score *)
     max_positions = 10;
     position_size = 0.10;
   }
