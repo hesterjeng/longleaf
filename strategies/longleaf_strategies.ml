@@ -7,11 +7,12 @@ module Gadt_strategy = Longleaf_gadt.Gadt_strategy
 
 (** GADT Strategy Registry All strategies are now defined as Gadt.strategy
     records. To add a new strategy, simply add it to this list. *)
-let gadt_strategies : (string * Gadt_strategy.t) list =
-  List.map (fun s -> (s.Gadt_strategy.name, s)) Gadt_examples.all_strategies
+let gadt_strategies : unit -> (string * Gadt_strategy.t) list =
+  fun () ->
+  List.map (fun s -> (s.Gadt_strategy.name, s)) !Gadt_examples.all_strategies
 
 (** Get all available strategy names *)
-let all_strategy_names = List.map fst gadt_strategies
+let all_strategy_names = List.map fst @@ gadt_strategies ()
 
 (** Find a GADT strategy by name *)
 let rec find_gadt_strategy name = function
@@ -25,7 +26,7 @@ let find_gadt_strategy name =
   | "Random"
   | "R0" ->
     Some (Gadt_strategy.random ())
-  | _ -> find_gadt_strategy name gadt_strategies
+  | _ -> find_gadt_strategy name @@ gadt_strategies ()
 
 module Run = struct
   module Target = Longleaf_core.Target
