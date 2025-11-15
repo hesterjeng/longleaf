@@ -154,7 +154,7 @@ let handler env _conn request body =
   (* GET /strategies - List all strategies *)
   | `GET, "/strategies" ->
     Result.return @@
-    (List.map (fun x -> `String x) Longleaf_strategies.all_strategy_names
+    (List.map (fun x -> `String x) (Longleaf_strategies.all_strategy_names ())
      |> fun x -> `List x |> Yojson.Safe.to_string |> respond_json)
 
   (* GET /strategy/:name - Get strategy details *)
@@ -334,7 +334,7 @@ let handler env _conn request body =
     let strategy_arg =
       Yojson.Safe.from_string body_string |> Yojson.Safe.Util.to_string
     in
-    let strategies_loaded = Longleaf_strategies.all_strategy_names in
+    let strategies_loaded = Longleaf_strategies.all_strategy_names () in
     let* () = match List.mem strategy_arg strategies_loaded with
     | true ->
       let cli = { Settings.settings.cli_vars with strategy_arg } in

@@ -3,10 +3,26 @@
 open Gadt
 open Gadt_strategy
 
-(* Use the register function from Gadt_examples to keep all strategies in one registry *)
-let register = Gadt_examples.register
-
 module Real = Gadt_fo.Constant
+
+(* Helper functions from gadt_examples *)
+let stop_loss stop_loss_pct : bool Gadt.t =
+  let multiplier = Float.((-) 1.0 stop_loss_pct) in
+  last <. (EntryPrice *. Const (multiplier, Float))
+
+let profit_target profit_target_pct : bool Gadt.t =
+  let multiplier = Float.((+) 1.0 profit_target_pct) in
+  last >. (EntryPrice *. Const (multiplier, Float))
+
+let max_holding_time max_ticks : bool Gadt.t =
+  let max_ticks_expr = Const (max_ticks, Int) in
+  App2 (Fun (">", (>)), TicksHeld, max_ticks_expr)
+
+let safe_to_enter ?(close_buffer=10.0) () : bool Gadt.t =
+  App1 (Fun ("not", not), is_close TickTime (Const (close_buffer, Float)))
+
+let force_exit_eod ?(close_buffer=10.0) () : bool Gadt.t =
+  is_close TickTime (Const (close_buffer, Float))
 
 (**
   Estridatter - Optimized Mean Reversion Strategy
@@ -58,9 +74,8 @@ let estridatter =
   let stop_loss_multiplier = Float.((-) 1.0 stop_loss_pct) in  (* 0.98 *)
   let take_profit_multiplier = Float.((+) 1.0 take_profit_pct) in  (* 1.05 *)
 
-  register
-  @@ {
-       name = "Estridatter";
+  {
+    name = "Estridatter";
 
        (* Entry: RSI < 39.01 AND Price < Lower BB(48) *)
        buy_trigger =
@@ -135,7 +150,7 @@ let cosmic_cowgirl_25_52_90 =
   let exit_rsi_90 = Real.rsi 90 () in
   let exit_bb_middle_84 = Real.middle_bband 84 2.0 2.0 () in
 
-  register @@ {
+  {
     name = "CosmicCowgirl_25_52_90";
     (* Entry: Moderate oversold on stable indicators *)
     buy_trigger =
@@ -205,7 +220,7 @@ let sharp_entry_patient_exit =
   let exit_rsi_98 = Real.rsi 98 () in
   let exit_bb_middle_60 = Real.middle_bband 60 2.0 2.0 () in
 
-  register @@ {
+  {
     name = "SharpEntry_PatientExit_50_16_98";
     (* Entry: Reactive to sharp dips *)
     buy_trigger =
@@ -277,7 +292,7 @@ let patient_entry_77_46 =
   let exit_rsi_46 = Real.rsi 46 () in
   let exit_bb_middle_80 = Real.middle_bband 80 2.0 2.0 () in
 
-  register @@ {
+  {
     name = "PatientEntry_77_46";
     (* Entry: Wait for extremely smooth, confirmed dips *)
     buy_trigger =
@@ -369,7 +384,7 @@ let volatility_breakout_opt =
   (* Volume comparisons *)
   let volume_lagged = lag volume 10 in
 
-  register @@ {
+  {
     name = "VolatilityBreakout_Opt";
     (* Entry: Volatility expansion + volume surge + room to run *)
     buy_trigger =
@@ -460,7 +475,7 @@ let momentum_volume_opt =
 
   let volume_lagged = lag volume 10 in
 
-  register @@ {
+  {
     name = "MomentumVolume_Opt";
     (* Entry: Buy strength with volume confirmation *)
     buy_trigger =
@@ -580,7 +595,7 @@ let volatile_dip_opt =
      This is simpler than trying to compute SMA of volume. *)
   let volume_baseline = lag volume 20 in
 
-  register @@ {
+  {
     name = "VolatileDip_Opt";
     (* Entry: Dip in a volatile, high-volume winner *)
     buy_trigger =
@@ -604,3 +619,14 @@ let volatile_dip_opt =
     max_positions = 10;
     position_size = 0.10;
   }
+
+(* Export all strategies defined in this module *)
+let all_strategies = [
+  estridatter;
+  cosmic_cowgirl_25_52_90;
+  sharp_entry_patient_exit;
+  patient_entry_77_46;
+  volatility_breakout_opt;
+  momentum_volume_opt;
+  volatile_dip_opt;
+]

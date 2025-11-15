@@ -2,19 +2,13 @@
 open Gadt
 open Gadt_strategy
 
-let all_strategies : Gadt_strategy.t List.Ref.t = List.Ref.create ()
-
-let register x =
-  List.Ref.push all_strategies x;
-  x
-
 (* Risk management helper functions - return bool Gadt.t expressions *)
 
 
 (** A data collection listener strategy that never buys or sells *)
 let listener_strategy =
-  register
-  @@ {
+
+  {
        name = "Listener";
        buy_trigger = Const (0.0, Float) <. Const (0.0, Float);
        (* Never buy *)
@@ -29,8 +23,8 @@ let listener_strategy =
      }
 
 let stupid =
-  register
-  @@ {
+
+  {
        name = "Dumb strategy";
        buy_trigger =
          close
@@ -44,8 +38,8 @@ let stupid =
 
 let dual_sma_rsi =
   (* Dual SMA + RSI *)
-  register
-  @@ {
+
+  {
        name = "SEAKING";
        (* Buy when fast SMA > slow SMA and RSI < 30 (oversold) *)
        buy_trigger =
@@ -64,8 +58,8 @@ module Real = Gadt_fo.Constant
 
 let golden_cross_1 =
   (* Classic moving average crossover strategy *)
-  register
-  @@ {
+
+  {
        name = "GCONST";
        (* Buy when fast EMA crosses above slow SMA *)
        buy_trigger = cross_up (Real.ema 50 ()) (Real.sma 57 ());
@@ -78,8 +72,7 @@ let golden_cross_1 =
 
 let smarsi0 =
   (* Dual SMA + RSI *)
-  register
-  @@
+
   let sma = Real.sma 10 () in
   let tema = Real.tema 8 () in
   let rsi = Real.rsi 4 () in
@@ -96,8 +89,7 @@ let smarsi0 =
 
 let smarsi1 =
   (* Dual SMA + RSI *)
-  register
-  @@
+
   let sma = Real.sma 12 () in
   let tema = Real.tema 13 () in
   let rsi = Real.rsi 7 () in
@@ -114,8 +106,8 @@ let smarsi1 =
 
 let golden_cross =
   (* Classic moving average crossover strategy *)
-  register
-  @@ {
+
+  {
        name = "GoldenCross";
        (* Buy when fast EMA crosses above slow SMA *)
        buy_trigger =
@@ -132,8 +124,8 @@ let golden_cross_0 =
   (* Classic moving average crossover strategy *)
   let ema = Real.ema 58 () in
   let sma = Real.sma 36 () in
-  register
-  @@ {
+
+  {
        name = "GoldenCrossSa";
        (* Buy when fast EMA crosses above slow SMA *)
        buy_trigger = cross_up ema sma;
@@ -148,8 +140,8 @@ let plurple =
   (* Classic moving average crossover strategy *)
   let ema = Real.ema 58 () in
   let sma = Real.sma 36 () in
-  register
-  @@ {
+
+  {
        name = "Pflurple";
        (* Buy when fast EMA crosses above slow SMA *)
        buy_trigger = cross_up ema sma;
@@ -164,8 +156,8 @@ let pflurple_kelly =
   (* Improved Pflurple using Kelly-inspired position sizing *)
   let ema = Real.ema 58 () in
   let sma = Real.sma 36 () in
-  register
-  @@ {
+
+  {
        name = "PflurpleKelly";
        (* Buy when fast EMA crosses above slow SMA *)
        buy_trigger = cross_up ema sma;
@@ -182,8 +174,8 @@ let pflurple_conservative =
   (* Conservative version with proper risk management *)
   let ema = Real.ema 58 () in
   let sma = Real.sma 36 () in
-  register
-  @@ {
+
+  {
        name = "PflurpleConservative";
        (* Buy when fast EMA crosses above slow SMA *)
        buy_trigger = cross_up ema sma;
@@ -200,8 +192,8 @@ let pflurple_enhanced =
   (* Enhanced version with momentum filter *)
   let ema = Real.ema 58 () in
   let sma = Real.sma 36 () in
-  register
-  @@ {
+
+  {
        name = "PflurpleEnhanced";
        (* Buy when EMA crosses SMA AND momentum is positive *)
        buy_trigger = cross_up ema sma &&. (Real.mom 10 () >. Const (0.0, Float));
@@ -216,8 +208,8 @@ let pflurple_enhanced =
 
 let mean_reversion_lag =
   (* Mean reversion using lagged price comparison *)
-  register
-  @@ {
+
+  {
        name = "MeanReversionlag";
        (* Buy when current price is below lagged price by significant margin and RSI oversold *)
        buy_trigger =
@@ -234,8 +226,8 @@ let mean_reversion_lag =
 
 let bollinger_breakout =
   (* Bollinger Band breakout with momentum confirmation *)
-  register
-  @@ {
+
+  {
        name = "BollingerBreakout";
        (* Buy when price breaks above upper band and momentum is positive *)
        buy_trigger =
@@ -254,8 +246,8 @@ let bollinger_breakout =
 
 let triple_crossover =
   (* Complex triple moving average system with volume confirmation *)
-  register
-  @@ {
+
+  {
        name = "TripleCross";
        (* Buy when fast > medium > slow MA and volume above average *)
        buy_trigger =
@@ -274,8 +266,8 @@ let triple_crossover =
 
 let momentum_divergence =
   (* Momentum divergence with lagged comparison *)
-  register
-  @@ {
+
+  {
        name = "Momentum(/.)";
        (* Buy when price makes new low but momentum is improving (divergence) *)
        buy_trigger =
@@ -294,8 +286,8 @@ let momentum_divergence =
 
 let adaptive_channels =
   (* Adaptive channel breakout using ATR for dynamic thresholds *)
-  register
-  @@ {
+
+  {
        name = "AdaptiveChannels";
        (* Buy when price breaks above SMA + ATR channel *)
        buy_trigger = close >. Real.sma 20 () +. Real.atr 14 ();
@@ -308,8 +300,8 @@ let adaptive_channels =
 
 let contrarian_spike =
   (* Contrarian strategy for price spikes with lag confirmation *)
-  register
-  @@ {
+
+  {
        name = "ContrarianSpike";
        (* Buy when price spikes down significantly from recent average *)
        buy_trigger =
@@ -328,8 +320,8 @@ let contrarian_spike =
 
 let rsi_divergence_crossover =
   (* RSI divergence with EMA crossover confirmation *)
-  register
-  @@ {
+
+  {
        name = "RSI(/.)Cross";
        (* Buy when RSI crosses above 30 and EMA crosses above SMA *)
        buy_trigger =
@@ -346,8 +338,8 @@ let rsi_divergence_crossover =
 
 let macd_momentum_lag =
   (* MACD with momentum and lag confirmation *)
-  register
-  @@ {
+
+  {
        name = "MACDMomlag";
        (* Buy when MACD > signal momentum positive and price > 5-period lag *)
        buy_trigger =
@@ -367,8 +359,8 @@ let macd_momentum_lag =
 
 let stochastic_crossover_volume =
   (* Stochastic crossover with volume confirmation *)
-  register
-  @@ {
+
+  {
        name = "StochCrossVol";
        (* Buy when slow %K crosses above slow %D and volume > 10-period average *)
        buy_trigger =
@@ -385,8 +377,8 @@ let stochastic_crossover_volume =
 
 let williams_r_reversal =
   (* Williams %R mean reversion with lag confirmation *)
-  register
-  @@ {
+
+  {
        name = "WillRReversal";
        (* Buy when Williams %R oversold and price below lagged low *)
        buy_trigger =
@@ -404,8 +396,8 @@ let williams_r_reversal =
 
 let triple_ema_crossover =
   (* Triple EMA system with different timeframes *)
-  register
-  @@ {
+
+  {
        name = "TripleEMA";
        (* Buy when fast EMA > medium EMA > slow EMA (all aligned) *)
        buy_trigger =
@@ -424,8 +416,8 @@ let triple_ema_crossover =
 
 let cci_overbought_oversold =
   (* CCI overbought/oversold with momentum filter *)
-  register
-  @@ {
+
+  {
        name = "CCIMomentum";
        (* Buy when CCI oversold and momentum turning positive *)
        buy_trigger =
@@ -445,8 +437,8 @@ let cci_overbought_oversold =
 
 let aroon_trend_following =
   (* Aroon oscillator trend following with volume *)
-  register
-  @@ {
+
+  {
        name = "AroonTrend";
        (* Buy when Aroon Up > Aroon Down and oscillator > 50 *)
        buy_trigger =
@@ -464,8 +456,8 @@ let aroon_trend_following =
 
 let parabolic_sar_trend =
   (* Parabolic SAR trend following with lag confirmation *)
-  register
-  @@ {
+
+  {
        name = "ParabolicSARTrend";
        (* Buy when price crosses above SAR and is above 5-period high *)
        buy_trigger =
@@ -483,8 +475,8 @@ let parabolic_sar_trend =
 
 let multi_timeframe_rsi =
   (* Multi-timeframe RSI strategy using different lag periods *)
-  register
-  @@ {
+
+  {
        name = "MultiTimeframeRSI";
        (* Buy when short-term RSI oversold but long-term trend up *)
        buy_trigger =
@@ -504,8 +496,8 @@ let multi_timeframe_rsi =
 
 let roc_momentum_cross =
   (* Rate of Change momentum crossover *)
-  register
-  @@ {
+
+  {
        name = "ROCMomentumCross";
        (* Buy when short ROC crosses above long ROC and both positive *)
        buy_trigger =
@@ -523,8 +515,8 @@ let roc_momentum_cross =
 
 let always_trading =
   (* Maximum churn strategy - always generates buy and sell signals for all symbols *)
-  register
-  @@ {
+
+  {
        name = "AlwaysTrading";
        (* Always buy - price is always >= 0 *)
        buy_trigger = close >. Const (0.0, Float);
@@ -565,8 +557,8 @@ let mean_reversion_1min =
   let bb_lower = Real.lower_bband 20 2.0 2.0 () in
   let bb_middle = Real.middle_bband 20 2.0 2.0 () in
   let bb_upper = Real.upper_bband 20 2.0 2.0 () in
-  register
-  @@ {
+
+  {
        name = "MeanReversion1Min";
        (* Buy: Oversold (RSI < 30) AND price touched lower Bollinger Band *)
        buy_trigger =
@@ -636,8 +628,8 @@ let mean_reversion_opt =
         Const (2.0, Float),
         Const (2.0, Float))))
   in
-  register
-  @@ {
+
+  {
        name = "MeanReversionOpt";
        (* Buy: Oversold RSI AND price touched lower Bollinger Band *)
        buy_trigger =
@@ -671,8 +663,8 @@ let mean_reversion_8_27 =
   let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
   let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
   let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
-  register
-  @@ {
+
+  {
        name = "MeanReversion_8_27";
        buy_trigger =
          (rsi_8 <. Const (30.0, Float)) &&. (last <. bb_lower_27);
@@ -700,8 +692,8 @@ let mean_reversion_8_27_safe =
   let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
   let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
   let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
-  register
-  @@ {
+
+  {
        name = "MeanReversion_8_27_Safe";
        buy_trigger =
          (rsi_8 <. Const (30.0, Float)) &&. (last <. bb_lower_27);
@@ -772,8 +764,8 @@ let mean_reversion_safe_opt =
         Const (2.0, Float))))
   in
 
-  register
-  @@ {
+
+  {
        name = "MeanReversion_Safe_Opt";
        buy_trigger =
          (rsi_var <. rsi_oversold_var) &&. (last <. bb_lower_var);
@@ -830,8 +822,8 @@ let rocket_reef =
   let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
   let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
   let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
-  register
-  @@ {
+
+  {
        name = "RocketReef";
        (* Buy: RSI(53) dips below 49.96 AND price touches lower BB *)
        buy_trigger =
@@ -861,8 +853,8 @@ let rocket_reef_day_only =
   let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
   let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
   let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
-  register
-  @@ {
+
+  {
        name = "RocketReef_DayOnly";
        buy_trigger =
          (rsi_53 <. Const (49.961254, Float))
@@ -961,8 +953,8 @@ let rocket_reef_day_only_opt =
     App2 (Fun (">", (>)), TicksHeld, max_hold_ticks_var)
   in
 
-  register
-  @@ {
+
+  {
        name = "RocketReef_DayOnly_Opt";
        (* Buy: Mean reversion entry conditions + safe to enter *)
        buy_trigger =
@@ -1056,8 +1048,8 @@ let rocket_reef_stoch_opt =
         stoch_fastd_period_var)))
   in
 
-  register
-  @@ {
+
+  {
        name = "RocketReef_Stoch";
        (* Buy: All conditions must be met *)
        buy_trigger =
@@ -1119,7 +1111,7 @@ let stochness =
   let stoch_fast_k = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
     Const (Tacaml.Indicator.Raw.stoch_f_fast_k stoch_fastk_period stoch_fastd_period, Tacaml))) in
 
-  register @@ {
+  {
     name = "Stochness";
     buy_trigger =
       (rsi <. Const (49.961254, Float))
@@ -1179,7 +1171,7 @@ let stochness_monster =
   let stoch_fast_k = Gadt.Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x),
     Const (Tacaml.Indicator.Raw.stoch_f_fast_k stoch_fastk_period stoch_fastd_period, Tacaml))) in
 
-  register @@ {
+  {
     name = "StochnessMonster";
     buy_trigger =
       (rsi <. Const (49.961254, Float))
@@ -1217,7 +1209,7 @@ let rr1_0 =
   let bb_lower = Real.lower_bband 45 2.0 2.0 () in
   let bb_middle = Real.middle_bband 45 2.0 2.0 () in
   let bb_upper = Real.upper_bband 45 2.0 2.0 () in
-  register @@ {
+  {
     name = "RR1.0";
     buy_trigger =
       (rsi <. Const (31.717938, Float))
@@ -1260,7 +1252,7 @@ let deep_reef =
   let bb_lower = Real.lower_bband 41 2.0 2.0 () in
   let bb_middle = Real.middle_bband 41 2.0 2.0 () in
   let bb_upper = Real.upper_bband 41 2.0 2.0 () in
-  register @@ {
+  {
     name = "DeepReef";
     buy_trigger =
       (rsi <. Const (33.473369, Float))
@@ -1360,7 +1352,7 @@ let trend_rider_opt =
     last >. (EntryPrice *. (Const (1.0, Float) +. profit_target_var))
   in
 
-  register @@ {
+  {
     name = "TrendRider_Opt";
     (* Entry: Trend establishment with multiple confirmations *)
     buy_trigger =
@@ -1417,7 +1409,7 @@ let slow_glide =
   let macd_main = Real.macd_macd 12 26 9 () in
   let macd_signal = Real.macd_signal 12 26 9 () in
 
-  register @@ {
+  {
     name = "SlowGlide";
     buy_trigger =
       cross_up fast_ema_79 slow_ema_90
@@ -1482,7 +1474,7 @@ let quick_snap =
   let bb_middle_51 = Real.middle_bband 51 2.0 2.0 () in
   let bb_upper_51 = Real.upper_bband 51 2.0 2.0 () in
 
-  register @@ {
+  {
     name = "QuickSnap";
     buy_trigger =
       (rsi_11 <. Const (21.178191, Float))
@@ -1585,7 +1577,7 @@ let professional_mean_rev_opt =
         Const (2.0, Float))))
   in
 
-  register @@ {
+  {
     name = "ProfessionalMeanRev_Opt";
     (* Entry: Oversold on entry indicators + intraday safety *)
     buy_trigger =
@@ -1603,3 +1595,56 @@ let professional_mean_rev_opt =
     max_positions = 10;
     position_size = 0.10;
   }
+
+(* List of all strategies defined in this module *)
+let gadt_examples_strategies = [
+  listener_strategy;
+  stupid;
+  dual_sma_rsi;
+  golden_cross_1;
+  smarsi0;
+  smarsi1;
+  golden_cross;
+  golden_cross_0;
+  plurple;
+  pflurple_kelly;
+  pflurple_conservative;
+  pflurple_enhanced;
+  mean_reversion_lag;
+  bollinger_breakout;
+  triple_crossover;
+  momentum_divergence;
+  adaptive_channels;
+  contrarian_spike;
+  rsi_divergence_crossover;
+  macd_momentum_lag;
+  stochastic_crossover_volume;
+  williams_r_reversal;
+  triple_ema_crossover;
+  cci_overbought_oversold;
+  aroon_trend_following;
+  parabolic_sar_trend;
+  multi_timeframe_rsi;
+  roc_momentum_cross;
+  always_trading;
+  mean_reversion_1min;
+  mean_reversion_opt;
+  mean_reversion_8_27;
+  mean_reversion_8_27_safe;
+  mean_reversion_safe_opt;
+  rocket_reef;
+  rocket_reef_day_only;
+  rocket_reef_day_only_opt;
+  rocket_reef_stoch_opt;
+  stochness;
+  stochness_monster;
+  rr1_0;
+  deep_reef;
+  trend_rider_opt;
+  slow_glide;
+  quick_snap;
+  professional_mean_rev_opt;
+]
+
+(* Combine all strategy lists from different modules *)
+let all_strategies = gadt_examples_strategies @ Strategy_library.all_strategies
