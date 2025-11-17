@@ -96,10 +96,16 @@ module Make
   let buy_ ~position_size (state : State.t) selected =
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
+    let tick = State.tick state in
     let current_cash = State.cash state in
     let* total_portfolio_value = State.value state in
     let pct = position_size /. Float.of_int (List.length selected) in
     assert (pct >=. 0.0 && pct <=. 1.0);
+    let config = State.config state in
+    if config.print_tick_arg then
+      Eio.traceln "[%d] BUY_SETUP: portfolio=$%.2f cash=$%.2f position_size=%.1f%% buying=%d symbols (%.2f%% each)"
+        tick total_portfolio_value current_cash (position_size *. 100.0) (List.length selected) (pct *. 100.0);
+    let initial_cash = current_cash in
     let@ state f = List.fold_left f (Ok state) selected in
     fun (signal : Signal.t) ->
       let* state = state in
@@ -129,6 +135,8 @@ module Make
 
   let buy ~position_size ~held_symbols (state : State.t) =
     let ( let* ) = Result.( let* ) in
+    let initial_cash_buy = State.cash state in
+    let* initial_portfolio = State.value state in
     let* potential_buys =
       List.filter (fun s -> not @@ List.mem s held_symbols) Backend.symbols
       |> Buy.make state
@@ -151,6 +159,13 @@ module Make
       | [] -> Result.return state
       | selected -> buy_ ~position_size state selected
     in
+    let final_cash_buy = State.cash res in
+    let capital_deployed = initial_cash_buy -. final_cash_buy in
+    let pct_deployed = (capital_deployed /. initial_portfolio) *. 100.0 in
+    let config = State.config res in
+    if config.print_tick_arg then
+      Eio.traceln "[%d] BUY_COMPLETE: deployed=$%.2f (%.2f%% of portfolio), cash: $%.2f -> $%.2f"
+        (State.tick res) capital_deployed pct_deployed initial_cash_buy final_cash_buy;
     Result.return res
 
   let sell (state : State.t) (symbol : Instrument.t) =

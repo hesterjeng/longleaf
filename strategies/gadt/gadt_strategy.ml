@@ -199,3 +199,35 @@ let run bars (options : Options.t) mutices strategy =
   (* Collect custom indicators from the strategy *)
   Eio.traceln "Entering Longleaf_template.run";
   Longleaf_template.run (Builder.top strategy) bars options mutices
+
+open Gadt
+
+(* Stop-loss: sell if current price is below entry price by stop_loss_pct (as decimal) *)
+let stop_loss stop_loss_pct : bool Gadt.t =
+  (* current_price < entry_price * (1 - stop_loss) *)
+  let multiplier = Float.((-) 1.0 stop_loss_pct) in
+  last <. (EntryPrice *. Const (multiplier, Float))
+
+(* Profit target: sell if current price is above entry price by profit_target_pct (as decimal) *)
+let profit_target profit_target_pct : bool Gadt.t =
+  (* current_price > entry_price * (1 + profit_target) *)
+  let multiplier = Float.((+) 1.0 profit_target_pct) in
+  last >. (EntryPrice *. Const (multiplier, Float))
+
+(* Max holding time: sell if held for more than max_ticks *)
+let max_holding_time max_ticks : bool Gadt.t =
+  (* Need to compare TicksHeld (int Gadt.t) with max_ticks - create custom comparison *)
+  let max_ticks_expr = Const (max_ticks, Int) in
+  (* Create a Fun that compares the two int values *)
+  App2 (Fun (">", (>)), TicksHeld, max_ticks_expr)
+
+(* Intraday trading helpers - avoid overnight positions and closing volatility *)
+
+(* Safe to enter: NOT within close_buffer minutes of market close
+   Default 10 minutes avoids closing auction volatility *)
+let safe_to_enter ?(close_buffer=10.0) () : bool Gadt.t =
+  App1 (Fun ("not", not), is_close TickTime (Const (close_buffer, Float)))
+
+(* Force exit: within close_buffer minutes of market close *)
+let force_exit_eod ?(close_buffer=10.0) () : bool Gadt.t =
+  is_close TickTime (Const (close_buffer, Float))

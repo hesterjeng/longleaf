@@ -9,8 +9,8 @@ let top () =
        select a backend and a strategy to run.  For an example of how to \
        create a new strategy, look at template_example.ml.  In \
        longleaf_strategies.ml, you can instantiate the functors to create your \
-       strategy.  Valid strategies are:@]@.@.@[%a]@."
-      (List.pp String.pp) Longleaf_strategies.all_strategy_names
+       strategy.  Valid strategies include:@]@.@.@[%a]@."
+      (List.pp String.pp) (Longleaf_strategies.all_strategy_names ())
   in
   let info = Cmd.info ~doc "longleaf" in
   let res = Cmd.v info Options.CLI.Full.term in
