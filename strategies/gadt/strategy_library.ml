@@ -268,6 +268,57 @@ let estridatter_var =
     position_size = 0.1;
   }
 
+(**
+  Estridatter.2.0.0 - Second Optimized Version (NLOPT_MAXEVAL_REACHED)
+
+  Result from optimization run achieving:
+  - Final value: $171,287.96 (71.3% return)
+  - Win rate: 71.15% over 6,555 trades
+  - Profit factor: 1.688
+  - Sharpe ratio: 0.154
+
+  Optimized parameters:
+  - RSI(27) with thresholds 42.13 / 76.38
+  - Bollinger Bands(24) with 1.8045 std for entry, 2.29 std for exit
+  - 2% stop loss, 5% take profit
+  - EOD protection (10 min buffer)
+*)
+let estridatter_2_0_0 =
+  (* RSI indicator - period 27 *)
+  let rsi_27 = Real.rsi 27 () in
+
+  (* Entry Bollinger Bands - period 24, std 1.8045 *)
+  let bb_lower_entry = Real.lower_bband 24 1.804500 1.804500 () in
+
+  (* Exit Bollinger Bands - period 24, std 2.29 *)
+  let bb_middle_exit = Real.middle_bband 24 2.290597 2.290597 () in
+  let bb_upper_exit = Real.upper_bband 24 2.290597 2.290597 () in
+
+  {
+    name = "Estridatter.2.0.0";
+
+    (* Entry: RSI(27) < 42.13 AND Price < Lower BB(24, 1.8) AND safe to enter *)
+    buy_trigger =
+      (rsi_27 <. Const (42.130937, Float))
+      &&. (last <. bb_lower_entry)
+      &&. safe_to_enter ~close_buffer:10.0 ();
+
+    (* Exit: EOD OR mean reversion signals OR risk controls *)
+    sell_trigger =
+      force_exit_eod ~close_buffer:10.0 ()
+      ||. (last >. bb_middle_exit)        (* Mean reversion to middle band *)
+      ||. (rsi_27 >. Const (76.381991, Float))  (* Overbought *)
+      ||. (last >. bb_upper_exit)         (* Overshot to upper band *)
+      ||. stop_loss 0.02                   (* 2% stop loss *)
+      ||. profit_target 0.05;              (* 5% take profit *)
+
+    (* Score: More oversold = higher priority *)
+    score = Const (100.0, Float) -. rsi_27;
+
+    max_positions = 10;
+    position_size = 0.1;
+  }
+
 (* Keep original estridatter for comparison/reference *)
 let estridatter =
   (* RSI and Bollinger Band indicators *)
@@ -837,6 +888,7 @@ let volatile_dip_opt =
 
 (* Export all strategies defined in this module *)
 let all_strategies = [
+  estridatter_2_0_0;  (* PRODUCTION: Second optimized version - 71.3% return, 71% win rate *)
   estridatter_1_0_0;  (* PRODUCTION: First valid optimized version (proper bounds) *)
   estridatter_var;    (* Optimizable version with all fixes *)
   estridatter_fixed;  (* Fixed version with hardcoded params from old optimization *)
