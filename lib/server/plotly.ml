@@ -69,6 +69,22 @@ let layout title =
       "title" = `String title;
       "hovermode" = `String "x";
       "dragmode" = `String "zoom";
+      "autosize" = `Bool true;
+      "height" = `Int 800;  (* Twice as tall - was ~400px default *)
+      "margin" = `Assoc [
+        "l" = `Int 80;   (* Left margin for y-axis labels *)
+        "r" = `Int 100;  (* Right margin for y2-axis labels *)
+        "t" = `Int 100;  (* Top margin for title *)
+        "b" = `Int 80;   (* Bottom margin for x-axis *)
+        "pad" = `Int 4;
+      ];
+      "legend" = `Assoc [
+        "orientation" = `String "h";  (* Horizontal legend *)
+        "yanchor" = `String "bottom";
+        "y" = `Float 1.02;  (* Position above plot *)
+        "xanchor" = `String "left";
+        "x" = `Float 0.0;
+      ];
       "xaxis"
       = `Assoc
           [

@@ -94,10 +94,22 @@ pre {
 /* ============================================
    Plotly Chart Container
    ============================================ */
+.plotly-chart-container {
+  width: 100%;
+  min-height: 800px;
+  margin-bottom: var(--spacing-lg);
+}
+
 .js-plotly-plot {
+  width: 100% !important;
+  height: 100% !important;
   border-radius: var(--border-radius);
   overflow: hidden;
-  margin-bottom: var(--spacing-md);
+}
+
+.js-plotly-plot .plotly {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* ============================================

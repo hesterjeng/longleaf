@@ -92,12 +92,13 @@ const ChartTab: React.FC<ChartTabProps> = ({ serverData }) => {
     };
 
     return (
-      <div>
+      <div className="plotly-chart-container">
         <Plot
           data={traces}
           layout={layout}
-          config={{ 
-            responsive: true, 
+          style={{ width: '100%', height: '100%' }}
+          config={{
+            responsive: true,
             displayModeBar: true,
             plotlyServerURL: false,
             showTips: false,
