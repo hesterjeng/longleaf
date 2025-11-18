@@ -269,6 +269,75 @@ let estridatter_var =
   }
 
 (**
+  Estridatter_Var_Wide - Wide Diversification Variant
+
+  Same logic as Estridatter_Var but with:
+  - 20 positions instead of 10 (more diversification)
+  - 5% position size instead of 10% (same 100% total allocation)
+
+  Use this variant when you want broader market coverage and lower concentration risk.
+*)
+let estridatter_var_wide =
+  (* Variables for optimization - WITH PROPER BOUNDS ENFORCED *)
+  let rsi_period = Gadt_fo.var ~lower:5.0 ~upper:30.0 Gadt.Type.Int in
+  let rsi_oversold = Gadt_fo.var ~lower:20.0 ~upper:45.0 Gadt.Type.Float in
+  let rsi_overbought = Gadt_fo.var ~lower:60.0 ~upper:80.0 Gadt.Type.Float in
+  let bb_period = Gadt_fo.var ~lower:20.0 ~upper:80.0 Gadt.Type.Int in
+  let bb_std_entry = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
+  let bb_std_exit = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
+
+  (* Create RSI indicator with variable period *)
+  let rsi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period)))
+  in
+
+  (* Create entry Bollinger Bands (lower band with variable std) *)
+  let bb_lower_entry =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period, bb_std_entry, bb_std_entry)))
+  in
+
+  (* Create exit Bollinger Bands (middle and upper with variable std) *)
+  let bb_middle_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period, bb_std_exit, bb_std_exit)))
+  in
+
+  let bb_upper_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
+        bb_period, bb_std_exit, bb_std_exit)))
+  in
+
+  {
+    name = "Estridatter_Var_Wide";
+
+    (* Entry: Oversold + below lower BB + safe to enter *)
+    buy_trigger =
+      (rsi <. rsi_oversold)
+      &&. (last <. bb_lower_entry)
+      &&. safe_to_enter ();
+
+    (* Exit: EOD + mean reversion signals + risk controls *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle_exit)        (* Mean reversion complete *)
+      ||. (rsi >. rsi_overbought)         (* Overbought *)
+      ||. (last >. bb_upper_exit)         (* Overshot the mean *)
+      ||. stop_loss 0.02                   (* Fixed 2% stop *)
+      ||. profit_target 0.05;              (* Fixed 5% target *)
+
+    (* Score: More oversold = higher priority *)
+    score = Const (100.0, Float) -. rsi;
+
+    max_positions = 20;  (* 2x positions *)
+    position_size = 0.05;  (* 0.5x size = same total allocation *)
+  }
+
+(**
   Estridatter.2.0.0 - Second Optimized Version (NLOPT_MAXEVAL_REACHED)
 
   Result from optimization run achieving:
@@ -891,6 +960,7 @@ let all_strategies = [
   estridatter_2_0_0;  (* PRODUCTION: Second optimized version - 71.3% return, 71% win rate *)
   estridatter_1_0_0;  (* PRODUCTION: First valid optimized version (proper bounds) *)
   estridatter_var;    (* Optimizable version with all fixes *)
+  estridatter_var_wide;  (* Wide diversification variant - 20 positions @ 5% each *)
   estridatter_fixed;  (* Fixed version with hardcoded params from old optimization *)
   estridatter;        (* Keep original buggy version for comparison *)
   cosmic_cowgirl_25_52_90;
