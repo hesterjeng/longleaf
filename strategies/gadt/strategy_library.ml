@@ -25,35 +25,250 @@ let force_exit_eod ?(close_buffer=10.0) () : bool Gadt.t =
   is_close TickTime (Const (close_buffer, Float))
 
 (**
-  Estridatter - Optimized Mean Reversion Strategy
+  Estridatter_Fixed - Mean Reversion Strategy with Proper EOD Protections
 
-  Optimized on Sep-Oct 2025 1-minute data with the following results:
+  IMPORTANT: This is the FIXED version of estridatter that includes:
+  - Position sizing fix (from template)
+  - safe_to_enter() - prevents entering positions near market close
+  - force_exit_eod() - exits all positions before market close
+  - Removed 60-tick time limit - let the mean reversion signals work!
+
+  Original optimization results (NOTE: These are from buggy version):
   - Final Cash: $154,801.28 (54.8% return in 3 months)
   - Total Trades: 6,130 (Win Rate: 61.04%)
-  - Profit Factor: 1.765
-  - Sharpe Ratio: 0.156
-  - T-statistic: 12.196 (p < 0.0001, highly significant edge)
+  - WARNING: Results invalid due to position sizing bug + missing EOD protections
 
   Strategy Logic:
   Entry (Buy):
     - RSI(19) < 39.01 (oversold)
     - Price < Lower Bollinger Band(48, 2.0, 2.0) (stretched below mean)
+    - Safe to enter (NOT within 10 min of market close)
 
   Exit (Sell) - any of:
+    - Force exit EOD (within 10 min of market close)
     - Price > Middle Bollinger Band(48, 2.0, 2.0) (mean reversion complete)
     - RSI(19) > 74.01 (overbought)
     - Price > Upper Bollinger Band(48, 2.0, 2.0) (overshot the mean)
     - 2% stop loss (Price < EntryPrice * 0.98)
     - 5% take profit (Price > EntryPrice * 1.05)
-    - Time-based exit after 60 ticks (TicksHeld > 60)
 
   Risk Management:
     - Maximum 10 concurrent positions for diversification
-    - 10% position size (1/max_positions)
+    - 10% position size per position (FIXED - was buggy before)
     - Tight 2% stop loss to limit downside
     - 5% take profit to lock in gains
-    - 60-tick maximum hold time to avoid overnight risk
+    - No overnight positions (force_exit_eod)
 *)
+let estridatter_fixed =
+  (* RSI and Bollinger Band indicators *)
+  let rsi_19 = Real.rsi 19 () in
+  let bb_lower_48 = Real.lower_bband 48 2.0 2.0 () in
+  let bb_middle_48 = Real.middle_bband 48 2.0 2.0 () in
+  let bb_upper_48 = Real.upper_bband 48 2.0 2.0 () in
+
+  (* Optimized threshold values *)
+  let rsi_buy_threshold = 39.008806 in
+  let rsi_sell_threshold = 74.008689 in
+
+  (* Risk management parameters *)
+  let stop_loss_pct = 0.02 in  (* 2% stop loss *)
+  let take_profit_pct = 0.05 in  (* 5% take profit *)
+
+  (* Pre-compute multipliers for GADT expressions *)
+  let stop_loss_multiplier = Float.((-) 1.0 stop_loss_pct) in  (* 0.98 *)
+  let take_profit_multiplier = Float.((+) 1.0 take_profit_pct) in  (* 1.05 *)
+
+  {
+    name = "Estridatter_Fixed";
+
+       (* Entry: RSI < 39.01 AND Price < Lower BB(48) AND safe to enter *)
+       buy_trigger =
+         rsi_19 <. Const (rsi_buy_threshold, Float)
+         &&. (last <. bb_lower_48)
+         &&. safe_to_enter ();  (* ADDED: Don't enter near market close *)
+
+       (* Exit: EOD protection + mean reversion signals *)
+       sell_trigger =
+         force_exit_eod ()  (* ADDED: Exit within 10 min of close *)
+         (* Mean reversion complete: price returned to middle BB *)
+         ||. (last >. bb_middle_48)
+         (* Overbought: RSI too high *)
+         ||. (rsi_19 >. Const (rsi_sell_threshold, Float))
+         (* Overshot the mean: price hit upper BB *)
+         ||. (last >. bb_upper_48)
+         (* Stop loss: 2% below entry *)
+         ||. (last <. (EntryPrice *. Const (stop_loss_multiplier, Float)))
+         (* Take profit: 5% above entry *)
+         ||. (last >. (EntryPrice *. Const (take_profit_multiplier, Float)));
+         (* REMOVED: max_holding_time 60 - let the signals work! *)
+
+       (* Score: Prioritize stocks with lower RSI (more oversold = higher score) *)
+       score = Const (100.0, Float) -. rsi_19;
+
+       (* Portfolio parameters *)
+       max_positions = 10;
+       position_size = 0.1;  (* 10% per position *)
+     }
+
+(**
+  Estridatter.1.0.0 - First Valid Optimized Version (Proper Bounds)
+
+  Result from ISRES optimization with CORRECTED bounds:
+  - Best objective value: 154,250.98
+  - All parameters within valid ranges
+
+  Optimized Parameters:
+  - RSI(9): Very fast, reactive momentum indicator
+  - RSI oversold: 33.60 (moderate oversold threshold)
+  - RSI overbought: 75.41 (patient exit)
+  - BB(58): Medium-term stable bands
+  - BB std entry: 2.12 (slightly wide for entry)
+  - BB std exit: 1.61 (tighter for earlier exits)
+
+  Strategy Character:
+  "Fast reaction, asymmetric exits"
+
+  Key Innovation - Asymmetric BB Std:
+  - Entry bands (2.12σ): Wider, waits for bigger dips
+  - Exit bands (1.61σ): Narrower, exits on partial recovery
+  - This captures: enter on strong dips, exit before full reversion
+
+  The fast RSI(9) makes this very reactive to short-term momentum shifts,
+  while the medium BB(58) provides stable context.
+
+  Entry Logic:
+  - RSI(9) < 33.60 (fast oversold signal)
+  - Price < Lower BB(58, 2.12) (moderate dip)
+  - Safe to enter (NOT within 10 min of close)
+
+  Exit Logic (any of):
+  - Force exit EOD (within 10 min of close)
+  - Price > Middle BB(58, 1.61) (partial recovery - tighter bands)
+  - RSI(9) > 75.41 (fast momentum reversal)
+  - Price > Upper BB(58, 1.61) (strong recovery)
+  - 2% stop loss
+  - 5% take profit
+
+  Risk Management:
+  - 10 concurrent positions max
+  - 10% position size per trade
+  - No overnight positions (force_exit_eod + safe_to_enter)
+*)
+let estridatter_1_0_0 =
+  (* Fast RSI for reactive signals *)
+  let rsi_9 = Real.rsi 9 () in
+
+  (* Entry bands - slightly wider (2.12 std) *)
+  let bb_lower_entry = Real.lower_bband 58 2.122944 2.122944 () in
+
+  (* Exit bands - tighter (1.61 std) for earlier exits *)
+  let bb_middle_exit = Real.middle_bband 58 1.612366 1.612366 () in
+  let bb_upper_exit = Real.upper_bband 58 1.612366 1.612366 () in
+
+  {
+    name = "Estridatter.1.0.0";
+
+    (* Entry: Fast oversold on moderate dip *)
+    buy_trigger =
+      (rsi_9 <. Const (33.595346, Float))
+      &&. (last <. bb_lower_entry)
+      &&. safe_to_enter ();
+
+    (* Exit: Partial recovery with tighter bands *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle_exit)               (* Tighter middle band *)
+      ||. (rsi_9 >. Const (75.408070, Float))    (* Fast momentum shift *)
+      ||. (last >. bb_upper_exit)                (* Tighter upper band *)
+      ||. stop_loss 0.02
+      ||. profit_target 0.05;
+
+    (* Score: More oversold = higher priority *)
+    score = Const (100.0, Float) -. rsi_9;
+
+    max_positions = 10;
+    position_size = 0.1;
+  }
+
+(**
+  Estridatter_Var - Optimizable version with proper EOD protections
+
+  This is the version to use for NEW optimization runs.
+  All fixes applied + parameters as variables.
+
+  Variables to optimize (6 total):
+  1. rsi_period: [5, 30] - RSI calculation period
+  2. rsi_oversold: [20.0, 45.0] - RSI oversold entry threshold
+  3. rsi_overbought: [60.0, 80.0] - RSI overbought exit threshold
+  4. bb_period: [20, 80] - Bollinger Band period
+  5. bb_std_entry: [1.5, 3.0] - BB std for entry (lower band)
+  6. bb_std_exit: [1.5, 3.0] - BB std for exit (middle/upper bands)
+
+  Fixed risk controls (NOT optimized):
+  - stop_loss: 2%
+  - take_profit: 5%
+*)
+let estridatter_var =
+  (* Variables for optimization - WITH PROPER BOUNDS ENFORCED *)
+  let rsi_period = Gadt_fo.var ~lower:5.0 ~upper:30.0 Gadt.Type.Int in
+  let rsi_oversold = Gadt_fo.var ~lower:20.0 ~upper:45.0 Gadt.Type.Float in
+  let rsi_overbought = Gadt_fo.var ~lower:60.0 ~upper:80.0 Gadt.Type.Float in
+  let bb_period = Gadt_fo.var ~lower:20.0 ~upper:80.0 Gadt.Type.Int in
+  let bb_std_entry = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
+  let bb_std_exit = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
+
+  (* Create RSI indicator with variable period *)
+  let rsi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period)))
+  in
+
+  (* Create entry Bollinger Bands (lower band with variable std) *)
+  let bb_lower_entry =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period, bb_std_entry, bb_std_entry)))
+  in
+
+  (* Create exit Bollinger Bands (middle and upper with variable std) *)
+  let bb_middle_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period, bb_std_exit, bb_std_exit)))
+  in
+
+  let bb_upper_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
+        bb_period, bb_std_exit, bb_std_exit)))
+  in
+
+  {
+    name = "Estridatter_Var";
+
+    (* Entry: Oversold + below lower BB + safe to enter *)
+    buy_trigger =
+      (rsi <. rsi_oversold)
+      &&. (last <. bb_lower_entry)
+      &&. safe_to_enter ();
+
+    (* Exit: EOD + mean reversion signals + risk controls *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle_exit)        (* Mean reversion complete *)
+      ||. (rsi >. rsi_overbought)         (* Overbought *)
+      ||. (last >. bb_upper_exit)         (* Overshot the mean *)
+      ||. stop_loss 0.02                   (* Fixed 2% stop *)
+      ||. profit_target 0.05;              (* Fixed 5% target *)
+
+    (* Score: More oversold = higher priority *)
+    score = Const (100.0, Float) -. rsi;
+
+    max_positions = 10;
+    position_size = 0.1;
+  }
+
+(* Keep original estridatter for comparison/reference *)
 let estridatter =
   (* RSI and Bollinger Band indicators *)
   let rsi_19 = Real.rsi 19 () in
@@ -622,7 +837,10 @@ let volatile_dip_opt =
 
 (* Export all strategies defined in this module *)
 let all_strategies = [
-  estridatter;
+  estridatter_1_0_0;  (* PRODUCTION: First valid optimized version (proper bounds) *)
+  estridatter_var;    (* Optimizable version with all fixes *)
+  estridatter_fixed;  (* Fixed version with hardcoded params from old optimization *)
+  estridatter;        (* Keep original buggy version for comparison *)
   cosmic_cowgirl_25_52_90;
   sharp_entry_patient_exit;
   patient_entry_77_46;

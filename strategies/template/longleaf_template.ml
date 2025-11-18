@@ -97,15 +97,14 @@ module Make
     let ( let@ ) = Fun.( let@ ) in
     let ( let* ) = Result.( let* ) in
     let tick = State.tick state in
-    let current_cash = State.cash state in
+    let initial_cash = State.cash state in
     let* total_portfolio_value = State.value state in
-    let pct = position_size /. Float.of_int (List.length selected) in
+    let pct = position_size in  (* FIX: Each position gets full position_size, not divided *)
     assert (pct >=. 0.0 && pct <=. 1.0);
     let config = State.config state in
     if config.print_tick_arg then
-      Eio.traceln "[%d] BUY_SETUP: portfolio=$%.2f cash=$%.2f position_size=%.1f%% buying=%d symbols (%.2f%% each)"
-        tick total_portfolio_value current_cash (position_size *. 100.0) (List.length selected) (pct *. 100.0);
-    let initial_cash = current_cash in
+      Eio.traceln "[%d] BUY_SETUP: portfolio=$%.2f cash=$%.2f position_size=%.1f%% each, buying=%d symbols"
+        tick total_portfolio_value initial_cash (position_size *. 100.0) (List.length selected);
     let@ state f = List.fold_left f (Ok state) selected in
     fun (signal : Signal.t) ->
       let* state = state in
@@ -119,8 +118,9 @@ module Make
       (* Calculate target position value based on total portfolio *)
       let target_position_value = total_portfolio_value *. pct in
       let target_qty = target_position_value /. price |> Float.to_int in
-      (* Constrain by available cash *)
-      let max_affordable_qty = current_cash /. price |> Float.to_int in
+      (* Constrain by available cash - get current cash inside fold *)
+      let current_cash_available = State.cash state in  (* FIX: Get current cash, not initial *)
+      let max_affordable_qty = current_cash_available /. price |> Float.to_int in
       let qty = max 0 (min target_qty max_affordable_qty) in
       (* assert (qty <> 0); *)
       match qty with
