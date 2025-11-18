@@ -114,8 +114,6 @@ let increment_tick x =
 let qty (t : t) instrument = Positions.qty t.positions instrument
 
 let place_order state0 (order : Order.t) =
-  let ( let* ) = Result.( let* ) in
-  let* data = Bars.get state0.bars order.symbol in
   (* Use the order price (which includes slippage) for cash calculation *)
   let order_value = float_of_int order.qty *. order.price in
   let tick = state0.current_tick in
@@ -125,11 +123,10 @@ let place_order state0 (order : Order.t) =
     let positions = Positions.update positions order in
     positions
   in
-  (* Add order to data structure for visualization *)
+  (* Add order to state order history *)
   match order.side with
   | Buy ->
     if state0.cash >=. order_value then
-      let* () = Bars.Data.add_order data tick order in
       let new_state = {
           state0 with
           cash = state0.cash -. order_value;
@@ -150,7 +147,6 @@ let place_order state0 (order : Order.t) =
     if qty_held >= order.qty then
       let positions = positions_upd state0 in
       let new_cash = state0.cash +. order_value in
-      let* () = Bars.Data.add_order data tick order in
       let new_state = {
           state0 with
           cash = new_cash;

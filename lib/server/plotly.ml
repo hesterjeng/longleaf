@@ -347,17 +347,8 @@ let performance_graph_with_orders (state : Longleaf_state.t) : Yojson.Safe.t =
       ]
   in
 
-  (* Collect ALL orders from ALL symbols *)
-  let bars = Longleaf_state.bars state in
-  let all_orders_flat =
-    Bars.fold bars [] @@ fun _instrument data acc ->
-    match Data.get_all_orders data with
-    | orders_array ->
-      let orders_list = Array.to_list orders_array |> List.concat in
-      Result.return (orders_list @ acc) |> ( function
-      | Ok orders -> orders
-      | Error _ -> acc )
-  in
+  (* Get ALL orders from state order history *)
+  let all_orders_flat = Longleaf_state.order_history state in
 
   (* Separate buy and sell orders *)
   let buy_orders =
@@ -407,25 +398,12 @@ let of_state ?(start = 100) ?end_ (state : Longleaf_state.t) symbol :
         (fun (i, indicator) -> trace_with_color i indicator)
         (List.mapi (fun i x -> (i, x)) all_indicators)
     in
-    (* Extract orders for this symbol from the data *)
-    let all_orders = Data.get_all_orders data in
-    let length = Data.length data in
-    let end_idx = Option.value end_ ~default:length in
-    let end_idx = Int.min end_idx length in
+    (* Extract orders for this symbol from state order history *)
+    let all_orders = Longleaf_state.order_history state in
     let orders_in_range =
-      let rec collect_orders acc i =
-        if i >= end_idx then acc
-        else
-          let orders_at_tick =
-            if i >= start then
-              List.filter
-                (fun (order : Order.t) -> Instrument.equal order.symbol symbol)
-                all_orders.(i)
-            else []
-          in
-          collect_orders (orders_at_tick @ acc) (i + 1)
-      in
-      collect_orders [] start
+      List.filter
+        (fun (order : Order.t) -> Instrument.equal order.symbol symbol)
+        all_orders
     in
     let buy_orders =
       List.filter
