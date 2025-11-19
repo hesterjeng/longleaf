@@ -44,7 +44,7 @@ run20:
 
 _tmux-setup2:
 	tmux new-session -d -s longleaf2
-	tmux send-keys -t longleaf2:0 "cd react && PORT=3001 npm start" Enter
+	tmux send-keys -t longleaf2:0 "cd react && PORT=3001 REACT_APP_API_URL=http://localhost:8081 npm start" Enter
 	tmux new-window -t longleaf2 -n longleaf
 	tmux send-keys -t longleaf2:longleaf "dune exec bin/longleaf_server.exe -- --port 8081 --cors-origin http://localhost:3001" Enter
 	tmux attach-session -t longleaf2
