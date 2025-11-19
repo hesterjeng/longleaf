@@ -27,23 +27,36 @@ module Settings = struct
 end
 
 (* Helper functions for responses *)
-let respond_json ?(status = `OK) json_string =
-  let headers = Cohttp.Header.init_with "Content-Type" "application/json" in
+let add_cors_headers cors_origin headers =
+  match cors_origin with
+  | None -> headers
+  | Some origin ->
+    Cohttp.Header.add_list headers [
+      ("Access-Control-Allow-Origin", origin);
+      ("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      ("Access-Control-Allow-Headers", "Content-Type");
+    ]
+
+let respond_json ?(status = `OK) ?(cors_origin = None) json_string =
+  let headers = Cohttp.Header.init_with "Content-Type" "application/json"
+    |> add_cors_headers cors_origin in
   Cohttp_eio.Server.respond_string ~headers ~status ~body:json_string ()
 
-let respond_html ?(status = `OK) html_string =
-  let headers = Cohttp.Header.init_with "Content-Type" "text/html" in
+let respond_html ?(status = `OK) ?(cors_origin = None) html_string =
+  let headers = Cohttp.Header.init_with "Content-Type" "text/html"
+    |> add_cors_headers cors_origin in
   Cohttp_eio.Server.respond_string ~headers ~status ~body:html_string ()
 
-let respond_text ?(status = `OK) text =
-  let headers = Cohttp.Header.init_with "Content-Type" "text/plain" in
+let respond_text ?(status = `OK) ?(cors_origin = None) text =
+  let headers = Cohttp.Header.init_with "Content-Type" "text/plain"
+    |> add_cors_headers cors_origin in
   Cohttp_eio.Server.respond_string ~headers ~status ~body:text ()
 
-let respond_404 () = respond_text ~status:`Not_found "404 Not Found"
-let respond_500 message = respond_text ~status:`Internal_server_error message
+let respond_404 ?(cors_origin = None) () = respond_text ~cors_origin ~status:`Not_found "404 Not Found"
+let respond_500 ?(cors_origin = None) message = respond_text ~cors_origin ~status:`Internal_server_error message
 
 (* Main request handler *)
-let handler env _conn request body =
+let handler env cors_origin _conn request body =
   let ( let* ) = Result.( let* ) in
   let meth = Cohttp.Request.meth request in
   let uri = Cohttp.Request.uri request in
@@ -52,6 +65,10 @@ let handler env _conn request body =
   Eio.traceln "%s %s" (Cohttp.Code.string_of_method meth) path;
 
   let result = match (meth, path) with
+  (* OPTIONS - CORS preflight *)
+  | `OPTIONS, _ ->
+    Result.return @@ respond_text ~cors_origin ~status:`OK ""
+
   (* GET /execute - Start strategy execution *)
   | `GET, "/execute" ->
     let s = Settings.settings in
@@ -77,13 +94,13 @@ let handler env _conn request body =
     in
     Result.return @@
     (`Assoc [ ("message", `String "strategy execution started") ]
-     |> Yojson.Safe.to_string |> respond_json)
+     |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* GET /status - Get current status *)
   | `GET, "/status" ->
     Result.return @@
     (Settings.yojson_of_status Settings.settings.status
-     |> Yojson.Safe.to_string |> respond_json)
+     |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* GET /performance - Get performance data *)
   | `GET, "/performance" ->
@@ -106,8 +123,8 @@ let handler env _conn request body =
                   ("yaxis", `Assoc [ ("title", `String "Value") ]);
                 ] );
           ]
-        |> Yojson.Safe.to_string |> respond_json
-      | Some j -> Yojson.Safe.to_string j |> respond_json )
+        |> Yojson.Safe.to_string |> respond_json ~cors_origin
+      | Some j -> Yojson.Safe.to_string j |> respond_json ~cors_origin )
     in
     Result.return response
 
@@ -115,7 +132,7 @@ let handler env _conn request body =
   | `GET, "/settings" ->
     Result.return @@
     (Settings.yojson_of_t Settings.settings
-     |> Yojson.Safe.to_string |> respond_json)
+     |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* GET /shutdown - Trigger shutdown *)
   | `GET, "/shutdown" ->
@@ -130,10 +147,10 @@ let handler env _conn request body =
             ("error", `String "Unable to get shutdown mutex at shutdown endpoint");
           ]
         |> Yojson.Safe.to_string
-        |> fun json -> respond_json ~status:`Bad_request json
+        |> fun json -> respond_json ~cors_origin ~status:`Bad_request json
       | Some () ->
         `Assoc [ ("message", `String "shutdown mutex set") ]
-        |> Yojson.Safe.to_string |> respond_json )
+        |> Yojson.Safe.to_string |> respond_json ~cors_origin )
     in
     Result.return response
 
@@ -143,19 +160,19 @@ let handler env _conn request body =
     (Bars.files ()
      |> List.filter (fun x -> not @@ String.is_empty x)
      |> List.map (fun x -> `String x)
-     |> fun x -> `List x |> Yojson.Safe.to_string |> respond_json)
+     |> fun x -> `List x |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* GET /options - Show configured options *)
   | `GET, "/options" ->
     Result.return @@
     (`Assoc [ ("message", `String "Show configured options") ]
-     |> Yojson.Safe.to_string |> respond_json)
+     |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* GET /strategies - List all strategies *)
   | `GET, "/strategies" ->
     Result.return @@
     (List.map (fun x -> `String x) (Longleaf_strategies.all_strategy_names ())
-     |> fun x -> `List x |> Yojson.Safe.to_string |> respond_json)
+     |> fun x -> `List x |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* GET /strategy/:name - Get strategy details *)
   | `GET, path when String.starts_with ~prefix:"/strategy/" path ->
@@ -176,14 +193,14 @@ let handler env _conn request body =
             ("sell_trigger", `String sell_trigger_str);
           ]
       in
-      Yojson.Safe.to_string strategy_info |> respond_json
+      Yojson.Safe.to_string strategy_info |> respond_json ~cors_origin
     | None ->
       `Assoc
         [
           ( "error",
             `String (Printf.sprintf "Strategy '%s' not found" strategy_name) );
         ]
-      |> Yojson.Safe.to_string |> respond_json
+      |> Yojson.Safe.to_string |> respond_json ~cors_origin
     in
     Result.return response
 
@@ -198,10 +215,10 @@ let handler env _conn request body =
       |> ( function
       | None ->
         Eio.traceln "mutices not set (symbols)";
-        `List [] |> Yojson.Safe.to_string |> respond_json
+        `List [] |> Yojson.Safe.to_string |> respond_json ~cors_origin
       | Some symbols ->
         (String.split ~by:"," symbols |> List.map @@ fun x -> `String x)
-        |> fun x -> `List x |> Yojson.Safe.to_string |> respond_json )
+        |> fun x -> `List x |> Yojson.Safe.to_string |> respond_json ~cors_origin )
     in
     Result.return response
 
@@ -234,9 +251,9 @@ let handler env _conn request body =
                   ("yaxis", `Assoc [ ("title", `String "Price") ]);
                 ] );
           ]
-        |> Yojson.Safe.to_string |> respond_json
-      | Some j -> Yojson.Safe.to_string j |> respond_json )
-    | _ -> respond_404 ()
+        |> Yojson.Safe.to_string |> respond_json ~cors_origin
+      | Some j -> Yojson.Safe.to_string j |> respond_json ~cors_origin )
+    | _ -> respond_404 ~cors_origin ()
     in
     Result.return response
 
@@ -281,7 +298,7 @@ let handler env _conn request body =
       Tools.post_cohttp_html ~client ~body:body_json ~headers
           ~endpoint:"http://localhost:5000/tearsheet"
     in
-    Result.return @@ respond_html ~status:`OK json_response
+    Result.return @@ respond_html ~cors_origin ~status:`OK json_response
 
   (* GET / - Root endpoint, return settings *)
   | `GET, "/" ->
@@ -291,7 +308,7 @@ let handler env _conn request body =
     Eio.traceln "  strategy_arg: %s" Settings.settings.cli_vars.strategy_arg;
     let json = Settings.yojson_of_t Settings.settings |> Yojson.Safe.to_string in
     Eio.traceln "Returning JSON: %s" json;
-    Result.return @@ respond_json json
+    Result.return @@ respond_json ~cors_origin json
 
   (* POST /set_status - Set status *)
   | `POST, "/set_status" ->
@@ -303,7 +320,7 @@ let handler env _conn request body =
     Settings.settings.status <- status;
     Result.return @@
     (`Assoc [ ("message", `String "Set status") ]
-     |> Yojson.Safe.to_string |> respond_json)
+     |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* POST /set_target - Set target *)
   | `POST, "/set_target" ->
@@ -326,7 +343,7 @@ let handler env _conn request body =
     Settings.settings.target <- target;
     Result.return @@
     (`Assoc [ ("message", `String "settings.cli_vars.strategy_arg set") ]
-     |> Yojson.Safe.to_string |> respond_json)
+     |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* POST /set_strategy - Set strategy *)
   | `POST, "/set_strategy" ->
@@ -345,7 +362,7 @@ let handler env _conn request body =
     in
     Result.return @@
     (`Assoc [ ("message", `String "settings.cli_vars.strategy_arg set") ]
-     |> Yojson.Safe.to_string |> respond_json)
+     |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* POST /set_runtype - Set runtype *)
   | `POST, "/set_runtype" ->
@@ -357,7 +374,7 @@ let handler env _conn request body =
     Settings.settings.cli_vars <- cli;
     Result.return @@
     (`Assoc [ ("message", `String "settings.cli_vars.runtype set") ]
-     |> Yojson.Safe.to_string |> respond_json)
+     |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* POST /set_cli - Set CLI vars *)
   | `POST, "/set_cli" ->
@@ -375,24 +392,54 @@ let handler env _conn request body =
     Eio.traceln "CLI settings updated in server state";
     Result.return @@
     (`Assoc [ ("message", `String "settings.cli_vars set") ]
-     |> Yojson.Safe.to_string |> respond_json)
+     |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
   (* Default - 404 *)
-  | _ -> Result.return @@ respond_404 ()
+  | _ -> Result.return @@ respond_404 ~cors_origin ()
   in
   match result with
   | Ok response -> response
-  | Error e -> respond_500 (Error.show e)
+  | Error e -> respond_500 ~cors_origin (Error.show e)
 
-let () =
-  Eio_main.run @@ fun env ->
-  Eio.Switch.run @@ fun sw ->
-  let port = 8080 in
-  Eio.traceln "Starting server on http://localhost:%d" port;
-  Eio.traceln "Frontend available at http://localhost:3000 (by default)";
-  let socket =
-    Eio.Net.listen env#net ~sw ~backlog:128 ~reuse_addr:true ~reuse_port:true
-      (`Tcp (Eio.Net.Ipaddr.V4.any, port))
-  in
-  let server = Cohttp_eio.Server.make ~callback:(handler env) () in
-  Cohttp_eio.Server.run socket server ~on_error:raise
+module Args = struct
+  let port_arg =
+    let doc = "Port for HTTP server to listen on." in
+    Cmdliner.Arg.(value & opt int 8080 & info ["port"; "p"] ~doc)
+
+  let cors_origin_arg =
+    let doc = "CORS origin for React frontend (e.g., http://localhost:3000). Use --no-cors to disable CORS." in
+    Cmdliner.Arg.(value & opt (some string) (Some "http://localhost:3000") & info ["cors-origin"] ~doc)
+
+  let no_cors_arg =
+    let doc = "Disable CORS headers entirely." in
+    Cmdliner.Arg.(value & flag & info ["no-cors"] ~doc)
+end
+
+module Cmd = struct
+  let run port cors_origin no_cors =
+    let cors_origin = if no_cors then None else cors_origin in
+    Eio_main.run @@ fun env ->
+    Eio.Switch.run @@ fun sw ->
+    Eio.traceln "Starting server on http://localhost:%d" port;
+    Eio.traceln "Frontend available at %s (by default)"
+      (match cors_origin with
+       | Some origin -> origin
+       | None -> "CORS disabled");
+    let socket =
+      Eio.Net.listen env#net ~sw ~backlog:128 ~reuse_addr:true ~reuse_port:true
+        (`Tcp (Eio.Net.Ipaddr.V4.any, port))
+    in
+    let server = Cohttp_eio.Server.make ~callback:(handler env cors_origin) () in
+    Cohttp_eio.Server.run socket server ~on_error:raise
+
+  let top =
+    let term =
+      Cmdliner.Term.(
+        const run $ Args.port_arg $ Args.cors_origin_arg $ Args.no_cors_arg)
+    in
+    let doc = "Longleaf HTTP server for strategy management and visualization." in
+    let info = Cmdliner.Cmd.info ~doc "longleaf_server" in
+    Cmdliner.Cmd.v info term
+end
+
+let () = Stdlib.exit @@ Cmdliner.Cmd.eval Cmd.top

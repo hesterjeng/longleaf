@@ -1,4 +1,4 @@
-.PHONY: all clean build install format deps odep react run run-limited shutdown run20 run-prod
+.PHONY: all clean build install format deps odep react run run-limited shutdown run20 run2 shutdown2 run-prod
 
 all:
 	dune build
@@ -42,6 +42,16 @@ run20:
 	systemd-run --user --scope -p MemoryMax=20G \
 		guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup
 
+_tmux-setup2:
+	tmux new-session -d -s longleaf2
+	tmux send-keys -t longleaf2:0 "cd react && PORT=3001 npm start" Enter
+	tmux new-window -t longleaf2 -n longleaf
+	tmux send-keys -t longleaf2:longleaf "dune exec bin/longleaf_server.exe -- --port 8081 --cors-origin http://localhost:3001" Enter
+	tmux attach-session -t longleaf2
+
+run2:
+	guix shell --rebuild-cache -m manifest.scm -- $(MAKE) _tmux-setup2
+
 _tmux-setup-prod:
 	tmux new-session -d -s longleaf
 	tmux send-keys -t longleaf:0 "cd react && npm run build && npm run serve" Enter
@@ -57,3 +67,6 @@ run-prod:
 
 shutdown:
 	tmux kill-session -t longleaf
+
+shutdown2:
+	tmux kill-session -t longleaf2
