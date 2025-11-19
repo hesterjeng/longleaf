@@ -89,7 +89,6 @@ type t = {
   index : Index.t;
   size : int;
   mutable indicators_computed : bool;
-  orders : Order.t list array;
 }
 
 type data = t
@@ -301,14 +300,12 @@ let make size : t =
     index = Index.make ();
     size;
     indicators_computed = false;
-    orders = Array.make size [];
   }
 
 let copy (x : t) =
   let r = make x.size in
   Array2.blit x.data r.data;
   Array2.blit x.int_data r.int_data;
-  Array.blit x.orders 0 r.orders 0 x.size;
   {
     r with
     indicators_computed = x.indicators_computed;
@@ -327,9 +324,6 @@ let grow_ (x : t) =
     Array2.init Bigarray.int32 Bigarray.c_layout old_int_data_rows new_size
       (fun _ _ -> Int32.zero)
   in
-  (* Create new orders array and copy existing orders *)
-  let new_orders = Array.make new_size [] in
-  Array.blit x.orders 0 new_orders 0 x.size;
   (* Copy existing data to new matrices *)
   for i = 0 to Array2.dim1 x.data - 1 do
     for j = 0 to Array2.dim2 x.data - 1 do
@@ -367,7 +361,6 @@ let grow_ (x : t) =
     index = Index.copy x.index;
     size = new_size;
     indicators_computed = x.indicators_computed;
-    orders = new_orders;
   }
 
 let grow x =
@@ -404,9 +397,6 @@ let reset_indicators (x : t) =
   (* Reset next_float to just after the last price data row *)
   x.index.next_float <- !max_price_row + 1;
   x.index.next_int <- 0;  (* Reset int counter *)
-
-  (* CRITICAL: Clear order history to prevent memory leak across iterations *)
-  Array.fill x.orders 0 (Array.length x.orders) [];
 
   x.indicators_computed <- false
 
@@ -572,19 +562,6 @@ let yojson_of_t (x : t) : Yojson.Safe.t =
   in
   let l = List.map Item.yojson_of_t items in
   `List l
-
-(* Order management functions *)
-let add_order (data : t) (tick : int) (order : Order.t) =
-  if tick >= 0 && tick < data.size then (
-    data.orders.(tick) <- order :: data.orders.(tick);
-    Ok ())
-  else Error.fatal "Data.add_order: tick index out of bounds"
-
-let get_orders (data : t) (tick : int) =
-  if tick >= 0 && tick < data.size then Ok data.orders.(tick)
-  else Error.fatal "Data.get_orders: tick index out of bounds"
-
-let get_all_orders (data : t) = data.orders
 
 (* Validation functions to detect NaN values early *)
 let validate_no_nan (data : t) ~start_tick ~end_tick =

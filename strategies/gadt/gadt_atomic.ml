@@ -206,9 +206,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   Eio.traceln "=== EIO-BASED OPTIMIZATION START ===";
   Eio.traceln "Strategy name: %s" strategy.name;
 
-  let buy_vars = Subst.collect_variables strategy.buy_trigger in
-  let sell_vars = Subst.collect_variables strategy.sell_trigger in
-  let vars = buy_vars @ sell_vars |> Array.of_list in
+  let vars = Gadt_strategy.collect_all_variables strategy |> Array.of_list in
 
   Eio.traceln "--- COLLECTED VARIABLES ---";
   let len = Array.length vars in
