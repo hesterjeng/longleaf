@@ -19,6 +19,13 @@ let sell_conj y (x : t) = { x with sell_trigger = Gadt.(x.sell_trigger &&. y) }
 let buy_disj y (x : t) = { x with buy_trigger = Gadt.(x.buy_trigger ||. y) }
 let sell_disj y (x : t) = { x with sell_trigger = Gadt.(x.sell_trigger ||. y) }
 
+(* Collect all variables from a strategy (buy, sell, score) with deduplication *)
+let collect_all_variables (strategy : t) : (Uuidm.t * (Gadt.Type.shadow * Gadt.bounds)) list =
+  Gadt.Subst.collect_variables strategy.buy_trigger
+  @ Gadt.Subst.collect_variables strategy.sell_trigger
+  @ Gadt.Subst.collect_variables strategy.score
+  |> List.uniq ~eq:(fun (id0, _) (id1, _) -> Uuidm.equal id0 id1)
+
 let random () =
   let buy_trigger, sell_trigger = (Groups.rand (), Groups.rand ()) in
   let name =
