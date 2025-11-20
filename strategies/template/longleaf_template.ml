@@ -59,7 +59,8 @@ module Buy_trigger = struct
           Result.return @@ ((signal, score) :: acc)
         | false -> Result.return acc
       in
-      List.sort (Pair.compare (fun _ _ -> 0) Float.compare) l
+      (* Sort by score (second element of tuple) - higher score = better opportunity *)
+      List.sort (fun (_, score1) (_, score2) -> Float.compare score1 score2) l
       |> List.map fst |> List.rev |> Result.return
 
     let num_positions = Input.num_positions

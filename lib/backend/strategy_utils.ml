@@ -61,8 +61,10 @@ end = struct
         | Paper ->
           Eio.traceln "[4/4] Preparing bars for live data reception...";
           let* bars_length = Bars.length @@ State.bars state in
-          let* state = State.set_tick state (bars_length - 1) |> State.grow in
-          Eio.traceln "State prepared: tick=%d" (State.tick state);
+          (* Start at first empty slot (bars_length), not last historical slot (bars_length - 1) *)
+          let* state = State.set_tick state bars_length |> State.grow in
+          Eio.traceln "State prepared: tick=%d (first empty slot after %d historical bars)"
+            (State.tick state) bars_length;
           Result.return state
         | _ ->
           Eio.traceln "[4/4] Backtest mode - no bar growth needed";
@@ -174,15 +176,34 @@ end = struct
   module Increment = struct
     let top state =
       let* length = State.bars state |> Bars.length in
-      State.tick state >= length - 1 |> function
-      | true -> raise (FinalState state)
-      | false ->
-        let current_tick = State.tick state in
+      let current_tick = State.tick state in
+
+      (* Check if we're approaching the end - grow if within 1000 ticks of limit *)
+      (* This allows indefinite live/paper trading sessions *)
+      let* state =
+        if current_tick >= length - 1000 then (
+          match options.flags.runtype with
+          | Live | Paper ->
+            Eio.traceln "Approaching bar limit (tick %d of %d), growing bars..." current_tick length;
+            let* grown_state = State.grow state in
+            let* new_length = State.bars grown_state |> Bars.length in
+            Eio.traceln "Bars grown from %d to %d slots" length new_length;
+            Result.return grown_state
+          | _ -> Result.return state
+        ) else Result.return state
+      in
+
+      (* Now check if we've truly hit the end (shouldn't happen with auto-growth) *)
+      let* final_length = State.bars state |> Bars.length in
+      if current_tick >= final_length - 1 then
+        raise (FinalState state)
+      else (
         let* new_state = State.increment_tick state in
         if options.flags.print_tick_arg then
           Eio.traceln "=== Strategy loop completed tick %d, moving to tick %d ==="
             current_tick (State.tick new_state);
         Result.return new_state
+      )
   end
 
   module Liquidate = struct

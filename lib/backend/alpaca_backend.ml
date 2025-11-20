@@ -206,7 +206,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let symbols_list = symbols in  (* Capture symbols in local scope *)
 
     (* Update current tick for background fiber *)
-    current_tick := tick;
+    (* WebSocket writes to the bar currently forming (tick + 1), not the bar we're evaluating (tick) *)
+    current_tick := tick + 1;
 
     match symbols_list with
     | [] ->
@@ -239,13 +240,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
           (match get_or_create_ws_client bars () with
            | Ok _client ->
              if not !tiingo_ws_initial_fetch_done then (
-               (* First time - fetch next tick via REST to seed the data *)
-               let next_tick = tick + 1 in
-               Eio.traceln "Alpaca backend: First update_bars call - fetching tick %d via REST" next_tick;
+               (* First time - fetch current tick via REST to seed the data *)
+               (* This matches WebSocket behavior which writes to current_tick *)
+               Eio.traceln "Alpaca backend: First update_bars call - fetching tick %d via REST" tick;
                tiingo_ws_initial_fetch_done := true;
-               match Tiingo.latest bars symbols_list next_tick with
+               match Tiingo.latest bars symbols_list tick with
                | Ok () ->
-                 Eio.traceln "Alpaca backend: Initial tick %d populated, WebSocket will update from here" next_tick;
+                 Eio.traceln "Alpaca backend: Initial tick %d populated, WebSocket will update from here" tick;
                  Ok ()
                | Error e ->
                  Eio.traceln "Alpaca backend: Warning - failed to populate initial tick: %a" Error.pp e;
