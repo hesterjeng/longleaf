@@ -7,12 +7,11 @@ import ChartTab from './components/ChartTab';
 import DataTab from './components/DataTab';
 import StrategiesTab from './components/StrategiesTab';
 import type { ServerData } from './types';
-import { API_CONFIG } from './utils/constants';
 
 const { Content } = Layout;
 
 const App: React.FC = () => {
-  const [serverUrl, setServerUrl] = useState<string>(API_CONFIG.baseURL);
+  const [serverUrl, setServerUrl] = useState<string>('http://localhost:8080');
   const [serverOnline, setServerOnline] = useState<boolean>(false);
   const [serverData, setServerData] = useState<ServerData>({
     status: null,
