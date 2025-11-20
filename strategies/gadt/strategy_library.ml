@@ -490,6 +490,52 @@ let estridatter_3_0_0 =
   }
 
 (**
+  Estridatter_3_0_0_Debug - Single-Position Debug Variant
+
+  This is EXACTLY the same logic as Estridatter.3.0.0, but with only 1 position
+  at 100% allocation. Use this to debug:
+  1. What single stock is being selected
+  2. Whether the scoring/ranking is working correctly
+  3. Whether the entry/exit signals are firing as expected
+
+  If this variant also enters alphabetically-first stocks (AAPL, etc.) rather
+  than the most oversold (lowest RSI), then the scoring system is broken.
+*)
+let estridatter_3_0_0_debug =
+  (* RSI indicator - period 20 *)
+  let rsi_20 = Real.rsi 20 () in
+
+  (* Entry Bollinger Bands - period 71, std 1.60 *)
+  let bb_lower_entry = Real.lower_bband 71 1.604088 1.604088 () in
+
+  (* Exit Bollinger Bands - period 71, std 2.62 *)
+  let bb_middle_exit = Real.middle_bband 71 2.624549 2.624549 () in
+
+  {
+    name = "Estridatter_3_0_0_Debug";
+
+    (* Entry: RSI(20) < 44.68 AND Price < Lower BB(71, 1.60) AND safe to enter *)
+    buy_trigger =
+      (rsi_20 <. Const (44.683406, Float))
+      &&. (last <. bb_lower_entry)
+      &&. safe_to_enter ~close_buffer:10.0 ();
+
+    (* Exit: EOD OR mean reversion signals OR risk controls *)
+    sell_trigger =
+      force_exit_eod ~close_buffer:10.0 ()
+      ||. (last >. bb_middle_exit)        (* Mean reversion to middle band *)
+      ||. (rsi_20 >. Const (77.781908, Float))  (* Overbought *)
+      ||. stop_loss 0.02                   (* 2% stop loss *)
+      ||. profit_target 0.05;              (* 5% take profit *)
+
+    (* Score: More oversold = higher priority *)
+    score = Const (100.0, Float) -. rsi_20;
+
+    max_positions = 1;     (* DEBUG: Only 1 position *)
+    position_size = 1.0;   (* DEBUG: 100% allocation *)
+  }
+
+(**
   Estridatter.4.0.0 - Fourth Optimized Version (Ultra-High Frequency Variant)
 
   Result from ISRES optimization on ultra-wide variant (30 positions):
@@ -1124,6 +1170,7 @@ let volatile_dip_opt =
 let all_strategies = [
   estridatter_4_0_0;  (* Fourth optimized - 12.8% over 2 weeks, 285 trades/day, worse after costs *)
   estridatter_3_0_0;  (* Third optimized - 10.1% over 2 weeks, 79.84% win rate, better risk-adjusted *)
+  estridatter_3_0_0_debug;  (* DEBUG: Single-position variant of 3.0.0 *)
   estridatter_2_0_0;  (* PRODUCTION: Second optimized version - 71.3% return, 71% win rate *)
   estridatter_1_0_0;  (* PRODUCTION: First valid optimized version (proper bounds) *)
   estridatter_var;    (* Optimizable version with all fixes *)
