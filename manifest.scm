@@ -24,6 +24,7 @@
 
 (specifications->manifest
  (list
+        "gcc-toolchain"
         "ocaml"
         "dune"
         "ocamlformat"
