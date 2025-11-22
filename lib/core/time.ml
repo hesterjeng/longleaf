@@ -178,3 +178,13 @@ let is_near_open (unix_time : float) (threshold_minutes : float) : bool =
   let mins_since = minutes_since_open unix_time in
   Float.compare mins_since 0.0 >= 0 &&
   Float.compare mins_since threshold_minutes <= 0
+
+(* Add days to a date tuple (year, month, day) *)
+let add_days (year, month, day) days_to_add =
+  let base_ptime = Ptime.of_date (year, month, day)
+                   |> Option.get_exn_or "time.ml: add_days invalid date" in
+  let seconds_to_add = days_to_add * 86400 in
+  let new_ptime = Ptime.add_span base_ptime (Ptime.Span.of_int_s seconds_to_add)
+                  |> Option.get_exn_or "time.ml: add_days overflow" in
+  let (new_date, _) = Ptime.to_date_time new_ptime in
+  new_date

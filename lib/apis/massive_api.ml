@@ -137,26 +137,27 @@ module Make (Config : CONFIG) = struct
     (* Filter bars to only regular trading hours (9:30 AM - 4:00 PM ET, weekdays only) *)
     (* Massive includes pre-market, after-hours, and weekend data by default *)
     let is_regular_hours (timestamp : Ptime.t) : bool =
-      (* Get hour and minute from timestamp *)
-      (* Note: This assumes timestamps are already in ET - may need adjustment for true UTC *)
-      let (_, ((hour, minute, _), _)) = Ptime.to_date_time timestamp in
+      let unix_time = Ptime.to_float_s timestamp in
 
-      (* Check if weekday (Monday=1 to Friday=5) using Zeller's congruence *)
-      let (y, m, d) = Ptime.to_date timestamp in
-      let y = if m < 3 then y - 1 else y in
-      let m = if m < 3 then m + 12 else m in
-      let q = d in
-      let k = y mod 100 in
-      let j = y / 100 in
-      let h = (q + ((13 * (m + 1)) / 5) + k + (k / 4) + (j / 4) - (2 * j)) mod 7 in
-      (* h: 0=Saturday, 1=Sunday, 2=Monday, ..., 6=Friday *)
-      let is_weekday = h >= 2 && h <= 6 in
+      (* Use Time module's functions for proper ET timezone handling *)
+      let minutes_since_open = Time.minutes_since_open unix_time in
+      let minutes_until_close = Time.minutes_until_close unix_time in
 
-      (* Check if within regular trading hours: 9:30 AM (570 min) to 4:00 PM (960 min) *)
-      let time_minutes = hour * 60 + minute in
-      let is_regular_time = time_minutes >= 570 && time_minutes < 960 in
+      (* Check if within market hours (9:30 AM - 4:00 PM ET) *)
+      (* minutes_since_open >= 0 means at or after 9:30 AM ET *)
+      (* minutes_until_close > 0 means before 4:00 PM ET *)
+      let is_market_hours =
+        Float.compare minutes_since_open 0.0 >= 0 &&
+        Float.compare minutes_until_close 0.0 > 0 in
 
-      is_weekday && is_regular_time
+      (* Check if weekday using Ptime's built-in weekday function *)
+      let weekday = Ptime.weekday timestamp in
+      let is_weekday = match weekday with
+        | `Mon | `Tue | `Wed | `Thu | `Fri -> true
+        | `Sat | `Sun -> false
+      in
+
+      is_weekday && is_market_hours
 
     let filter_regular_hours (items : item list) : item list =
       List.filter (fun item ->
@@ -292,8 +293,66 @@ module Make (Config : CONFIG) = struct
       fetch_instrument_data_paginated request instrument [] endpoint
 
     (* Align all symbols to a common regular timeline *)
-    (* Uses the longest symbol's data as the skeleton timeline *)
-    (* Since data is pre-filtered to regular hours, skeleton only contains weekday 9:30-16:00 bars *)
+    (* Generate fixed market schedule: 9:30 AM - 4:00 PM ET, 1-minute intervals *)
+    (* This ensures consistent EOD bars and eliminates dependency on data quality *)
+    let generate_market_timeline (start_time : float) (end_time : float) (interval_seconds : float)
+        : float list =
+      (* Market hours in minutes since midnight ET *)
+      let market_open_minutes = 9.0 *. 60.0 +. 30.0 in  (* 9:30 AM = 570 minutes *)
+      let market_close_minutes = 16.0 *. 60.0 in        (* 4:00 PM = 960 minutes *)
+      let interval_minutes = interval_seconds /. 60.0 in
+
+      (* Convert start/end times to Ptime for date extraction *)
+      let start_ptime = Ptime.of_float_s start_time
+                        |> Option.get_exn_or "massive_api: invalid start_time" in
+      let end_ptime = Ptime.of_float_s end_time
+                      |> Option.get_exn_or "massive_api: invalid end_time" in
+      let ((start_year, start_month, start_day), _) = Ptime.to_date_time start_ptime in
+
+      (* Generate timestamps for a single day's market hours *)
+      let generate_day_bars (year, month, day) =
+        let weekday = Time.weekday_of_date year month day in
+        if weekday >= 1 && weekday <= 5 then begin
+          (* Determine DST status for this date using noon UTC as reference *)
+          let ref_ptime = Ptime.of_date_time ((year, month, day), ((12, 0, 0), 0))
+                          |> Option.get_exn_or "massive_api: failed to create reference time" in
+          let ref_unix = Ptime.to_float_s ref_ptime in
+          let et_offset_hours = Time.et_utc_offset_hours ref_unix in
+
+          (* Calculate number of bars in market day *)
+          let num_bars = int_of_float ((market_close_minutes -. market_open_minutes) /. interval_minutes) + 1 in
+
+          List.init num_bars (fun i ->
+            let minutes_et = market_open_minutes +. (float_of_int i *. interval_minutes) in
+            let hours_et = int_of_float (minutes_et /. 60.0) in
+            let mins_et = int_of_float (minutes_et -. (float_of_int hours_et *. 60.0)) in
+
+            (* Create Ptime treating ET time as if it were UTC *)
+            let ptime = Ptime.of_date_time ((year, month, day), ((hours_et, mins_et, 0), 0))
+                        |> Option.get_exn_or "massive_api: failed to create market bar time" in
+            let unix_time = Ptime.to_float_s ptime in
+
+            (* Adjust to convert from "ET treated as UTC" to actual UTC *)
+            unix_time -. (et_offset_hours *. 3600.0)
+          )
+        end else
+          []  (* Weekend - no bars *)
+      in
+
+      (* Recursively generate bars for all days in range *)
+      let rec generate_days current_date =
+        let current_ptime = Ptime.of_date current_date
+                            |> Option.get_exn_or "massive_api: invalid current_date" in
+        if Ptime.compare current_ptime end_ptime > 0 then
+          []
+        else
+          let day_bars = generate_day_bars current_date in
+          let next_date = Time.add_days current_date 1 in
+          day_bars @ generate_days next_date
+      in
+
+      generate_days (start_year, start_month, start_day)
+
     let align_to_timeline (data_list : (Instrument.t * Data.t) list) (interval_seconds : float)
         : ((Instrument.t * Data.t) list, Error.t) result =
       let ( let* ) = Result.( let* ) in
@@ -301,24 +360,35 @@ module Make (Config : CONFIG) = struct
       if List.is_empty data_list then
         Result.return data_list
       else begin
-        Eio.traceln "Aligning %d symbols to regular hours timeline..."
+        Eio.traceln "Aligning %d symbols to fixed market schedule (9:30-4:00 PM ET)..."
           (List.length data_list);
 
-        (* Find the symbol with the most bars - this becomes our skeleton *)
-        let longest_symbol, longest_data =
-          List.fold_left (fun (best_inst, best_data) (inst, data) ->
-            let size = Data.size data in
-            Eio.traceln "  %a has %d bars" Instrument.pp inst size;
-            if size > Data.size best_data then (inst, data) else (best_inst, best_data)
-          ) (List.hd data_list) (List.tl data_list)
-        in
+        (* Determine date range from the data - extract earliest and latest timestamps *)
+        let earliest_times = List.map (fun (_, data) ->
+          Data.get data Data.Type.Time 0  (* First timestamp in this symbol's data *)
+        ) data_list in
+        let latest_times = List.map (fun (_, data) ->
+          let size = Data.size data in
+          Data.get data Data.Type.Time (size - 1)  (* Last timestamp in this symbol's data *)
+        ) data_list in
 
-        let num_bars = Data.size longest_data in
-        let start_time = Data.get longest_data Data.Type.Time 0 in
-        let end_time = Data.get longest_data Data.Type.Time (num_bars - 1) in
+        (* Find the overall earliest and latest timestamps across all symbols *)
+        let start_time = List.fold_left Float.min (List.hd earliest_times) earliest_times in
+        let end_time = List.fold_left Float.max (List.hd latest_times) latest_times in
 
-        Eio.traceln "  Using %a as skeleton (%d bars, regular hours only)"
-          Instrument.pp longest_symbol num_bars;
+        (* Generate fixed market timeline *)
+        let timeline = generate_market_timeline start_time end_time interval_seconds in
+        let num_bars = List.length timeline in
+
+        (* Create skeleton Data.t from fixed timeline *)
+        let longest_data = Data.make num_bars in
+        List.iteri (fun i timestamp ->
+          Data.set longest_data Data.Type.Time i timestamp;
+          Data.set longest_data Data.Type.Index i (float_of_int i)
+        ) timeline;
+
+        Eio.traceln "  Generated fixed schedule: %d bars (every %.0f seconds)"
+          num_bars interval_seconds;
         Eio.traceln "  Time range: %.0f to %.0f" start_time end_time;
 
         (* Align each symbol to the skeleton's exact timestamps *)
