@@ -141,11 +141,12 @@ end = struct
       State.data state symbol
       (* State.get_bars state symbol *)
     in
+    let bars = State.bars state in
     let current_index = State.tick state in
     let positions = State.positions state in
     let orders = State.Positions.get positions symbol in
     let context : Gadt.context =
-      { instrument = symbol; data; index = current_index; orders }
+      { instrument = symbol; data; bars; index = current_index; orders }
     in
     match Gadt.eval context strategy_expr with
     | Ok should_signal -> Result.return @@ Signal.make symbol should_signal
@@ -156,11 +157,12 @@ end = struct
       (state : Longleaf_state.t) symbol =
     let ( let* ) = Result.( let* ) in
     let* data = State.data state symbol in
+    let bars = State.bars state in
     let current_index = State.tick state in
     let positions = State.positions state in
     let orders = State.Positions.get positions symbol in
     let context : Gadt.context =
-      { instrument = symbol; data; index = current_index; orders }
+      { instrument = symbol; data; bars; index = current_index; orders }
     in
     Gadt.eval context score_expr
 

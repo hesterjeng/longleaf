@@ -35,7 +35,8 @@ end
 
 type context = {
   instrument : Instrument.t;
-  data : Data.t;
+  data : Data.t;  (* Convenience: data for the current instrument *)
+  bars : Bars.t;  (* All symbols' data - enables pair trading and reliable timestamps *)
   index : int;
   orders : Order.t list;  (* Order history for this instrument - for position risk management *)
 }
@@ -76,7 +77,7 @@ let find_entry_order orders =
 
 (* Type-safe evaluation *)
 let rec eval : type a. context -> a t -> (a, Error.t) result =
- fun ({ instrument; data; index; orders } as context) t ->
+ fun ({ instrument; data; bars; index; orders } as context) t ->
   let ( let* ) = Result.( let* ) in
   (* Bounds checking *)
   if index < 0 || index >= Data.length data then
@@ -131,8 +132,10 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
     | HasPosition ->
       Result.return (not (List.is_empty orders))
     | TickTime ->
-      (* Get current tick's timestamp *)
-      Result.return (Data.get data Data.Type.Time index)
+      (* Get most recent timestamp across all symbols for reliable current time *)
+      let ( let* ) = Result.( let* ) in
+      let* timestamp = Bars.timestamp bars index in
+      Result.return (Ptime.to_float_s timestamp)
 (* | Indicator ty -> *)
 (*   let* ty = eval context ty in *)
 (*   Error.guard (Error.fatal "Error in GADT evaluation at Data node") *)
