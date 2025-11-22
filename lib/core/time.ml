@@ -170,7 +170,7 @@ let is_open (unix_time : float) : bool =
 (* Check if within threshold minutes of market close *)
 let is_close (unix_time : float) (threshold_minutes : float) : bool =
   let mins_until = minutes_until_close unix_time in
-  Float.compare mins_until 0.0 > 0 &&
+  Float.compare mins_until 0.0 >= 0 &&
   Float.compare mins_until threshold_minutes <= 0
 
 (* Check if within threshold minutes of market open *)

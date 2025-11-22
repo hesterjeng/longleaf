@@ -19,6 +19,7 @@ let max_holding_time max_ticks : bool Gadt.t =
   App2 (Fun (">", (>)), TicksHeld, max_ticks_expr)
 
 let safe_to_enter ?(close_buffer=10.0) () : bool Gadt.t =
+  is_open TickTime &&.
   App1 (Fun ("not", not), is_close TickTime (Const (close_buffer, Float)))
 
 let force_exit_eod ?(close_buffer=10.0) () : bool Gadt.t =
