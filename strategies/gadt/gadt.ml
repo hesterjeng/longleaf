@@ -39,6 +39,9 @@ type context = {
   bars : Bars.t;  (* All symbols' data - enables pair trading and reliable timestamps *)
   index : int;
   orders : Order.t list;  (* Order history for this instrument - for position risk management *)
+  tick_time : float;  (* Cached timestamp for current tick - computed once instead of per-symbol *)
+  is_market_open : bool;  (* Cached market open status - computed once per tick instead of per-symbol *)
+  minutes_until_close : float;  (* Cached minutes until close - computed once per tick instead of per-symbol *)
 }
 
 (* GADT AST with phantom types for compile-time type safety *)
@@ -77,7 +80,7 @@ let find_entry_order orders =
 
 (* Type-safe evaluation *)
 let rec eval : type a. context -> a t -> (a, Error.t) result =
- fun ({ instrument; data; bars; index; orders } as context) t ->
+ fun ({ instrument; data; bars; index; orders; tick_time = _; is_market_open = _; minutes_until_close = _ } as context) t ->
   let ( let* ) = Result.( let* ) in
   (* Bounds checking *)
   if index < 0 || index >= Data.length data then
@@ -94,16 +97,37 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
       let* res = eval context expr in
       Result.return res
     | App1 (f, x) ->
-      let* f = eval context f in
-      let* arg = eval context x in
-      let res = f arg in
-      Result.return res
+      (* Optimize specific time functions to use cached values *)
+      (match f with
+      | Fun ("is_open", _) ->
+        let* _timestamp = eval context x in  (* Evaluate but ignore - we use cached value *)
+        (* Safe: is_open always returns bool, and this pattern only matches is_open *)
+        Result.return (Obj.magic context.is_market_open : a)
+      | _ ->
+        let* f = eval context f in
+        let* arg = eval context x in
+        let res = f arg in
+        Result.return res)
     | App2 (f, x, y) ->
-      let* f = eval context f in
-      let* x = eval context x in
-      let* y = eval context y in
-      let res = f x y in
-      Result.return res
+      (* Optimize specific time functions to use cached values *)
+      (match f with
+      | Fun ("is_close", _) ->
+        let* _timestamp = eval context x in  (* Evaluate but ignore - we use cached value *)
+        let* threshold = eval context y in
+        (* Safe: is_close takes float threshold and returns bool *)
+        let threshold_float = (Obj.magic threshold : float) in
+        let res =
+          context.minutes_until_close >=. 0.0 &&
+          context.minutes_until_close <=. threshold_float
+        in
+        (* Safe: is_close always returns bool, and this pattern only matches is_close *)
+        Result.return (Obj.magic res : a)
+      | _ ->
+        let* f = eval context f in
+        let* x = eval context x in
+        let* y = eval context y in
+        let res = f x y in
+        Result.return res)
     | App3 (f, x, y, z) ->
       let* f = eval context f in
       let* x = eval context x in
@@ -132,10 +156,8 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
     | HasPosition ->
       Result.return (not (List.is_empty orders))
     | TickTime ->
-      (* Get most recent timestamp across all symbols for reliable current time *)
-      let ( let* ) = Result.( let* ) in
-      let* timestamp = Bars.timestamp bars index in
-      Result.return (Ptime.to_float_s timestamp)
+      (* Use pre-computed cached timestamp from context - avoids expensive recomputation *)
+      Result.return context.tick_time
 (* | Indicator ty -> *)
 (*   let* ty = eval context ty in *)
 (*   Error.guard (Error.fatal "Error in GADT evaluation at Data node") *)

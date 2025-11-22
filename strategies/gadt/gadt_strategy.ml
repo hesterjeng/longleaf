@@ -134,8 +134,8 @@ end = struct
   module Template = Longleaf_template
 
   (* Helper function to evaluate strategy triggers *)
-  let eval_strategy_signal (strategy_expr : bool Gadt.t)
-      (state : Longleaf_state.t) symbol =
+  let eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
+      (strategy_expr : bool Gadt.t) (state : Longleaf_state.t) symbol =
     let ( let* ) = Result.( let* ) in
     let* data =
       State.data state symbol
@@ -145,33 +145,64 @@ end = struct
     let current_index = State.tick state in
     let positions = State.positions state in
     let orders = State.Positions.get positions symbol in
+    (* Use pre-computed time info passed from order level - avoids redundant computation *)
     let context : Gadt.context =
-      { instrument = symbol; data; bars; index = current_index; orders }
+      { instrument = symbol; data; bars; index = current_index; orders; tick_time; is_market_open; minutes_until_close }
     in
     match Gadt.eval context strategy_expr with
     | Ok should_signal -> Result.return @@ Signal.make symbol should_signal
     | Error e -> Error e
 
   (* Helper function to evaluate score expressions *)
-  let eval_score (score_expr : float Gadt.t)
-      (state : Longleaf_state.t) symbol =
+  let eval_score ~tick_time ~is_market_open ~minutes_until_close
+      (score_expr : float Gadt.t) (state : Longleaf_state.t) symbol =
     let ( let* ) = Result.( let* ) in
     let* data = State.data state symbol in
     let bars = State.bars state in
     let current_index = State.tick state in
     let positions = State.positions state in
     let orders = State.Positions.get positions symbol in
+    (* Use pre-computed time info passed from order level - avoids redundant computation *)
     let context : Gadt.context =
-      { instrument = symbol; data; bars; index = current_index; orders }
+      { instrument = symbol; data; bars; index = current_index; orders; tick_time; is_market_open; minutes_until_close }
     in
     Gadt.eval context score_expr
 
   (* Convert GADT strategy to Template-compatible modules *)
   let gadt_to_buy_trigger (buy_expr : bool Gadt.t) (score_expr : float Gadt.t)
       (max_positions : int) (position_size : float) =
+    (* Cache for time info computed once per tick *)
+    let time_cache : (int * float * bool * float) option ref = ref None in
+
+    let get_time_info state =
+      let current_tick = State.tick state in
+      match !time_cache with
+      | Some (cached_tick, tick_time, is_open, mins_until_close) when cached_tick = current_tick ->
+        (* Cache hit - reuse values from same tick *)
+        Result.return (tick_time, is_open, mins_until_close)
+      | _ ->
+        (* Cache miss - compute once for this tick *)
+        let ( let* ) = Result.( let* ) in
+        let bars = State.bars state in
+        let* tick_time_ptime = Longleaf_bars.timestamp bars current_tick in
+        let tick_time = Ptime.to_float_s tick_time_ptime in
+        let is_market_open = Longleaf_core.Time.is_open tick_time in
+        let minutes_until_close = Longleaf_core.Time.minutes_until_close tick_time in
+        time_cache := Some (current_tick, tick_time, is_market_open, minutes_until_close);
+        Result.return (tick_time, is_market_open, minutes_until_close)
+    in
+
     let module Buy_input : Longleaf_template.Buy_trigger.INPUT = struct
-      let pass state symbol = eval_strategy_signal buy_expr state symbol
-      let score state symbol = eval_score score_expr state symbol
+      let pass state symbol =
+        let ( let* ) = Result.( let* ) in
+        let* (tick_time, is_market_open, minutes_until_close) = get_time_info state in
+        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close buy_expr state symbol
+
+      let score state symbol =
+        let ( let* ) = Result.( let* ) in
+        let* (tick_time, is_market_open, minutes_until_close) = get_time_info state in
+        eval_score ~tick_time ~is_market_open ~minutes_until_close score_expr state symbol
+
       let num_positions = max_positions
       let position_size = position_size
     end in
@@ -179,8 +210,32 @@ end = struct
     (module Buy_trigger : Template.Buy_trigger.S)
 
   let gadt_to_sell_trigger (sell_expr : bool Gadt.t) =
+    (* Cache for time info computed once per tick *)
+    let time_cache : (int * float * bool * float) option ref = ref None in
+
+    let get_time_info state =
+      let current_tick = State.tick state in
+      match !time_cache with
+      | Some (cached_tick, tick_time, is_open, mins_until_close) when cached_tick = current_tick ->
+        (* Cache hit - reuse values from same tick *)
+        Result.return (tick_time, is_open, mins_until_close)
+      | _ ->
+        (* Cache miss - compute once for this tick *)
+        let ( let* ) = Result.( let* ) in
+        let bars = State.bars state in
+        let* tick_time_ptime = Longleaf_bars.timestamp bars current_tick in
+        let tick_time = Ptime.to_float_s tick_time_ptime in
+        let is_market_open = Longleaf_core.Time.is_open tick_time in
+        let minutes_until_close = Longleaf_core.Time.minutes_until_close tick_time in
+        time_cache := Some (current_tick, tick_time, is_market_open, minutes_until_close);
+        Result.return (tick_time, is_market_open, minutes_until_close)
+    in
+
     let module Sell_impl : Template.Sell_trigger.S = struct
-      let make state symbol = eval_strategy_signal sell_expr state symbol
+      let make state symbol =
+        let ( let* ) = Result.( let* ) in
+        let* (tick_time, is_market_open, minutes_until_close) = get_time_info state in
+        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close sell_expr state symbol
     end in
     (module Sell_impl : Template.Sell_trigger.S)
 
