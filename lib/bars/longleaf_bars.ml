@@ -114,9 +114,11 @@ let timestamp (x : t) (tick : int) =
     fold x None @@ fun symbol data acc ->
     try
       let timestamp = Data.get data Time tick in
-      match acc with
-      | None -> Some timestamp
-      | Some prev -> Some prev
+      if Float.is_nan timestamp then acc  (* Skip NaN timestamps *)
+      else
+        match acc with
+        | None -> Some timestamp
+        | Some prev -> Some (Float.max prev timestamp)  (* Keep most recent *)
     with
     | Data.NaNInData (i, ty) ->
       Eio.traceln "===== NaN ERROR CONTEXT =====";
