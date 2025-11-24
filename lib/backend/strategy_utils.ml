@@ -28,9 +28,13 @@ end = struct
         | Paper ->
           let indicator_config = (State.config state).indicator_config in
           let pool = Input.options.executor_pool in
-          Indicators.Calc.compute_single ~pool (State.tick state) eio_env
+          let tick = State.tick state in
+          Eio.traceln "[DIAG] Computing indicators for tick %d" tick;
+          let* () = Indicators.Calc.compute_single ~pool tick eio_env
             indicator_config
-          @@ State.bars state
+          @@ State.bars state in
+          Eio.traceln "[DIAG] Indicators computed for tick %d" tick;
+          Result.return ()
         | _ -> Result.return ()
       in
       Result.return state

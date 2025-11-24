@@ -243,6 +243,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
                massive_ws_initial_fetch_done := true;
              (* Always drain queue and write all pending updates to bars at current tick *)
              let updates = Update_queue.drain () in
+             Eio.traceln "[DIAG] Tick %d: Drained %d updates from queue" tick (List.length updates);
              List.fold_left (fun acc (instrument, (agg : Massive_websocket.aggregate_message)) ->
                let* () = acc in
                (* Parse timestamp *)
@@ -262,6 +263,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
                Bars.Data.set data_array Bars.Data.Type.Close tick agg.c;
                Bars.Data.set data_array Bars.Data.Type.Last tick agg.c;
                Bars.Data.set data_array Bars.Data.Type.Volume tick (Float.of_int agg.v);
+               Eio.traceln "[DIAG] Wrote %s: close=%.2f, vol=%d to tick %d"
+                 (Instrument.symbol instrument) agg.c agg.v tick;
                Ok ()
              ) (Ok ()) updates
            | Error e ->
@@ -313,11 +316,29 @@ module Make (Input : BACKEND_INPUT) : S = struct
       (* Forward-fill from previous tick to current tick for symbols without websocket updates *)
       (* Only forward-fill if we're past the first tick *)
       if State.config state |> fun c -> c.indicator_config.compute_live then
-        if tick > 0 then
-          Bars.fold bars () (fun _instrument data () ->
-            Bars.Data.forward_fill_next_tick data ~tick:(tick - 1))
+        if tick > 0 then (
+          Eio.traceln "[DIAG] Forward-filling from tick %d to tick %d" (tick - 1) tick;
+          Bars.fold bars () (fun instrument data () ->
+            let before_time = Bars.Data.get data Bars.Data.Type.Time tick in
+            Bars.Data.forward_fill_next_tick data ~tick:(tick - 1);
+            let after_time = Bars.Data.get data Bars.Data.Type.Time tick in
+            if Float.is_nan before_time && not (Float.is_nan after_time) then
+              Eio.traceln "[DIAG] Forward-filled %s at tick %d" (Instrument.symbol instrument) tick
+          ))
         else ()
       else ();
+      (* Diagnostic: Show sample of bar data after update *)
+      (match List.hd symbols_list with
+       | instrument ->
+         (match Bars.get bars instrument with
+          | Ok data ->
+            let close = Bars.Data.get data Bars.Data.Type.Close tick in
+            let volume = Bars.Data.get data Bars.Data.Type.Volume tick in
+            let time = Bars.Data.get data Bars.Data.Type.Time tick in
+            Eio.traceln "[DIAG] Sample %s at tick %d: close=%.2f, vol=%.0f, time=%.0f"
+              (Instrument.symbol instrument) tick close volume time
+          | Error _ -> ())
+       | exception _ -> ());
       Result.return state
 
   let get_clock = Trading_api.Clock.get
