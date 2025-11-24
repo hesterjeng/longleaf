@@ -316,29 +316,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
       (* Forward-fill from previous tick to current tick for symbols without websocket updates *)
       (* Only forward-fill if we're past the first tick *)
       if State.config state |> fun c -> c.indicator_config.compute_live then
-        if tick > 0 then (
-          Eio.traceln "[DIAG] Forward-filling from tick %d to tick %d" (tick - 1) tick;
-          Bars.fold bars () (fun instrument data () ->
-            let before_time = Bars.Data.get data Bars.Data.Type.Time tick in
-            Bars.Data.forward_fill_next_tick data ~tick:(tick - 1);
-            let after_time = Bars.Data.get data Bars.Data.Type.Time tick in
-            if Float.is_nan before_time && not (Float.is_nan after_time) then
-              Eio.traceln "[DIAG] Forward-filled %s at tick %d" (Instrument.symbol instrument) tick
-          ))
+        if tick > 0 then
+          Bars.fold bars () (fun _instrument data () ->
+            Bars.Data.forward_fill_next_tick data ~tick:(tick - 1)
+          )
         else ()
       else ();
-      (* Diagnostic: Show sample of bar data after update *)
-      (match List.hd symbols_list with
-       | instrument ->
-         (match Bars.get bars instrument with
-          | Ok data ->
-            let close = Bars.Data.get data Bars.Data.Type.Close tick in
-            let volume = Bars.Data.get data Bars.Data.Type.Volume tick in
-            let time = Bars.Data.get data Bars.Data.Type.Time tick in
-            Eio.traceln "[DIAG] Sample %s at tick %d: close=%.2f, vol=%.0f, time=%.0f"
-              (Instrument.symbol instrument) tick close volume time
-          | Error _ -> ())
-       | exception _ -> ());
       Result.return state
 
   let get_clock = Trading_api.Clock.get
