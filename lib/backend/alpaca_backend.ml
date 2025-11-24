@@ -91,6 +91,31 @@ module Make (Input : BACKEND_INPUT) : S = struct
     | `TlsError s -> "TLS error: " ^ s
     | `WriteError s -> "Write error: " ^ s
 
+  (* Update queue for websocket data
+     Background fiber adds websocket updates to this queue.
+     Main loop drains queue each iteration and writes to bars.
+     This eliminates race conditions and the need for current_tick ref. *)
+  module Update_queue = struct
+    type update = Instrument.t * Massive_websocket.aggregate_message
+
+    (* Bounded queue with 1000 capacity
+       Will raise if full - indicates too many symbols or stalled main loop *)
+    let queue = Eio.Stream.create 1000
+
+    let add update =
+      if Eio.Stream.length queue >= 1000 then
+        invalid_arg "Update_queue full (1000/1000) - too many symbols or main loop stalled";
+      Eio.Stream.add queue update
+
+    let drain () =
+      let rec drain_all acc =
+        match Eio.Stream.take_nonblocking queue with
+        | Some update -> drain_all (update :: acc)
+        | None -> List.rev acc
+      in
+      drain_all []
+  end
+
   (* WebSocket client and background fiber state *)
   let tiingo_ws_client = ref None
   let tiingo_ws_background_started = ref false
@@ -99,9 +124,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let massive_ws_client = ref None
   let massive_ws_background_started = ref false
   let massive_ws_initial_fetch_done = ref false
-
-  (* Track current tick for background fiber *)
-  let current_tick = ref 0
 
   let get_or_create_massive_ws_client bars () =
     match !massive_ws_client with
@@ -123,7 +145,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       (* Start background fiber for continuous updates *)
       if not !massive_ws_background_started then begin
         Massive_websocket.Client.start_background_updates
-          ~sw:switch ~env ~use_delayed client bars (fun () -> !current_tick);
+          ~sw:switch ~env ~use_delayed client Update_queue.add;
         massive_ws_background_started := true;
         Eio.traceln "Alpaca backend: Background Massive WebSocket update fiber started"
       end;
@@ -147,11 +169,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
       tiingo_ws_client := Some client;
 
       (* Start background fiber for continuous updates *)
+      (* TODO: Update Tiingo websocket to use queue like Massive *)
       if not !tiingo_ws_background_started then begin
-        Tiingo_websocket.Client.start_background_updates
-          ~sw:switch ~env client bars (fun () -> !current_tick);
+        (* Tiingo_websocket.Client.start_background_updates
+          ~sw:switch ~env client bars (fun () -> !current_tick); *)
         tiingo_ws_background_started := true;
-        Eio.traceln "Alpaca backend: Background WebSocket update fiber started"
+        Eio.traceln "Alpaca backend: Tiingo WebSocket not yet updated for queue-based design"
       end;
 
       Eio.traceln "Alpaca backend: Tiingo WebSocket client initialized and subscribed";
@@ -200,37 +223,47 @@ module Make (Input : BACKEND_INPUT) : S = struct
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
   let update_bars (state : State.t) =
-    let ( let+ ) = Result.( let+ ) in
+    let ( let* ) = Result.( let* ) in
     let bars = State.bars state in
     let tick = State.tick state in
     let symbols_list = symbols in  (* Capture symbols in local scope *)
-
-    (* Update current tick for background fiber *)
-    (* WebSocket writes to the bar currently forming (tick + 1), not the bar we're evaluating (tick) *)
-    current_tick := tick + 1;
 
     match symbols_list with
     | [] ->
       Eio.traceln "No symbols in latest bars request.";
       Result.return state
     | _ ->
-      let+ () =
+      let* () =
         match data_source with
         | MassiveWebSocket ->
-          (* On first call, populate the next tick with REST to have initial data *)
-          (* After that, WebSocket updates continuously in background *)
+          (* Initialize WebSocket client if needed *)
           (match get_or_create_massive_ws_client bars () with
            | Ok _client ->
-             if not !massive_ws_initial_fetch_done then (
-               (* First time - just log that WebSocket is active *)
-               (* No initial REST fetch needed - WebSocket provides all data *)
-               Eio.traceln "Alpaca backend: Massive WebSocket initialized, waiting for data";
+             if not !massive_ws_initial_fetch_done then
                massive_ws_initial_fetch_done := true;
+             (* Always drain queue and write all pending updates to bars at current tick *)
+             let updates = Update_queue.drain () in
+             List.fold_left (fun acc (instrument, (agg : Massive_websocket.aggregate_message)) ->
+               let* () = acc in
+               (* Parse timestamp *)
+               let timestamp_s = Float.of_int agg.s /. 1000.0 in
+               let* timestamp =
+                 match Ptime.of_float_s timestamp_s with
+                 | Some t -> Ok t
+                 | None -> Error (`JsonError "Invalid timestamp from Massive")
+               in
+               (* Get data array for this instrument *)
+               let* data_array = Bars.get bars instrument in
+               (* Write aggregate to current tick *)
+               Bars.Data.set data_array Bars.Data.Type.Time tick (Ptime.to_float_s timestamp);
+               Bars.Data.set data_array Bars.Data.Type.Open tick agg.o;
+               Bars.Data.set data_array Bars.Data.Type.High tick agg.h;
+               Bars.Data.set data_array Bars.Data.Type.Low tick agg.l;
+               Bars.Data.set data_array Bars.Data.Type.Close tick agg.c;
+               Bars.Data.set data_array Bars.Data.Type.Last tick agg.c;
+               Bars.Data.set data_array Bars.Data.Type.Volume tick (Float.of_int agg.v);
                Ok ()
-             ) else (
-               (* WebSocket is running and updating continuously *)
-               Ok ()
-             )
+             ) (Ok ()) updates
            | Error e ->
              Eio.traceln "Alpaca backend: Failed to initialize Massive WebSocket: %s" (ws_error_to_string e);
              Error (`MissingData ("Massive WebSocket initialization failed: " ^ ws_error_to_string e)))
@@ -277,7 +310,15 @@ module Make (Input : BACKEND_INPUT) : S = struct
            | Ok () -> Ok ()
            | Error e -> Error e)
       in
-      state
+      (* Forward-fill from previous tick to current tick for symbols without websocket updates *)
+      (* Only forward-fill if we're past the first tick *)
+      if State.config state |> fun c -> c.indicator_config.compute_live then
+        if tick > 0 then
+          Bars.fold bars () (fun _instrument data () ->
+            Bars.Data.forward_fill_next_tick data ~tick:(tick - 1))
+        else ()
+      else ();
+      Result.return state
 
   let get_clock = Trading_api.Clock.get
 

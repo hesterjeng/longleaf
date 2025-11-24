@@ -95,14 +95,7 @@ let increment_tick x =
   let* value = value x in
   let* time = time x in
   let current_tick = x.current_tick in
-  (* Forward-fill price data ONLY for live trading (not backtesting) *)
-  (* In backtesting, historical data is already present; forward-fill would overwrite it *)
-  let () =
-    if x.config.indicator_config.compute_live then
-      Bars.fold x.bars () (fun _instrument data () ->
-        Bars.Data.forward_fill_next_tick data ~tick:current_tick)
-    else ()
-  in
+  (* Forward-fill moved to update_bars - all data preparation happens there *)
   Result.return
   @@ {
        x with

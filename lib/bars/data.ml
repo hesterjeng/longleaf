@@ -421,16 +421,26 @@ let forward_fill_next_tick (x : t) ~tick =
   let source_idx = tick in
   let dest_idx = tick + 1 in
   if source_idx >= 0 && source_idx < x.size && dest_idx >= 0 && dest_idx < x.size then begin
-    let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
-                            Type.High; Type.Low; Type.Close; Type.Volume] in
-    List.iter (fun data_type ->
-      match Saturn.Htbl.find_opt x.index.tbl data_type with
-      | Some row ->
-        if Type.is_int_ty data_type then
-          Array2.set x.int_data row dest_idx (Array2.get x.int_data row source_idx)
-        else
-          Array2.set x.data row dest_idx (Array2.get x.data row source_idx)
-      | None ->
+    (* Check if dest already has fresh websocket data (different timestamp) *)
+    let has_fresh_data =
+      match Saturn.Htbl.find_opt x.index.tbl Type.Time with
+      | Some time_row ->
+        let source_time = Array2.get x.data time_row source_idx in
+        let dest_time = Array2.get x.data time_row dest_idx in
+        (not (Float.is_nan dest_time)) && (not (Float.equal source_time dest_time))
+      | None -> false
+    in
+    if not has_fresh_data then begin
+      let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
+                              Type.High; Type.Low; Type.Close; Type.Volume] in
+      List.iter (fun data_type ->
+        match Saturn.Htbl.find_opt x.index.tbl data_type with
+        | Some row ->
+          if Type.is_int_ty data_type then
+            Array2.set x.int_data row dest_idx (Array2.get x.int_data row source_idx)
+          else
+            Array2.set x.data row dest_idx (Array2.get x.data row source_idx)
+        | None ->
         (* Essential data type missing from index - this is a critical issue *)
         Eio.traceln "===== FORWARD-FILL WARNING =====";
         Eio.traceln "data.ml.forward_fill_next_tick: Essential data type %a NOT in index table!" Type.pp data_type;
@@ -440,7 +450,8 @@ let forward_fill_next_tick (x : t) ~tick =
         Eio.traceln "  Future reads of this type will return NaN and may crash.";
         Eio.traceln "================================";
         ()
-    ) price_data_types
+      ) price_data_types
+    end
   end
 
 let set_item (x : t) (i : int) (item : Item.t) =

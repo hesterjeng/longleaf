@@ -173,7 +173,8 @@ val grow : t -> (t, Error.t) result
 
 val forward_fill_next_tick : t -> tick:int -> unit
 (** [forward_fill_next_tick x ~tick] copies price data from [tick] to [tick+1].
-    Used for live trading to ensure valid data when no trade occurs. *)
+    Used for live trading to ensure valid data when no trade occurs. Will NOT
+    overwrite if [tick+1] already has fresh data (different timestamp from [tick]). *)
 
 val size : t -> int
 

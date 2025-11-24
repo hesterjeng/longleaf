@@ -413,8 +413,8 @@ module Client = struct
     end else
       Ok new_client
 
-  (* Background fiber that continuously updates bars *)
-  let start_background_updates ~sw ~env ~use_delayed client bars get_current_tick =
+  (* Background fiber that continuously adds updates to queue *)
+  let start_background_updates ~sw ~env ~use_delayed client add_update =
     Eio.traceln "Massive WebSocket: Starting background update fiber";
 
     Eio.Fiber.fork ~sw (fun () ->
@@ -424,14 +424,14 @@ module Client = struct
           (* Empty update, try again *)
           update_loop client_ref
         | Ok aggregates ->
-          (* Get current tick from the strategy *)
-          let current_tick = get_current_tick () in
-
-          (* Update bars with new data *)
-          (match update_bars bars current_tick aggregates with
-           | Ok () -> ()  (* Silent on success *)
-           | Error e ->
-             Eio.traceln "Massive WebSocket: Error updating bars: %s" (Error.show e));
+          (* Add each aggregate to queue for main loop to process *)
+          List.iter (fun agg ->
+            match Instrument.of_string_res agg.sym with
+            | Ok instrument -> add_update (instrument, agg)
+            | Error e ->
+              Eio.traceln "Massive WebSocket: Invalid instrument %s: %a"
+                agg.sym Error.pp e
+          ) aggregates;
 
           (* Explicit yield to prevent starving other fibers during message floods *)
           Eio.Fiber.yield ();
