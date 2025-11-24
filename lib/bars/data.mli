@@ -158,6 +158,12 @@ val to_items : t -> (Item.t list, Error.t) result
 val make : int -> t
 (** [make size] creates a new data matrix with the given size. *)
 
+val make_for_download : int -> t
+(** [make_for_download size] creates a new data matrix optimized for downloading.
+    Uses minimal row allocation (10 float, 2 int) since only base OHLCV types are
+    stored during download. Indicators are computed later when data is loaded for
+    backtesting/trading. *)
+
 val copy : t -> t
 (** [copy x] returns a copy of the data matrix [x]. *)
 

@@ -302,6 +302,21 @@ let make size : t =
     indicators_computed = false;
   }
 
+(* Minimal allocation for downloading - only needs base OHLCV types (8 float rows)
+   Indicators are computed later when data is loaded from JSON for backtesting *)
+let make_for_download size : t =
+  {
+    data =
+      Array2.init Bigarray.float64 Bigarray.c_layout 10 size (fun _ _ ->
+          Float.nan);
+    int_data =
+      Array2.init Bigarray.int32 Bigarray.c_layout 2 size (fun _ _ ->
+          Int32.zero);
+    index = Index.make ();
+    size;
+    indicators_computed = false;
+  }
+
 let copy (x : t) =
   let r = make x.size in
   Array2.blit x.data r.data;

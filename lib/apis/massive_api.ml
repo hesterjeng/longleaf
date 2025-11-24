@@ -193,7 +193,7 @@ module Make (Config : CONFIG) = struct
       Result.return ()
 
     (* Convert results list to Data.t, filtering to regular trading hours *)
-    let results_to_data results =
+    let results_to_data ~minimal_allocation results =
       let ( let* ) = Result.( let* ) in
       let original_count = List.length results in
       (* Filter to only regular trading hours *)
@@ -202,7 +202,10 @@ module Make (Config : CONFIG) = struct
       if filtered_count < original_count then
         Eio.traceln "      Filtered %d bars to %d regular hours bars (removed %d extended hours)"
           original_count filtered_count (original_count - filtered_count);
-      let data = Data.make filtered_count in
+      let data =
+        if minimal_allocation then Data.make_for_download filtered_count
+        else Data.make filtered_count
+      in
       let* () =
         List.foldi
           (fun acc i item ->
@@ -249,7 +252,7 @@ module Make (Config : CONFIG) = struct
       |> Uri.to_string
 
     (* Fetch data for a single instrument with pagination *)
-    let rec fetch_instrument_data_paginated (request : Request.t) instrument acc_results endpoint =
+    let rec fetch_instrument_data_paginated ~minimal_allocation (request : Request.t) instrument acc_results endpoint =
       let ( let* ) = Result.( let* ) in
 
       Eio.traceln "    Fetching %a: %s" Instrument.pp instrument endpoint;
@@ -275,22 +278,22 @@ module Make (Config : CONFIG) = struct
           in
           Eio.traceln "Pagination: fetching next page (%d results so far)"
             (List.length all_results);
-          fetch_instrument_data_paginated request instrument all_results next_endpoint
+          fetch_instrument_data_paginated ~minimal_allocation request instrument all_results next_endpoint
         | None ->
           (* No more pages, convert to Data.t *)
           Eio.traceln "      Converting %d raw bars for %a"
             (List.length all_results) Instrument.pp instrument;
-          let* data = results_to_data all_results in
+          let* data = results_to_data ~minimal_allocation all_results in
           Eio.traceln "      Result: %a has %d bars after filtering"
             Instrument.pp instrument (Data.size data);
           Result.return (instrument, data))
       | status ->
         Error.fatal (Format.sprintf "Massive API error: %s" status)
 
-    let fetch_instrument_data (request : Request.t) instrument =
+    let fetch_instrument_data ~minimal_allocation (request : Request.t) instrument =
       let symbol = Instrument.symbol instrument in
       let endpoint = build_endpoint request symbol in
-      fetch_instrument_data_paginated request instrument [] endpoint
+      fetch_instrument_data_paginated ~minimal_allocation request instrument [] endpoint
 
     (* Align all symbols to a common regular timeline *)
     (* Generate fixed market schedule: 9:30 AM - 4:00 PM ET, 1-minute intervals *)
@@ -353,7 +356,7 @@ module Make (Config : CONFIG) = struct
 
       generate_days (start_year, start_month, start_day)
 
-    let align_to_timeline (data_list : (Instrument.t * Data.t) list) (interval_seconds : float)
+    let align_to_timeline ~minimal_allocation (data_list : (Instrument.t * Data.t) list) (interval_seconds : float)
         : ((Instrument.t * Data.t) list, Error.t) result =
       let ( let* ) = Result.( let* ) in
 
@@ -381,7 +384,10 @@ module Make (Config : CONFIG) = struct
         let num_bars = List.length timeline in
 
         (* Create skeleton Data.t from fixed timeline *)
-        let longest_data = Data.make num_bars in
+        let longest_data =
+          if minimal_allocation then Data.make_for_download num_bars
+          else Data.make num_bars
+        in
         List.iteri (fun i timestamp ->
           Data.set longest_data Data.Type.Time i timestamp;
           Data.set longest_data Data.Type.Index i (float_of_int i)
@@ -398,7 +404,10 @@ module Make (Config : CONFIG) = struct
             Eio.traceln "  WARNING: %a has no data" Instrument.pp instrument;
             Error.fatal (Format.asprintf "Symbol %a has no data in regular hours" Instrument.pp instrument)
           end else begin
-            let aligned_data = Data.make num_bars in
+            let aligned_data =
+              if minimal_allocation then Data.make_for_download num_bars
+              else Data.make num_bars
+            in
             let sparse_size = Data.size sparse_data in
 
             (* Find first valid bar to use for back-filling *)
@@ -459,10 +468,10 @@ module Make (Config : CONFIG) = struct
       end
 
     (* Download historical data for all symbols in request *)
-    let top (starting_request : Request.t) =
+    let top ?(minimal_allocation=false) (starting_request : Request.t) =
       let ( let* ) = Result.( let* ) in
       let split_requests = Request.split starting_request in
-      Eio.traceln "Massive_api.top";
+      Eio.traceln "Massive_api.top (minimal_allocation=%b)" minimal_allocation;
 
       let* r =
         let request_symbols =
@@ -474,7 +483,7 @@ module Make (Config : CONFIG) = struct
           (fun request ->
             let* res =
               Result.map_l
-                (fetch_instrument_data request)
+                (fetch_instrument_data ~minimal_allocation request)
                 request_symbols
             in
             (* Calculate interval in seconds from timeframe *)
@@ -487,7 +496,7 @@ module Make (Config : CONFIG) = struct
               | Timeframe.Month _ -> 2592000.0
             in
             (* Align all symbols to regular timeline before creating Bars *)
-            let* aligned_res = align_to_timeline res interval_seconds in
+            let* aligned_res = align_to_timeline ~minimal_allocation res interval_seconds in
             Result.return @@ Bars.of_list aligned_res)
           split_requests
       in

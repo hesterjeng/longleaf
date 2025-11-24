@@ -56,7 +56,8 @@ module Cmd = struct
         Downloader.request today (Trading_types.Timeframe.Min 1) collection
           begin_arg end_arg timeframe_arg interval_arg
       in
-      Downloader.download eio_env request downloader_arg afterhours_arg
+      (* Use minimal allocation for CLI downloader - data will be saved to JSON *)
+      Downloader.download ~minimal_allocation:true eio_env request downloader_arg afterhours_arg
     in
     let res =
       Result.Infix.(

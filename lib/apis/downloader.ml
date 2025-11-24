@@ -15,7 +15,7 @@ end
 let data_client eio_env https =
   Cohttp_eio.Client.make ~https:(Some https) eio_env#net
 
-let download eio_env request (downloader_arg : Ty.t option) afterhours =
+let download ?(minimal_allocation=false) eio_env request (downloader_arg : Ty.t option) afterhours =
   (* Initialize RNG and create HTTPS wrapper *)
   let () = Https.init_rng () in
   let authenticator = Https.authenticator () in
@@ -54,7 +54,7 @@ let download eio_env request (downloader_arg : Ty.t option) afterhours =
         let client = data_client eio_env https
       end in
       let module Massive = Massive_api.Make (Param) in
-      let res = Massive.Download.top request in
+      let res = Massive.Download.top ~minimal_allocation request in
       res
     | None -> invalid_arg "Need to specify downloader type for data_downloader."
   in

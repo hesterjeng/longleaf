@@ -603,6 +603,202 @@ let estridatter_4_0_0 =
     position_size = 0.0333;  (* ~3.3% each for 30 positions *)
   }
 
+(**
+  Estridatter.5.0.0 - Fifth Optimized Version (Extreme Oversold Entry)
+
+  Result from ISRES optimization on Var_Wide variant (20 positions):
+  - Final value: $105,472.10 (5.47% return over 2.7 months)
+  - Annualized: ~24% return
+  - Win rate: 65.00% over 460 trades
+  - Profit factor: 1.781
+  - Sharpe ratio: 0.215
+
+  Optimized parameters:
+  - RSI(29) with thresholds 20.17 / 74.10
+  - Bollinger Bands(46) with 1.80 std for entry, 2.47 std for exit
+  - 2% stop loss, 5% take profit
+  - EOD protection (10 min buffer)
+  - 20 positions @ 5% each
+
+  Strategy Character:
+  "Patient hunter - waits for extreme oversold, exits on standard reversion"
+
+  Key Innovation - Most Aggressive Entry:
+  The RSI < 20.17 entry threshold is the LOWEST of all estridatter variants,
+  making this the most patient entry strategy. It waits for truly extreme
+  oversold conditions, not just mild dips. This filters out false signals
+  and ensures entry on significant market dislocations.
+
+  The medium-term indicators (RSI 29, BB 46) provide stable context while
+  the extreme oversold threshold ensures only the best opportunities are taken.
+
+  Entry Logic:
+  - RSI(29) < 20.17 (EXTREME oversold - most aggressive entry)
+  - Price < Lower BB(46, 1.80) (below mean with moderate band)
+  - Safe to enter (NOT within 10 min of close)
+
+  Exit Logic:
+  - Force exit EOD (within 10 min of close)
+  - Price > Middle BB(46, 2.47) (mean reversion complete)
+  - RSI(29) > 74.10 (overbought - standard exit)
+  - 2% stop loss
+  - 5% take profit
+
+  Risk Management:
+  - 20 concurrent positions (wide diversification)
+  - 5% position size per trade
+  - No overnight positions (force_exit_eod + safe_to_enter)
+
+  Performance Notes:
+  Tested on Sept-Nov 2025 data (2.7 months, 23,069 minute bars).
+  24% annualized return with moderate Sharpe (0.215). The extreme oversold
+  entry (20.17) successfully filters noise and captures high-probability
+  mean reversion setups. 460 trades = ~170/month shows good activity without
+  overtrading.
+*)
+let estridatter_5_0_0 =
+  (* RSI indicator - period 29 *)
+  let rsi_29 = Real.rsi 29 () in
+
+  (* Entry Bollinger Bands - period 46, std 1.798 *)
+  let bb_lower_entry = Real.lower_bband 46 1.797883 1.797883 () in
+
+  (* Exit Bollinger Bands - period 46, std 2.474 *)
+  let bb_middle_exit = Real.middle_bband 46 2.474220 2.474220 () in
+
+  {
+    name = "Estridatter.5.0.0";
+
+    (* Entry: RSI(29) < 20.17 AND Price < Lower BB(46, 1.80) AND safe to enter *)
+    buy_trigger =
+      (rsi_29 <. Const (20.173400, Float))
+      &&. (last <. bb_lower_entry)
+      &&. safe_to_enter ~close_buffer:10.0 ();
+
+    (* Exit: EOD OR mean reversion signals OR risk controls *)
+    sell_trigger =
+      force_exit_eod ~close_buffer:10.0 ()
+      ||. (last >. bb_middle_exit)        (* Mean reversion to middle band *)
+      ||. (rsi_29 >. Const (74.101443, Float))  (* Overbought *)
+      ||. stop_loss 0.02                   (* 2% stop loss *)
+      ||. profit_target 0.05;              (* 5% take profit *)
+
+    (* Score: More oversold = higher priority *)
+    score = Const (100.0, Float) -. rsi_29;
+
+    max_positions = 20;  (* Wide diversification *)
+    position_size = 0.05;  (* 5% each for 20 positions *)
+  }
+
+(**
+  CosmicCowgirl_Var - Minimal 4-Parameter Mean Reversion Strategy
+
+  Designed for efficient optimization with reduced parameter space:
+  - Only 4 variables to optimize (vs 6-8 in other strategies)
+  - Ideal for 300-500 ISRES iterations on large datasets
+  - Enforces natural constraints (shared periods, symmetric thresholds)
+
+  The 4 Optimizable Parameters:
+  1. shared_period: [10, 100] - Used for BOTH RSI and Bollinger Bands
+     - Enforces consistency: oversold detection matches band timeframe
+     - WIDENED: Previously [10, 50], optimizer was hitting upper bound
+  2. rsi_threshold: [15, 40] - Symmetric entry/exit
+     - Buy when RSI < threshold
+     - Sell when RSI > (100 - threshold)
+  3. bb_std: [1.0, 4.0] - Single Bollinger Band width
+     - Entry: price < lower_band(shared_period, bb_std)
+     - Exit: price > middle_band(shared_period, bb_std)
+     - WIDENED: Previously [1.5, 2.5], optimizer wanted wider bands
+  4. stop_loss: [0.01, 0.05] - Risk control (1-5%)
+     - Take profit auto-derived as stop_loss × 2.5 (2.5:1 ratio)
+     - WIDENED: Previously [0.01, 0.03], optimizer hitting upper bound
+
+  Strategy Logic:
+  Entry (Buy):
+    - RSI(shared_period) < rsi_threshold (oversold)
+    - Price < Lower BB(shared_period, bb_std) (stretched below mean)
+    - Safe to enter (NOT within 10 min of market close)
+
+  Exit (Sell) - any of:
+    - Force exit EOD (within 10 min of close)
+    - Price > Middle BB(shared_period, bb_std) (mean reversion complete)
+    - RSI(shared_period) > (100 - rsi_threshold) (overbought, symmetric)
+    - Stop loss (variable 1-3%)
+    - Take profit (2.5× stop loss for fixed risk/reward)
+
+  Benefits of 4-Parameter Design:
+  - Faster optimization (fewer dimensions to search)
+  - Lower overfitting risk (simpler model)
+  - Natural constraints enforce strategy coherence
+  - Still captures core mean reversion logic
+*)
+let cosmiccowgirl_var =
+  (* Variable 1: Shared period for both RSI and Bollinger Bands *)
+  let shared_period = Gadt_fo.var ~lower:10.0 ~upper:100.0 Gadt.Type.Int in
+
+  (* Variable 2: RSI threshold (buy < X, sell > 100-X for symmetry) *)
+  let rsi_threshold = Gadt_fo.var ~lower:15.0 ~upper:40.0 Gadt.Type.Float in
+
+  (* Variable 3: Single Bollinger Band std dev (used for both entry and exit) *)
+  let bb_std = Gadt_fo.var ~lower:1.0 ~upper:4.0 Gadt.Type.Float in
+
+  (* Variable 4: Stop loss (take profit derived as 2.5× this) *)
+  let stop_loss_pct = Gadt_fo.var ~lower:0.01 ~upper:0.05 Gadt.Type.Float in
+
+  (* Derived: Symmetric RSI sell threshold *)
+  let rsi_sell_threshold = Const (100.0, Float) -. rsi_threshold in
+
+  (* Derived: Take profit = 2.5× stop loss for consistent risk/reward *)
+  let take_profit_pct = stop_loss_pct *. Const (2.5, Float) in
+
+  (* Create RSI indicator using shared period *)
+  let rsi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), shared_period)))
+  in
+
+  (* Create entry Bollinger Band (lower band using shared period and std) *)
+  let bb_lower_entry =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        shared_period, bb_std, bb_std)))
+  in
+
+  (* Create exit Bollinger Band (middle band using shared period and std) *)
+  let bb_middle_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        shared_period, bb_std, bb_std)))
+  in
+
+  (* Compute stop loss and take profit multipliers *)
+  let stop_loss_mult = Const (1.0, Float) -. stop_loss_pct in  (* 1 - stop_loss *)
+  let take_profit_mult = Const (1.0, Float) +. take_profit_pct in  (* 1 + take_profit *)
+
+  {
+    name = "CosmicCowgirl_Var";
+
+    (* Entry: Oversold RSI + below lower BB + safe to enter *)
+    buy_trigger =
+      (rsi <. rsi_threshold)
+      &&. (last <. bb_lower_entry)
+      &&. safe_to_enter ~close_buffer:10.0 ();
+
+    (* Exit: EOD + mean reversion signals + risk controls *)
+    sell_trigger =
+      force_exit_eod ~close_buffer:10.0 ()
+      ||. (last >. bb_middle_exit)           (* Mean reversion to middle *)
+      ||. (rsi >. rsi_sell_threshold)         (* Symmetric overbought *)
+      ||. (last <. (EntryPrice *. stop_loss_mult))    (* Variable stop loss *)
+      ||. (last >. (EntryPrice *. take_profit_mult)); (* 2.5× stop loss *)
+
+    (* Score: More oversold = higher priority *)
+    score = Const (100.0, Float) -. rsi;
+
+    max_positions = 20;  (* Wide diversification like estridatter *)
+    position_size = 0.05;  (* 5% each *)
+  }
+
 (* Keep original estridatter for comparison/reference *)
 let estridatter =
   (* RSI and Bollinger Band indicators *)
@@ -1169,6 +1365,7 @@ let volatile_dip_opt =
 
 (* Export all strategies defined in this module *)
 let all_strategies = [
+  estridatter_5_0_0;  (* Fifth optimized - 24% annualized, extreme oversold entry (RSI<20.17) *)
   estridatter_4_0_0;  (* Fourth optimized - 12.8% over 2 weeks, 285 trades/day, worse after costs *)
   estridatter_3_0_0;  (* Third optimized - 10.1% over 2 weeks, 79.84% win rate, better risk-adjusted *)
   estridatter_3_0_0_debug;  (* DEBUG: Single-position variant of 3.0.0 *)
@@ -1179,6 +1376,7 @@ let all_strategies = [
   estridatter_var_ultra_wide;  (* Ultra wide variant - 30 positions @ 3.3% each *)
   estridatter_fixed;  (* Fixed version with hardcoded params from old optimization *)
   estridatter;        (* Keep original buggy version for comparison *)
+  cosmiccowgirl_var;  (* 4-parameter minimal mean reversion - efficient optimization *)
   cosmic_cowgirl_25_52_90;
   sharp_entry_patient_exit;
   patient_entry_77_46;
