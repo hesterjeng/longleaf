@@ -236,12 +236,21 @@ module Client = struct
 
   (* Receive and parse next message *)
   let receive_update client =
+    Eio.traceln "Massive WS: receive_update calling Connection.receive...";
+    let frame_result = Websocket.Connection.receive client.conn in
+    (match frame_result with
+     | Ok frame ->
+       Eio.traceln "Massive WS: Got frame opcode=%s len=%d"
+         (Websocket.Opcode.show frame.Websocket.Frame.opcode)
+         (String.length frame.payload)
+     | Error `ConnectionClosed ->
+       Eio.traceln "Massive WS: Connection.receive returned ConnectionClosed"
+     | Error (`InvalidOpcode i) ->
+       Eio.traceln "Massive WS: Connection.receive returned InvalidOpcode %d" i
+     | Error (`ReadError s) ->
+       Eio.traceln "Massive WS: Connection.receive returned ReadError: %s" s);
     let ( let* ) = Result.( let* ) in
-
-    let* frame = Websocket.Connection.receive client.conn in
-    Eio.traceln "Massive WS: Received frame opcode=%s payload_len=%d"
-      (Websocket.Opcode.show frame.Websocket.Frame.opcode)
-      (String.length frame.payload);
+    let* frame = frame_result in
 
     match frame.Websocket.Frame.opcode with
     | Text ->
@@ -423,7 +432,6 @@ module Client = struct
     Eio.Fiber.fork ~sw (fun () ->
       Eio.traceln "Massive WS background: Fiber started, entering update loop";
       let rec update_loop client_ref =
-        Eio.traceln "Massive WS background: Calling receive_update...";
         match receive_update !client_ref with
         | Ok [] ->
           (* Empty update, try again *)
