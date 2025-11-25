@@ -331,9 +331,16 @@ let grow_ (x : t) =
   let new_size = x.size * 2 in
   let old_data_rows = Array2.dim1 x.data in
   let old_int_data_rows = Array2.dim1 x.int_data in
+  (* Get the Time row index so we can initialize it to 0.0 instead of NaN *)
+  let time_row = match Saturn.Htbl.find_opt x.index.tbl Type.Time with
+    | Some r -> r
+    | None -> -1  (* Time not in index yet *)
+  in
   let new_data =
     Array2.init Bigarray.float64 Bigarray.c_layout old_data_rows new_size
-      (fun _ _ -> Float.nan)
+      (fun row _col ->
+        (* Initialize Time row to 0.0 (epoch), other rows to NaN *)
+        if row = time_row then 0.0 else Float.nan)
   in
   let new_int_data =
     Array2.init Bigarray.int32 Bigarray.c_layout old_int_data_rows new_size
