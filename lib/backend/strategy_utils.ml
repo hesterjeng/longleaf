@@ -175,15 +175,17 @@ end = struct
         if Option.is_some !market_open_time && options.flags.opening_wait_minutes > 0 then
           Eio.traceln "=== Opening volatility window passed, starting to trade ===";
         (* Forward-fill: copy current tick to next tick for all symbols *)
-        (* This ensures symbols without trades have data from previous tick *)
-        (* Websocket will overwrite with fresh data during next Listen if available *)
-        let tick = State.tick state in
-        let bars = State.bars state in
-        List.iter (fun instrument ->
-          match Bars.get bars instrument with
-          | Ok data -> Bars.Data.forward_fill_next_tick data ~tick
-          | Error _ -> ()
-        ) Backend.symbols;
+        (* Only for live/paper - backtesting data is already complete *)
+        (match runtype with
+         | Live | Paper ->
+           let tick = State.tick state in
+           let bars = State.bars state in
+           List.iter (fun instrument ->
+             match Bars.get bars instrument with
+             | Ok data -> Bars.Data.forward_fill_next_tick data ~tick
+             | Error _ -> ()
+           ) Backend.symbols
+         | _ -> ());
         Ok state
       )
   end
