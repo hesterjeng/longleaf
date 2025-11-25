@@ -99,6 +99,7 @@ end = struct
       match runtype with
       | Live
       | Paper ->
+        Eio.traceln "Listen: Starting listen_tick for tick %d" (State.tick state);
         Eio.Fiber.any
         @@ [
              (fun () ->
@@ -126,11 +127,9 @@ end = struct
                    Ticker.tick ~runtype env Input.options.tick;
                    Result.return ()
                  ) else (
-                   if options.flags.print_tick_arg then
-                     Eio.traceln "strategy_utils: ticking %d %a"
-                       (State.tick state) (Option.pp Time.pp)
-                       (Eio.Time.now env#clock |> Ptime.of_float_s);
+                   Eio.traceln "Listen: Market open, sleeping %.1fs (tick %d)" Input.options.tick (State.tick state);
                    Ticker.tick ~runtype env Input.options.tick;
+                   Eio.traceln "Listen: Woke up (tick %d)" (State.tick state);
                    Result.return ()
                  )
                | Some open_time ->
