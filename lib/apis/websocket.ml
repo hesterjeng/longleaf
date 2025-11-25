@@ -129,6 +129,9 @@ module Frame = struct
     let byte0 = Char.code (String.unsafe_get header 0) in
     let byte1 = Char.code (String.unsafe_get header 1) in
 
+    Eio.traceln "WebSocket decode: header bytes: 0x%02X 0x%02X (opcode=%d, len=%d)"
+      byte0 byte1 (byte0 land 0x0F) (byte1 land 0x7F);
+
     let fin = (byte0 land 0x80) <> 0 in
     let* opcode = Opcode.of_int (byte0 land 0x0F) in
     let mask = (byte1 land 0x80) <> 0 in
@@ -182,6 +185,7 @@ module Connection = struct
     flow : Eio.Flow.two_way_ty Eio.Resource.t;
     url : Uri.t;
     mutable closed : bool;
+    mutable leftover : string;  (* Buffered bytes from handshake *)
   }
 
   (* Perform WebSocket handshake *)
@@ -279,6 +283,7 @@ module Connection = struct
     Eio.Flow.copy_string handshake_request flow;
 
     (* Read handshake response - buffered approach for performance *)
+    (* Returns ALL data read, including any bytes after \r\n\r\n *)
     let buf = Cstruct.create 4096 in
     let rec read_until_double_crlf acc =
       let got = Eio.Flow.single_read flow buf in
@@ -295,15 +300,43 @@ module Connection = struct
                   Char.equal (String.unsafe_get combined (pos + 1)) '\n' &&
                   Char.equal (String.unsafe_get combined (pos + 2)) '\r' &&
                   Char.equal (String.unsafe_get combined (pos + 3)) '\n' then
-            String.sub combined 0 (pos + 4)
+            combined  (* Return ALL data, not just headers *)
           else
             find_end (pos + 1)
         in
         find_end 0
     in
 
-    let response = read_until_double_crlf "" in
-    Eio.traceln "WebSocket: Received handshake response";
+    let full_data = read_until_double_crlf "" in
+
+    (* Find the end of HTTP headers *)
+    let header_end =
+      let rec find_end pos =
+        if pos + 3 >= String.length full_data then
+          String.length full_data  (* No end found, use all *)
+        else if Char.equal (String.unsafe_get full_data pos) '\r' &&
+                Char.equal (String.unsafe_get full_data (pos + 1)) '\n' &&
+                Char.equal (String.unsafe_get full_data (pos + 2)) '\r' &&
+                Char.equal (String.unsafe_get full_data (pos + 3)) '\n' then
+          pos + 4
+        else
+          find_end (pos + 1)
+      in
+      find_end 0
+    in
+
+    let response = String.sub full_data 0 header_end in
+    let leftover =
+      if header_end < String.length full_data then
+        String.sub full_data header_end (String.length full_data - header_end)
+      else ""
+    in
+
+    Eio.traceln "WebSocket: Received handshake response (%d bytes, %d leftover)"
+      (String.length response) (String.length leftover);
+    if String.length leftover > 0 then
+      Eio.traceln "WebSocket: WARNING - Found %d leftover bytes after HTTP headers!" (String.length leftover);
+    Eio.traceln "WebSocket: Response: %s" (String.sub response 0 (min 200 (String.length response)));
 
     (* Validate response - check for 101 status *)
     let* () =
@@ -314,7 +347,7 @@ module Connection = struct
         Error (`HandshakeError ("Server did not return 101: " ^ String.sub response 0 (min 50 (String.length response))))
     in
 
-    Ok { flow; url; closed = false }
+    Ok { flow; url; closed = false; leftover }
 
   (* Send a text message *)
   let send_text conn text =
@@ -335,12 +368,108 @@ module Connection = struct
         Error (`WriteError (Printexc.to_string e))
     end
 
-  (* Receive next frame *)
+  (* Receive next frame - uses leftover buffer first, then reads from flow *)
   let receive conn =
     if conn.closed then
       Error `ConnectionClosed
-    else
-      Frame.decode conn.flow
+    else begin
+      (* Create a buffered decode that uses leftover bytes first *)
+      let leftover_ref = ref conn.leftover in
+
+      let read_exact_buffered n =
+        let buf = Cstruct.create n in
+        let rec fill_buf offset remaining =
+          if remaining <= 0 then
+            Ok (Cstruct.to_string buf)
+          else begin
+            (* First use any leftover bytes *)
+            let leftover = !leftover_ref in
+            if String.length leftover > 0 then begin
+              let use_len = min remaining (String.length leftover) in
+              for i = 0 to use_len - 1 do
+                Cstruct.set_char buf (offset + i) (String.get leftover i)
+              done;
+              leftover_ref := String.sub leftover use_len (String.length leftover - use_len);
+              fill_buf (offset + use_len) (remaining - use_len)
+            end else begin
+              (* Read from flow *)
+              try
+                let read_buf = Cstruct.create remaining in
+                Eio.Flow.read_exact conn.flow read_buf;
+                Cstruct.blit read_buf 0 buf offset remaining;
+                Ok (Cstruct.to_string buf)
+              with
+              | End_of_file ->
+                Eio.traceln "WebSocket decode: EOF while reading";
+                Error `ConnectionClosed
+              | e ->
+                Eio.traceln "WebSocket decode: read error: %s" (Printexc.to_string e);
+                Error (`ReadError (Printexc.to_string e))
+            end
+          end
+        in
+        fill_buf 0 n
+      in
+
+      let ( let* ) = Result.( let* ) in
+
+      (* Read first 2 bytes *)
+      let* header = read_exact_buffered 2 in
+      let byte0 = Char.code (String.unsafe_get header 0) in
+      let byte1 = Char.code (String.unsafe_get header 1) in
+
+      Eio.traceln "WebSocket decode: header bytes: 0x%02X 0x%02X (opcode=%d, len=%d)"
+        byte0 byte1 (byte0 land 0x0F) (byte1 land 0x7F);
+
+      let fin = (byte0 land 0x80) <> 0 in
+      let* opcode = Opcode.of_int (byte0 land 0x0F) in
+      let mask = (byte1 land 0x80) <> 0 in
+      let payload_len = byte1 land 0x7F in
+
+      (* Read extended payload length if needed *)
+      let* payload_len =
+        if payload_len < 126 then
+          Ok payload_len
+        else if payload_len = 126 then
+          let* len_bytes = read_exact_buffered 2 in
+          Ok ((Char.code (String.unsafe_get len_bytes 0) lsl 8) lor
+              (Char.code (String.unsafe_get len_bytes 1)))
+        else begin
+          let* len_bytes = read_exact_buffered 8 in
+          (* Only use lower 32 bits *)
+          let len =
+            (Char.code (String.unsafe_get len_bytes 4) lsl 24) lor
+            (Char.code (String.unsafe_get len_bytes 5) lsl 16) lor
+            (Char.code (String.unsafe_get len_bytes 6) lsl 8) lor
+            (Char.code (String.unsafe_get len_bytes 7))
+          in
+          Ok len
+        end
+      in
+
+      (* Read mask key if present *)
+      let* mask_key =
+        if mask then read_exact_buffered 4
+        else Ok ""
+      in
+
+      (* Read payload *)
+      let* payload =
+        if payload_len = 0 then Ok ""
+        else read_exact_buffered payload_len
+      in
+
+      (* Unmask payload if needed *)
+      let payload =
+        if mask then Frame.apply_mask mask_key payload
+        else payload
+      in
+
+      (* Update connection's leftover buffer *)
+      conn.leftover <- !leftover_ref;
+
+      Ok Frame.{ fin; opcode; mask = false; payload }
+    end
 
   (* Close connection *)
   let close conn =

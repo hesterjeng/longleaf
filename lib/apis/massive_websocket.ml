@@ -130,7 +130,7 @@ module Client = struct
 
     (* Wait for auth confirmation *)
     let rec wait_for_auth retry_count =
-      if retry_count > 10 then
+      if retry_count > 50 then
         Error (`HandshakeError "Timed out waiting for auth confirmation")
       else
         let* frame = Websocket.Connection.receive client.conn in
@@ -165,6 +165,18 @@ module Client = struct
             Eio.traceln "Massive WebSocket: Error parsing auth response: %s"
               (Printexc.to_string e);
             wait_for_auth (retry_count + 1))
+        | Ping ->
+          (* Respond to ping during auth - important for connection health *)
+          Eio.traceln "Massive WebSocket: Received ping during auth, responding";
+          let pong_frame = Websocket.Frame.{
+            fin = true;
+            opcode = Pong;
+            mask = true;
+            payload = frame.payload;
+          } in
+          let encoded = Websocket.Frame.encode pong_frame in
+          Eio.Flow.copy_string encoded client.conn.flow;
+          wait_for_auth retry_count  (* Don't increment retry count for pings *)
         | _ -> wait_for_auth (retry_count + 1)
     in
 
@@ -433,15 +445,29 @@ module Client = struct
   let start_background_updates ~sw ~env ~use_delayed client bars get_current_tick =
     Eio.traceln "Massive WebSocket: Starting background update fiber";
 
+    (* Frame statistics *)
+    let text_frames = ref 0 in
+    let ping_frames = ref 0 in
+    let last_stats_time = ref (Unix.gettimeofday ()) in
+
     Eio.Fiber.fork ~sw (fun () ->
       Eio.traceln "Massive WS background: Fiber started, entering update loop";
       let rec update_loop client_ref =
+        (* Print stats every 30 seconds *)
+        let now = Unix.gettimeofday () in
+        if Float.(now -. !last_stats_time > 30.0) then begin
+          Eio.traceln "Massive WS stats: %d text frames, %d ping frames received"
+            !text_frames !ping_frames;
+          last_stats_time := now
+        end;
+
         match receive_update !client_ref with
         | Ok [] ->
           (* Empty update, try again *)
           Eio.traceln "Massive WS background: Received empty update, retrying";
           update_loop client_ref
         | Ok aggregates ->
+          incr text_frames;
           (* Get current tick from the strategy *)
           let current_tick = get_current_tick () in
           Eio.traceln "Massive WS: Writing %d symbols to tick %d" (List.length aggregates) current_tick;
@@ -458,6 +484,7 @@ module Client = struct
           (* Continue loop *)
           update_loop client_ref
         | Error `Ping ->
+          incr ping_frames;
           (* Ping handled, continue *)
           Eio.traceln "Massive WS background: Received ping, continuing";
           update_loop client_ref
