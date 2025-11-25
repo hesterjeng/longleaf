@@ -140,7 +140,17 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
     | Data ty ->
       let* ty = eval context ty in
       Error.guard (Error.fatal "Error in GADT evaluation at Data node")
-      @@ fun () -> Data.get data ty index
+      @@ fun () ->
+        let value = Data.get data ty index in
+        (* Debug: log indicator values - only for first symbol (AAPL) to reduce noise *)
+        (match ty with
+         | Data.Type.Tacaml ind when String.equal (Instrument.symbol instrument) "AAPL" ->
+           Eio.traceln "[GADT DEBUG] AAPL: %a @ index %d = %.4f"
+             Tacaml.pp (Tacaml.of_indicator ind) index value
+         | Data.Type.Last when String.equal (Instrument.symbol instrument) "AAPL" ->
+           Eio.traceln "[GADT DEBUG] AAPL: Last @ index %d = %.4f" index value
+         | _ -> ());
+        value
     | EntryPrice ->
       (match find_entry_order orders with
       | Some order -> Result.return order.price

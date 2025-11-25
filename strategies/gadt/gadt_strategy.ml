@@ -150,7 +150,12 @@ end = struct
       { instrument = symbol; data; bars; index = current_index; orders; tick_time; is_market_open; minutes_until_close }
     in
     match Gadt.eval context strategy_expr with
-    | Ok should_signal -> Result.return @@ Signal.make symbol should_signal
+    | Ok should_signal ->
+      (* Debug: log buy trigger result for first few symbols *)
+      if should_signal then
+        Eio.traceln "[BUY TRIGGER] %s PASSED @ tick %d"
+          (Instrument.symbol symbol) current_index;
+      Result.return @@ Signal.make symbol should_signal
     | Error e -> Error e
 
   (* Helper function to evaluate score expressions *)
