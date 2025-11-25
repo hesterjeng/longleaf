@@ -194,6 +194,8 @@ module Client = struct
       (List.length tickers)
       (String.concat ", " (List.take 5 ticker_symbols @
         (if List.length ticker_symbols > 5 then ["..."] else [])));
+    Eio.traceln "Massive WebSocket: Sending subscription message: %s"
+      (String.sub msg_str 0 (min 200 (String.length msg_str)));
 
     let* () = Websocket.Connection.send_text client.conn msg_str in
 
@@ -255,6 +257,8 @@ module Client = struct
     match frame.Websocket.Frame.opcode with
     | Text ->
       (* Parse JSON message - Massive sends arrays *)
+      Eio.traceln "Massive WS: TEXT FRAME RECEIVED: %s"
+        (String.sub frame.payload 0 (min 500 (String.length frame.payload)));
       (try
         let json = Yojson.Safe.from_string frame.payload in
         let messages = Yojson.Safe.Util.to_list json in

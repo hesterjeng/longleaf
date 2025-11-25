@@ -116,8 +116,12 @@ module Frame = struct
         Eio.Flow.read_exact flow buf;
         Ok (Cstruct.to_string buf)
       with
-      | End_of_file -> Error `ConnectionClosed
-      | e -> Error (`ReadError (Printexc.to_string e))
+      | End_of_file ->
+        Eio.traceln "WebSocket decode: EOF while reading";
+        Error `ConnectionClosed
+      | e ->
+        Eio.traceln "WebSocket decode: read error: %s" (Printexc.to_string e);
+        Error (`ReadError (Printexc.to_string e))
     in
 
     (* Read first 2 bytes *)
@@ -314,15 +318,21 @@ module Connection = struct
 
   (* Send a text message *)
   let send_text conn text =
-    if conn.closed then
+    if conn.closed then begin
+      Eio.traceln "WebSocket send_text: connection is closed!";
       Error `ConnectionClosed
-    else begin
+    end else begin
       let frame = Frame.{ fin = true; opcode = Text; mask = true; payload = text } in
       let encoded = Frame.encode frame in
+      Eio.traceln "WebSocket send_text: sending %d bytes (payload: %d bytes)"
+        (String.length encoded) (String.length text);
       try
         Eio.Flow.copy_string encoded conn.flow;
+        Eio.traceln "WebSocket send_text: sent successfully";
         Ok ()
-      with e -> Error (`WriteError (Printexc.to_string e))
+      with e ->
+        Eio.traceln "WebSocket send_text: ERROR: %s" (Printexc.to_string e);
+        Error (`WriteError (Printexc.to_string e))
     end
 
   (* Receive next frame *)
