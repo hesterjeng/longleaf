@@ -239,6 +239,9 @@ module Client = struct
     let ( let* ) = Result.( let* ) in
 
     let* frame = Websocket.Connection.receive client.conn in
+    Eio.traceln "Massive WS: Received frame opcode=%s payload_len=%d"
+      (Websocket.Opcode.show frame.Websocket.Frame.opcode)
+      (String.length frame.payload);
 
     match frame.Websocket.Frame.opcode with
     | Text ->
