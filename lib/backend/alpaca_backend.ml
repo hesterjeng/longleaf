@@ -243,12 +243,14 @@ module Make (Input : BACKEND_INPUT) : S = struct
         match data_source with
         | MassiveWebSocket ->
           (* WebSocket is already running (initialized in prepare_live_trading) *)
-          (* Just advance current_tick for next iteration *)
+          (* Forward-fill happens in Listen.top after websocket has written *)
+          (* Advance current_tick for next iteration *)
           current_tick := tick + 1;
           Ok ()
         | TiingoWebSocket ->
           (* WebSocket is already running (initialized in prepare_live_trading) *)
-          (* Just advance current_tick for next iteration *)
+          (* Forward-fill happens in Listen.top after websocket has written *)
+          (* Advance current_tick for next iteration *)
           current_tick := tick + 1;
           Ok ()
         | AlpacaRest ->

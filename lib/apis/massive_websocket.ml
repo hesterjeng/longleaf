@@ -426,10 +426,11 @@ module Client = struct
         | Ok aggregates ->
           (* Get current tick from the strategy *)
           let current_tick = get_current_tick () in
+          Eio.traceln "Massive WS: Writing %d symbols to tick %d" (List.length aggregates) current_tick;
 
           (* Update bars with new data *)
           (match update_bars bars current_tick aggregates with
-           | Ok () -> ()  (* Silent on success *)
+           | Ok () -> ()
            | Error e ->
              Eio.traceln "Massive WebSocket: Error updating bars: %s" (Error.show e));
 
