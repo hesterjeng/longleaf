@@ -418,10 +418,13 @@ module Client = struct
     Eio.traceln "Massive WebSocket: Starting background update fiber";
 
     Eio.Fiber.fork ~sw (fun () ->
+      Eio.traceln "Massive WS background: Fiber started, entering update loop";
       let rec update_loop client_ref =
+        Eio.traceln "Massive WS background: Calling receive_update...";
         match receive_update !client_ref with
         | Ok [] ->
           (* Empty update, try again *)
+          Eio.traceln "Massive WS background: Received empty update, retrying";
           update_loop client_ref
         | Ok aggregates ->
           (* Get current tick from the strategy *)
