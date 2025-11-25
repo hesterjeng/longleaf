@@ -447,6 +447,7 @@ module Client = struct
           update_loop client_ref
         | Error `Ping ->
           (* Ping handled, continue *)
+          Eio.traceln "Massive WS background: Received ping, continuing";
           update_loop client_ref
         | Error `ConnectionClosed ->
           Eio.traceln "Massive WebSocket: Connection closed, reconnecting...";
