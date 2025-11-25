@@ -94,13 +94,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (* WebSocket client and background fiber state *)
   let tiingo_ws_client = ref None
   let tiingo_ws_background_started = ref false
-  let tiingo_ws_initial_fetch_done = ref false
 
   let massive_ws_client = ref None
   let massive_ws_background_started = ref false
-  let massive_ws_initial_fetch_done = ref false
 
-  (* Track current tick for background fiber *)
+  (* Track current tick for background fiber - set in prepare_live_trading *)
   let current_tick = ref 0
 
   let get_or_create_massive_ws_client bars () =
@@ -200,6 +198,36 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let last_data_bar () =
     Result.fail @@ `MissingData "No last data bar in Alpaca backend"
 
+  let prepare_live_trading (state : State.t) =
+    let bars = State.bars state in
+    let tick = State.tick state in
+    match data_source with
+    | MassiveWebSocket ->
+      Eio.traceln "Alpaca backend: Preparing live trading (MassiveWebSocket, starting tick=%d)" tick;
+      (* Initialize websocket and set current_tick so it writes to starting tick *)
+      (match get_or_create_massive_ws_client bars () with
+       | Ok _client ->
+         current_tick := tick;
+         Eio.traceln "Alpaca backend: WebSocket ready, current_tick=%d" tick;
+         Ok ()
+       | Error e ->
+         Error (`MissingData ("WebSocket initialization failed: " ^ ws_error_to_string e)))
+    | TiingoWebSocket ->
+      Eio.traceln "Alpaca backend: Preparing live trading (TiingoWebSocket, starting tick=%d)" tick;
+      (match get_or_create_ws_client bars () with
+       | Ok _client ->
+         current_tick := tick;
+         (* Seed initial tick with REST data *)
+         (match Tiingo.latest bars symbols tick with
+          | Ok () -> Eio.traceln "Alpaca backend: Initial tick %d populated via REST" tick
+          | Error e -> Eio.traceln "Alpaca backend: Warning - failed to seed initial tick: %a" Error.pp e);
+         Ok ()
+       | Error e ->
+         Error (`MissingData ("WebSocket initialization failed: " ^ ws_error_to_string e)))
+    | AlpacaRest | TiingoRest ->
+      (* REST APIs don't need preparation *)
+      Ok ()
+
   let update_bars (state : State.t) =
     let ( let+ ) = Result.( let+ ) in
     let bars = State.bars state in
@@ -214,55 +242,15 @@ module Make (Input : BACKEND_INPUT) : S = struct
       let+ () =
         match data_source with
         | MassiveWebSocket ->
-          (* On first call, initialize WebSocket client *)
-          (* After that, WebSocket updates continuously in background *)
-          (match get_or_create_massive_ws_client bars () with
-           | Ok _client ->
-             if not !massive_ws_initial_fetch_done then (
-               (* First time: set current_tick to THIS tick so websocket populates it *)
-               current_tick := tick;
-               Eio.traceln "Alpaca backend: Massive WebSocket initialized, current_tick=%d, waiting for data..." tick;
-               (* Sleep to let websocket populate the current tick *)
-               Eio.Time.sleep env#clock 2.0;
-               (* Now switch to pipeline mode: set current_tick to next tick *)
-               current_tick := tick + 1;
-               Eio.traceln "Alpaca backend: Initial data received, switching to pipeline mode (current_tick=%d)" (tick + 1);
-               massive_ws_initial_fetch_done := true;
-               Ok ()
-             ) else (
-               (* Subsequent calls: set current_tick to NEXT tick (pipeline mode) *)
-               (* During the sleep after this iteration, websocket will populate tick+1 *)
-               current_tick := tick + 1;
-               Ok ()
-             )
-           | Error e ->
-             Eio.traceln "Alpaca backend: Failed to initialize Massive WebSocket: %s" (ws_error_to_string e);
-             Error (`MissingData ("Massive WebSocket initialization failed: " ^ ws_error_to_string e)))
+          (* WebSocket is already running (initialized in prepare_live_trading) *)
+          (* Just advance current_tick for next iteration *)
+          current_tick := tick + 1;
+          Ok ()
         | TiingoWebSocket ->
-          (* On first call, populate the next tick with REST to have initial data *)
-          (* After that, WebSocket updates continuously in background *)
-          (match get_or_create_ws_client bars () with
-           | Ok _client ->
-             if not !tiingo_ws_initial_fetch_done then (
-               (* First time - fetch current tick via REST to seed the data *)
-               (* This matches WebSocket behavior which writes to current_tick *)
-               Eio.traceln "Alpaca backend: First update_bars call - fetching tick %d via REST" tick;
-               tiingo_ws_initial_fetch_done := true;
-               match Tiingo.latest bars symbols_list tick with
-               | Ok () ->
-                 Eio.traceln "Alpaca backend: Initial tick %d populated, WebSocket will update from here" tick;
-                 Ok ()
-               | Error e ->
-                 Eio.traceln "Alpaca backend: Warning - failed to populate initial tick: %a" Error.pp e;
-                 (* Continue anyway - WebSocket will fill in data eventually *)
-                 Ok ()
-             ) else (
-               (* WebSocket is running and updating continuously *)
-               Ok ()
-             )
-           | Error e ->
-             Eio.traceln "Alpaca backend: Failed to initialize WebSocket: %s" (ws_error_to_string e);
-             Error (`MissingData ("WebSocket initialization failed: " ^ ws_error_to_string e)))
+          (* WebSocket is already running (initialized in prepare_live_trading) *)
+          (* Just advance current_tick for next iteration *)
+          current_tick := tick + 1;
+          Ok ()
         | AlpacaRest ->
           (* Use Alpaca REST API *)
           Eio.traceln "Alpaca backend: Fetching data via Alpaca REST API (tick %d)" tick;

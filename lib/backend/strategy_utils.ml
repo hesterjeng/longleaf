@@ -74,6 +74,8 @@ end = struct
           Eio.traceln "[4/4] Backtest mode - no bar growth needed";
           Result.return state
       in
+      (* Initialize websocket for live/paper trading before main loop starts *)
+      let* () = Backend.prepare_live_trading state in
       Eio.traceln "=== Initialization complete (tick %d) ===" (State.tick state);
       Result.return state
   end

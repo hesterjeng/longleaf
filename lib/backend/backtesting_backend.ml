@@ -36,6 +36,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let symbols = List.map Instrument.security opts.symbols
   let is_backtest = true
   let shutdown () = ()
+  let prepare_live_trading _state = Ok ()  (* No-op for backtesting *)
 
   (* let overnight = Input.options.overnight *)
   let save_received = opts.flags.save_received

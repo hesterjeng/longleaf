@@ -30,6 +30,9 @@ module type S = sig
   val get_trading_client : unit -> (Cohttp_eio.Client.t, Error.t) result
   val get_data_client : unit -> (Cohttp_eio.Client.t, Error.t) result
   val init_state : unit -> (State.t, Error.t) result
+  val prepare_live_trading : State.t -> (unit, Error.t) result
+  (** Initialize websocket connections and set starting tick for live/paper trading.
+      Called after state is fully initialized but before main loop starts. *)
   val symbols : Instrument.t list
   val shutdown : unit -> unit
 
