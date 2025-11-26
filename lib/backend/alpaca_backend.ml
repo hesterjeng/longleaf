@@ -111,9 +111,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
         | Some key -> Ok key
         | None -> Error (`MissingData "Massive API key not configured")
       in
-      (* Use delayed endpoint if available, otherwise real-time *)
-      let use_delayed = false in  (* Set to true for delayed data *)
-      let* client = Massive_websocket.Client.connect ~sw:switch ~env ~massive_key ~use_delayed () in
+      let* client = Massive_websocket.Client.connect ~sw:switch ~env ~massive_key () in
       (* Subscribe to all symbols *)
       let* () = Massive_websocket.Client.subscribe client symbols in
       massive_ws_client := Some client;
@@ -121,7 +119,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
       (* Start background fiber for continuous updates *)
       if not !massive_ws_background_started then begin
         Massive_websocket.Client.start_background_updates
-          ~sw:switch ~env ~use_delayed client bars (fun () -> !current_tick);
+          ~sw:switch ~env client bars (fun () -> !current_tick);
         massive_ws_background_started := true;
         Eio.traceln "Alpaca backend: Background Massive WebSocket update fiber started"
       end;

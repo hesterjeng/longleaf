@@ -72,11 +72,10 @@ module Client = struct
     let delay = base_delay *. (2.0 ** Float.of_int (min attempt 6)) in
     Float.min delay max_delay
 
-  (* Connect to Massive WebSocket with retry logic *)
-  let rec connect_with_retry ~sw ~env ~massive_key ~attempt ~use_delayed () =
+  (* Connect to Polygon WebSocket with retry logic *)
+  let rec connect_with_retry ~sw ~env ~massive_key ~attempt () =
     let ( let* ) = Result.( let* ) in
-    let base_host = if use_delayed then "delayed.massive.com" else "socket.massive.com" in
-    let url = Uri.of_string ("wss://" ^ base_host ^ "/stocks") in
+    let url = Uri.of_string "wss://socket.polygon.io/stocks" in
     let authenticator = Https.authenticator () in
 
     if attempt > 0 then
@@ -107,15 +106,15 @@ module Client = struct
       Eio.traceln "Massive WebSocket: Retrying in %.1f seconds (attempt %d/%d)"
         delay attempt max_reconnect_attempts;
       Eio.Time.sleep (Eio.Stdenv.clock env) delay;
-      connect_with_retry ~sw ~env ~massive_key ~attempt:(attempt + 1) ~use_delayed ()
+      connect_with_retry ~sw ~env ~massive_key ~attempt:(attempt + 1) ()
     | Error e ->
       Eio.traceln "Massive WebSocket: Max reconnection attempts reached, giving up";
       Error e
 
   (* Initial connection *)
-  let connect ~sw ~env ~massive_key ?(use_delayed=false) () =
+  let connect ~sw ~env ~massive_key () =
     let ( let* ) = Result.( let* ) in
-    let* client = connect_with_retry ~sw ~env ~massive_key ~attempt:0 ~use_delayed () in
+    let* client = connect_with_retry ~sw ~env ~massive_key ~attempt:0 () in
 
     (* Send authentication message immediately after connection *)
     let auth_msg : auth_message = {
@@ -425,11 +424,11 @@ module Client = struct
     Websocket.Connection.close client.conn
 
   (* Reconnect and resubscribe *)
-  let reconnect ~sw ~env ~use_delayed client =
+  let reconnect ~sw ~env client =
     let ( let* ) = Result.( let* ) in
 
     Eio.traceln "Massive WebSocket: Attempting to reconnect...";
-    let* new_client = connect ~sw ~env ~massive_key:client.massive_key ~use_delayed () in
+    let* new_client = connect ~sw ~env ~massive_key:client.massive_key () in
 
     (* Update reconnect count *)
     new_client.reconnect_attempts <- client.reconnect_attempts + 1;
@@ -444,7 +443,7 @@ module Client = struct
       Ok new_client
 
   (* Background fiber that continuously updates bars *)
-  let start_background_updates ~sw ~env ~use_delayed client bars get_current_tick =
+  let start_background_updates ~sw ~env client bars get_current_tick =
     Eio.traceln "Massive WebSocket: Starting background update fiber";
 
     (* Frame statistics *)
@@ -492,7 +491,7 @@ module Client = struct
           update_loop client_ref
         | Error `ConnectionClosed ->
           Eio.traceln "Massive WebSocket: Connection closed, reconnecting...";
-          (match reconnect ~sw ~env ~use_delayed !client_ref with
+          (match reconnect ~sw ~env !client_ref with
            | Ok new_client ->
              client_ref := new_client;
              Eio.traceln "Massive WebSocket: Reconnected successfully";
