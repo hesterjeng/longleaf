@@ -28,7 +28,7 @@ type status_message = {
 
 (* Massive aggregate per second message *)
 type aggregate_message = {
-  ev : string;          (* Event type: "AS" for aggregates per second *)
+  ev : string;          (* Event type: "A" for aggregates per second *)
   sym : string;         (* Stock ticker symbol *)
   v : int;              (* Tick volume *)
   av : int;             (* Accumulated volume for the day *)
@@ -188,9 +188,10 @@ module Client = struct
     let ( let* ) = Result.( let* ) in
 
     let ticker_symbols = List.map Instrument.symbol tickers in
-    (* Build subscription params: "AS.AAPL,AS.MSFT,AS.TSLA" *)
+    (* Build subscription params: "A.AAPL,A.MSFT,A.TSLA" for per-second aggregates *)
+    (* Note: Polygon/Massive uses "A." prefix for second aggregates, "AM." for minute *)
     let params =
-      List.map (fun sym -> "AS." ^ sym) ticker_symbols
+      List.map (fun sym -> "A." ^ sym) ticker_symbols
       |> String.concat ","
     in
 
@@ -231,19 +232,20 @@ module Client = struct
        with e ->
          Eio.traceln "Massive WebSocket: Failed to parse status message: %s" (Printexc.to_string e);
          Unknown ev_type)
-    | "AS" ->
+    | "A" | "AS" ->
+      (* "A" is the official per-second aggregate event type, but also accept "AS" for backwards compat *)
       (try
         let msg = aggregate_message_of_yojson json in
         Aggregate msg
        with
        | Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (exn, json_value) ->
-         Eio.traceln "Massive WebSocket: Failed to parse AS message";
+         Eio.traceln "Massive WebSocket: Failed to parse aggregate message";
          Eio.traceln "  Error: %s" (Printexc.to_string exn);
          Eio.traceln "  At JSON value: %s" (Yojson.Safe.to_string json_value);
          Eio.traceln "  Full message: %s" (Yojson.Safe.to_string json);
          Unknown ev_type
        | e ->
-         Eio.traceln "Massive WebSocket: Failed to parse AS message: %s" (Printexc.to_string e);
+         Eio.traceln "Massive WebSocket: Failed to parse aggregate message: %s" (Printexc.to_string e);
          Eio.traceln "Massive WebSocket: Raw JSON: %s" (Yojson.Safe.to_string json);
          Unknown ev_type)
     | _ -> Unknown ev_type
