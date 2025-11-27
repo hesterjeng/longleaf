@@ -1,19 +1,7 @@
 open Backend_intf
 module Util = Longleaf_util
-module Tiingo_api = Longleaf_apis.Tiingo_api
-module Tiingo_websocket = Longleaf_apis.Tiingo_websocket
 module Massive_websocket = Longleaf_apis.Massive_websocket
 module Trading_api = Longleaf_apis.Trading_api
-module Market_data_api = Longleaf_apis.Market_data_api
-
-(* type runtype = Live | Paper *)
-
-(* Data source configuration *)
-type data_source =
-  | AlpacaRest  (* Use Alpaca's REST API for latest bars *)
-  | TiingoWebSocket  (* Use Tiingo's WebSocket for real-time data *)
-  | MassiveWebSocket  (* Use Massive's WebSocket for real-time data *)
-  | TiingoRest  (* Use Tiingo's REST API (legacy, has latency issues) *)
 
 module Make (Input : BACKEND_INPUT) : S = struct
   open Trading_types
@@ -27,13 +15,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let save_received = opts.flags.save_received
   let received_data = Bars.empty ()
 
-  (* Configure data source - Use Massive WebSocket if key configured, otherwise Tiingo *)
-  let data_source = match opts.flags.runtype with
-    | Live | Paper ->
-      (match opts.longleaf_env.massive_key with
-      | Some _ -> MassiveWebSocket  (* Use Massive WebSocket if key available *)
-      | None -> TiingoWebSocket)    (* Fall back to Tiingo WebSocket *)
-    | _ -> AlpacaRest  (* Use REST for other modes *)
 
   open Cohttp_eio
 
@@ -47,29 +28,13 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let trading_client =
     Client.make ~https:(Some https) (Eio.Stdenv.net env)
 
-  let tiingo_client =
-    Client.make ~https:(Some https) (Eio.Stdenv.net env)
-
-  let data_client =
-    Client.make ~https:(Some https) (Eio.Stdenv.net env)
-
   let get_trading_client _ = Ok trading_client
-  let get_data_client _ = Ok data_client
+  let get_data_client _ = Ok trading_client  (* Use same client *)
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
     let longleaf_env = opts.longleaf_env
     let runtype = opts.flags.runtype
-  end)
-
-  module Market_data_api = Market_data_api.Make (struct
-    let client = data_client
-    let longleaf_env = opts.longleaf_env
-  end)
-
-  module Tiingo = Tiingo_api.Make (struct
-    let client = tiingo_client
-    let longleaf_env = opts.longleaf_env
   end)
 
   (* Extract symbols early so we can use it in WebSocket initialization *)
@@ -92,9 +57,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
     | `WriteError s -> "Write error: " ^ s
 
   (* WebSocket client and background fiber state *)
-  let tiingo_ws_client = ref None
-  let tiingo_ws_background_started = ref false
-
   let massive_ws_client = ref None
   let massive_ws_background_started = ref false
 
@@ -125,33 +87,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
       end;
 
       Eio.traceln "Alpaca backend: Massive WebSocket client initialized and subscribed";
-      Ok client
-
-  let get_or_create_ws_client bars () =
-    match !tiingo_ws_client with
-    | Some client -> Ok client
-    | None ->
-      Eio.traceln "Alpaca backend: Initializing Tiingo WebSocket client";
-      let ( let* ) = Result.( let* ) in
-      let* tiingo_key = match opts.longleaf_env.tiingo_key with
-        | Some key -> Ok key
-        | None -> Error (`MissingData "Tiingo API key not configured")
-      in
-      let* client = Tiingo_websocket.Client.connect ~sw:switch ~env ~tiingo_key () in
-      (* Subscribe to all symbols *)
-      let* () = Tiingo_websocket.Client.subscribe client symbols in
-      tiingo_ws_client := Some client;
-
-      (* Start background fiber for continuous updates *)
-      (* TODO: Update Tiingo websocket to use queue like Massive *)
-      if not !tiingo_ws_background_started then begin
-        (* Tiingo_websocket.Client.start_background_updates
-          ~sw:switch ~env client bars (fun () -> !current_tick); *)
-        tiingo_ws_background_started := true;
-        Eio.traceln "Alpaca backend: Tiingo WebSocket not yet updated for queue-based design"
-      end;
-
-      Eio.traceln "Alpaca backend: Tiingo WebSocket client initialized and subscribed";
       Ok client
 
   let init_state () =
@@ -199,77 +134,21 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let prepare_live_trading (state : State.t) =
     let bars = State.bars state in
     let tick = State.tick state in
-    match data_source with
-    | MassiveWebSocket ->
-      Eio.traceln "Alpaca backend: Preparing live trading (MassiveWebSocket, starting tick=%d)" tick;
-      (* Initialize websocket and set current_tick so it writes to starting tick *)
-      (match get_or_create_massive_ws_client bars () with
-       | Ok _client ->
-         current_tick := tick;
-         Eio.traceln "Alpaca backend: WebSocket ready, current_tick=%d" tick;
-         Ok ()
-       | Error e ->
-         Error (`MissingData ("WebSocket initialization failed: " ^ ws_error_to_string e)))
-    | TiingoWebSocket ->
-      Eio.traceln "Alpaca backend: Preparing live trading (TiingoWebSocket, starting tick=%d)" tick;
-      (match get_or_create_ws_client bars () with
-       | Ok _client ->
-         current_tick := tick;
-         (* Seed initial tick with REST data *)
-         (match Tiingo.latest bars symbols tick with
-          | Ok () -> Eio.traceln "Alpaca backend: Initial tick %d populated via REST" tick
-          | Error e -> Eio.traceln "Alpaca backend: Warning - failed to seed initial tick: %a" Error.pp e);
-         Ok ()
-       | Error e ->
-         Error (`MissingData ("WebSocket initialization failed: " ^ ws_error_to_string e)))
-    | AlpacaRest | TiingoRest ->
-      (* REST APIs don't need preparation *)
+    Eio.traceln "Alpaca backend: Preparing live trading (MassiveWebSocket, starting tick=%d)" tick;
+    match get_or_create_massive_ws_client bars () with
+    | Ok _client ->
+      current_tick := tick;
+      Eio.traceln "Alpaca backend: WebSocket ready, current_tick=%d" tick;
       Ok ()
+    | Error e ->
+      Error (`MissingData ("WebSocket initialization failed: " ^ ws_error_to_string e))
 
   let update_bars (state : State.t) =
-    let ( let+ ) = Result.( let+ ) in
-    let bars = State.bars state in
     let tick = State.tick state in
-    let symbols_list = symbols in  (* Capture symbols in local scope *)
-
-    match symbols_list with
-    | [] ->
-      Eio.traceln "No symbols in latest bars request.";
-      Result.return state
-    | _ ->
-      let+ () =
-        match data_source with
-        | MassiveWebSocket ->
-          (* WebSocket is already running (initialized in prepare_live_trading) *)
-          (* Forward-fill happens in Listen.top after websocket has written *)
-          (* Advance current_tick for next iteration *)
-          current_tick := tick + 1;
-          Ok ()
-        | TiingoWebSocket ->
-          (* WebSocket is already running (initialized in prepare_live_trading) *)
-          (* Forward-fill happens in Listen.top after websocket has written *)
-          (* Advance current_tick for next iteration *)
-          current_tick := tick + 1;
-          Ok ()
-        | AlpacaRest ->
-          (* Use Alpaca REST API *)
-          Eio.traceln "Alpaca backend: Fetching data via Alpaca REST API (tick %d)" tick;
-          (match Market_data_api.Stock.latest bars symbols_list tick with
-           | Ok x -> Result.return x
-           | Error s ->
-             Eio.traceln "Error %a from Alpaca latest bars, trying again after 5 seconds." Error.pp s;
-             Unix.sleep 5;
-             (match Market_data_api.Stock.latest bars symbols_list tick with
-              | Ok () -> Ok ()
-              | Error e -> Error e))
-        | TiingoRest ->
-          (* Legacy Tiingo REST API (not recommended due to latency) *)
-          Eio.traceln "Alpaca backend: Fetching data via Tiingo REST API (tick %d)" tick;
-          (match Tiingo.latest bars symbols_list tick with
-           | Ok () -> Ok ()
-           | Error e -> Error e)
-      in
-      state
+    (* WebSocket is already running (initialized in prepare_live_trading) *)
+    (* Advance current_tick for next iteration so websocket writes to next slot *)
+    current_tick := tick + 1;
+    Ok state
 
   let get_clock = Trading_api.Clock.get
 

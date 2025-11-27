@@ -174,20 +174,26 @@ end = struct
       ) else (
         if Option.is_some !market_open_time && options.flags.opening_wait_minutes > 0 then
           Eio.traceln "=== Opening volatility window passed, starting to trade ===";
-        (* Forward-fill: copy current tick to next tick for all symbols *)
-        (* Only for live/paper - backtesting data is already complete *)
-        (match runtype with
-         | Live | Paper ->
-           let tick = State.tick state in
-           let bars = State.bars state in
-           List.iter (fun instrument ->
-             match Bars.get bars instrument with
-             | Ok data -> Bars.Data.forward_fill_next_tick data ~tick
-             | Error _ -> ()
-           ) Backend.symbols
-         | _ -> ());
         Ok state
       )
+  end
+
+  module ForwardFill = struct
+    (* Forward-fill: copy current tick to next tick for all symbols *)
+    (* Only for live/paper - backtesting data is already complete *)
+    (* This ensures continuity if a symbol has no trades during a tick *)
+    let top (state : State.t) : (State.t, Error.t) result =
+      (match runtype with
+       | Live | Paper ->
+         let tick = State.tick state in
+         let bars = State.bars state in
+         List.iter (fun instrument ->
+           match Bars.get bars instrument with
+           | Ok data -> Bars.Data.forward_fill_next_tick data ~tick
+           | Error _ -> ()
+         ) Backend.symbols
+       | _ -> ());
+      Ok state
   end
 
   module Increment = struct
@@ -320,10 +326,20 @@ end = struct
     let* init = Initialize.top x in
     Eio.traceln "=== Starting main strategy loop ===";
     let rec loop state =
-      (* Check market status and wait BEFORE getting data/placing orders *)
-      (* Listen.top will loop internally if we're in the opening window *)
-      Listen.top state >>= GetData.top >>= LiveIndicators.top >>= order
-      >>= Increment.top >>= loop
+      (* Main strategy loop:
+         1. Listen - wait for market open, sleep for tick duration
+         2. ForwardFill - copy current tick to next tick (no-op for backtest)
+         3. GetData - advance websocket write pointer (no-op for backtest)
+         4. LiveIndicators - compute indicators for current tick
+         5. order - execute strategy logic
+         6. Increment - advance to next tick *)
+      Listen.top state
+      >>= ForwardFill.top
+      >>= GetData.top
+      >>= LiveIndicators.top
+      >>= order
+      >>= Increment.top
+      >>= loop
     in
     let res =
       try loop init with

@@ -69,12 +69,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
         let slipped_price =
           Random.float_range pricemin pricemax @@ random_state
         in
-        let tick = State.tick state in
-        Eio.traceln "[%d] Slippage %.3f%%: %s %.2f -> %.2f (%.1f%%)" tick
-          (pct *. 100.0)
-          (Instrument.symbol order.symbol)
-          order.price slipped_price
-          ((slipped_price -. order.price) /. order.price *. 100.0);
         { order with price = slipped_price }
     in
     price_modifier order |> random_drop |> function
