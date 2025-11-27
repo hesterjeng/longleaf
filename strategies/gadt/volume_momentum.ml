@@ -24,6 +24,14 @@ let max_holding_time max_ticks : bool Gadt.t =
   let max_ticks_expr = Const (max_ticks, Int) in
   App2 (Fun (">", (>)), TicksHeld, max_ticks_expr)
 
+let stop_loss stop_loss_pct : bool Gadt.t =
+  let multiplier = Float.((-) 1.0 stop_loss_pct) in
+  last <. (EntryPrice *. Const (multiplier, Float))
+
+let profit_target profit_target_pct : bool Gadt.t =
+  let multiplier = Float.((+) 1.0 profit_target_pct) in
+  last >. (EntryPrice *. Const (multiplier, Float))
+
 (** VolumeConfirms_Opt - Volume-Confirmed Momentum Strategy
 
     HYPOTHESIS: Price moves accompanied by high volume (high MFI) represent
@@ -145,8 +153,88 @@ let volume_confirms_with_stop_opt =
     position_size = 0.10;
   }
 
+(** Horseman_Opt - MFI-Based Mean Reversion Strategy
+
+    HYPOTHESIS: MFI (Money Flow Index) is "volume-weighted RSI". Low MFI means
+    selling pressure is exhausted AND confirmed by volume. This should be a
+    higher-quality oversold signal than plain RSI for mean reversion.
+
+    This is a direct test: does replacing RSI with MFI improve mean reversion?
+
+    Variables to optimize (4 total):
+    1. mfi_period: [5, 300] - MFI lookback period
+    2. mfi_oversold: [15, 40] - Enter when MFI < this (volume-confirmed oversold)
+    3. bb_period: [15, 300] - Bollinger Band period
+    4. bb_std: [1.0, 3.5] - Bollinger Band standard deviation
+
+    NOTE: Use starting index of at least 350 (-i 350) to allow indicator warmup.
+
+    Entry Logic:
+    - MFI(var1) < var2 (volume-confirmed selling exhaustion)
+    - Price < Lower BB(var3, var4) (price stretched below mean)
+    - Safe to enter (not near close)
+
+    Exit Logic:
+    - Force exit EOD (no overnight positions)
+    - Price > Middle BB (mean reversion complete)
+    - MFI > (100 - mfi_oversold) (symmetric overbought)
+    - 2% stop loss (fixed risk control)
+    - 5% profit target (fixed)
+
+    Position sizing: 20 positions @ 5% each (wide diversification like estridatter)
+*)
+let horseman_opt =
+  (* Variables with wide bounds for thorough optimization *)
+  let mfi_period = Gadt_fo.var ~lower:5.0 ~upper:300.0 Gadt.Type.Int in
+  let mfi_oversold = Gadt_fo.var ~lower:15.0 ~upper:40.0 Gadt.Type.Float in
+  let bb_period = Gadt_fo.var ~lower:15.0 ~upper:300.0 Gadt.Type.Int in
+  let bb_std = Gadt_fo.var ~lower:1.0 ~upper:3.5 Gadt.Type.Float in
+
+  (* Derived: Symmetric MFI overbought threshold *)
+  let mfi_overbought = Const (100.0, Float) -. mfi_oversold in
+
+  (* Create MFI indicator with variable period *)
+  let mfi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period)))
+  in
+
+  (* Create Bollinger Bands with variable period and std *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_period, bb_std, bb_std)))
+  in
+
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_period, bb_std, bb_std)))
+  in
+
+  {
+    name = "Horseman_Opt";
+    (* Entry: Volume-confirmed oversold + price below lower BB *)
+    buy_trigger =
+      (mfi <. mfi_oversold)                 (* Selling exhaustion confirmed by volume *)
+      &&. (last <. bb_lower)                (* Price stretched below mean *)
+      &&. safe_to_enter ();
+    (* Exit: Mean reversion complete or risk controls *)
+    sell_trigger =
+      force_exit_eod ()                     (* No overnight positions *)
+      ||. (last >. bb_middle)               (* Mean reversion complete *)
+      ||. (mfi >. mfi_overbought)           (* Symmetric overbought exit *)
+      ||. stop_loss 0.02                    (* Fixed 2% stop *)
+      ||. profit_target 0.05;               (* Fixed 5% target *)
+    (* Score: Lower MFI = more oversold = higher priority *)
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 20;
+    position_size = 0.05;
+  }
+
 (* Export all strategies *)
 let all_strategies = [
   volume_confirms_opt;
   volume_confirms_with_stop_opt;
+  horseman_opt;
 ]
