@@ -232,9 +232,315 @@ let horseman_opt =
     position_size = 0.05;
   }
 
+(** Horseman_Opt_R2 - Round 2 Optimization with Risk Management Variables
+
+    Builds on Round 1 winning parameters:
+    - mfi_period = 214 (LOCKED)
+    - mfi_oversold = 36.01 (LOCKED)
+    - bb_period = 258 (LOCKED)
+    - bb_std = 1.185 (LOCKED)
+
+    New variables to optimize (4 total):
+    1. stop_loss_pct: [0.005, 0.08] - Stop loss percentage (0.5-8%)
+    2. profit_target_pct: [0.01, 0.15] - Profit target percentage (1-15%)
+    3. mfi_exit: [50, 85] - Exit when MFI exceeds this (overbought exit)
+    4. max_hold: [20, 390] - Maximum holding time in ticks (20 min to full day)
+
+    NOTE: Use starting index of at least 350 (-i 350) to allow indicator warmup.
+*)
+let horseman_opt_r2 =
+  (* Round 1 winning parameters - LOCKED *)
+  let mfi_period_locked = 214 in
+  let mfi_oversold_locked = 36.01 in
+  let bb_period_locked = 258 in
+  let bb_std_locked = 1.185 in
+
+  (* Round 2 variables for risk management refinement *)
+  let stop_loss_pct = Gadt_fo.var ~lower:0.005 ~upper:0.08 Gadt.Type.Float in
+  let profit_target_pct = Gadt_fo.var ~lower:0.01 ~upper:0.15 Gadt.Type.Float in
+  let mfi_exit = Gadt_fo.var ~lower:50.0 ~upper:85.0 Gadt.Type.Float in
+  let max_hold = Gadt_fo.var ~lower:20.0 ~upper:390.0 Gadt.Type.Int in
+
+  (* Create MFI indicator with locked period *)
+  let mfi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (mfi_period_locked, Int))))
+  in
+
+  (* Create Bollinger Bands with locked parameters *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        Const (bb_period_locked, Int),
+        Const (bb_std_locked, Float),
+        Const (bb_std_locked, Float))))
+  in
+
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        Const (bb_period_locked, Int),
+        Const (bb_std_locked, Float),
+        Const (bb_std_locked, Float))))
+  in
+
+  (* Derived expressions for exits *)
+  let stop_mult = Const (1.0, Float) -. stop_loss_pct in
+  let profit_mult = Const (1.0, Float) +. profit_target_pct in
+
+  {
+    name = "Horseman_Opt_R2";
+    (* Entry: Volume-confirmed oversold + price below lower BB (same as R1) *)
+    buy_trigger =
+      (mfi <. Const (mfi_oversold_locked, Float))  (* Selling exhaustion confirmed by volume *)
+      &&. (last <. bb_lower)                        (* Price stretched below mean *)
+      &&. safe_to_enter ();
+    (* Exit: Now with variable risk management parameters *)
+    sell_trigger =
+      force_exit_eod ()                             (* No overnight positions *)
+      ||. (last >. bb_middle)                       (* Mean reversion complete *)
+      ||. (mfi >. mfi_exit)                         (* Variable overbought exit *)
+      ||. (last <. (EntryPrice *. stop_mult))       (* Variable stop loss *)
+      ||. (last >. (EntryPrice *. profit_mult))    (* Variable profit target *)
+      ||. (App2 (Fun (">", (>)), TicksHeld, max_hold));  (* Variable max hold *)
+    (* Score: Lower MFI = more oversold = higher priority *)
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 20;
+    position_size = 0.05;
+  }
+
+(** Horseman_R2 - Staged Optimization Winner (R1 + R2)
+
+    Concrete strategy with winning parameters from staged optimization.
+
+    R1 Results (entry parameters):
+    - mfi_period = 214
+    - mfi_oversold = 36.01
+    - bb_period = 258
+    - bb_std = 1.185
+
+    R2 Results (exit/risk parameters):
+    - mfi_exit = 54.04
+    - stop_loss_pct = 7.1%
+    - profit_target_pct = 11.86%
+    - max_hold = 229 ticks
+
+    Performance (3-month backtest Sep-Nov 2024):
+    - Return: 6.11% ($100k -> $106,110)
+    - Win Rate: 65.68% (530W / 277L)
+    - Trades: 807
+    - Profit Factor: 1.582
+    - Sharpe: 0.157
+    - P-value: 0.0000 (statistically significant edge)
+*)
+let horseman_r2 =
+  (* Entry MFI *)
+  let mfi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (214, Int))))
+  in
+
+  (* Bollinger Bands *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        Const (258, Int), Const (1.185, Float), Const (1.185, Float))))
+  in
+
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        Const (258, Int), Const (1.185, Float), Const (1.185, Float))))
+  in
+
+  {
+    name = "Horseman_R2";
+    buy_trigger =
+      (mfi <. Const (36.01, Float))
+      &&. (last <. bb_lower)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle)
+      ||. (mfi >. Const (54.04, Float))
+      ||. (last <. (EntryPrice *. Const (0.929, Float)))   (* 7.1% stop *)
+      ||. (last >. (EntryPrice *. Const (1.1186, Float)))  (* 11.86% target *)
+      ||. (App2 (Fun (">", (>)), TicksHeld, Const (229, Int)));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 20;
+    position_size = 0.05;
+  }
+
+(** Free_Horseman_Opt - Full 10-Variable Optimization
+
+    Optimizes all parameters simultaneously without staged locking.
+    Entry and exit signals are fully independent.
+
+    Variables to optimize (10 total):
+
+    Entry parameters (4):
+    1. mfi_entry_period: [5, 300] - MFI lookback period for entry
+    2. mfi_oversold: [15, 40] - Enter when MFI < this threshold
+    3. bb_entry_period: [15, 300] - Bollinger Band period for entry
+    4. bb_entry_std: [1.0, 3.5] - Bollinger Band std dev for entry
+
+    Exit parameters (6):
+    5. mfi_exit_period: [5, 300] - Separate MFI period for exit
+    6. mfi_exit_level: [50, 85] - Exit when MFI > this threshold
+    7. bb_exit_period: [15, 300] - Separate BB period for exit (middle band)
+    8. stop_loss_pct: [0.005, 0.08] - Stop loss percentage (0.5-8%)
+    9. profit_target_pct: [0.01, 0.15] - Profit target percentage (1-15%)
+    10. max_hold: [20, 390] - Maximum holding time in ticks
+
+    NOTE: Use starting index of at least 350 (-i 350) to allow indicator warmup.
+    NOTE: Use higher maxeval (6000-8000) for reliable convergence with 10 variables.
+*)
+let free_horseman_opt =
+  (* Entry parameters *)
+  let mfi_entry_period = Gadt_fo.var ~lower:5.0 ~upper:300.0 Gadt.Type.Int in
+  let mfi_oversold = Gadt_fo.var ~lower:15.0 ~upper:40.0 Gadt.Type.Float in
+  let bb_entry_period = Gadt_fo.var ~lower:15.0 ~upper:300.0 Gadt.Type.Int in
+  let bb_entry_std = Gadt_fo.var ~lower:1.0 ~upper:3.5 Gadt.Type.Float in
+
+  (* Exit parameters *)
+  let mfi_exit_period = Gadt_fo.var ~lower:5.0 ~upper:300.0 Gadt.Type.Int in
+  let mfi_exit_level = Gadt_fo.var ~lower:50.0 ~upper:85.0 Gadt.Type.Float in
+  let bb_exit_period = Gadt_fo.var ~lower:15.0 ~upper:300.0 Gadt.Type.Int in
+  let stop_loss_pct = Gadt_fo.var ~lower:0.005 ~upper:0.08 Gadt.Type.Float in
+  let profit_target_pct = Gadt_fo.var ~lower:0.01 ~upper:0.15 Gadt.Type.Float in
+  let max_hold = Gadt_fo.var ~lower:20.0 ~upper:390.0 Gadt.Type.Int in
+
+  (* Entry MFI indicator *)
+  let mfi_entry =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_entry_period)))
+  in
+
+  (* Exit MFI indicator - independent period *)
+  let mfi_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_exit_period)))
+  in
+
+  (* Entry Bollinger Bands *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_entry_period, bb_entry_std, bb_entry_std)))
+  in
+
+  (* Exit Bollinger Band - independent period *)
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_exit_period, Const (2.0, Float), Const (2.0, Float))))
+  in
+
+  (* Derived expressions *)
+  let stop_mult = Const (1.0, Float) -. stop_loss_pct in
+  let profit_mult = Const (1.0, Float) +. profit_target_pct in
+
+  {
+    name = "Free_Horseman_Opt";
+    (* Entry: MFI oversold + price below lower BB *)
+    buy_trigger =
+      (mfi_entry <. mfi_oversold)
+      &&. (last <. bb_lower)
+      &&. safe_to_enter ();
+    (* Exit: Independent MFI and BB signals + risk controls *)
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle)
+      ||. (mfi_exit >. mfi_exit_level)
+      ||. (last <. (EntryPrice *. stop_mult))
+      ||. (last >. (EntryPrice *. profit_mult))
+      ||. (App2 (Fun (">", (>)), TicksHeld, max_hold));
+    (* Score: Lower entry MFI = more oversold = higher priority *)
+    score = Const (100.0, Float) -. mfi_entry;
+    max_positions = 20;
+    position_size = 0.05;
+  }
+
+(** Free_Horseman - 10-Variable Optimization Winner
+
+    Concrete strategy from full 10D optimization (no staged locking).
+
+    Parameters found:
+    - mfi_entry_period = 252
+    - mfi_oversold = 37.47
+    - bb_entry_period = 95
+    - bb_entry_std = 1.544
+    - mfi_exit_period = 274
+    - mfi_exit_level = 57.88
+    - bb_exit_period = 166
+    - stop_loss_pct = 2.04%
+    - profit_target_pct = 12.47%
+    - max_hold = 217 ticks
+
+    Performance (3-month backtest Sep-Nov 2024):
+    - Return: 5.90% ($100k -> $105,900)
+    - Win Rate: 63.87% (700W / 396L)
+    - Trades: 1096
+    - Profit Factor: 1.466
+    - Sharpe: 0.129
+    - P-value: 0.0000 (statistically significant edge)
+
+    Note: Underperformed staged optimization (Horseman_R2) despite
+    more variables. Tighter stop loss (2% vs 7.1%) led to more trades
+    but lower win rate and profit factor.
+*)
+let free_horseman =
+  (* Entry MFI - period 252 *)
+  let mfi_entry =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (252, Int))))
+  in
+
+  (* Exit MFI - independent period 274 *)
+  let mfi_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (274, Int))))
+  in
+
+  (* Entry Bollinger Band - period 95, std 1.544 *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        Const (95, Int), Const (1.544, Float), Const (1.544, Float))))
+  in
+
+  (* Exit Bollinger Band - independent period 166 *)
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        Const (166, Int), Const (2.0, Float), Const (2.0, Float))))
+  in
+
+  {
+    name = "Free_Horseman";
+    buy_trigger =
+      (mfi_entry <. Const (37.47, Float))
+      &&. (last <. bb_lower)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last >. bb_middle)
+      ||. (mfi_exit >. Const (57.88, Float))
+      ||. (last <. (EntryPrice *. Const (0.9796, Float)))  (* 2.04% stop *)
+      ||. (last >. (EntryPrice *. Const (1.1247, Float)))  (* 12.47% target *)
+      ||. (App2 (Fun (">", (>)), TicksHeld, Const (217, Int)));
+    score = Const (100.0, Float) -. mfi_entry;
+    max_positions = 20;
+    position_size = 0.05;
+  }
+
 (* Export all strategies *)
 let all_strategies = [
   volume_confirms_opt;
   volume_confirms_with_stop_opt;
   horseman_opt;
+  horseman_opt_r2;
+  horseman_r2;
+  free_horseman_opt;
+  free_horseman;
 ]
