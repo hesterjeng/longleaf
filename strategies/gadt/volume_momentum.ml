@@ -794,6 +794,221 @@ let horseman_exit_winner =
     position_size = 0.05;
   }
 
+(** Cowboy_Opt - Comprehensive 12-Variable Optimization with ADX Regime Filter
+
+    Full optimization over entry, exit, risk, and regime parameters.
+    Includes ADX filter to avoid trending markets where mean reversion fails.
+
+    Entry parameters (4):
+    1. mfi_entry_period: [50, 250] - MFI lookback
+    2. mfi_oversold: [20, 40] - Entry threshold
+    3. bb_entry_period: [50, 300] - BB period for entry
+    4. bb_entry_std: [1.0, 2.5] - BB std dev (how extreme)
+
+    Regime filter (2):
+    5. adx_period: [10, 30] - ADX lookback
+    6. adx_threshold: [15, 35] - Only enter when ADX < this (ranging market)
+
+    Exit parameters (3):
+    7. mfi_exit_level: [45, 75] - Exit when MFI > this
+    8. bb_exit_period: [50, 300] - BB period for exit
+    9. min_hold: [10, 60] - Minimum ticks before exit signals activate
+
+    Risk parameters (3):
+    10. stop_loss_pct: [0.02, 0.10] - Stop loss
+    11. profit_target_pct: [0.03, 0.15] - Profit target
+    12. max_hold: [100, 390] - Maximum holding time
+
+    Entry logic:
+    - MFI < mfi_oversold (volume-confirmed oversold)
+    - Price < BB_lower (price stretched below mean)
+    - ADX < adx_threshold (ranging market, not trending)
+    - Price > lag(Price, 1) (starting to recover, not falling knife)
+
+    NOTE: Use starting index of at least 350 (-i 350).
+    NOTE: Use maxeval 10000+ for 12 variables.
+*)
+let cowboy_opt =
+  (* Entry parameters *)
+  let mfi_entry_period = Gadt_fo.var ~lower:50.0 ~upper:250.0 Gadt.Type.Int in
+  let mfi_oversold = Gadt_fo.var ~lower:20.0 ~upper:40.0 Gadt.Type.Float in
+  let bb_entry_period = Gadt_fo.var ~lower:50.0 ~upper:300.0 Gadt.Type.Int in
+  let bb_entry_std = Gadt_fo.var ~lower:1.0 ~upper:2.5 Gadt.Type.Float in
+
+  (* Regime filter *)
+  let adx_period = Gadt_fo.var ~lower:10.0 ~upper:30.0 Gadt.Type.Int in
+  let adx_threshold = Gadt_fo.var ~lower:15.0 ~upper:35.0 Gadt.Type.Float in
+
+  (* Exit parameters *)
+  let mfi_exit_level = Gadt_fo.var ~lower:45.0 ~upper:75.0 Gadt.Type.Float in
+  let bb_exit_period = Gadt_fo.var ~lower:50.0 ~upper:300.0 Gadt.Type.Int in
+  let min_hold = Gadt_fo.var ~lower:10.0 ~upper:60.0 Gadt.Type.Int in
+
+  (* Risk parameters *)
+  let stop_loss_pct = Gadt_fo.var ~lower:0.02 ~upper:0.10 Gadt.Type.Float in
+  let profit_target_pct = Gadt_fo.var ~lower:0.03 ~upper:0.15 Gadt.Type.Float in
+  let max_hold = Gadt_fo.var ~lower:100.0 ~upper:390.0 Gadt.Type.Int in
+
+  (* Entry MFI *)
+  let mfi_entry =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_entry_period)))
+  in
+
+  (* Exit MFI - use same period as entry, just different threshold *)
+  let mfi_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_entry_period)))
+  in
+
+  (* ADX for regime filter *)
+  let adx =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period)))
+  in
+
+  (* Entry Bollinger Band *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_entry_period, bb_entry_std, bb_entry_std)))
+  in
+
+  (* Exit Bollinger Band *)
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_exit_period, Const (2.0, Float), Const (2.0, Float))))
+  in
+
+  (* Recovery filter: current price > previous price *)
+  let recovering = last >. lag last 1 in
+
+  (* Derived expressions *)
+  let stop_mult = Const (1.0, Float) -. stop_loss_pct in
+  let profit_mult = Const (1.0, Float) +. profit_target_pct in
+
+  (* Min hold gate *)
+  let past_min_hold = App2 (Fun (">=", (>=)), TicksHeld, min_hold) in
+
+  (* Gated exit signals *)
+  let gated_exits =
+    past_min_hold &&. (
+      (last >. bb_middle)
+      ||. (mfi_exit >. mfi_exit_level)
+      ||. (last >. (EntryPrice *. profit_mult))
+    )
+  in
+
+  {
+    name = "Cowboy_Opt";
+    buy_trigger =
+      (mfi_entry <. mfi_oversold)              (* Volume-confirmed oversold *)
+      &&. (last <. bb_lower)                   (* Price below BB lower *)
+      &&. (adx <. adx_threshold)               (* Ranging market, not trending *)
+      &&. recovering                            (* Price starting to recover *)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. (EntryPrice *. stop_mult))  (* Stop loss always active *)
+      ||. gated_exits                           (* Other exits after min_hold *)
+      ||. (App2 (Fun (">", (>)), TicksHeld, max_hold));
+    score = Const (100.0, Float) -. mfi_entry;
+    max_positions = 20;
+    position_size = 0.05;
+  }
+
+(** ADX_Cowboy - First Cowboy Optimization Result
+
+    12-variable optimization with ADX regime filter.
+    Suspicious result - $1002 max winner (38x average) may indicate luck.
+
+    Parameters:
+    - mfi_entry_period = 195
+    - mfi_oversold = 39.85 (higher than Horseman's 36 - less extreme)
+    - bb_entry_period = 263
+    - bb_entry_std = 1.17
+    - adx_period = 28
+    - adx_threshold = 23.17
+    - mfi_exit_level = 50.04
+    - bb_exit_period = 242
+    - min_hold = 47
+    - stop_loss_pct = 4.64%
+    - profit_target_pct = 12.25%
+    - max_hold = 321
+
+    Performance (training data):
+    - Return: 6.73% ($100k -> $106,732)
+    - Win Rate: 60.66% (805W / 522L)
+    - Trades: 1327
+    - Profit Factor: 1.419
+    - Sharpe: 0.102
+    - Max Winner: $1002.76 (outlier concern)
+    - P-value: 0.0001
+
+    Note: Lower risk-adjusted metrics than Horseman Exit Winner.
+    Testing on out-of-sample to see if ADX filter helps generalization.
+*)
+let adx_cowboy =
+  (* Entry MFI - period 195 *)
+  let mfi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (195, Int))))
+  in
+
+  (* ADX for regime filter - period 28 *)
+  let adx =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), Const (28, Int))))
+  in
+
+  (* Entry Bollinger Band - period 263, std 1.17 *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        Const (263, Int), Const (1.17, Float), Const (1.17, Float))))
+  in
+
+  (* Exit Bollinger Band - period 242 *)
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        Const (242, Int), Const (2.0, Float), Const (2.0, Float))))
+  in
+
+  (* Recovery filter *)
+  let recovering = last >. lag last 1 in
+
+  (* Min hold gate: >= 47 ticks *)
+  let past_min_hold = App2 (Fun (">=", (>=)), TicksHeld, Const (47, Int)) in
+
+  (* Gated exits *)
+  let gated_exits =
+    past_min_hold &&. (
+      (last >. bb_middle)
+      ||. (mfi >. Const (50.04, Float))
+      ||. (last >. (EntryPrice *. Const (1.1225, Float)))  (* 12.25% target *)
+    )
+  in
+
+  {
+    name = "ADX_Cowboy";
+    buy_trigger =
+      (mfi <. Const (39.85, Float))
+      &&. (last <. bb_lower)
+      &&. (adx <. Const (23.17, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. (EntryPrice *. Const (0.9536, Float)))  (* 4.64% stop *)
+      ||. gated_exits
+      ||. (App2 (Fun (">", (>)), TicksHeld, Const (321, Int)));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 20;
+    position_size = 0.05;
+  }
+
 (* Export all strategies *)
 let all_strategies = [
   volume_confirms_opt;
@@ -806,4 +1021,6 @@ let all_strategies = [
   free_horseman_v2;
   horseman_exit_explorer;
   horseman_exit_winner;
+  cowboy_opt;
+  adx_cowboy;
 ]
