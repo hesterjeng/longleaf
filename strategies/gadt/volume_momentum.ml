@@ -1009,6 +1009,134 @@ let adx_cowboy =
     position_size = 0.05;
   }
 
+(** Nature_Boy_Opt - 12-Variable Optimization with NATR Volatility Filter
+
+    Uses NATR (Normalized ATR) instead of ADX to filter out high-volatility
+    periods. NATR directly measures price movement magnitude as a percentage,
+    which should better capture the chaos of Mar-Aug 2025 tariff period.
+
+    Hypothesis: Low NATR = calm market = mean reversion works
+                High NATR = volatile/chaotic = stay out
+
+    Entry parameters (4):
+    1. mfi_entry_period: [50, 250] - MFI lookback
+    2. mfi_oversold: [20, 40] - Entry threshold
+    3. bb_entry_period: [50, 300] - BB period for entry
+    4. bb_entry_std: [1.0, 2.5] - BB std dev (how extreme)
+
+    Volatility filter (2):
+    5. natr_period: [10, 30] - NATR lookback
+    6. natr_threshold: [1.0, 5.0] - Only enter when NATR < this (calm market)
+
+    Exit parameters (3):
+    7. mfi_exit_level: [45, 75] - Exit when MFI > this
+    8. bb_exit_period: [50, 300] - BB period for exit
+    9. min_hold: [10, 60] - Minimum ticks before exit signals activate
+
+    Risk parameters (3):
+    10. stop_loss_pct: [0.02, 0.10] - Stop loss
+    11. profit_target_pct: [0.03, 0.15] - Profit target
+    12. max_hold: [100, 390] - Maximum holding time
+
+    Entry logic:
+    - MFI < mfi_oversold (volume-confirmed oversold)
+    - Price < BB_lower (price stretched below mean)
+    - NATR < natr_threshold (calm market, not chaotic)
+    - Price > lag(Price, 1) (starting to recover, not falling knife)
+
+    NOTE: Use starting index of at least 350 (-i 350).
+    NOTE: Use maxeval 10000+ for 12 variables.
+*)
+let nature_boy_opt =
+  (* Entry parameters *)
+  let mfi_entry_period = Gadt_fo.var ~lower:50.0 ~upper:250.0 Gadt.Type.Int in
+  let mfi_oversold = Gadt_fo.var ~lower:20.0 ~upper:40.0 Gadt.Type.Float in
+  let bb_entry_period = Gadt_fo.var ~lower:50.0 ~upper:300.0 Gadt.Type.Int in
+  let bb_entry_std = Gadt_fo.var ~lower:1.0 ~upper:2.5 Gadt.Type.Float in
+
+  (* Volatility filter - NATR *)
+  let natr_period = Gadt_fo.var ~lower:10.0 ~upper:30.0 Gadt.Type.Int in
+  let natr_threshold = Gadt_fo.var ~lower:1.0 ~upper:5.0 Gadt.Type.Float in
+
+  (* Exit parameters *)
+  let mfi_exit_level = Gadt_fo.var ~lower:45.0 ~upper:75.0 Gadt.Type.Float in
+  let bb_exit_period = Gadt_fo.var ~lower:50.0 ~upper:300.0 Gadt.Type.Int in
+  let min_hold = Gadt_fo.var ~lower:10.0 ~upper:60.0 Gadt.Type.Int in
+
+  (* Risk parameters *)
+  let stop_loss_pct = Gadt_fo.var ~lower:0.02 ~upper:0.10 Gadt.Type.Float in
+  let profit_target_pct = Gadt_fo.var ~lower:0.03 ~upper:0.15 Gadt.Type.Float in
+  let max_hold = Gadt_fo.var ~lower:100.0 ~upper:390.0 Gadt.Type.Int in
+
+  (* Entry MFI *)
+  let mfi_entry =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_entry_period)))
+  in
+
+  (* Exit MFI - use same period as entry, just different threshold *)
+  let mfi_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_entry_period)))
+  in
+
+  (* NATR for volatility filter *)
+  let natr =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_period)))
+  in
+
+  (* Entry Bollinger Band *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        bb_entry_period, bb_entry_std, bb_entry_std)))
+  in
+
+  (* Exit Bollinger Band *)
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        bb_exit_period, Const (2.0, Float), Const (2.0, Float))))
+  in
+
+  (* Recovery filter: current price > previous price *)
+  let recovering = last >. lag last 1 in
+
+  (* Derived expressions *)
+  let stop_mult = Const (1.0, Float) -. stop_loss_pct in
+  let profit_mult = Const (1.0, Float) +. profit_target_pct in
+
+  (* Min hold gate *)
+  let past_min_hold = App2 (Fun (">=", (>=)), TicksHeld, min_hold) in
+
+  (* Gated exit signals *)
+  let gated_exits =
+    past_min_hold &&. (
+      (last >. bb_middle)
+      ||. (mfi_exit >. mfi_exit_level)
+      ||. (last >. (EntryPrice *. profit_mult))
+    )
+  in
+
+  {
+    name = "Nature_Boy_Opt";
+    buy_trigger =
+      (mfi_entry <. mfi_oversold)              (* Volume-confirmed oversold *)
+      &&. (last <. bb_lower)                   (* Price below BB lower *)
+      &&. (natr <. natr_threshold)             (* Calm market, not chaotic *)
+      &&. recovering                            (* Price starting to recover *)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. (EntryPrice *. stop_mult))  (* Stop loss always active *)
+      ||. gated_exits                           (* Other exits after min_hold *)
+      ||. (App2 (Fun (">", (>)), TicksHeld, max_hold));
+    score = Const (100.0, Float) -. mfi_entry;
+    max_positions = 20;
+    position_size = 0.05;
+  }
+
 (* Export all strategies *)
 let all_strategies = [
   volume_confirms_opt;
@@ -1023,4 +1151,5 @@ let all_strategies = [
   horseman_exit_winner;
   cowboy_opt;
   adx_cowboy;
+  nature_boy_opt;
 ]
