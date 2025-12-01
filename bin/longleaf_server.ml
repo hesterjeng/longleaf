@@ -204,6 +204,24 @@ let handler env cors_origin _conn request body =
     in
     Result.return response
 
+  (* GET /stats - Get trade statistics as JSON *)
+  | `GET, "/stats" ->
+    let response =
+      Option.Infix.(
+        let* mutices = Settings.settings.mutices in
+        let state = Longleaf_util.Pmutex.get mutices.state_mutex in
+        let all_orders = Longleaf_state.order_history state in
+        Longleaf_state.Stats.TradeStats.compute all_orders)
+      |> (function
+      | None ->
+        `Assoc [("error", `String "No completed trades available")]
+        |> Yojson.Safe.to_string |> respond_json ~cors_origin
+      | Some stats ->
+        Longleaf_state.Stats.TradeStats.yojson_of_t stats
+        |> Yojson.Safe.to_string |> respond_json ~cors_origin)
+    in
+    Result.return response
+
   (* GET /symbols - Get current symbols *)
   | `GET, "/symbols" ->
     let response =
