@@ -794,6 +794,102 @@ let horseman_exit_winner =
     position_size = 0.05;
   }
 
+(* Exit Winner 10x10 - 10 positions at 10% each *)
+let horseman_exit_winner_10x10 =
+  (* Entry MFI - locked *)
+  let mfi_entry =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (214, Int))))
+  in
+  (* Exit MFI - period 183 *)
+  let mfi_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (183, Int))))
+  in
+  (* Entry Bollinger Band - locked *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        Const (258, Int), Const (1.185, Float), Const (1.185, Float))))
+  in
+  (* Exit Bollinger Band - period 293 *)
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        Const (293, Int), Const (2.0, Float), Const (2.0, Float))))
+  in
+  let past_min_hold = App2 (Fun (">=", (>=)), TicksHeld, Const (34, Int)) in
+  let gated_exits =
+    past_min_hold &&. (
+      (last >. bb_middle)
+      ||. (mfi_exit >. Const (51.15, Float))
+      ||. (last >. (EntryPrice *. Const (1.1309, Float)))
+    )
+  in
+  {
+    name = "Horseman_Exit_Winner_10x10";
+    buy_trigger =
+      (mfi_entry <. Const (36.0, Float))
+      &&. (last <. bb_lower)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. (EntryPrice *. Const (0.9225, Float)))
+      ||. gated_exits
+      ||. (App2 (Fun (">", (>)), TicksHeld, Const (364, Int)));
+    score = Const (100.0, Float) -. mfi_entry;
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
+(* Exit Winner 5x20 - 5 positions at 20% each *)
+let horseman_exit_winner_5x20 =
+  (* Entry MFI - locked *)
+  let mfi_entry =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (214, Int))))
+  in
+  (* Exit MFI - period 183 *)
+  let mfi_exit =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (183, Int))))
+  in
+  (* Entry Bollinger Band - locked *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        Const (258, Int), Const (1.185, Float), Const (1.185, Float))))
+  in
+  (* Exit Bollinger Band - period 293 *)
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        Const (293, Int), Const (2.0, Float), Const (2.0, Float))))
+  in
+  let past_min_hold = App2 (Fun (">=", (>=)), TicksHeld, Const (34, Int)) in
+  let gated_exits =
+    past_min_hold &&. (
+      (last >. bb_middle)
+      ||. (mfi_exit >. Const (51.15, Float))
+      ||. (last >. (EntryPrice *. Const (1.1309, Float)))
+    )
+  in
+  {
+    name = "Horseman_Exit_Winner_5x20";
+    buy_trigger =
+      (mfi_entry <. Const (36.0, Float))
+      &&. (last <. bb_lower)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. (EntryPrice *. Const (0.9225, Float)))
+      ||. gated_exits
+      ||. (App2 (Fun (">", (>)), TicksHeld, Const (364, Int)));
+    score = Const (100.0, Float) -. mfi_entry;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (** Cowboy_Opt - Comprehensive 12-Variable Optimization with ADX Regime Filter
 
     Full optimization over entry, exit, risk, and regime parameters.
@@ -1137,6 +1233,169 @@ let nature_boy_opt =
     position_size = 0.05;
   }
 
+(* Nature Boy Winner - Optimized NATR-filtered mean reversion
+   Optimization results from 3-month training (Sep-Nov 2025):
+   - Return: 4.96% | Trades: 765 | Win Rate: 59.35%
+   - Sharpe: 0.129 | Profit Factor: 1.458
+   - P-value: 0.0002 (statistically significant)
+
+   Key feature: NATR < 2.08% filters out chaotic/volatile periods.
+   Fewer trades than Exit Winner, but hopefully better out-of-sample.
+*)
+let nature_boy =
+  (* Entry MFI - period 190 *)
+  let mfi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (190, Int))))
+  in
+
+  (* NATR for volatility filter *)
+  let natr =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (29, Int))))
+  in
+
+  (* Entry Bollinger Band *)
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        Const (248, Int), Const (1.61, Float), Const (1.61, Float))))
+  in
+
+  (* Exit Bollinger Band *)
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        Const (275, Int), Const (2.0, Float), Const (2.0, Float))))
+  in
+
+  (* Recovery filter: current price > previous price *)
+  let recovering = last >. lag last 1 in
+
+  (* Min hold gate: 36 ticks *)
+  let past_min_hold = App2 (Fun (">=", (>=)), TicksHeld, Const (36, Int)) in
+
+  (* Gated exit signals *)
+  let gated_exits =
+    past_min_hold &&. (
+      (last >. bb_middle)
+      ||. (mfi >. Const (52.05, Float))                       (* MFI exit level *)
+      ||. (last >. (EntryPrice *. Const (1.1035, Float)))     (* 10.35% profit target *)
+    )
+  in
+
+  {
+    name = "Nature_Boy";
+    buy_trigger =
+      (mfi <. Const (36.59, Float))                           (* MFI oversold *)
+      &&. (last <. bb_lower)
+      &&. (natr <. Const (2.08, Float))                       (* NATR threshold *)
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. (EntryPrice *. Const (0.9093, Float)))     (* 9.07% stop loss *)
+      ||. gated_exits
+      ||. (App2 (Fun (">", (>)), TicksHeld, Const (258, Int)));  (* Max hold *)
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 20;
+    position_size = 0.05;
+  }
+
+(* Nature Boy 10x10 - Same strategy, 10 positions at 10% each *)
+let nature_boy_10x10 =
+  let mfi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (190, Int))))
+  in
+  let natr =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (29, Int))))
+  in
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        Const (248, Int), Const (1.61, Float), Const (1.61, Float))))
+  in
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        Const (275, Int), Const (2.0, Float), Const (2.0, Float))))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", (>=)), TicksHeld, Const (36, Int)) in
+  let gated_exits =
+    past_min_hold &&. (
+      (last >. bb_middle)
+      ||. (mfi >. Const (52.05, Float))
+      ||. (last >. (EntryPrice *. Const (1.1035, Float)))
+    )
+  in
+  {
+    name = "Nature_Boy_10x10";
+    buy_trigger =
+      (mfi <. Const (36.59, Float))
+      &&. (last <. bb_lower)
+      &&. (natr <. Const (2.08, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. (EntryPrice *. Const (0.9093, Float)))
+      ||. gated_exits
+      ||. (App2 (Fun (">", (>)), TicksHeld, Const (258, Int)));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 10;
+    position_size = 0.10;
+  }
+
+(* Nature Boy 5x20 - Same strategy, 5 positions at 20% each (concentrated) *)
+let nature_boy_5x20 =
+  let mfi =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (190, Int))))
+  in
+  let natr =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (29, Int))))
+  in
+  let bb_lower =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+        Const (248, Int), Const (1.61, Float), Const (1.61, Float))))
+  in
+  let bb_middle =
+    Gadt.Data (App1 (Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+      App3 (Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+        Const (275, Int), Const (2.0, Float), Const (2.0, Float))))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", (>=)), TicksHeld, Const (36, Int)) in
+  let gated_exits =
+    past_min_hold &&. (
+      (last >. bb_middle)
+      ||. (mfi >. Const (52.05, Float))
+      ||. (last >. (EntryPrice *. Const (1.1035, Float)))
+    )
+  in
+  {
+    name = "Nature_Boy_5x20";
+    buy_trigger =
+      (mfi <. Const (36.59, Float))
+      &&. (last <. bb_lower)
+      &&. (natr <. Const (2.08, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. (EntryPrice *. Const (0.9093, Float)))
+      ||. gated_exits
+      ||. (App2 (Fun (">", (>)), TicksHeld, Const (258, Int)));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
 let all_strategies = [
   volume_confirms_opt;
@@ -1149,7 +1408,12 @@ let all_strategies = [
   free_horseman_v2;
   horseman_exit_explorer;
   horseman_exit_winner;
+  horseman_exit_winner_10x10;
+  horseman_exit_winner_5x20;
   cowboy_opt;
   adx_cowboy;
   nature_boy_opt;
+  nature_boy;
+  nature_boy_10x10;
+  nature_boy_5x20;
 ]
