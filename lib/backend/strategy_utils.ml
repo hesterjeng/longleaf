@@ -140,6 +140,8 @@ end = struct
                  Eio.traceln "@[Waiting until market open...@]@.";
                  Eio.Time.sleep_until env#clock open_time_ts;
                  Eio.traceln "@[Market is open, resuming.@]@.";
+                 (* Reset websocket after overnight sleep to ensure fresh connection *)
+                 Backend.reset_websocket ();
                  (* Record market open time *)
                  market_open_time := Some open_time_ts;
                  if options.flags.opening_wait_minutes > 0 then

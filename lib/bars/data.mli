@@ -50,6 +50,10 @@ exception NaNInData of int * Type.t
 val get : t -> Type.t -> int -> float
 (** [get data x i] returns the value of the data field [x] at index [i]. *)
 
+val get_unsafe : t -> Type.t -> int -> float
+(** [get_unsafe data x i] returns the raw value without NaN checking.
+    Use only for rendering/display where NaN can be handled gracefully. *)
+
 (** {1 Column Operations} *)
 
 module Column : sig

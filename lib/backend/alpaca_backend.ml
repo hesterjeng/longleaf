@@ -125,6 +125,19 @@ module Make (Input : BACKEND_INPUT) : S = struct
     (* cohttp-eio clients don't require explicit shutdown *)
     ()
 
+  let reset_websocket () =
+    Eio.traceln "Alpaca backend: Resetting websocket connection state";
+    (* Close existing connection if any *)
+    (match !massive_ws_client with
+     | Some client ->
+       (try Massive_websocket.Client.close client
+        with _ -> Eio.traceln "Alpaca backend: Error closing old websocket (ignoring)");
+     | None -> ());
+    (* Reset refs so next get_or_create_massive_ws_client creates fresh connection *)
+    massive_ws_client := None;
+    massive_ws_background_started := false;
+    Eio.traceln "Alpaca backend: Websocket state reset complete"
+
   let is_backtest = false
   let get_account = Trading_api.Accounts.get_account
 

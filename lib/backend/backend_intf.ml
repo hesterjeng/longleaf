@@ -43,4 +43,8 @@ module type S = sig
   val update_bars : State.t -> (State.t, Error.t) result
   val last_data_bar : unit -> (Bars.Latest.t, Error.t) result
   val liquidate : State.t -> (State.t, Error.t) Result.t
+
+  val reset_websocket : unit -> unit
+  (** Reset websocket connection state. Call after overnight sleep to ensure
+      fresh connection on market reopen. No-op for backtesting backend. *)
 end

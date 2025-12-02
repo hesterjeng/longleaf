@@ -109,6 +109,18 @@ let set_ source row i value =
 
 exception NaNInData of int * Type.t
 
+(** [get_unsafe] returns the raw value without NaN checking.
+    Use only for rendering/display where NaN can be handled gracefully. *)
+let get_unsafe (data : t) (ty : Type.t) i =
+  assert (i >= 0);
+  assert (i < data.size);
+  let row = Index.get data.index ty in
+  match ty with
+  | _ when Type.is_int_ty ty ->
+    let res = get_ data.int_data row i in
+    Int32.to_float res
+  | _ -> get_ data.data row i
+
 let get (data : t) (ty : Type.t) i =
   assert (i >= 0);
   assert (i < data.size);

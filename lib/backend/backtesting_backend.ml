@@ -192,4 +192,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
     else Eio.traceln "@[All positions successfully liquidated@]@.";
 
     Result.return liquidated_state
+
+  let reset_websocket () = ()  (* No-op for backtesting *)
 end

@@ -117,11 +117,11 @@ let direct_price_trace ?(start = 0) ?(color = "#1f77b4") ?end_ (data : Data.t)
     if i >= end_idx then (List.rev acc_x, List.rev acc_y)
     else
       let timestamp =
-        Data.get data Time i |> Ptime.of_float_s
+        Data.get_unsafe data Time i |> Ptime.of_float_s
         |> Option.map Ptime.to_rfc3339
         |> Option.get_exn_or "Invalid timestamp in direct_price_trace"
       in
-      let price = Data.get data Last i in
+      let price = Data.get_unsafe data Last i in
       build_lists (i + 1) (`String timestamp :: acc_x) (sanitize_float price :: acc_y)
   in
   let x, y = build_lists start [] [] in
@@ -164,11 +164,11 @@ let indicator_trace ?(show = false) ?(drop = 100) ?(yaxis = "y1")
       if i >= end_idx then (List.rev acc_x, List.rev acc_y)
       else
         let timestamp =
-          Data.get data Time i |> Ptime.of_float_s
+          Data.get_unsafe data Time i |> Ptime.of_float_s
           |> Option.map Ptime.to_rfc3339
           |> Option.get_exn_or "Illegal time stored in data table (plotly.ml)"
         in
-        let value = Data.get data indicator i in
+        let value = Data.get_unsafe data indicator i in
         build_lists (i + 1) (`String timestamp :: acc_x) (sanitize_float value :: acc_y)
     in
     let x, y = build_lists effective_start [] [] in
