@@ -605,7 +605,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                 <Input
                   value={serverUrl}
                   onChange={(e) => setServerUrl(e.target.value)}
-                  placeholder="http://localhost:8080"
+                  placeholder="http://localhost:${LONGLEAF_PORT}"
                   addonBefore="Server"
                 />
                 <Text type="secondary">

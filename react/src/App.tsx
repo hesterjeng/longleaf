@@ -7,11 +7,12 @@ import ChartTab from './components/ChartTab';
 import DataTab from './components/DataTab';
 import StrategiesTab from './components/StrategiesTab';
 import type { ServerData } from './types';
+import { API_CONFIG } from './utils/constants';
 
 const { Content } = Layout;
 
 const App: React.FC = () => {
-  const [serverUrl, setServerUrl] = useState<string>('http://localhost:8080');
+  const [serverUrl, setServerUrl] = useState<string>(API_CONFIG.baseURL);
   const [serverOnline, setServerOnline] = useState<boolean>(false);
   const [serverData, setServerData] = useState<ServerData>({
     status: null,
@@ -151,7 +152,7 @@ const App: React.FC = () => {
                   <p>Please check:</p>
                   <ul>
                     <li>Server is running: <code>longleaf_server</code></li>
-                    <li>Correct URL (default: http://localhost:8080)</li>
+                    <li>Correct URL (configured via LONGLEAF_PORT env var)</li>
                     <li>Network connectivity</li>
                     <li>Firewall settings</li>
                   </ul>

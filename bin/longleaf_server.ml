@@ -420,13 +420,23 @@ let handler env cors_origin _conn request body =
   | Error e -> respond_500 ~cors_origin (Error.show e)
 
 module Args = struct
+  let default_port =
+    match Sys.getenv_opt "LONGLEAF_PORT" with
+    | Some p -> (try int_of_string p with _ -> 8080)
+    | None -> 8080
+
+  let default_cors_origin =
+    match Sys.getenv_opt "REACT_PORT" with
+    | Some p -> Some (Printf.sprintf "http://localhost:%s" p)
+    | None -> Some "http://localhost:3000"
+
   let port_arg =
-    let doc = "Port for HTTP server to listen on." in
-    Cmdliner.Arg.(value & opt int 8080 & info ["port"; "p"] ~doc)
+    let doc = "Port for HTTP server to listen on (default from LONGLEAF_PORT env var or 8080)." in
+    Cmdliner.Arg.(value & opt int default_port & info ["port"; "p"] ~doc)
 
   let cors_origin_arg =
-    let doc = "CORS origin for React frontend (e.g., http://localhost:3000). Use --no-cors to disable CORS." in
-    Cmdliner.Arg.(value & opt (some string) (Some "http://localhost:3000") & info ["cors-origin"] ~doc)
+    let doc = "CORS origin for React frontend (default from REACT_PORT env var). Use --no-cors to disable CORS." in
+    Cmdliner.Arg.(value & opt (some string) default_cors_origin & info ["cors-origin"] ~doc)
 
   let no_cors_arg =
     let doc = "Disable CORS headers entirely." in

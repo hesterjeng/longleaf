@@ -2,9 +2,10 @@ const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const path = require('path');
 
-// Parse command line arguments: node server.js [port] [backend_url]
-const PORT = parseInt(process.argv[2]) || 3000;
-const BACKEND_URL = process.argv[3] || 'http://localhost:8080';
+// Configuration priority: CLI args > env vars > defaults
+const PORT = parseInt(process.argv[2]) || parseInt(process.env.REACT_PORT) || 3000;
+const LONGLEAF_PORT = process.env.LONGLEAF_PORT || '8080';
+const BACKEND_URL = process.argv[3] || process.env.LONGLEAF_URL || `http://localhost:${LONGLEAF_PORT}`;
 
 const app = express();
 
