@@ -55,6 +55,7 @@
         "python-quantstats"
         "python-yfinance"
         "python-multitasking"
+        "python-ipython"
 	"python-fastapi"
         "nlopt"
         "node"))
