@@ -28,7 +28,10 @@ export const toOCamlVariant = (value: string): string[] => {
  * ["Download"] -> { type: "Download", file: "" }
  * ["File", "path"] -> { type: "File", file: "path" }
  */
-export const parseTarget = (target: OCamlTarget): ParsedTarget => {
+export const parseTarget = (target: OCamlTarget | null | undefined): ParsedTarget => {
+  if (!target) {
+    return { type: 'Download', file: '' };
+  }
   if (Array.isArray(target)) {
     if (target.length === 1 && target[0] === 'Download') {
       return { type: 'Download', file: '' };
@@ -86,6 +89,9 @@ export const getActiveDataFile = (target: OCamlTarget | null): string | null => 
  * Convert CLI settings from OCaml format to React format
  */
 export const parseOCamlCLI = (oclCLI: CLISettings) => {
+  if (!oclCLI || typeof oclCLI !== 'object') {
+    throw new Error(`parseOCamlCLI: expected object, got ${typeof oclCLI}: ${JSON.stringify(oclCLI)}`);
+  }
   return {
     ...oclCLI,
     runtype: parseOCamlVariant(oclCLI.runtype)

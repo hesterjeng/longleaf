@@ -2,9 +2,18 @@ const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const path = require('path');
 
-// Parse command line arguments: node server.js [port] [backend_url]
-const PORT = parseInt(process.argv[2]) || 3000;
-const BACKEND_URL = process.argv[3] || 'http://localhost:8080';
+// Configuration priority: CLI args > env vars > defaults
+const PORT = parseInt(process.argv[2]) || parseInt(process.env.REACT_PORT) || 3000;
+const LONGLEAF_PORT = process.env.LONGLEAF_PORT || '8080';
+const BACKEND_URL = process.argv[3] || process.env.LONGLEAF_URL || `http://localhost:${LONGLEAF_PORT}`;
+
+console.log('Configuration:');
+console.log(`  REACT_PORT env: ${process.env.REACT_PORT}`);
+console.log(`  LONGLEAF_PORT env: ${process.env.LONGLEAF_PORT}`);
+console.log(`  argv[2] (port): ${process.argv[2]}`);
+console.log(`  argv[3] (backend): ${process.argv[3]}`);
+console.log(`  Resolved PORT: ${PORT}`);
+console.log(`  Resolved BACKEND_URL: ${BACKEND_URL}`);
 
 const app = express();
 
@@ -15,19 +24,26 @@ const apiRoutes = [
   '/set_status', '/set_target', '/set_strategy', '/set_runtype', '/set_cli'
 ];
 
-// Create proxy middleware for OCaml server
+// Create proxy middleware
 const proxyMiddleware = createProxyMiddleware({
   target: BACKEND_URL,
   changeOrigin: true,
+  onProxyReq: (proxyReq, req) => {
+    console.log(`[PROXY] ${req.method} ${req.originalUrl} -> ${BACKEND_URL}${req.originalUrl}`);
+  },
+  onError: (err, req, res) => {
+    console.error(`[PROXY ERROR] ${err.message}`);
+    res.status(502).json({ error: 'Proxy error', message: err.message });
+  }
 });
 
 // Apply proxy to all API routes
 apiRoutes.forEach(route => {
-  app.use(route, proxyMiddleware);
+  app.all(route, proxyMiddleware);
 });
 
 // Also handle dynamic routes like /data/:symbol/json
-app.use('/data/:symbol/json', proxyMiddleware);
+app.all('/data/:symbol/json', proxyMiddleware);
 
 // Serve static files from build directory
 app.use(express.static(path.join(__dirname, 'build')));

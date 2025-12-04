@@ -21,7 +21,11 @@ interface OverviewTabProps {
 }
 
 const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refreshData, loading, serverUrl, setServerUrl, serverOnline, checkServerConnection }) => {
+  console.log('[DEBUG] OverviewTab render - full serverData:', JSON.stringify(serverData, null, 2));
   const { status, settings, dataFiles, strategies } = serverData;
+  console.log('[DEBUG] After destructure - status:', status, 'type:', typeof status, 'isArray:', Array.isArray(status));
+  console.log('[DEBUG] After destructure - strategies:', strategies, 'type:', typeof strategies, 'isArray:', Array.isArray(strategies));
+  console.log('[DEBUG] After destructure - dataFiles:', dataFiles, 'type:', typeof dataFiles, 'isArray:', Array.isArray(dataFiles));
   const [executing, setExecuting] = useState<boolean>(false);
   const [executeResult, setExecuteResult] = useState<string | null>(null);
   const [executeError, setExecuteError] = useState<string | null>(null);
@@ -41,13 +45,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
   const strategiesPerPage = 12; // 3 columns × 4 rows = 12 strategies per page
 
   const { displayedStrategies, totalPages } = React.useMemo(() => {
-    if (!strategies || strategies.length === 0) return { displayedStrategies: [], totalPages: 0 };
-    
+    if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
+      return { displayedStrategies: [], totalPages: 0 };
+    }
+
     const total = Math.ceil(strategies.length / strategiesPerPage);
     const start = currentPage * strategiesPerPage;
     const end = start + strategiesPerPage;
     const displayed = strategies.slice(start, end);
-    
+
     return { displayedStrategies: displayed, totalPages: total };
   }, [strategies, currentPage]);
 
@@ -95,26 +101,33 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
 
   // Update form when settings change
   React.useEffect(() => {
-    if (settings?.cli_vars && settings?.target) {
-      const cliData = parseOCamlCLI(settings.cli_vars);
-      const targetData = parseTarget(settings.target);
-      console.log('Setting form values:', { cliData, targetData, strategies, dataFiles });
-      console.log('print_tick_arg from server:', settings.cli_vars.print_tick_arg);
-      console.log('print_tick_arg after parse:', cliData.print_tick_arg);
-      settingsForm.setFieldsValue({
-        ...cliData,
-        runtype: cliData.runtype || 'Backtest',
-        strategy_arg: cliData.strategy_arg || 'Listener',
-        target_file: targetData.type === 'Download' ? 'download' : targetData.file
-      });
-
-      // Sync button states with loaded settings
-      setStacktraceActive(cliData.stacktrace || false);
-      setPrintTickActive(cliData.print_tick_arg || false);
-      setSaveReceivedActive(cliData.save_received || false);
-      setSaveToFileActive(cliData.save_to_file || false);
-      setPrecomputeIndicatorsActive(cliData.precompute_indicators_arg || false);
-      setNowaitMarketOpenActive(cliData.nowait_market_open || false);
+    console.log('[DEBUG] useEffect - settings:', settings);
+    console.log('[DEBUG] useEffect - settings?.cli_vars:', settings?.cli_vars);
+    if (settings?.cli_vars && settings?.target && typeof settings.cli_vars === 'object') {
+      try {
+        console.log('[DEBUG] About to call parseOCamlCLI');
+        const cliData = parseOCamlCLI(settings.cli_vars);
+        console.log('[DEBUG] parseOCamlCLI returned:', cliData);
+        const targetData = parseTarget(settings.target);
+        console.log('Setting form values:', { cliData, targetData, strategies, dataFiles });
+        console.log('print_tick_arg from server:', settings.cli_vars.print_tick_arg);
+        console.log('print_tick_arg after parse:', cliData.print_tick_arg);
+        settingsForm.setFieldsValue({
+          ...cliData,
+          runtype: cliData.runtype || 'Backtest',
+          strategy_arg: cliData.strategy_arg || 'Listener',
+          target_file: targetData.type === 'Download' ? 'download' : targetData.file
+        });
+        // Sync button states with loaded settings
+        setStacktraceActive(cliData.stacktrace || false);
+        setPrintTickActive(cliData.print_tick_arg || false);
+        setSaveReceivedActive(cliData.save_received || false);
+        setSaveToFileActive(cliData.save_to_file || false);
+        setPrecomputeIndicatorsActive(cliData.precompute_indicators_arg || false);
+        setNowaitMarketOpenActive(cliData.nowait_market_open || false);
+      } catch (e) {
+        console.error('Error parsing settings:', e, settings);
+      }
     } else {
       // Set defaults when no settings are available
       settingsForm.setFieldsValue({
@@ -220,12 +233,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
     }
   };
 
-  const renderStatusDisplay = (statusData: string | null) => {
+  const renderStatusDisplay = (statusData: string | string[] | null) => {
     if (!statusData) {
       return <Alert type="error" message="No status data available" />;
     }
 
-    const statusStr = typeof statusData === 'string' ? statusData : String(statusData);
+    // Handle OCaml variant format: ["Ready"] -> "Ready"
+    const statusStr = Array.isArray(statusData) ? statusData[0] : String(statusData);
     let alertType: 'warning' | 'success' | 'info' | 'error' = 'warning';
 
     if (statusStr.includes('Ready')) {
@@ -411,9 +425,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
               <div style={{ marginTop: 16 }}>
                 <Text strong>Current Configuration:</Text>
                 <div style={{ marginTop: 8, fontSize: '12px' }}>
-                  <div><strong>Runtype:</strong> {settings.cli_vars.runtype || 'N/A'}</div>
+                  <div><strong>Runtype:</strong> {Array.isArray(settings.cli_vars.runtype) ? settings.cli_vars.runtype[0] : (settings.cli_vars.runtype || 'N/A')}</div>
                   <div><strong>Strategy:</strong> {settings.cli_vars.strategy_arg || 'N/A'}</div>
-                  <div><strong>Target:</strong> {settings.target || 'N/A'}</div>
+                  <div><strong>Target:</strong> {Array.isArray(settings.target) ? settings.target.join(': ') : (settings.target || 'N/A')}</div>
                   <div><strong>Start Index:</strong> {settings.cli_vars.start || 0}</div>
                   <div><strong>Slippage:</strong> {settings.cli_vars.slippage_pct != null ? `${(settings.cli_vars.slippage_pct * 100).toFixed(1)}%` : 'N/A'}</div>
                   <div><strong>Random Drop:</strong> {settings.cli_vars.random_drop_chance || 0}%</div>
@@ -605,7 +619,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                 <Input
                   value={serverUrl}
                   onChange={(e) => setServerUrl(e.target.value)}
-                  placeholder="http://localhost:8080"
+                  placeholder="http://localhost:${LONGLEAF_PORT}"
                   addonBefore="Server"
                 />
                 <Text type="secondary">
@@ -741,7 +755,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
               <Form.Item name="target_file" noStyle>
                 <Radio.Group buttonStyle="solid">
                   <Row gutter={[8, 8]}>
-                    {['download', '', ...(dataFiles || [])].map((file: string) => (
+                    {['download', '', ...(Array.isArray(dataFiles) ? dataFiles : [])].map((file: string) => (
                       <Col xs={24} sm={12} md={8} lg={6} key={file || 'none'}>
                         <Radio.Button value={file} style={{ width: '100%', textAlign: 'center' }}>
                           {file === 'download' ? 'Download' : file === '' ? 'None' : file}

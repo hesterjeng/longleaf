@@ -7,11 +7,12 @@ import ChartTab from './components/ChartTab';
 import DataTab from './components/DataTab';
 import StrategiesTab from './components/StrategiesTab';
 import type { ServerData } from './types';
+import { API_CONFIG } from './utils/constants';
 
 const { Content } = Layout;
 
 const App: React.FC = () => {
-  const [serverUrl, setServerUrl] = useState<string>('http://localhost:8080');
+  const [serverUrl, setServerUrl] = useState<string>(API_CONFIG.baseURL);
   const [serverOnline, setServerOnline] = useState<boolean>(false);
   const [serverData, setServerData] = useState<ServerData>({
     status: null,
@@ -55,6 +56,12 @@ const App: React.FC = () => {
         console.log('[API-POLL] ❌ /symbols failed:', (error as Error).message);
         symbolsData = [];
       }
+
+      console.log('[API-POLL] Raw responses:');
+      console.log('[API-POLL]   statusRes?.data:', JSON.stringify(statusRes?.data));
+      console.log('[API-POLL]   settingsRes?.data:', JSON.stringify(settingsRes?.data)?.substring(0, 100));
+      console.log('[API-POLL]   dataRes?.data:', JSON.stringify(dataRes?.data));
+      console.log('[API-POLL]   strategiesRes?.data:', JSON.stringify(strategiesRes?.data)?.substring(0, 100));
 
       setServerData({
         status: statusRes?.data || null,
@@ -151,7 +158,7 @@ const App: React.FC = () => {
                   <p>Please check:</p>
                   <ul>
                     <li>Server is running: <code>longleaf_server</code></li>
-                    <li>Correct URL (default: http://localhost:8080)</li>
+                    <li>Correct URL (configured via LONGLEAF_PORT env var)</li>
                     <li>Network connectivity</li>
                     <li>Firewall settings</li>
                   </ul>
