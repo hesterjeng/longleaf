@@ -251,7 +251,6 @@ module Client = struct
 
   (* Receive and parse next message *)
   let receive_update client =
-    Eio.traceln "Massive WS: receive_update calling Connection.receive...";
     let frame_result = Websocket.Connection.receive client.conn in
     (match frame_result with
      | Ok frame ->
@@ -283,12 +282,6 @@ module Client = struct
             Eio.traceln "Massive WebSocket: Status - %s: %s" status.status status.message;
             None
           | Aggregate agg ->
-            let timestamp = Ptime.of_float_s (Float.of_int agg.s /. 1000.0) in
-            let timestamp_str = match timestamp with
-              | Some t -> Ptime.to_rfc3339 t
-              | None -> "invalid"
-            in
-            Eio.traceln "Massive WebSocket: Received aggregate for %s at %s" agg.sym timestamp_str;
             Some agg
           | Unknown ev ->
             Eio.traceln "Massive WebSocket: Unknown event type: %s" ev;
@@ -465,13 +458,11 @@ module Client = struct
         match receive_update !client_ref with
         | Ok [] ->
           (* Empty update, try again *)
-          Eio.traceln "Massive WS background: Received empty update, retrying";
           update_loop client_ref
         | Ok aggregates ->
           incr text_frames;
           (* Get current tick from the strategy *)
           let current_tick = get_current_tick () in
-          Eio.traceln "Massive WS: Writing %d symbols to tick %d" (List.length aggregates) current_tick;
 
           (* Update bars with new data *)
           (match update_bars bars current_tick aggregates with
@@ -486,8 +477,6 @@ module Client = struct
           update_loop client_ref
         | Error `Ping ->
           incr ping_frames;
-          (* Ping handled, continue *)
-          Eio.traceln "Massive WS background: Received ping, continuing";
           update_loop client_ref
         | Error `ConnectionClosed ->
           Eio.traceln "Massive WebSocket: Connection closed, reconnecting...";
