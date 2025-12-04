@@ -21,6 +21,8 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
+    "clean": "rm -rf build node_modules/.cache",
+    "rebuild": "rm -rf build node_modules/.cache && craco build",
     "test": "craco test",
     "eject": "react-scripts eject",
     "serve": "node server.js"

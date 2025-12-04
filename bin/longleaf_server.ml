@@ -37,6 +37,60 @@ let add_cors_headers cors_origin headers =
       ("Access-Control-Allow-Headers", "Content-Type");
     ]
 
+(* Content type detection for static files *)
+let content_type_of_extension ext =
+  match String.lowercase_ascii ext with
+  | ".html" | ".htm" -> "text/html"
+  | ".css" -> "text/css"
+  | ".js" -> "application/javascript"
+  | ".json" -> "application/json"
+  | ".png" -> "image/png"
+  | ".jpg" | ".jpeg" -> "image/jpeg"
+  | ".gif" -> "image/gif"
+  | ".svg" -> "image/svg+xml"
+  | ".ico" -> "image/x-icon"
+  | ".woff" -> "font/woff"
+  | ".woff2" -> "font/woff2"
+  | ".ttf" -> "font/ttf"
+  | ".map" -> "application/json"
+  | _ -> "application/octet-stream"
+
+let get_extension filename =
+  match String.rindex_opt filename '.' with
+  | Some i -> String.sub filename i (String.length filename - i)
+  | None -> ""
+
+(* Serve a static file *)
+let serve_static_file ~cors_origin static_dir path =
+  (* Prevent directory traversal attacks *)
+  let safe_path =
+    path
+    |> String.split ~by:"/"
+    |> List.filter (fun s -> not (String.equal s "..") && not (String.equal s "."))
+    |> String.concat "/"
+  in
+  let file_path = Filename.concat static_dir safe_path in
+  if Sys.file_exists file_path && not (Sys.is_directory file_path) then
+    let content = In_channel.with_open_bin file_path In_channel.input_all in
+    let ext = get_extension file_path in
+    let content_type = content_type_of_extension ext in
+    let headers = Cohttp.Header.init_with "Content-Type" content_type
+      |> add_cors_headers cors_origin in
+    Some (Cohttp_eio.Server.respond_string ~headers ~status:`OK ~body:content ())
+  else
+    None
+
+(* Serve index.html for SPA routing *)
+let serve_index ~cors_origin static_dir =
+  let index_path = Filename.concat static_dir "index.html" in
+  if Sys.file_exists index_path then
+    let content = In_channel.with_open_bin index_path In_channel.input_all in
+    let headers = Cohttp.Header.init_with "Content-Type" "text/html"
+      |> add_cors_headers cors_origin in
+    Some (Cohttp_eio.Server.respond_string ~headers ~status:`OK ~body:content ())
+  else
+    None
+
 let respond_json ?(status = `OK) ?(cors_origin = None) json_string =
   let headers = Cohttp.Header.init_with "Content-Type" "application/json"
     |> add_cors_headers cors_origin in
@@ -56,7 +110,7 @@ let respond_404 ?(cors_origin = None) () = respond_text ~cors_origin ~status:`No
 let respond_500 ?(cors_origin = None) message = respond_text ~cors_origin ~status:`Internal_server_error message
 
 (* Main request handler *)
-let handler env cors_origin _conn request body =
+let handler env cors_origin static_dir _conn request body =
   let ( let* ) = Result.( let* ) in
   let meth = Cohttp.Request.meth request in
   let uri = Cohttp.Request.uri request in
@@ -318,15 +372,21 @@ let handler env cors_origin _conn request body =
     in
     Result.return @@ respond_html ~cors_origin ~status:`OK json_response
 
-  (* GET / - Root endpoint, return settings *)
+  (* GET / - Root endpoint, serve index.html if static_dir is set, else return settings *)
   | `GET, "/" ->
-    Eio.traceln "=== GET / endpoint called ===";
-    Eio.traceln "Current CLI settings:";
-    Eio.traceln "  print_tick_arg: %b" Settings.settings.cli_vars.print_tick_arg;
-    Eio.traceln "  strategy_arg: %s" Settings.settings.cli_vars.strategy_arg;
-    let json = Settings.yojson_of_t Settings.settings |> Yojson.Safe.to_string in
-    Eio.traceln "Returning JSON: %s" json;
-    Result.return @@ respond_json ~cors_origin json
+    (match static_dir with
+    | Some dir ->
+      Eio.traceln "Serving index.html from %s" dir;
+      (match serve_index ~cors_origin dir with
+      | Some response -> Result.return response
+      | None ->
+        Eio.traceln "index.html not found, returning settings JSON";
+        let json = Settings.yojson_of_t Settings.settings |> Yojson.Safe.to_string in
+        Result.return @@ respond_json ~cors_origin json)
+    | None ->
+      Eio.traceln "=== GET / endpoint called (no static dir) ===";
+      let json = Settings.yojson_of_t Settings.settings |> Yojson.Safe.to_string in
+      Result.return @@ respond_json ~cors_origin json)
 
   (* POST /set_status - Set status *)
   | `POST, "/set_status" ->
@@ -412,7 +472,30 @@ let handler env cors_origin _conn request body =
     (`Assoc [ ("message", `String "settings.cli_vars set") ]
      |> Yojson.Safe.to_string |> respond_json ~cors_origin)
 
-  (* Default - 404 *)
+  (* Static file serving and SPA fallback for GET requests *)
+  | `GET, path ->
+    (match static_dir with
+    | Some dir ->
+      (* Remove leading slash for file path *)
+      let file_path = if String.prefix ~pre:"/" path
+        then String.sub path 1 (String.length path - 1)
+        else path
+      in
+      Eio.traceln "Trying to serve static file: %s" file_path;
+      (match serve_static_file ~cors_origin dir file_path with
+      | Some response ->
+        Eio.traceln "Served static file: %s" file_path;
+        Result.return response
+      | None ->
+        (* SPA fallback: serve index.html for unknown routes *)
+        Eio.traceln "File not found, serving index.html for SPA routing";
+        (match serve_index ~cors_origin dir with
+        | Some response -> Result.return response
+        | None -> Result.return @@ respond_404 ~cors_origin ()))
+    | None ->
+      Result.return @@ respond_404 ~cors_origin ())
+
+  (* Default - 404 for non-GET methods *)
   | _ -> Result.return @@ respond_404 ~cors_origin ()
   in
   match result with
@@ -425,10 +508,25 @@ module Args = struct
     | Some p -> (try int_of_string p with _ -> 8080)
     | None -> 8080
 
+  let default_static_dir =
+    match Sys.getenv_opt "LONGLEAF_STATIC_DIR" with
+    | Some dir -> Some dir
+    | None ->
+      (* Default to react/build relative to current directory *)
+      let default_path = "react/build" in
+      if Sys.file_exists default_path && Sys.is_directory default_path
+      then Some default_path
+      else None
+
+  (* CORS is only needed if serving frontend from a different origin *)
   let default_cors_origin =
-    match Sys.getenv_opt "REACT_PORT" with
-    | Some p -> Some (Printf.sprintf "http://localhost:%s" p)
-    | None -> Some "http://localhost:3000"
+    match default_static_dir with
+    | Some _ -> None  (* Same origin, no CORS needed *)
+    | None ->
+      (* No static dir = likely using separate dev server *)
+      match Sys.getenv_opt "REACT_PORT" with
+      | Some p -> Some (Printf.sprintf "http://localhost:%s" p)
+      | None -> Some "http://localhost:3000"
 
   let port_arg =
     let doc = "Port for HTTP server to listen on (default from LONGLEAF_PORT env var or 8080)." in
@@ -441,29 +539,39 @@ module Args = struct
   let no_cors_arg =
     let doc = "Disable CORS headers entirely." in
     Cmdliner.Arg.(value & flag & info ["no-cors"] ~doc)
+
+  let static_dir_arg =
+    let doc = "Directory containing static files to serve (e.g., React build directory). If set, serves static files and falls back to index.html for SPA routing." in
+    Cmdliner.Arg.(value & opt (some string) default_static_dir & info ["static-dir"; "s"] ~doc)
 end
 
 module Cmd = struct
-  let run port cors_origin no_cors =
+  let run port cors_origin no_cors static_dir =
     let cors_origin = if no_cors then None else cors_origin in
     Eio_main.run @@ fun env ->
     Eio.Switch.run @@ fun sw ->
     Eio.traceln "Starting server on http://localhost:%d" port;
-    Eio.traceln "Frontend available at %s (by default)"
+    (match static_dir with
+    | Some dir ->
+      Eio.traceln "Serving static files from: %s" dir;
+      Eio.traceln "CORS: allowing all origins for same-origin requests"
+    | None ->
+      Eio.traceln "Static file serving: disabled");
+    Eio.traceln "CORS origin: %s"
       (match cors_origin with
        | Some origin -> origin
-       | None -> "CORS disabled");
+       | None -> "disabled");
     let socket =
       Eio.Net.listen env#net ~sw ~backlog:128 ~reuse_addr:true ~reuse_port:true
         (`Tcp (Eio.Net.Ipaddr.V4.any, port))
     in
-    let server = Cohttp_eio.Server.make ~callback:(handler env cors_origin) () in
+    let server = Cohttp_eio.Server.make ~callback:(handler env cors_origin static_dir) () in
     Cohttp_eio.Server.run socket server ~on_error:raise
 
   let top =
     let term =
       Cmdliner.Term.(
-        const run $ Args.port_arg $ Args.cors_origin_arg $ Args.no_cors_arg)
+        const run $ Args.port_arg $ Args.cors_origin_arg $ Args.no_cors_arg $ Args.static_dir_arg)
     in
     let doc = "Longleaf HTTP server for strategy management and visualization." in
     let info = Cmdliner.Cmd.info ~doc "longleaf_server" in

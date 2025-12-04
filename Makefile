@@ -1,14 +1,18 @@
-.PHONY: all clean build install format deps odep react run dev shutdown
+.PHONY: all clean build install format deps odep react run shutdown
 
-# Port configuration via environment variables (set in .envrc)
+# Port configuration (can override via environment or .envrc)
 LONGLEAF_PORT ?= 8080
-REACT_PORT ?= 3000
 
 all:
 	dune build
 
 build:
 	dune build
+	cd react && npm run build
+
+clean:
+	dune clean
+	cd react && npm run clean
 
 install:
 	dune build && dune install && cd react && npm install
@@ -24,24 +28,14 @@ deps:
 	@echo "Or 'guix shell -f longleaf.scm' for full OCaml environment"
 
 react:
-	cd react && npm start
+	cd react && npm run build
 
 run:
+	cd react && npm run build
 	tmux new-session -d -s longleaf
-	tmux send-keys -t longleaf:0 "guix shell -m manifest.scm -- bash -c 'cd react && npm run build && node server.js $(REACT_PORT) http://localhost:$(LONGLEAF_PORT)'" Enter
+	tmux send-keys -t longleaf:0 "guix shell -m manifest.scm -- dune exec bin/longleaf_server.exe -- --port $(LONGLEAF_PORT)" Enter
 	tmux new-window -t longleaf -n tearsheets
 	tmux send-keys -t longleaf:tearsheets "guix shell -m manifest.scm -- python tearsheets/tearsheet_server.py" Enter
-	tmux new-window -t longleaf -n longleaf
-	tmux send-keys -t longleaf:longleaf "guix shell -m manifest.scm -- dune exec bin/longleaf_server.exe -- --port $(LONGLEAF_PORT)" Enter
-	tmux attach-session -t longleaf
-
-dev:
-	tmux new-session -d -s longleaf
-	tmux send-keys -t longleaf:0 "guix shell -m manifest.scm -- bash -c 'cd react && npm start'" Enter
-	tmux new-window -t longleaf -n tearsheets
-	tmux send-keys -t longleaf:tearsheets "guix shell -m manifest.scm -- python tearsheets/tearsheet_server.py" Enter
-	tmux new-window -t longleaf -n longleaf
-	tmux send-keys -t longleaf:longleaf "guix shell -m manifest.scm -- dune exec bin/longleaf_server.exe" Enter
 	tmux attach-session -t longleaf
 
 shutdown:

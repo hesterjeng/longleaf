@@ -57,6 +57,12 @@ const App: React.FC = () => {
         symbolsData = [];
       }
 
+      console.log('[API-POLL] Raw responses:');
+      console.log('[API-POLL]   statusRes?.data:', JSON.stringify(statusRes?.data));
+      console.log('[API-POLL]   settingsRes?.data:', JSON.stringify(settingsRes?.data)?.substring(0, 100));
+      console.log('[API-POLL]   dataRes?.data:', JSON.stringify(dataRes?.data));
+      console.log('[API-POLL]   strategiesRes?.data:', JSON.stringify(strategiesRes?.data)?.substring(0, 100));
+
       setServerData({
         status: statusRes?.data || null,
         settings: settingsRes?.data || null,
