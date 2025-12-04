@@ -1,7 +1,8 @@
 .PHONY: all clean build install format deps odep react run shutdown
 
-# Port configuration (can override via environment or .envrc)
+# Configuration (can override via environment or .envrc)
 LONGLEAF_PORT ?= 8080
+LONGLEAF_SESSION ?= longleaf
 
 all:
 	dune build
@@ -32,11 +33,11 @@ react:
 
 run:
 	cd react && npm run build
-	tmux new-session -d -s longleaf
-	tmux send-keys -t longleaf:0 "guix shell -m manifest.scm -- dune exec bin/longleaf_server.exe -- --port $(LONGLEAF_PORT)" Enter
-	tmux new-window -t longleaf -n tearsheets
-	tmux send-keys -t longleaf:tearsheets "guix shell -m manifest.scm -- python tearsheets/tearsheet_server.py" Enter
-	tmux attach-session -t longleaf
+	tmux new-session -d -s $(LONGLEAF_SESSION)
+	tmux send-keys -t $(LONGLEAF_SESSION):0 "guix shell -m manifest.scm -- dune exec bin/longleaf_server.exe -- --port $(LONGLEAF_PORT)" Enter
+	tmux new-window -t $(LONGLEAF_SESSION) -n tearsheets
+	tmux send-keys -t $(LONGLEAF_SESSION):tearsheets "guix shell -m manifest.scm -- python tearsheets/tearsheet_server.py" Enter
+	tmux attach-session -t $(LONGLEAF_SESSION)
 
 shutdown:
-	tmux kill-session -t longleaf
+	tmux kill-session -t $(LONGLEAF_SESSION)
