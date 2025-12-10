@@ -183,6 +183,7 @@ end
 module Connection = struct
   type t = {
     flow : Eio.Flow.two_way_ty Eio.Resource.t;
+    close_fn : unit -> unit;  (* Function to close underlying resources *)
     url : Uri.t;
     mutable closed : bool;
     mutable leftover : string;  (* Buffered bytes from handshake *)
@@ -241,7 +242,8 @@ module Connection = struct
     let tcp_flow = Eio.Net.connect ~sw net sock_addr in
 
     (* Wrap with TLS if wss:// *)
-    let* flow =
+    (* Returns (flow, close_fn) - close_fn releases the underlying socket *)
+    let* (flow, close_fn) =
       if String.equal scheme "wss" then begin
         try
           let* tls_config =
@@ -251,10 +253,15 @@ module Connection = struct
           in
           let domain_name = Domain_name.(of_string_exn hostname |> host_exn) in
           let tls_flow = Tls_eio.client_of_flow ~host:domain_name tls_config tcp_flow in
-          Ok (tls_flow :> Eio.Flow.two_way_ty Eio.Resource.t)
+          let close_fn () =
+            (try Eio.Flow.close tls_flow with _ -> ());
+            (try Eio.Flow.close tcp_flow with _ -> ())
+          in
+          Ok ((tls_flow :> Eio.Flow.two_way_ty Eio.Resource.t), close_fn)
         with e -> Error (`TlsError (Printexc.to_string e))
       end else
-        Ok (tcp_flow :> Eio.Flow.two_way_ty Eio.Resource.t)
+        let close_fn () = (try Eio.Flow.close tcp_flow with _ -> ()) in
+        Ok ((tcp_flow :> Eio.Flow.two_way_ty Eio.Resource.t), close_fn)
     in
 
     (* Generate WebSocket key *)
@@ -347,7 +354,7 @@ module Connection = struct
         Error (`HandshakeError ("Server did not return 101: " ^ String.sub response 0 (min 50 (String.length response))))
     in
 
-    Ok { flow; url; closed = false; leftover }
+    Ok { flow; close_fn; url; closed = false; leftover }
 
   (* Send a text message *)
   let send_text conn text =
@@ -477,10 +484,8 @@ module Connection = struct
       conn.closed <- true;
       let close_frame = Frame.{ fin = true; opcode = Close; mask = true; payload = "" } in
       let encoded = Frame.encode close_frame in
-      try
-        Eio.Flow.copy_string encoded conn.flow;
-        (* Eio flows are closed when the switch exits, no explicit close needed *)
-        ()
-      with _ -> ()
+      (try Eio.Flow.copy_string encoded conn.flow with _ -> ());
+      (* Actually close the underlying flow to release the file descriptor *)
+      conn.close_fn ()
     end
 end

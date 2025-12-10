@@ -420,6 +420,9 @@ module Client = struct
   let reconnect ~sw ~env client =
     let ( let* ) = Result.( let* ) in
 
+    (* Close old connection first to release file descriptor *)
+    close client;
+
     Eio.traceln "Massive WebSocket: Attempting to reconnect...";
     let* new_client = connect ~sw ~env ~massive_key:client.massive_key () in
 
@@ -507,8 +510,27 @@ module Client = struct
           Eio.traceln "Massive WebSocket: Parse error: %s" s;
           update_loop client_ref
         | Error (`ReadError s) ->
-          Eio.traceln "Massive WebSocket: Read error: %s" s;
-          update_loop client_ref
+          (* Read errors indicate a broken connection - reconnect *)
+          Eio.traceln "Massive WebSocket: Read error: %s (reconnecting...)" s;
+          (match reconnect ~sw ~env !client_ref with
+           | Ok new_client ->
+             client_ref := new_client;
+             Eio.traceln "Massive WebSocket: Reconnected successfully after read error";
+             update_loop client_ref
+           | Error e ->
+             Eio.traceln "Massive WebSocket: Reconnection failed after read error: %s"
+               (match e with
+                | `ConnectionClosed -> "Connection closed"
+                | `InvalidScheme s -> "Invalid scheme: " ^ s
+                | `InvalidUrl s -> "Invalid URL: " ^ s
+                | `DnsError s -> "DNS error: " ^ s
+                | `TlsError s -> "TLS error: " ^ s
+                | `HandshakeError s -> "Handshake error: " ^ s
+                | `WriteError s -> "Write error: " ^ s
+                | `InvalidOpcode i -> "Invalid opcode: " ^ string_of_int i
+                | `ReadError s -> "Read error: " ^ s);
+             Eio.Time.sleep (Eio.Stdenv.clock env) 5.0;
+             update_loop client_ref)
         | Error (`UnexpectedFrame s) ->
           Eio.traceln "Massive WebSocket: Unexpected frame: %s" s;
           update_loop client_ref
