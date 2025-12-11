@@ -32,10 +32,19 @@ let get_cohttp ~client ~headers ~endpoint : (Yojson.Safe.t, Error.t) result =
       in
       let headers_str = Headers.to_lines headers |> String.concat "\n  " in
       Eio.traceln
-        "@[<v>GET REQUEST FAILED@,Endpoint: %s@,Status: %s@,Request Headers:@,  %s@,Response Body:@,  %s@]"
-        endpoint (Http.Status.to_string resp.status) headers_str error_body;
-      Error.fatal @@ Format.sprintf "tools.ml: bad response status get (status=%s)"
+        "@[<v>GET REQUEST FAILED@,\
+         Endpoint: %s@,\
+         Status: %s@,\
+         Request Headers:@,\
+        \  %s@,\
+         Response Body:@,\
+        \  %s@]"
+        endpoint
         (Http.Status.to_string resp.status)
+        headers_str error_body;
+      Error.fatal
+      @@ Format.sprintf "tools.ml: bad response status get (status=%s)"
+           (Http.Status.to_string resp.status)
   in
   let* body_string = read_body body in
   Result.return @@ Yojson.Safe.from_string body_string
@@ -63,10 +72,19 @@ let delete_cohttp ~client ~headers ~endpoint : (Yojson.Safe.t, Error.t) result =
       in
       let headers_str = Headers.to_lines headers |> String.concat "\n  " in
       Eio.traceln
-        "@[<v>DELETE REQUEST FAILED@,Endpoint: %s@,Status: %s@,Request Headers:@,  %s@,Response Body:@,  %s@]"
-        endpoint (Http.Status.to_string resp.status) headers_str error_body;
-      Error.fatal @@ Format.sprintf "tools.ml: bad response status delete (status=%s)"
+        "@[<v>DELETE REQUEST FAILED@,\
+         Endpoint: %s@,\
+         Status: %s@,\
+         Request Headers:@,\
+        \  %s@,\
+         Response Body:@,\
+        \  %s@]"
+        endpoint
         (Http.Status.to_string resp.status)
+        headers_str error_body;
+      Error.fatal
+      @@ Format.sprintf "tools.ml: bad response status delete (status=%s)"
+           (Http.Status.to_string resp.status)
   in
   let* body_string = read_body body in
   Result.return @@ Yojson.Safe.from_string body_string
@@ -95,10 +113,21 @@ let post_cohttp ~client ~body:json_body ~headers ~endpoint :
       in
       let headers_str = Headers.to_lines headers |> String.concat "\n  " in
       Eio.traceln
-        "@[<v>POST REQUEST FAILED@,Endpoint: %s@,Status: %s@,Request Headers:@,  %s@,Request Body:@,  %s@,Response Body:@,  %s@]"
-        endpoint (Http.Status.to_string resp.status) headers_str body_string error_body;
-      Error.fatal @@ Format.sprintf "tools.ml: bad response status post (status=%s)"
+        "@[<v>POST REQUEST FAILED@,\
+         Endpoint: %s@,\
+         Status: %s@,\
+         Request Headers:@,\
+        \  %s@,\
+         Request Body:@,\
+        \  %s@,\
+         Response Body:@,\
+        \  %s@]"
+        endpoint
         (Http.Status.to_string resp.status)
+        headers_str body_string error_body;
+      Error.fatal
+      @@ Format.sprintf "tools.ml: bad response status post (status=%s)"
+           (Http.Status.to_string resp.status)
   in
   let* body_string = read_body body in
   Result.return @@ Yojson.Safe.from_string body_string
@@ -131,7 +160,8 @@ let post_cohttp_html ~client ~body:json_body ~headers ~endpoint :
     match Client.post ~headers ~body ~sw client uri with
     | resp, body -> Result.return @@ (resp, body)
     | exception e ->
-      invalid_arg @@ Format.asprintf "post_cohttp_html: %s" (Printexc.to_string e)
+      invalid_arg
+      @@ Format.asprintf "post_cohttp_html: %s" (Printexc.to_string e)
   in
   let* () =
     if Http.Status.compare resp.status `OK = 0 then Ok ()
@@ -144,10 +174,21 @@ let post_cohttp_html ~client ~body:json_body ~headers ~endpoint :
       in
       let headers_str = Headers.to_lines headers |> String.concat "\n  " in
       Eio.traceln
-        "@[<v>POST REQUEST FAILED@,Endpoint: %s@,Status: %s@,Request Headers:@,  %s@,Request Body:@,  %s@,Response Body:@,  %s@]"
-        endpoint (Http.Status.to_string resp.status) headers_str body_string error_body;
-      Error.fatal @@ Format.sprintf "tools.ml: bad response status post (status=%s)"
+        "@[<v>POST REQUEST FAILED@,\
+         Endpoint: %s@,\
+         Status: %s@,\
+         Request Headers:@,\
+        \  %s@,\
+         Request Body:@,\
+        \  %s@,\
+         Response Body:@,\
+        \  %s@]"
+        endpoint
         (Http.Status.to_string resp.status)
+        headers_str body_string error_body;
+      Error.fatal
+      @@ Format.sprintf "tools.ml: bad response status post (status=%s)"
+           (Http.Status.to_string resp.status)
   in
   let* body_string = read_body body in
   Result.return body_string

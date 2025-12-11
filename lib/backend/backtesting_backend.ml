@@ -24,7 +24,8 @@ module Make (Input : BACKEND_INPUT) : S = struct
       Indicators_config.make_with_print_tick Input.options.flags.runtype
         Input.options.tacaml_indicators Input.options.flags.print_tick_arg
     in
-    State.make Input.options.flags.start bars config 100000.0 Input.options.flags.print_tick_arg
+    State.make Input.options.flags.start bars config 100000.0
+      Input.options.flags.print_tick_arg
 
   let opts = Input.options
 
@@ -36,7 +37,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let symbols = List.map Instrument.security opts.symbols
   let is_backtest = true
   let shutdown () = ()
-  let prepare_live_trading _state = Ok ()  (* No-op for backtesting *)
+  let prepare_live_trading _state = Ok () (* No-op for backtesting *)
 
   (* let overnight = Input.options.overnight *)
   let save_received = opts.flags.save_received
@@ -85,8 +86,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
     let ( let* ) = Result.( let* ) in
     let last_data_bar = Bars.Latest.empty () in
     match target with
-    | None ->
-      Error.missing_data "No target to create last data bar"
+    | None -> Error.missing_data "No target to create last data bar"
     | Some target ->
       let* length = Bars.length target in
       let* () =
@@ -166,7 +166,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
                 Some ((Float.of_int abs_qty *. last_price) +. cost_basis)
               else
                 (* Buying to close short position *)
-                Some ((Float.of_int abs_qty *. last_price *. (-1.0)) +. cost_basis)
+                Some ((Float.of_int abs_qty *. last_price *. -1.0) +. cost_basis)
             in
             let order : Order.t =
               Order.make ~symbol ~tick ~side ~tif:TimeInForce.GoodTillCanceled
@@ -193,5 +193,5 @@ module Make (Input : BACKEND_INPUT) : S = struct
 
     Result.return liquidated_state
 
-  let reset_websocket () = ()  (* No-op for backtesting *)
+  let reset_websocket () = () (* No-op for backtesting *)
 end

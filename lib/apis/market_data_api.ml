@@ -123,7 +123,9 @@ module Make (Config : CONFIG) = struct
       let rec collect_data ~endpoint acc =
         Eio.traceln "Sending a get request";
         let* acc = acc in
-        let* resp_body_json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
+        let* resp_body_json =
+          Tools.get_cohttp ~client:Config.client ~headers ~endpoint
+        in
         let* new_bars = Bars.t_of_yojson resp_body_json in
         let acc = new_bars :: acc in
         match Util.get_next_page_token resp_body_json with
@@ -155,12 +157,14 @@ module Make (Config : CONFIG) = struct
       let symbols_str = String.concat "," symbols in
       let endpoint =
         Uri.of_string (make_url "/v2/stocks/bars/latest") |> fun u ->
-        Uri.add_query_params' u
-          [ ("symbols", symbols_str); ("feed", "iex") ]
+        Uri.add_query_params' u [ ("symbols", symbols_str); ("feed", "iex") ]
         |> Uri.to_string
       in
       (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
-      let* resp_body_json = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in
+      let* resp_body_json =
+        Tools.get_cohttp ~client:Config.client ~headers ~endpoint
+      in
+
       (* Eio.traceln "@[%a@]@." Yojson.Safe.pp resp_body_json; *)
 
       (* Parse the response: {"bars": {"AAPL": {...}, "MSFT": {...}}} *)
@@ -179,18 +183,23 @@ module Make (Config : CONFIG) = struct
             let bar_item = Item.t_of_yojson bar_json in
 
             (* Check how old this bar is compared to real time *)
-            let bar_age = Ptime.diff now bar_item.timestamp |> Ptime.Span.to_float_s in
+            let bar_age =
+              Ptime.diff now bar_item.timestamp |> Ptime.Span.to_float_s
+            in
             if bar_age >. 10.0 then
-              Eio.traceln "warning: %a bar is %.1fs old" Instrument.pp symbol bar_age;
+              Eio.traceln "warning: %a bar is %.1fs old" Instrument.pp symbol
+                bar_age;
 
             let* data = Bars.get bars symbol in
             (* Update data at current tick *)
-            Data.set data Data.Type.Time tick (Ptime.to_float_s bar_item.timestamp);
+            Data.set data Data.Type.Time tick
+              (Ptime.to_float_s bar_item.timestamp);
             Data.set data Data.Type.Open tick bar_item.open_;
             Data.set data Data.Type.High tick bar_item.high;
             Data.set data Data.Type.Low tick bar_item.low;
             Data.set data Data.Type.Close tick bar_item.close;
-            Data.set data Data.Type.Last tick bar_item.close;  (* For Alpaca, last = close *)
+            Data.set data Data.Type.Last tick bar_item.close;
+            (* For Alpaca, last = close *)
             Data.set data Data.Type.Volume tick (Float.of_int bar_item.volume);
             Result.return ())
           (Ok ()) assoc

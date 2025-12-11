@@ -30,9 +30,10 @@ end = struct
           let pool = Input.options.executor_pool in
           let tick = State.tick state in
           Eio.traceln "[DIAG] Computing indicators for tick %d" tick;
-          let* () = Indicators.Calc.compute_single ~pool tick eio_env
-            indicator_config
-          @@ State.bars state in
+          let* () =
+            Indicators.Calc.compute_single ~pool tick eio_env indicator_config
+            @@ State.bars state
+          in
           Eio.traceln "[DIAG] Indicators computed for tick %d" tick;
           Result.return ()
         | _ -> Result.return ()
@@ -50,11 +51,13 @@ end = struct
         List.map Instrument.symbol Backend.symbols |> String.concat ","
       in
       Pmutex.set mutices.symbols_mutex (Some symbols_str);
-      Eio.traceln "[2/4] Computing indicators for %d symbols..." (List.length Backend.symbols);
+      Eio.traceln "[2/4] Computing indicators for %d symbols..."
+        (List.length Backend.symbols);
       let* () =
         let indicator_config = (State.config state).indicator_config in
         let pool = Input.options.executor_pool in
-        Indicators.Calc.compute_all ~pool eio_env indicator_config @@ State.bars state
+        Indicators.Calc.compute_all ~pool eio_env indicator_config
+        @@ State.bars state
       in
       Eio.traceln "[3/4] Indicators computed successfully";
       let* state =
@@ -67,7 +70,9 @@ end = struct
           let* bars_length = Bars.length @@ State.bars state in
           (* Start at first empty slot (bars_length), not last historical slot (bars_length - 1) *)
           let* state = State.set_tick state bars_length |> State.grow in
-          Eio.traceln "State prepared: tick=%d (first empty slot after %d historical bars)"
+          Eio.traceln
+            "State prepared: tick=%d (first empty slot after %d historical \
+             bars)"
             (State.tick state) bars_length;
           Result.return state
         | _ ->
@@ -89,7 +94,7 @@ end = struct
     (* Check if we're in the opening volatility window *)
     let in_opening_window env =
       match !market_open_time with
-      | None -> false  (* Market hasn't opened yet *)
+      | None -> false (* Market hasn't opened yet *)
       | Some open_ts ->
         let now = Eio.Time.now env#clock in
         let elapsed_minutes = (now -. open_ts) /. 60.0 in
@@ -99,7 +104,8 @@ end = struct
       match runtype with
       | Live
       | Paper ->
-        Eio.traceln "Listen: Starting listen_tick for tick %d" (State.tick state);
+        Eio.traceln "Listen: Starting listen_tick for tick %d"
+          (State.tick state);
         Eio.Fiber.any
         @@ [
              (fun () ->
@@ -111,27 +117,34 @@ end = struct
                    let now = Eio.Time.now env#clock in
                    market_open_time := Some now;
                    if options.flags.opening_wait_minutes > 0 then
-                     Eio.traceln "@[Market is open. Waiting %d minutes to avoid opening volatility.@]@."
-                       options.flags.opening_wait_minutes
-                 );
+                     Eio.traceln
+                       "@[Market is open. Waiting %d minutes to avoid opening \
+                        volatility.@]@."
+                       options.flags.opening_wait_minutes);
 
                  (* Check if we're still in opening window *)
                  if in_opening_window env then (
                    let now = Eio.Time.now env#clock in
-                   let elapsed = match !market_open_time with
+                   let elapsed =
+                     match !market_open_time with
                      | Some open_ts -> (now -. open_ts) /. 60.0
                      | None -> 0.0
                    in
-                   let remaining = Float.of_int options.flags.opening_wait_minutes -. elapsed in
-                   Eio.traceln "@[Still in opening window: %.1f minutes remaining before trading@]@." remaining;
+                   let remaining =
+                     Float.of_int options.flags.opening_wait_minutes -. elapsed
+                   in
+                   Eio.traceln
+                     "@[Still in opening window: %.1f minutes remaining before \
+                      trading@]@."
+                     remaining;
                    Ticker.tick ~runtype env Input.options.tick;
-                   Result.return ()
-                 ) else (
-                   Eio.traceln "Listen: Market open, sleeping %.1fs (tick %d)" Input.options.tick (State.tick state);
+                   Result.return ())
+                 else (
+                   Eio.traceln "Listen: Market open, sleeping %.1fs (tick %d)"
+                     Input.options.tick (State.tick state);
                    Ticker.tick ~runtype env Input.options.tick;
                    Eio.traceln "Listen: Woke up (tick %d)" (State.tick state);
-                   Result.return ()
-                 )
+                   Result.return ())
                | Some open_time ->
                  Eio.traceln "@[Current time: %a@]@." (Option.pp Time.pp)
                    (Eio.Time.now env#clock |> Ptime.of_float_s);
@@ -145,7 +158,8 @@ end = struct
                  (* Record market open time *)
                  market_open_time := Some open_time_ts;
                  if options.flags.opening_wait_minutes > 0 then
-                   Eio.traceln "@[Will wait %d minutes before starting to trade.@]@."
+                   Eio.traceln
+                     "@[Will wait %d minutes before starting to trade.@]@."
                      options.flags.opening_wait_minutes;
                  Ticker.tick ~runtype env Input.options.tick;
                  Result.return ());
@@ -167,17 +181,21 @@ end = struct
       if not options.flags.no_gui then Pmutex.set mutices.state_mutex state;
       (* Print tick at start of strategy iteration to show loop is progressing *)
       if options.flags.print_tick_arg && not (in_opening_window eio_env) then
-        Eio.traceln "=== Starting strategy iteration for tick %d ===" (State.tick state);
+        Eio.traceln "=== Starting strategy iteration for tick %d ==="
+          (State.tick state);
       let* () = listen_tick state eio_env in
       (* If we're in opening window, wait and try again *)
-      if in_opening_window eio_env then (
+      if in_opening_window eio_env then
         (* Silent recursion - details already logged in listen_tick *)
-        top state  (* Recursively call until we're past the opening window *)
-      ) else (
-        if Option.is_some !market_open_time && options.flags.opening_wait_minutes > 0 then
-          Eio.traceln "=== Opening volatility window passed, starting to trade ===";
-        Ok state
-      )
+        top state (* Recursively call until we're past the opening window *)
+      else (
+        if
+          Option.is_some !market_open_time
+          && options.flags.opening_wait_minutes > 0
+        then
+          Eio.traceln
+            "=== Opening volatility window passed, starting to trade ===";
+        Ok state)
   end
 
   module ForwardFill = struct
@@ -186,15 +204,17 @@ end = struct
     (* This ensures continuity if a symbol has no trades during a tick *)
     let top (state : State.t) : (State.t, Error.t) result =
       (match runtype with
-       | Live | Paper ->
-         let tick = State.tick state in
-         let bars = State.bars state in
-         List.iter (fun instrument ->
-           match Bars.get bars instrument with
-           | Ok data -> Bars.Data.forward_fill_next_tick data ~tick
-           | Error _ -> ()
-         ) Backend.symbols
-       | _ -> ());
+      | Live
+      | Paper ->
+        let tick = State.tick state in
+        let bars = State.bars state in
+        List.iter
+          (fun instrument ->
+            match Bars.get bars instrument with
+            | Ok data -> Bars.Data.forward_fill_next_tick data ~tick
+            | Error _ -> ())
+          Backend.symbols
+      | _ -> ());
       Ok state
   end
 
@@ -206,29 +226,30 @@ end = struct
       (* Check if we're approaching the end - grow if within 1000 ticks of limit *)
       (* This allows indefinite live/paper trading sessions *)
       let* state =
-        if current_tick >= length - 1000 then (
+        if current_tick >= length - 1000 then
           match options.flags.runtype with
-          | Live | Paper ->
-            Eio.traceln "Approaching bar limit (tick %d of %d), growing bars..." current_tick length;
+          | Live
+          | Paper ->
+            Eio.traceln "Approaching bar limit (tick %d of %d), growing bars..."
+              current_tick length;
             let* grown_state = State.grow state in
             let* new_length = State.bars grown_state |> Bars.length in
             Eio.traceln "Bars grown from %d to %d slots" length new_length;
             Result.return grown_state
           | _ -> Result.return state
-        ) else Result.return state
+        else Result.return state
       in
 
       (* Now check if we've truly hit the end (shouldn't happen with auto-growth) *)
       let* final_length = State.bars state |> Bars.length in
-      if current_tick >= final_length - 1 then
-        raise (FinalState state)
-      else (
+      if current_tick >= final_length - 1 then raise (FinalState state)
+      else
         let* new_state = State.increment_tick state in
         if options.flags.print_tick_arg then
-          Eio.traceln "=== Strategy loop completed tick %d, moving to tick %d ==="
+          Eio.traceln
+            "=== Strategy loop completed tick %d, moving to tick %d ==="
             current_tick (State.tick new_state);
         Result.return new_state
-      )
   end
 
   module Liquidate = struct
@@ -335,13 +356,8 @@ end = struct
          4. LiveIndicators - compute indicators for current tick
          5. order - execute strategy logic
          6. Increment - advance to next tick *)
-      Listen.top state
-      >>= ForwardFill.top
-      >>= GetData.top
-      >>= LiveIndicators.top
-      >>= order
-      >>= Increment.top
-      >>= loop
+      Listen.top state >>= ForwardFill.top >>= GetData.top
+      >>= LiveIndicators.top >>= order >>= Increment.top >>= loop
     in
     let res =
       try loop init with

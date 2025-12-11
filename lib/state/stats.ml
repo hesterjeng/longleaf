@@ -16,29 +16,39 @@ let num_orders arr =
 
 let calculate_order_stats orders =
   (* Single fold to compute all statistics at once *)
-  let num_orders, num_buy_orders, num_sell_orders, total_volume,
-      total_cash_traded, symbols_list, profit_loss =
+  let ( num_orders,
+        num_buy_orders,
+        num_sell_orders,
+        total_volume,
+        total_cash_traded,
+        symbols_list,
+        profit_loss ) =
     Vector.fold
       (fun (n, nb, ns, tv, tc, syms, pl) order_list ->
         List.fold_left
           (fun (n, nb, ns, tv, tc, syms, pl) (order : Order.t) ->
             let n = n + 1 in
-            let nb = if Trading_types.Side.equal order.side Buy then nb + 1 else nb in
-            let ns = if Trading_types.Side.equal order.side Sell then ns + 1 else ns in
+            let nb =
+              if Trading_types.Side.equal order.side Buy then nb + 1 else nb
+            in
+            let ns =
+              if Trading_types.Side.equal order.side Sell then ns + 1 else ns
+            in
             let tv = tv + order.qty in
             let tc = tc +. (order.price *. float_of_int order.qty) in
             let syms = order.symbol :: syms in
-            let pl = match order.profit with Some p -> pl +. p | None -> pl in
+            let pl =
+              match order.profit with
+              | Some p -> pl +. p
+              | None -> pl
+            in
             (n, nb, ns, tv, tc, syms, pl))
           (n, nb, ns, tv, tc, syms, pl)
           order_list)
-      (0, 0, 0, 0, 0.0, [], 0.0)
-      orders
+      (0, 0, 0, 0, 0.0, [], 0.0) orders
   in
   let symbols_traded =
-    symbols_list
-    |> List.uniq ~eq:Instrument.equal
-    |> List.length
+    symbols_list |> List.uniq ~eq:Instrument.equal |> List.length
   in
   ( num_orders,
     num_buy_orders,
@@ -110,17 +120,17 @@ module TradeStats = struct
     median_return : float;
     avg_winner : float;
     avg_loser : float;
-    profit_factor : float;  (* Total wins / Total losses *)
-    expectancy : float;  (* Expected value per trade *)
-    std_dev : float;  (* Standard deviation of returns *)
-    sharpe : float;  (* Sharpe ratio = mean / std_dev *)
+    profit_factor : float; (* Total wins / Total losses *)
+    expectancy : float; (* Expected value per trade *)
+    std_dev : float; (* Standard deviation of returns *)
+    sharpe : float; (* Sharpe ratio = mean / std_dev *)
     max_winner : float;
     max_loser : float;
     total_profit : float;
     total_loss : float;
     (* Statistical significance *)
-    t_statistic : float;  (* T-test for mean > 0 *)
-    p_value : float option;  (* Probability result is due to chance *)
+    t_statistic : float; (* T-test for mean > 0 *)
+    p_value : float option; (* Probability result is due to chance *)
   }
   [@@deriving show, yojson]
 
@@ -149,7 +159,7 @@ module TradeStats = struct
     let t = 1.0 /. (1.0 +. (p *. z_abs)) in
     let y =
       1.0
-      -. (((((a5 *. t) +. a4) *. t +. a3) *. t +. a2) *. t +. a1)
+      -. ((((((((a5 *. t) +. a4) *. t) +. a3) *. t) +. a2) *. t) +. a1)
          *. t
          *. exp (-.(z_abs *. z_abs))
     in
@@ -165,33 +175,49 @@ module TradeStats = struct
       0.5 *. (1.0 +. erf_approx (x /. sqrt 2.0))
     else
       (* For small samples, return conservative estimate *)
-      0.5  (* Conservative estimate - need more trades for reliable p-value *)
+      0.5 (* Conservative estimate - need more trades for reliable p-value *)
 
   (** Compute all trade statistics from a list of orders *)
   let compute (orders : Order.t list) : t option =
     (* Single pass: extract closed trades and compute basic stats simultaneously *)
-    let num_trades, num_winners, num_losers, num_breakeven,
-        total_profit, total_loss, total_return,
-        max_winner, max_loser, closed_trades =
+    let ( num_trades,
+          num_winners,
+          num_losers,
+          num_breakeven,
+          total_profit,
+          total_loss,
+          total_return,
+          max_winner,
+          max_loser,
+          closed_trades ) =
       List.fold_left
         (fun (nt, nw, nl, nb, tp, tl, tr, mw, ml, ct) (order : Order.t) ->
           match order.profit with
           | None -> (nt, nw, nl, nb, tp, tl, tr, mw, ml, ct)
           | Some p ->
-              let nt = nt + 1 in
-              let nw, nb, nl, tp, tl, mw, ml =
-                if Float.compare p 0.0 > 0 then
-                  (nw + 1, nb, nl, tp +. p, tl,
-                   (if Float.compare p mw > 0 then p else mw), ml)
-                else if Float.equal p 0.0 then
-                  (nw, nb + 1, nl, tp, tl, mw, ml)
-                else
-                  (nw, nb, nl + 1, tp, tl +. (Float.abs p),
-                   mw, (if Float.compare p ml < 0 then p else ml))
-              in
-              let tr = tr +. p in
-              let ct = p :: ct in
-              (nt, nw, nl, nb, tp, tl, tr, mw, ml, ct))
+            let nt = nt + 1 in
+            let nw, nb, nl, tp, tl, mw, ml =
+              if Float.compare p 0.0 > 0 then
+                ( nw + 1,
+                  nb,
+                  nl,
+                  tp +. p,
+                  tl,
+                  (if Float.compare p mw > 0 then p else mw),
+                  ml )
+              else if Float.equal p 0.0 then (nw, nb + 1, nl, tp, tl, mw, ml)
+              else
+                ( nw,
+                  nb,
+                  nl + 1,
+                  tp,
+                  tl +. Float.abs p,
+                  mw,
+                  if Float.compare p ml < 0 then p else ml )
+            in
+            let tr = tr +. p in
+            let ct = p :: ct in
+            (nt, nw, nl, nb, tp, tl, tr, mw, ml, ct))
         (0, 0, 0, 0, 0.0, 0.0, 0.0, neg_infinity, infinity, [])
         orders
     in
@@ -217,14 +243,12 @@ module TradeStats = struct
       let median_return = median sorted_returns in
 
       let profit_factor =
-        if Float.compare total_loss 0.0 > 0 then total_profit /. total_loss else
-        if Float.compare total_profit 0.0 > 0 then infinity
+        if Float.compare total_loss 0.0 > 0 then total_profit /. total_loss
+        else if Float.compare total_profit 0.0 > 0 then infinity
         else 0.0
       in
 
-      let expectancy =
-        (win_rate *. avg_winner) -. (loss_rate *. avg_loser)
-      in
+      let expectancy = (win_rate *. avg_winner) -. (loss_rate *. avg_loser) in
 
       (* Standard deviation - single pass *)
       let variance =
@@ -309,25 +333,26 @@ module TradeStats = struct
     Edge is %s
 |}
       stats.num_trades stats.num_winners stats.num_losers stats.num_breakeven
-      (stats.win_rate *. 100.0)
-      (stats.loss_rate *. 100.0)
-      stats.avg_return stats.median_return stats.std_dev stats.sharpe
-      stats.avg_winner stats.max_winner stats.total_profit stats.avg_loser
-      stats.max_loser stats.total_loss stats.profit_factor stats.expectancy
-      stats.t_statistic
+      (stats.win_rate *. 100.0) (stats.loss_rate *. 100.0) stats.avg_return
+      stats.median_return stats.std_dev stats.sharpe stats.avg_winner
+      stats.max_winner stats.total_profit stats.avg_loser stats.max_loser
+      stats.total_loss stats.profit_factor stats.expectancy stats.t_statistic
       (match stats.p_value with
       | Some p -> Printf.sprintf "%.4f (%.2f%% chance of luck)" p (p *. 100.0)
       | None -> "N/A (not enough trades)")
       (match stats.p_value with
-      | Some p when Float.compare p 0.05 < 0 -> "statistically significant (p < 0.05)"
-      | Some p when Float.compare p 0.10 < 0 -> "marginally significant (p < 0.10)"
+      | Some p when Float.compare p 0.05 < 0 ->
+        "statistically significant (p < 0.05)"
+      | Some p when Float.compare p 0.10 < 0 ->
+        "marginally significant (p < 0.10)"
       | Some _ -> "NOT statistically significant (p >= 0.10)"
       | None -> "unknown (need more trades)")
 
-  (** Check if strategy has a real edge based on multiple criteria *)
   (* Note: Sharpe ratio is timeframe-sensitive (per-trade vs daily vs annual) so we exclude it *)
-  let has_edge ?(min_trades = 30) ?(min_win_rate = 0.50)
-      ?(max_p_value = 0.05) (stats : t) : bool =
+
+  (** Check if strategy has a real edge based on multiple criteria *)
+  let has_edge ?(min_trades = 30) ?(min_win_rate = 0.50) ?(max_p_value = 0.05)
+      (stats : t) : bool =
     stats.num_trades >= min_trades
     && Float.compare stats.win_rate min_win_rate >= 0
     && Float.compare stats.expectancy 0.0 > 0
@@ -335,5 +360,5 @@ module TradeStats = struct
     &&
     match stats.p_value with
     | Some p -> Float.compare p max_p_value <= 0
-    | None -> false  (* Not enough data to confirm edge *)
+    | None -> false (* Not enough data to confirm edge *)
 end

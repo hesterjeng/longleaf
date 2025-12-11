@@ -38,10 +38,7 @@ module TradeStats : sig
 
   val compute : Order.t list -> t option
   val to_string : t -> string
+
   val has_edge :
-    ?min_trades:int ->
-    ?min_win_rate:float ->
-    ?max_p_value:float ->
-    t ->
-    bool
+    ?min_trades:int -> ?min_win_rate:float -> ?max_p_value:float -> t -> bool
 end

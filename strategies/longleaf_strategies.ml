@@ -8,7 +8,7 @@ module Gadt_strategy = Longleaf_gadt.Gadt_strategy
 (** GADT Strategy Registry All strategies are now defined as Gadt.strategy
     records. To add a new strategy, simply add it to this list. *)
 let gadt_strategies : unit -> (string * Gadt_strategy.t) list =
-  fun () ->
+ fun () ->
   List.map (fun s -> (s.Gadt_strategy.name, s)) Gadt_examples.all_strategies
 
 (** Get all available strategy names *)
@@ -35,7 +35,9 @@ module Run = struct
     (* Load target bars with eio_env if needed *)
     let ( let* ) = Result.( let* ) in
     Eio.Switch.run @@ fun sw ->
-    let options = Longleaf_template.mk_options sw eio_env executor_pool flags target [] in
+    let options =
+      Longleaf_template.mk_options sw eio_env executor_pool flags target []
+    in
     let* bars =
       match target with
       | Longleaf_core.Target.File s ->
@@ -48,7 +50,9 @@ module Run = struct
         (* Convert tick duration (in seconds) to timeframe *)
         let tick_minutes = int_of_float (options.tick /. 60.0) in
         let timeframe = TF.Min tick_minutes in
-        Eio.traceln "Downloading 14 days of data with %d-minute intervals (tick=%.1fs)" tick_minutes options.tick;
+        Eio.traceln
+          "Downloading 14 days of data with %d-minute intervals (tick=%.1fs)"
+          tick_minutes options.tick;
         let request = D.previous_14_days timeframe options.symbols in
         let* bars = D.download eio_env request (Some Massive) true in
         Eio.traceln "Validating downloaded data...";

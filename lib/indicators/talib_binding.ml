@@ -69,31 +69,34 @@ let calculate ?i (indicator : Tacaml.t) (data : Data.t) =
       Eio.traceln "Indicator: %a" Tacaml.pp indicator;
       Eio.traceln "Data size: %d" (Data.size data);
       (match i with
-       | Some tick ->
-         Eio.traceln "Processing tick: %d" tick;
-         Eio.traceln "Tick valid: %b" (tick >= 0 && tick < Data.size data)
-       | None -> Eio.traceln "Processing all ticks");
+      | Some tick ->
+        Eio.traceln "Processing tick: %d" tick;
+        Eio.traceln "Tick valid: %b" (tick >= 0 && tick < Data.size data)
+      | None -> Eio.traceln "Processing all ticks");
       (* Try to get more info about what index failed *)
       Eio.traceln "Exception: %s" (Printexc.to_string e);
       Eio.traceln "Backtrace:";
       Eio.traceln "%s" (Printexc.get_backtrace ());
       Eio.traceln "=====================================";
       let s = Printexc.to_string e in
-      Error.fatal @@ Format.asprintf "Indicator %a failed with index out of bounds (data.size=%d): %s"
-        Tacaml.pp indicator (Data.size data) s
+      Error.fatal
+      @@ Format.asprintf
+           "Indicator %a failed with index out of bounds (data.size=%d): %s"
+           Tacaml.pp indicator (Data.size data) s
     | e ->
       Eio.traceln "===== INDICATOR COMPUTATION ERROR =====";
       Eio.traceln "Indicator: %a" Tacaml.pp indicator;
       Eio.traceln "Data size: %d" (Data.size data);
       (match i with
-       | Some tick -> Eio.traceln "Processing tick: %d" tick
-       | None -> Eio.traceln "Processing all ticks");
+      | Some tick -> Eio.traceln "Processing tick: %d" tick
+      | None -> Eio.traceln "Processing all ticks");
       Eio.traceln "Exception: %s" (Printexc.to_string e);
       Eio.traceln "Backtrace:";
       Eio.traceln "%s" (Printexc.get_backtrace ());
       Eio.traceln "========================================";
       let s = Printexc.to_string e in
-      Error.fatal @@ Format.asprintf "Indicator %a failed: %s" Tacaml.pp indicator s
+      Error.fatal
+      @@ Format.asprintf "Indicator %a failed: %s" Tacaml.pp indicator s
   in
   (* Eio.traceln "talib_binding.calculate: %d %d" a b; *)
   Result.return ()

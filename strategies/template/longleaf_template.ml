@@ -100,12 +100,16 @@ module Make
     let tick = State.tick state in
     let initial_cash = State.cash state in
     let* total_portfolio_value = State.value state in
-    let pct = position_size in  (* FIX: Each position gets full position_size, not divided *)
+    let pct = position_size in
+    (* FIX: Each position gets full position_size, not divided *)
     assert (pct >=. 0.0 && pct <=. 1.0);
     let config = State.config state in
     if config.print_tick_arg then
-      Eio.traceln "[%d] BUY_SETUP: portfolio=$%.2f cash=$%.2f position_size=%.1f%% each, buying=%d symbols"
-        tick total_portfolio_value initial_cash (position_size *. 100.0) (List.length selected);
+      Eio.traceln
+        "[%d] BUY_SETUP: portfolio=$%.2f cash=$%.2f position_size=%.1f%% each, \
+         buying=%d symbols"
+        tick total_portfolio_value initial_cash (position_size *. 100.0)
+        (List.length selected);
     let@ state f = List.fold_left f (Ok state) selected in
     fun (signal : Signal.t) ->
       let* state = state in
@@ -120,8 +124,11 @@ module Make
       let target_position_value = total_portfolio_value *. pct in
       let target_qty = target_position_value /. price |> Float.to_int in
       (* Constrain by available cash - get current cash inside fold *)
-      let current_cash_available = State.cash state in  (* FIX: Get current cash, not initial *)
-      let max_affordable_qty = current_cash_available /. price |> Float.to_int in
+      let current_cash_available = State.cash state in
+      (* FIX: Get current cash, not initial *)
+      let max_affordable_qty =
+        current_cash_available /. price |> Float.to_int
+      in
       let qty = max 0 (min target_qty max_affordable_qty) in
       (* assert (qty <> 0); *)
       match qty with
@@ -162,11 +169,14 @@ module Make
     in
     let final_cash_buy = State.cash res in
     let capital_deployed = initial_cash_buy -. final_cash_buy in
-    let pct_deployed = (capital_deployed /. initial_portfolio) *. 100.0 in
+    let pct_deployed = capital_deployed /. initial_portfolio *. 100.0 in
     let config = State.config res in
     if config.print_tick_arg then
-      Eio.traceln "[%d] BUY_COMPLETE: deployed=$%.2f (%.2f%% of portfolio), cash: $%.2f -> $%.2f"
-        (State.tick res) capital_deployed pct_deployed initial_cash_buy final_cash_buy;
+      Eio.traceln
+        "[%d] BUY_COMPLETE: deployed=$%.2f (%.2f%% of portfolio), cash: $%.2f \
+         -> $%.2f"
+        (State.tick res) capital_deployed pct_deployed initial_cash_buy
+        final_cash_buy;
     Result.return res
 
   let sell (state : State.t) (symbol : Instrument.t) =
@@ -240,7 +250,8 @@ module Make
   let run () =
     let ( let* ) = Result.( let* ) in
     let* init_state = init_state () in
-    Eio.traceln "Initial state - tick: %d, cash: %f" (State.tick init_state) (State.cash init_state);
+    Eio.traceln "Initial state - tick: %d, cash: %f" (State.tick init_state)
+      (State.cash init_state);
     let* res = SU.go order init_state in
     let orders = State.orders_placed res in
     Eio.traceln "Final state - tick: %d, cash: %f, orders_placed: %d"
@@ -249,12 +260,14 @@ module Make
     (* Apply penalty for excessive trading: subtract $1.00 per order *)
     let penalty = float_of_int orders *. 1.00 in
     let penalized_value = final_value -. penalty in
-    Eio.traceln "Final portfolio value: %f (penalty: $%.2f for %d orders, penalized: %f)"
+    Eio.traceln
+      "Final portfolio value: %f (penalty: $%.2f for %d orders, penalized: %f)"
       final_value penalty orders penalized_value;
     Result.return penalized_value
 end
 
-let mk_options switch eio_env executor_pool flags target tacaml_indicators : Options.t =
+let mk_options switch eio_env executor_pool flags target tacaml_indicators :
+    Options.t =
   let module Ticker_collections = Longleaf_util.Ticker_collections in
   let longleaf_env = Environment.make () in
   (* let mutices = Server.Longleaf_mutex.create () in *)

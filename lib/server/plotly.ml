@@ -8,8 +8,13 @@ module Data = Bars.Data
 (** Sanitize float values for Plotly - convert NaN/Inf to null *)
 let sanitize_float f =
   match classify_float f with
-  | FP_normal | FP_subnormal | FP_zero -> `Float f
-  | FP_infinite | FP_nan -> `Null
+  | FP_normal
+  | FP_subnormal
+  | FP_zero ->
+    `Float f
+  | FP_infinite
+  | FP_nan ->
+    `Null
 
 (** {1 Color Palette} *)
 
@@ -70,27 +75,33 @@ let layout title =
       "hovermode" = `String "x";
       "dragmode" = `String "zoom";
       "autosize" = `Bool true;
-      "height" = `Int 800;  (* Twice as tall - was ~400px default *)
-      "margin" = `Assoc [
-        "l" = `Int 80;   (* Left margin for y-axis labels *)
-        "r" = `Int 100;  (* Right margin for y2-axis labels *)
-        "t" = `Int 100;  (* Top margin for title *)
-        "b" = `Int 80;   (* Bottom margin for x-axis *)
-        "pad" = `Int 4;
-      ];
-      "legend" = `Assoc [
-        "orientation" = `String "h";  (* Horizontal legend *)
-        "yanchor" = `String "bottom";
-        "y" = `Float 1.02;  (* Position above plot *)
-        "xanchor" = `String "left";
-        "x" = `Float 0.0;
-      ];
-      "xaxis"
+      "height" = `Int 800;
+      (* Twice as tall - was ~400px default *)
+      "margin"
       = `Assoc
           [
-            "title" = `String "Time";
-            "type" = `String "date";
+            "l" = `Int 80;
+            (* Left margin for y-axis labels *)
+            "r" = `Int 100;
+            (* Right margin for y2-axis labels *)
+            "t" = `Int 100;
+            (* Top margin for title *)
+            "b" = `Int 80;
+            (* Bottom margin for x-axis *)
+            "pad" = `Int 4;
           ];
+      "legend"
+      = `Assoc
+          [
+            "orientation" = `String "h";
+            (* Horizontal legend *)
+            "yanchor" = `String "bottom";
+            "y" = `Float 1.02;
+            (* Position above plot *)
+            "xanchor" = `String "left";
+            "x" = `Float 0.0;
+          ];
+      "xaxis" = `Assoc [ "title" = `String "Time"; "type" = `String "date" ];
       "yaxis" = `Assoc [ "title" = `String "Price" ];
       "yaxis2"
       = `Assoc
@@ -117,12 +128,15 @@ let direct_price_trace ?(start = 0) ?(color = "#1f77b4") ?end_ (data : Data.t)
     if i >= end_idx then (List.rev acc_x, List.rev acc_y)
     else
       let timestamp =
-        Data.get_unsafe data Time i |> Ptime.of_float_s
+        Data.get_unsafe data Time i
+        |> Ptime.of_float_s
         |> Option.map Ptime.to_rfc3339
         |> Option.get_exn_or "Invalid timestamp in direct_price_trace"
       in
       let price = Data.get_unsafe data Last i in
-      build_lists (i + 1) (`String timestamp :: acc_x) (sanitize_float price :: acc_y)
+      build_lists (i + 1)
+        (`String timestamp :: acc_x)
+        (sanitize_float price :: acc_y)
   in
   let x, y = build_lists start [] [] in
 
@@ -164,12 +178,15 @@ let indicator_trace ?(show = false) ?(drop = 100) ?(yaxis = "y1")
       if i >= end_idx then (List.rev acc_x, List.rev acc_y)
       else
         let timestamp =
-          Data.get_unsafe data Time i |> Ptime.of_float_s
+          Data.get_unsafe data Time i
+          |> Ptime.of_float_s
           |> Option.map Ptime.to_rfc3339
           |> Option.get_exn_or "Illegal time stored in data table (plotly.ml)"
         in
         let value = Data.get_unsafe data indicator i in
-        build_lists (i + 1) (`String timestamp :: acc_x) (sanitize_float value :: acc_y)
+        build_lists (i + 1)
+          (`String timestamp :: acc_x)
+          (sanitize_float value :: acc_y)
     in
     let x, y = build_lists effective_start [] [] in
 

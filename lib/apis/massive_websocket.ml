@@ -5,44 +5,40 @@ module Bars = Longleaf_bars
 module Data = Bars.Data
 
 (* Massive WebSocket authentication message *)
-type auth_message = {
-  action : string;
-  params : string;
-}
-[@@deriving yojson]
+type auth_message = { action : string; params : string } [@@deriving yojson]
 
 (* Massive WebSocket subscription message *)
 type subscribe_message = {
   action : string;
-  params : string;  (* Comma-separated channels like "AM.AAPL,AM.MSFT" *)
+  params : string; (* Comma-separated channels like "AM.AAPL,AM.MSFT" *)
 }
 [@@deriving yojson]
 
 (* Massive status message *)
 type status_message = {
-  ev : string;          (* Event type: "status" *)
-  status : string;      (* e.g., "auth_success", "connected" *)
+  ev : string; (* Event type: "status" *)
+  status : string; (* e.g., "auth_success", "connected" *)
   message : string;
 }
 [@@deriving show, yojson] [@@yojson.allow_extra_fields]
 
 (* Massive aggregate per second message *)
 type aggregate_message = {
-  ev : string;          (* Event type: "A" for aggregates per second *)
-  sym : string;         (* Stock ticker symbol *)
-  v : int;              (* Tick volume *)
-  av : int;             (* Accumulated volume for the day *)
-  op : float;           (* Official opening price (0 until 9:30am market open) *)
-  vw : float;           (* Volume-weighted average price *)
-  o : float;            (* Open price for this minute *)
-  c : float;            (* Close price for this minute *)
-  h : float;            (* High price for this minute *)
-  l : float;            (* Low price for this minute *)
-  a : float;            (* Day's volume-weighted average price *)
-  z : int;              (* Average trade size *)
-  s : int;              (* Start timestamp (Unix milliseconds) *)
-  e : int;              (* End timestamp (Unix milliseconds) *)
-  otc : bool option; [@yojson.option]  (* OTC ticker indicator (optional) *)
+  ev : string; (* Event type: "A" for aggregates per second *)
+  sym : string; (* Stock ticker symbol *)
+  v : int; (* Tick volume *)
+  av : int; (* Accumulated volume for the day *)
+  op : float; (* Official opening price (0 until 9:30am market open) *)
+  vw : float; (* Volume-weighted average price *)
+  o : float; (* Open price for this minute *)
+  c : float; (* Close price for this minute *)
+  h : float; (* High price for this minute *)
+  l : float; (* Low price for this minute *)
+  a : float; (* Day's volume-weighted average price *)
+  z : int; (* Average trade size *)
+  s : int; (* Start timestamp (Unix milliseconds) *)
+  e : int; (* End timestamp (Unix milliseconds) *)
+  otc : bool option; [@yojson.option] (* OTC ticker indicator (optional) *)
 }
 [@@deriving show, yojson]
 
@@ -79,7 +75,8 @@ module Client = struct
     let authenticator = Https.authenticator () in
 
     if attempt > 0 then
-      Eio.traceln "Massive WebSocket: Connection attempt %d/%d" attempt max_reconnect_attempts;
+      Eio.traceln "Massive WebSocket: Connection attempt %d/%d" attempt
+        max_reconnect_attempts;
 
     Eio.traceln "Massive WebSocket: Connecting to %s..." (Uri.to_string url);
 
@@ -87,28 +84,30 @@ module Client = struct
     | Ok conn ->
       Eio.traceln "Massive WebSocket: Connected successfully";
       let now = Unix.gettimeofday () in
-      Ok {
-        conn;
-        massive_key;
-        subscribed_tickers = [];
-        reconnect_attempts = attempt;
-        last_reconnect_time = Some now;
-      }
+      Ok
+        {
+          conn;
+          massive_key;
+          subscribed_tickers = [];
+          reconnect_attempts = attempt;
+          last_reconnect_time = Some now;
+        }
     | Error e when attempt < max_reconnect_attempts ->
       let delay = calculate_backoff_delay attempt in
       Eio.traceln "Massive WebSocket: Connection failed: %s"
         (match e with
-         | `InvalidScheme s -> "Invalid scheme: " ^ s
-         | `InvalidUrl s -> "Invalid URL: " ^ s
-         | `DnsError s -> "DNS error: " ^ s
-         | `TlsError s -> "TLS error: " ^ s
-         | `HandshakeError s -> "Handshake error: " ^ s);
+        | `InvalidScheme s -> "Invalid scheme: " ^ s
+        | `InvalidUrl s -> "Invalid URL: " ^ s
+        | `DnsError s -> "DNS error: " ^ s
+        | `TlsError s -> "TLS error: " ^ s
+        | `HandshakeError s -> "Handshake error: " ^ s);
       Eio.traceln "Massive WebSocket: Retrying in %.1f seconds (attempt %d/%d)"
         delay attempt max_reconnect_attempts;
       Eio.Time.sleep (Eio.Stdenv.clock env) delay;
       connect_with_retry ~sw ~env ~massive_key ~attempt:(attempt + 1) ()
     | Error e ->
-      Eio.traceln "Massive WebSocket: Max reconnection attempts reached, giving up";
+      Eio.traceln
+        "Massive WebSocket: Max reconnection attempts reached, giving up";
       Error e
 
   (* Initial connection *)
@@ -117,10 +116,7 @@ module Client = struct
     let* client = connect_with_retry ~sw ~env ~massive_key ~attempt:0 () in
 
     (* Send authentication message immediately after connection *)
-    let auth_msg : auth_message = {
-      action = "auth";
-      params = massive_key;
-    } in
+    let auth_msg : auth_message = { action = "auth"; params = massive_key } in
     let json = yojson_of_auth_message auth_msg in
     let msg_str = Yojson.Safe.to_string json in
 
@@ -136,30 +132,40 @@ module Client = struct
         match frame.Websocket.Frame.opcode with
         | Text ->
           (try
-            let json = Yojson.Safe.from_string frame.payload in
-            (* Massive sends arrays of messages *)
-            let messages = Yojson.Safe.Util.to_list json in
-            let rec check_messages msgs =
-              match msgs with
-              | [] -> wait_for_auth (retry_count + 1)  (* No auth message yet *)
-              | msg :: rest ->
-                (try
-                  let status_msg : status_message = status_message_of_yojson msg in
-                  let ev_field = status_msg.ev in
-                  let status_field = status_msg.status in
-                  if String.equal ev_field "status" && String.equal status_field "auth_success" then begin
-                    Eio.traceln "Massive WebSocket: Authentication successful";
-                    Ok ()
-                  end else if String.equal ev_field "status" && String.equal status_field "auth_failed" then
-                    Error (`HandshakeError ("Authentication failed: " ^ status_msg.message))
-                  else
-                    check_messages rest
-                with _ ->
-                  (* Not a status message, skip *)
-                  check_messages rest)
-            in
-            check_messages messages
-          with
+             let json = Yojson.Safe.from_string frame.payload in
+             (* Massive sends arrays of messages *)
+             let messages = Yojson.Safe.Util.to_list json in
+             let rec check_messages msgs =
+               match msgs with
+               | [] -> wait_for_auth (retry_count + 1) (* No auth message yet *)
+               | msg :: rest ->
+                 (try
+                    let status_msg : status_message =
+                      status_message_of_yojson msg
+                    in
+                    let ev_field = status_msg.ev in
+                    let status_field = status_msg.status in
+                    if
+                      String.equal ev_field "status"
+                      && String.equal status_field "auth_success"
+                    then (
+                      Eio.traceln "Massive WebSocket: Authentication successful";
+                      Ok ())
+                    else if
+                      String.equal ev_field "status"
+                      && String.equal status_field "auth_failed"
+                    then
+                      Error
+                        (`HandshakeError
+                           ("Authentication failed: " ^ status_msg.message))
+                    else check_messages rest
+                  with
+                 | _ ->
+                   (* Not a status message, skip *)
+                   check_messages rest)
+             in
+             check_messages messages
+           with
           | e ->
             Eio.traceln "Massive WebSocket: Error parsing auth response: %s"
               (Printexc.to_string e);
@@ -167,15 +173,18 @@ module Client = struct
         | Ping ->
           (* Respond to ping during auth - important for connection health *)
           Eio.traceln "Massive WebSocket: Received ping during auth, responding";
-          let pong_frame = Websocket.Frame.{
-            fin = true;
-            opcode = Pong;
-            mask = true;
-            payload = frame.payload;
-          } in
+          let pong_frame =
+            Websocket.Frame.
+              {
+                fin = true;
+                opcode = Pong;
+                mask = true;
+                payload = frame.payload;
+              }
+          in
           let encoded = Websocket.Frame.encode pong_frame in
           Eio.Flow.copy_string encoded client.conn.flow;
-          wait_for_auth retry_count  (* Don't increment retry count for pings *)
+          wait_for_auth retry_count (* Don't increment retry count for pings *)
         | _ -> wait_for_auth (retry_count + 1)
     in
 
@@ -190,22 +199,19 @@ module Client = struct
     (* Build subscription params: "A.AAPL,A.MSFT,A.TSLA" for per-second aggregates *)
     (* Note: Polygon/Massive uses "A." prefix for second aggregates, "AM." for minute *)
     let params =
-      List.map (fun sym -> "A." ^ sym) ticker_symbols
-      |> String.concat ","
+      List.map (fun sym -> "A." ^ sym) ticker_symbols |> String.concat ","
     in
 
-    let sub_msg = {
-      action = "subscribe";
-      params = params;
-    } in
+    let sub_msg = { action = "subscribe"; params } in
 
     let json = yojson_of_subscribe_message sub_msg in
     let msg_str = Yojson.Safe.to_string json in
 
     Eio.traceln "Massive WebSocket: Subscribing to %d tickers: [%s]"
       (List.length tickers)
-      (String.concat ", " (List.take 5 ticker_symbols @
-        (if List.length ticker_symbols > 5 then ["..."] else [])));
+      (String.concat ", "
+         (List.take 5 ticker_symbols
+         @ if List.length ticker_symbols > 5 then [ "..." ] else []));
     Eio.traceln "Massive WebSocket: Sending subscription message: %s"
       (String.sub msg_str 0 (min 200 (String.length msg_str)));
 
@@ -218,7 +224,8 @@ module Client = struct
   (* Parse a Massive message from JSON *)
   let parse_message json =
     (* First check what event type this is *)
-    let ev_type = match Yojson.Safe.Util.member "ev" json with
+    let ev_type =
+      match Yojson.Safe.Util.member "ev" json with
       | `String s -> s
       | _ -> "unknown"
     in
@@ -226,43 +233,48 @@ module Client = struct
     match ev_type with
     | "status" ->
       (try
-        let msg = status_message_of_yojson json in
-        Status msg
-       with e ->
-         Eio.traceln "Massive WebSocket: Failed to parse status message: %s" (Printexc.to_string e);
-         Unknown ev_type)
-    | "A" | "AS" ->
+         let msg = status_message_of_yojson json in
+         Status msg
+       with
+      | e ->
+        Eio.traceln "Massive WebSocket: Failed to parse status message: %s"
+          (Printexc.to_string e);
+        Unknown ev_type)
+    | "A"
+    | "AS" ->
       (* "A" is the official per-second aggregate event type, but also accept "AS" for backwards compat *)
       (try
-        let msg = aggregate_message_of_yojson json in
-        Aggregate msg
+         let msg = aggregate_message_of_yojson json in
+         Aggregate msg
        with
-       | Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (exn, json_value) ->
-         Eio.traceln "Massive WebSocket: Failed to parse aggregate message";
-         Eio.traceln "  Error: %s" (Printexc.to_string exn);
-         Eio.traceln "  At JSON value: %s" (Yojson.Safe.to_string json_value);
-         Eio.traceln "  Full message: %s" (Yojson.Safe.to_string json);
-         Unknown ev_type
-       | e ->
-         Eio.traceln "Massive WebSocket: Failed to parse aggregate message: %s" (Printexc.to_string e);
-         Eio.traceln "Massive WebSocket: Raw JSON: %s" (Yojson.Safe.to_string json);
-         Unknown ev_type)
+      | Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (exn, json_value) ->
+        Eio.traceln "Massive WebSocket: Failed to parse aggregate message";
+        Eio.traceln "  Error: %s" (Printexc.to_string exn);
+        Eio.traceln "  At JSON value: %s" (Yojson.Safe.to_string json_value);
+        Eio.traceln "  Full message: %s" (Yojson.Safe.to_string json);
+        Unknown ev_type
+      | e ->
+        Eio.traceln "Massive WebSocket: Failed to parse aggregate message: %s"
+          (Printexc.to_string e);
+        Eio.traceln "Massive WebSocket: Raw JSON: %s"
+          (Yojson.Safe.to_string json);
+        Unknown ev_type)
     | _ -> Unknown ev_type
 
   (* Receive and parse next message *)
   let receive_update client =
     let frame_result = Websocket.Connection.receive client.conn in
     (match frame_result with
-     | Ok frame ->
-       Eio.traceln "Massive WS: Got frame opcode=%s len=%d"
-         (Websocket.Opcode.show frame.Websocket.Frame.opcode)
-         (String.length frame.payload)
-     | Error `ConnectionClosed ->
-       Eio.traceln "Massive WS: Connection.receive returned ConnectionClosed"
-     | Error (`InvalidOpcode i) ->
-       Eio.traceln "Massive WS: Connection.receive returned InvalidOpcode %d" i
-     | Error (`ReadError s) ->
-       Eio.traceln "Massive WS: Connection.receive returned ReadError: %s" s);
+    | Ok frame ->
+      Eio.traceln "Massive WS: Got frame opcode=%s len=%d"
+        (Websocket.Opcode.show frame.Websocket.Frame.opcode)
+        (String.length frame.payload)
+    | Error `ConnectionClosed ->
+      Eio.traceln "Massive WS: Connection.receive returned ConnectionClosed"
+    | Error (`InvalidOpcode i) ->
+      Eio.traceln "Massive WS: Connection.receive returned InvalidOpcode %d" i
+    | Error (`ReadError s) ->
+      Eio.traceln "Massive WS: Connection.receive returned ReadError: %s" s);
     let ( let* ) = Result.( let* ) in
     let* frame = frame_result in
 
@@ -272,24 +284,27 @@ module Client = struct
       Eio.traceln "Massive WS: TEXT FRAME RECEIVED: %s"
         (String.sub frame.payload 0 (min 500 (String.length frame.payload)));
       (try
-        let json = Yojson.Safe.from_string frame.payload in
-        let messages = Yojson.Safe.Util.to_list json in
+         let json = Yojson.Safe.from_string frame.payload in
+         let messages = Yojson.Safe.Util.to_list json in
 
-        (* Parse all messages and filter for aggregates *)
-        let aggregates = List.filter_map (fun msg_json ->
-          match parse_message msg_json with
-          | Status status ->
-            Eio.traceln "Massive WebSocket: Status - %s: %s" status.status status.message;
-            None
-          | Aggregate agg ->
-            Some agg
-          | Unknown ev ->
-            Eio.traceln "Massive WebSocket: Unknown event type: %s" ev;
-            None
-        ) messages in
+         (* Parse all messages and filter for aggregates *)
+         let aggregates =
+           List.filter_map
+             (fun msg_json ->
+               match parse_message msg_json with
+               | Status status ->
+                 Eio.traceln "Massive WebSocket: Status - %s: %s" status.status
+                   status.message;
+                 None
+               | Aggregate agg -> Some agg
+               | Unknown ev ->
+                 Eio.traceln "Massive WebSocket: Unknown event type: %s" ev;
+                 None)
+             messages
+         in
 
-        Ok aggregates
-      with
+         Ok aggregates
+       with
       | Yojson.Json_error e ->
         Eio.traceln "Massive WebSocket: JSON parse error: %s" e;
         Eio.traceln "Massive WebSocket: Failed payload: %s" frame.payload;
@@ -300,12 +315,10 @@ module Client = struct
         Error (`ParseError (Printexc.to_string e)))
     | Ping ->
       (* Respond to ping with pong *)
-      let pong_frame = Websocket.Frame.{
-        fin = true;
-        opcode = Pong;
-        mask = true;
-        payload = frame.payload;
-      } in
+      let pong_frame =
+        Websocket.Frame.
+          { fin = true; opcode = Pong; mask = true; payload = frame.payload }
+      in
       let encoded = Websocket.Frame.encode pong_frame in
       Eio.Flow.copy_string encoded client.conn.flow;
       Error `Ping (* Signal caller to try again *)
@@ -320,8 +333,13 @@ module Client = struct
   (* Check if float is valid (not NaN or infinite) *)
   let is_valid_float f =
     match classify_float f with
-    | FP_normal | FP_subnormal | FP_zero -> true
-    | FP_infinite | FP_nan -> false
+    | FP_normal
+    | FP_subnormal
+    | FP_zero ->
+      true
+    | FP_infinite
+    | FP_nan ->
+      false
 
   (* Update bars with received data *)
   let update_bars bars tick aggregates =
@@ -343,12 +361,17 @@ module Client = struct
         in
 
         (* Validate all price fields before updating *)
-        if not (is_valid_float agg.o && is_valid_float agg.h &&
-                is_valid_float agg.l && is_valid_float agg.c) then begin
-          Eio.traceln "Massive WebSocket: Skipping invalid data for %s (NaN/Inf values detected)"
+        if
+          not
+            (is_valid_float agg.o && is_valid_float agg.h
+           && is_valid_float agg.l && is_valid_float agg.c)
+        then (
+          Eio.traceln
+            "Massive WebSocket: Skipping invalid data for %s (NaN/Inf values \
+             detected)"
             agg.sym;
-          Ok ()  (* Skip this update but don't fail *)
-        end else begin
+          Ok () (* Skip this update but don't fail *))
+        else
           (* Get or create data array for this instrument *)
           let* data_array = Bars.get bars instrument in
 
@@ -361,8 +384,7 @@ module Client = struct
           Data.set data_array Data.Type.Last tick agg.c;
           Data.set data_array Data.Type.Volume tick (Float.of_int agg.v);
 
-          Ok ()
-        end)
+          Ok ())
       (Ok ()) aggregates
 
   (* Main update loop - receives updates and applies to bars *)
@@ -375,9 +397,12 @@ module Client = struct
       | Ok [] ->
         (* Empty update, try again *)
         if retry_count > 0 && retry_count mod 100 = 0 then
-          Eio.traceln "Massive WebSocket: Still waiting for data (tried %d times)" retry_count;
+          Eio.traceln
+            "Massive WebSocket: Still waiting for data (tried %d times)"
+            retry_count;
         receive_loop (retry_count + 1)
-      | Ok aggregates -> (* Non-empty list *)
+      | Ok aggregates ->
+        (* Non-empty list *)
         Ok aggregates
       | Error `Ping ->
         (* Handled ping/pong, try again *)
@@ -430,13 +455,13 @@ module Client = struct
     new_client.reconnect_attempts <- client.reconnect_attempts + 1;
 
     (* Resubscribe to previous tickers if any *)
-    if List.length client.subscribed_tickers > 0 then begin
-      Eio.traceln "Massive WebSocket: Resubscribing to %d tickers after reconnect"
+    if List.length client.subscribed_tickers > 0 then (
+      Eio.traceln
+        "Massive WebSocket: Resubscribing to %d tickers after reconnect"
         (List.length client.subscribed_tickers);
       let* () = subscribe new_client client.subscribed_tickers in
-      Ok new_client
-    end else
-      Ok new_client
+      Ok new_client)
+    else Ok new_client
 
   (* Background fiber that continuously updates bars *)
   let start_background_updates ~sw ~env client bars get_current_tick =
@@ -448,49 +473,50 @@ module Client = struct
     let last_stats_time = ref (Unix.gettimeofday ()) in
 
     Eio.Fiber.fork ~sw (fun () ->
-      Eio.traceln "Massive WS background: Fiber started, entering update loop";
-      let rec update_loop client_ref =
-        (* Print stats every 30 seconds *)
-        let now = Unix.gettimeofday () in
-        if Float.(now -. !last_stats_time > 30.0) then begin
-          Eio.traceln "Massive WS stats: %d text frames, %d ping frames received"
-            !text_frames !ping_frames;
-          last_stats_time := now
-        end;
+        Eio.traceln "Massive WS background: Fiber started, entering update loop";
+        let rec update_loop client_ref =
+          (* Print stats every 30 seconds *)
+          let now = Unix.gettimeofday () in
+          if Float.(now -. !last_stats_time > 30.0) then (
+            Eio.traceln
+              "Massive WS stats: %d text frames, %d ping frames received"
+              !text_frames !ping_frames;
+            last_stats_time := now);
 
-        match receive_update !client_ref with
-        | Ok [] ->
-          (* Empty update, try again *)
-          update_loop client_ref
-        | Ok aggregates ->
-          incr text_frames;
-          (* Get current tick from the strategy *)
-          let current_tick = get_current_tick () in
+          match receive_update !client_ref with
+          | Ok [] ->
+            (* Empty update, try again *)
+            update_loop client_ref
+          | Ok aggregates ->
+            incr text_frames;
+            (* Get current tick from the strategy *)
+            let current_tick = get_current_tick () in
 
-          (* Update bars with new data *)
-          (match update_bars bars current_tick aggregates with
-           | Ok () -> ()
-           | Error e ->
-             Eio.traceln "Massive WebSocket: Error updating bars: %s" (Error.show e));
+            (* Update bars with new data *)
+            (match update_bars bars current_tick aggregates with
+            | Ok () -> ()
+            | Error e ->
+              Eio.traceln "Massive WebSocket: Error updating bars: %s"
+                (Error.show e));
 
-          (* Explicit yield to prevent starving other fibers during message floods *)
-          Eio.Fiber.yield ();
+            (* Explicit yield to prevent starving other fibers during message floods *)
+            Eio.Fiber.yield ();
 
-          (* Continue loop *)
-          update_loop client_ref
-        | Error `Ping ->
-          incr ping_frames;
-          update_loop client_ref
-        | Error `ConnectionClosed ->
-          Eio.traceln "Massive WebSocket: Connection closed, reconnecting...";
-          (match reconnect ~sw ~env !client_ref with
-           | Ok new_client ->
-             client_ref := new_client;
-             Eio.traceln "Massive WebSocket: Reconnected successfully";
-             update_loop client_ref
-           | Error e ->
-             Eio.traceln "Massive WebSocket: Reconnection failed: %s"
-               (match e with
+            (* Continue loop *)
+            update_loop client_ref
+          | Error `Ping ->
+            incr ping_frames;
+            update_loop client_ref
+          | Error `ConnectionClosed ->
+            Eio.traceln "Massive WebSocket: Connection closed, reconnecting...";
+            (match reconnect ~sw ~env !client_ref with
+            | Ok new_client ->
+              client_ref := new_client;
+              Eio.traceln "Massive WebSocket: Reconnected successfully";
+              update_loop client_ref
+            | Error e ->
+              Eio.traceln "Massive WebSocket: Reconnection failed: %s"
+                (match e with
                 | `ConnectionClosed -> "Connection closed"
                 | `InvalidScheme s -> "Invalid scheme: " ^ s
                 | `InvalidUrl s -> "Invalid URL: " ^ s
@@ -500,26 +526,28 @@ module Client = struct
                 | `WriteError s -> "Write error: " ^ s
                 | `InvalidOpcode i -> "Invalid opcode: " ^ string_of_int i
                 | `ReadError s -> "Read error: " ^ s);
-             (* Wait before retrying *)
-             Eio.Time.sleep (Eio.Stdenv.clock env) 5.0;
-             update_loop client_ref)
-        | Error (`JsonError s) ->
-          Eio.traceln "Massive WebSocket: JSON error: %s" s;
-          update_loop client_ref
-        | Error (`ParseError s) ->
-          Eio.traceln "Massive WebSocket: Parse error: %s" s;
-          update_loop client_ref
-        | Error (`ReadError s) ->
-          (* Read errors indicate a broken connection - reconnect *)
-          Eio.traceln "Massive WebSocket: Read error: %s (reconnecting...)" s;
-          (match reconnect ~sw ~env !client_ref with
-           | Ok new_client ->
-             client_ref := new_client;
-             Eio.traceln "Massive WebSocket: Reconnected successfully after read error";
-             update_loop client_ref
-           | Error e ->
-             Eio.traceln "Massive WebSocket: Reconnection failed after read error: %s"
-               (match e with
+              (* Wait before retrying *)
+              Eio.Time.sleep (Eio.Stdenv.clock env) 5.0;
+              update_loop client_ref)
+          | Error (`JsonError s) ->
+            Eio.traceln "Massive WebSocket: JSON error: %s" s;
+            update_loop client_ref
+          | Error (`ParseError s) ->
+            Eio.traceln "Massive WebSocket: Parse error: %s" s;
+            update_loop client_ref
+          | Error (`ReadError s) ->
+            (* Read errors indicate a broken connection - reconnect *)
+            Eio.traceln "Massive WebSocket: Read error: %s (reconnecting...)" s;
+            (match reconnect ~sw ~env !client_ref with
+            | Ok new_client ->
+              client_ref := new_client;
+              Eio.traceln
+                "Massive WebSocket: Reconnected successfully after read error";
+              update_loop client_ref
+            | Error e ->
+              Eio.traceln
+                "Massive WebSocket: Reconnection failed after read error: %s"
+                (match e with
                 | `ConnectionClosed -> "Connection closed"
                 | `InvalidScheme s -> "Invalid scheme: " ^ s
                 | `InvalidUrl s -> "Invalid URL: " ^ s
@@ -529,19 +557,18 @@ module Client = struct
                 | `WriteError s -> "Write error: " ^ s
                 | `InvalidOpcode i -> "Invalid opcode: " ^ string_of_int i
                 | `ReadError s -> "Read error: " ^ s);
-             Eio.Time.sleep (Eio.Stdenv.clock env) 5.0;
-             update_loop client_ref)
-        | Error (`UnexpectedFrame s) ->
-          Eio.traceln "Massive WebSocket: Unexpected frame: %s" s;
-          update_loop client_ref
-        | Error (`InvalidOpcode i) ->
-          Eio.traceln "Massive WebSocket: Invalid opcode: %d" i;
-          update_loop client_ref
-      in
+              Eio.Time.sleep (Eio.Stdenv.clock env) 5.0;
+              update_loop client_ref)
+          | Error (`UnexpectedFrame s) ->
+            Eio.traceln "Massive WebSocket: Unexpected frame: %s" s;
+            update_loop client_ref
+          | Error (`InvalidOpcode i) ->
+            Eio.traceln "Massive WebSocket: Invalid opcode: %d" i;
+            update_loop client_ref
+        in
 
-      let client_ref = ref client in
-      update_loop client_ref
-    )
+        let client_ref = ref client in
+        update_loop client_ref)
 end
 
 (* Module compatible with Massive_api interface *)
@@ -550,6 +577,5 @@ module type CONFIG = sig
 end
 
 module Make (Config : CONFIG) = struct
-  let latest bars tickers tick =
-    Client.latest Config.client bars tickers tick
+  let latest bars tickers tick = Client.latest Config.client bars tickers tick
 end

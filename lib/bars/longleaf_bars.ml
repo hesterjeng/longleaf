@@ -7,23 +7,25 @@ type t = (Instrument.t, Data.t) Saturn.Htbl.t
 (* Instrument hashed module for Saturn - must be a first-class module *)
 module InstrumentHashedType = struct
   type t = Instrument.t
+
   let equal = Instrument.equal
   let hash = Instrument.hash
 end
 
 (* Helper to create instrument-keyed tables *)
-let create_table () = Saturn.Htbl.create ~hashed_type:(module InstrumentHashedType) ()
+let create_table () =
+  Saturn.Htbl.create ~hashed_type:(module InstrumentHashedType) ()
 
 let fold (x : t) init f =
-  Saturn.Htbl.to_seq x
-  |> Seq.fold_left (fun acc (k, v) -> f k v acc) init
+  Saturn.Htbl.to_seq x |> Seq.fold_left (fun acc (k, v) -> f k v acc) init
 
 module Latest = Latest
 
 let copy x =
   let copied = create_table () in
   Saturn.Htbl.to_seq x
-  |> Seq.iter (fun (s, ph) -> Saturn.Htbl.set_exn copied s (Data.copy ph) |> ignore);
+  |> Seq.iter (fun (s, ph) ->
+         Saturn.Htbl.set_exn copied s (Data.copy ph) |> ignore);
   copied
 
 (* Helper function to deserialize a single symbol *)
@@ -114,11 +116,12 @@ let timestamp (x : t) (tick : int) =
     fold x None @@ fun symbol data acc ->
     try
       let timestamp = Data.get data Time tick in
-      if Float.is_nan timestamp then acc  (* Skip NaN timestamps *)
+      if Float.is_nan timestamp then acc (* Skip NaN timestamps *)
       else
         match acc with
         | None -> Some timestamp
-        | Some prev -> Some (Float.max prev timestamp)  (* Keep most recent *)
+        | Some prev -> Some (Float.max prev timestamp)
+      (* Keep most recent *)
     with
     | Data.NaNInData (i, ty) ->
       Eio.traceln "===== NaN ERROR CONTEXT =====";
@@ -253,6 +256,7 @@ let of_seq seq =
   let htbl = create_table () in
   Seq.iter (fun (k, v) -> ignore (Saturn.Htbl.try_add htbl k v)) seq;
   htbl
+
 let of_list l = of_seq @@ Seq.of_list l
 
 let grow bars =
@@ -260,8 +264,8 @@ let grow bars =
     let new_bars = create_table () in
     Saturn.Htbl.to_seq bars
     |> Seq.iter (fun (instrument, data) ->
-        let grown_data = Data.grow data |> Result.get_exn in
-        ignore (Saturn.Htbl.try_add new_bars instrument grown_data));
+           let grown_data = Data.grow data |> Result.get_exn in
+           ignore (Saturn.Htbl.try_add new_bars instrument grown_data));
     new_bars |> Result.return
   with
   | e -> Error.fatal @@ "Unhandled error in Bars.grow: " ^ Printexc.to_string e
@@ -297,10 +301,12 @@ let validate_no_nan (bars : t) =
   let* bar_length = length bars in
   let start_tick = 0 in
   let end_tick = bar_length - 1 in
-  Eio.traceln "  Checking ticks %d to %d across all symbols..." start_tick end_tick;
+  Eio.traceln "  Checking ticks %d to %d across all symbols..." start_tick
+    end_tick;
 
   (* Validate each symbol's data *)
-  let result = fold bars (Ok 0) @@ fun symbol data acc ->
+  let result =
+    fold bars (Ok 0) @@ fun symbol data acc ->
     let* count = acc in
     (* Validate this symbol's data *)
     match Data.validate_no_nan data ~start_tick ~end_tick with
@@ -308,13 +314,14 @@ let validate_no_nan (bars : t) =
     | Error e ->
       (* Add symbol context to the error *)
       Eio.traceln "✗ Validation failed for symbol: %a" Instrument.pp symbol;
-      Error.fatal @@
-      Format.asprintf "Symbol %a: %a" Instrument.pp symbol Error.pp e
+      Error.fatal
+      @@ Format.asprintf "Symbol %a: %a" Instrument.pp symbol Error.pp e
   in
 
   match result with
   | Ok count ->
-    Eio.traceln "✓ Validation complete: %d symbols checked, no NaN values found" count;
+    Eio.traceln "✓ Validation complete: %d symbols checked, no NaN values found"
+      count;
     Result.return ()
   | Error e ->
     Eio.traceln "✗ Validation failed: NaN values detected";
@@ -322,5 +329,4 @@ let validate_no_nan (bars : t) =
 
 let reset_indicators (bars : t) =
   Saturn.Htbl.to_seq bars
-  |> Seq.iter (fun (_symbol, data) ->
-    Data.reset_indicators data)
+  |> Seq.iter (fun (_symbol, data) -> Data.reset_indicators data)

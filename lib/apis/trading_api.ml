@@ -10,7 +10,8 @@ let base_url runtype =
   match runtype with
   | Runtype.Live -> "https://api.alpaca.markets"
   | Runtype.Paper -> "https://paper-api.alpaca.markets"
-  | _ -> "https://paper-api.alpaca.markets" (* default to paper for non-live modes *)
+  | _ ->
+    "https://paper-api.alpaca.markets" (* default to paper for non-live modes *)
 
 (* Helper to construct full URL from base and path *)
 let make_url base path = base ^ path
@@ -23,6 +24,7 @@ end
 
 module Make (Config : CONFIG) = struct
   let base = base_url Config.runtype
+
   let headers =
     Headers.of_list
       [
@@ -31,11 +33,16 @@ module Make (Config : CONFIG) = struct
       ]
 
   let get path =
-    Tools.get_cohttp ~client:Config.client ~headers ~endpoint:(make_url base path)
+    Tools.get_cohttp ~client:Config.client ~headers
+      ~endpoint:(make_url base path)
+
   let delete path =
-    Tools.delete_cohttp ~client:Config.client ~headers ~endpoint:(make_url base path)
+    Tools.delete_cohttp ~client:Config.client ~headers
+      ~endpoint:(make_url base path)
+
   let post path body =
-    Tools.post_cohttp ~client:Config.client ~headers ~endpoint:(make_url base path) ~body
+    Tools.post_cohttp ~client:Config.client ~headers
+      ~endpoint:(make_url base path) ~body
 
   module Clock = struct
     type t = {
@@ -46,8 +53,7 @@ module Make (Config : CONFIG) = struct
     }
     [@@deriving show, yojson]
 
-    let get () =
-      Result.map t_of_yojson @@ get "/v2/clock"
+    let get () = Result.map t_of_yojson @@ get "/v2/clock"
   end
 
   module Accounts = struct
@@ -136,19 +142,18 @@ module Make (Config : CONFIG) = struct
 
     type t = asset list [@@deriving show, yojson]
 
-    let get_assets () =
-      get "/v2/assets"
+    let get_assets () = get "/v2/assets"
   end
 
   module Positions = struct
-    let get_all_open_positions () =
-      get "/v2/positions"
+    let get_all_open_positions () = get "/v2/positions"
 
     let close_all_positions (cancel_orders : bool) =
       let cancel_orders_str = if cancel_orders then "true" else "false" in
       let endpoint =
         Uri.of_string (make_url base "/v2/positions") |> fun u ->
-        Uri.add_query_param' u ("cancel_orders", cancel_orders_str) |> Uri.to_string
+        Uri.add_query_param' u ("cancel_orders", cancel_orders_str)
+        |> Uri.to_string
       in
       Tools.delete_cohttp ~client:Config.client ~headers ~endpoint
   end
@@ -218,11 +223,8 @@ module Make (Config : CONFIG) = struct
     (*   in *)
     (*   Result.fail @@ `FatalError "Bad response in create_market_order" *)
 
-    let get_all_orders () =
-      get "/v2/orders"
-
-    let delete_all_orders () =
-      delete "/v2/orders"
+    let get_all_orders () = get "/v2/orders"
+    let delete_all_orders () = delete "/v2/orders"
 
     let get_order_by_id (id : OrderId.t) =
       get (Format.asprintf "/v2/orders/%s" (OrderId.to_string id))

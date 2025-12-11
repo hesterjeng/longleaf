@@ -3,13 +3,7 @@
 
 (* WebSocket frame opcodes *)
 module Opcode = struct
-  type t =
-    | Continuation
-    | Text
-    | Binary
-    | Close
-    | Ping
-    | Pong
+  type t = Continuation | Text | Binary | Close | Ping | Pong
   [@@deriving show, eq]
 
   let to_int = function
@@ -32,12 +26,7 @@ end
 
 (* WebSocket frame structure *)
 module Frame = struct
-  type t = {
-    fin : bool;
-    opcode : Opcode.t;
-    mask : bool;
-    payload : string;
-  }
+  type t = { fin : bool; opcode : Opcode.t; mask : bool; payload : string }
   [@@deriving show]
 
   (* Random state for generating masks *)
@@ -59,7 +48,8 @@ module Frame = struct
     for i = 0 to payload_len - 1 do
       let mask_byte = String.unsafe_get mask (i mod mask_len) in
       let payload_byte = String.unsafe_get payload i in
-      Bytes.unsafe_set result i (Char.chr (Char.code payload_byte lxor Char.code mask_byte))
+      Bytes.unsafe_set result i
+        (Char.chr (Char.code payload_byte lxor Char.code mask_byte))
     done;
     Bytes.unsafe_to_string result
 
@@ -70,38 +60,36 @@ module Frame = struct
 
     (* Byte 0: FIN + RSV + Opcode *)
     let byte0 =
-      (if frame.fin then 0x80 else 0x00) lor
-      (Opcode.to_int frame.opcode)
+      (if frame.fin then 0x80 else 0x00) lor Opcode.to_int frame.opcode
     in
     Buffer.add_char buf (Char.chr byte0);
 
     (* Byte 1: MASK + Payload length *)
     let mask_bit = if frame.mask then 0x80 else 0x00 in
-    if payload_len < 126 then begin
+    if payload_len < 126 then
       Buffer.add_char buf (Char.chr (mask_bit lor payload_len))
-    end else if payload_len < 65536 then begin
+    else if payload_len < 65536 then (
       Buffer.add_char buf (Char.chr (mask_bit lor 126));
       Buffer.add_char buf (Char.chr (payload_len lsr 8));
-      Buffer.add_char buf (Char.chr (payload_len land 0xFF))
-    end else begin
+      Buffer.add_char buf (Char.chr (payload_len land 0xFF)))
+    else (
       Buffer.add_char buf (Char.chr (mask_bit lor 127));
       (* 64-bit length - we'll only use lower 32 bits *)
-      for _ = 0 to 3 do Buffer.add_char buf '\x00' done;
+      for _ = 0 to 3 do
+        Buffer.add_char buf '\x00'
+      done;
       Buffer.add_char buf (Char.chr ((payload_len lsr 24) land 0xFF));
       Buffer.add_char buf (Char.chr ((payload_len lsr 16) land 0xFF));
       Buffer.add_char buf (Char.chr ((payload_len lsr 8) land 0xFF));
-      Buffer.add_char buf (Char.chr (payload_len land 0xFF))
-    end;
+      Buffer.add_char buf (Char.chr (payload_len land 0xFF)));
 
     (* Masking key and masked payload *)
-    if frame.mask then begin
+    if frame.mask then (
       let mask = generate_mask () in
       Buffer.add_string buf mask;
       let masked_payload = apply_mask mask frame.payload in
-      Buffer.add_string buf masked_payload
-    end else begin
-      Buffer.add_string buf frame.payload
-    end;
+      Buffer.add_string buf masked_payload)
+    else Buffer.add_string buf frame.payload;
 
     Buffer.contents buf
 
@@ -129,52 +117,43 @@ module Frame = struct
     let byte0 = Char.code (String.unsafe_get header 0) in
     let byte1 = Char.code (String.unsafe_get header 1) in
 
-    Eio.traceln "WebSocket decode: header bytes: 0x%02X 0x%02X (opcode=%d, len=%d)"
-      byte0 byte1 (byte0 land 0x0F) (byte1 land 0x7F);
+    Eio.traceln
+      "WebSocket decode: header bytes: 0x%02X 0x%02X (opcode=%d, len=%d)" byte0
+      byte1 (byte0 land 0x0F) (byte1 land 0x7F);
 
-    let fin = (byte0 land 0x80) <> 0 in
+    let fin = byte0 land 0x80 <> 0 in
     let* opcode = Opcode.of_int (byte0 land 0x0F) in
-    let mask = (byte1 land 0x80) <> 0 in
+    let mask = byte1 land 0x80 <> 0 in
     let payload_len = byte1 land 0x7F in
 
     (* Read extended payload length if needed *)
     let* payload_len =
-      if payload_len < 126 then
-        Ok payload_len
+      if payload_len < 126 then Ok payload_len
       else if payload_len = 126 then
         let* len_bytes = read_exact 2 in
-        Ok ((Char.code (String.unsafe_get len_bytes 0) lsl 8) lor
-            (Char.code (String.unsafe_get len_bytes 1)))
-      else begin
+        Ok
+          ((Char.code (String.unsafe_get len_bytes 0) lsl 8)
+          lor Char.code (String.unsafe_get len_bytes 1))
+      else
         let* len_bytes = read_exact 8 in
         (* Only use lower 32 bits *)
         let len =
-          (Char.code (String.unsafe_get len_bytes 4) lsl 24) lor
-          (Char.code (String.unsafe_get len_bytes 5) lsl 16) lor
-          (Char.code (String.unsafe_get len_bytes 6) lsl 8) lor
-          (Char.code (String.unsafe_get len_bytes 7))
+          (Char.code (String.unsafe_get len_bytes 4) lsl 24)
+          lor (Char.code (String.unsafe_get len_bytes 5) lsl 16)
+          lor (Char.code (String.unsafe_get len_bytes 6) lsl 8)
+          lor Char.code (String.unsafe_get len_bytes 7)
         in
         Ok len
-      end
     in
 
     (* Read mask key if present *)
-    let* mask_key =
-      if mask then read_exact 4
-      else Ok ""
-    in
+    let* mask_key = if mask then read_exact 4 else Ok "" in
 
     (* Read payload *)
-    let* payload =
-      if payload_len = 0 then Ok ""
-      else read_exact payload_len
-    in
+    let* payload = if payload_len = 0 then Ok "" else read_exact payload_len in
 
     (* Unmask payload if needed *)
-    let payload =
-      if mask then apply_mask mask_key payload
-      else payload
-    in
+    let payload = if mask then apply_mask mask_key payload else payload in
 
     Ok { fin; opcode; mask = false; payload }
 end
@@ -183,10 +162,10 @@ end
 module Connection = struct
   type t = {
     flow : Eio.Flow.two_way_ty Eio.Resource.t;
-    close_fn : unit -> unit;  (* Function to close underlying resources *)
+    close_fn : unit -> unit; (* Function to close underlying resources *)
     url : Uri.t;
     mutable closed : bool;
-    mutable leftover : string;  (* Buffered bytes from handshake *)
+    mutable leftover : string; (* Buffered bytes from handshake *)
   }
 
   (* Perform WebSocket handshake *)
@@ -196,7 +175,9 @@ module Connection = struct
     (* Parse URL *)
     let* scheme =
       match Uri.scheme url with
-      | Some "ws" | Some "wss" -> Ok (Uri.scheme url |> Option.get_exn_or "ws")
+      | Some "ws"
+      | Some "wss" ->
+        Ok (Uri.scheme url |> Option.get_exn_or "ws")
       | Some s -> Error (`InvalidScheme s)
       | None -> Error (`InvalidScheme "missing")
     in
@@ -224,8 +205,10 @@ module Connection = struct
 
     let* sock_addr =
       try
-        let addrs = Unix.getaddrinfo hostname (string_of_int port)
-          [Unix.AI_SOCKTYPE Unix.SOCK_STREAM] in
+        let addrs =
+          Unix.getaddrinfo hostname (string_of_int port)
+            [ Unix.AI_SOCKTYPE Unix.SOCK_STREAM ]
+        in
         match addrs with
         | [] -> Error (`DnsError "No addresses found")
         | { Unix.ai_addr = Unix.ADDR_INET (addr, _); _ } :: _ ->
@@ -235,16 +218,18 @@ module Connection = struct
           Ok (`Tcp (eio_addr, port))
         | { Unix.ai_addr = Unix.ADDR_UNIX _; _ } :: _ ->
           Error (`DnsError "Unix domain sockets not supported")
-      with e -> Error (`DnsError (Printexc.to_string e))
+      with
+      | e -> Error (`DnsError (Printexc.to_string e))
     in
 
-    Eio.traceln "WebSocket: Connecting to %a:%d" Eio.Net.Sockaddr.pp sock_addr port;
+    Eio.traceln "WebSocket: Connecting to %a:%d" Eio.Net.Sockaddr.pp sock_addr
+      port;
     let tcp_flow = Eio.Net.connect ~sw net sock_addr in
 
     (* Wrap with TLS if wss:// *)
     (* Returns (flow, close_fn) - close_fn releases the underlying socket *)
-    let* (flow, close_fn) =
-      if String.equal scheme "wss" then begin
+    let* flow, close_fn =
+      if String.equal scheme "wss" then
         try
           let* tls_config =
             match Tls.Config.client ~authenticator () with
@@ -252,15 +237,23 @@ module Connection = struct
             | Ok cfg -> Ok cfg
           in
           let domain_name = Domain_name.(of_string_exn hostname |> host_exn) in
-          let tls_flow = Tls_eio.client_of_flow ~host:domain_name tls_config tcp_flow in
+          let tls_flow =
+            Tls_eio.client_of_flow ~host:domain_name tls_config tcp_flow
+          in
           let close_fn () =
-            (try Eio.Flow.close tls_flow with _ -> ());
-            (try Eio.Flow.close tcp_flow with _ -> ())
+            (try Eio.Flow.close tls_flow with
+            | _ -> ());
+            try Eio.Flow.close tcp_flow with
+            | _ -> ()
           in
           Ok ((tls_flow :> Eio.Flow.two_way_ty Eio.Resource.t), close_fn)
-        with e -> Error (`TlsError (Printexc.to_string e))
-      end else
-        let close_fn () = (try Eio.Flow.close tcp_flow with _ -> ()) in
+        with
+        | e -> Error (`TlsError (Printexc.to_string e))
+      else
+        let close_fn () =
+          try Eio.Flow.close tcp_flow with
+          | _ -> ()
+        in
         Ok ((tcp_flow :> Eio.Flow.two_way_ty Eio.Resource.t), close_fn)
     in
 
@@ -275,15 +268,16 @@ module Connection = struct
     in
 
     (* Send handshake request *)
-    let handshake_request = Printf.sprintf
-      "GET %s HTTP/1.1\r\n\
-       Host: %s\r\n\
-       Upgrade: websocket\r\n\
-       Connection: Upgrade\r\n\
-       Sec-WebSocket-Key: %s\r\n\
-       Sec-WebSocket-Version: 13\r\n\
-       \r\n"
-      path hostname ws_key
+    let handshake_request =
+      Printf.sprintf
+        "GET %s HTTP/1.1\r\n\
+         Host: %s\r\n\
+         Upgrade: websocket\r\n\
+         Connection: Upgrade\r\n\
+         Sec-WebSocket-Key: %s\r\n\
+         Sec-WebSocket-Version: 13\r\n\
+         \r\n"
+        path hostname ws_key
     in
 
     Eio.traceln "WebSocket: Sending handshake";
@@ -303,13 +297,13 @@ module Connection = struct
         let rec find_end pos =
           if pos + 3 >= String.length combined then
             read_until_double_crlf combined
-          else if Char.equal (String.unsafe_get combined pos) '\r' &&
-                  Char.equal (String.unsafe_get combined (pos + 1)) '\n' &&
-                  Char.equal (String.unsafe_get combined (pos + 2)) '\r' &&
-                  Char.equal (String.unsafe_get combined (pos + 3)) '\n' then
-            combined  (* Return ALL data, not just headers *)
-          else
-            find_end (pos + 1)
+          else if
+            Char.equal (String.unsafe_get combined pos) '\r'
+            && Char.equal (String.unsafe_get combined (pos + 1)) '\n'
+            && Char.equal (String.unsafe_get combined (pos + 2)) '\r'
+            && Char.equal (String.unsafe_get combined (pos + 3)) '\n'
+          then combined (* Return ALL data, not just headers *)
+          else find_end (pos + 1)
         in
         find_end 0
     in
@@ -320,14 +314,14 @@ module Connection = struct
     let header_end =
       let rec find_end pos =
         if pos + 3 >= String.length full_data then
-          String.length full_data  (* No end found, use all *)
-        else if Char.equal (String.unsafe_get full_data pos) '\r' &&
-                Char.equal (String.unsafe_get full_data (pos + 1)) '\n' &&
-                Char.equal (String.unsafe_get full_data (pos + 2)) '\r' &&
-                Char.equal (String.unsafe_get full_data (pos + 3)) '\n' then
-          pos + 4
-        else
-          find_end (pos + 1)
+          String.length full_data (* No end found, use all *)
+        else if
+          Char.equal (String.unsafe_get full_data pos) '\r'
+          && Char.equal (String.unsafe_get full_data (pos + 1)) '\n'
+          && Char.equal (String.unsafe_get full_data (pos + 2)) '\r'
+          && Char.equal (String.unsafe_get full_data (pos + 3)) '\n'
+        then pos + 4
+        else find_end (pos + 1)
       in
       find_end 0
     in
@@ -342,27 +336,36 @@ module Connection = struct
     Eio.traceln "WebSocket: Received handshake response (%d bytes, %d leftover)"
       (String.length response) (String.length leftover);
     if String.length leftover > 0 then
-      Eio.traceln "WebSocket: WARNING - Found %d leftover bytes after HTTP headers!" (String.length leftover);
-    Eio.traceln "WebSocket: Response: %s" (String.sub response 0 (min 200 (String.length response)));
+      Eio.traceln
+        "WebSocket: WARNING - Found %d leftover bytes after HTTP headers!"
+        (String.length leftover);
+    Eio.traceln "WebSocket: Response: %s"
+      (String.sub response 0 (min 200 (String.length response)));
 
     (* Validate response - check for 101 status *)
     let* () =
-      if String.length response >= 12 &&
-         String.equal (String.sub response 0 12) "HTTP/1.1 101" then
-        Ok ()
+      if
+        String.length response >= 12
+        && String.equal (String.sub response 0 12) "HTTP/1.1 101"
+      then Ok ()
       else
-        Error (`HandshakeError ("Server did not return 101: " ^ String.sub response 0 (min 50 (String.length response))))
+        Error
+          (`HandshakeError
+             ("Server did not return 101: "
+             ^ String.sub response 0 (min 50 (String.length response))))
     in
 
     Ok { flow; close_fn; url; closed = false; leftover }
 
   (* Send a text message *)
   let send_text conn text =
-    if conn.closed then begin
+    if conn.closed then (
       Eio.traceln "WebSocket send_text: connection is closed!";
-      Error `ConnectionClosed
-    end else begin
-      let frame = Frame.{ fin = true; opcode = Text; mask = true; payload = text } in
+      Error `ConnectionClosed)
+    else
+      let frame =
+        Frame.{ fin = true; opcode = Text; mask = true; payload = text }
+      in
       let encoded = Frame.encode frame in
       Eio.traceln "WebSocket send_text: sending %d bytes (payload: %d bytes)"
         (String.length encoded) (String.length text);
@@ -370,35 +373,34 @@ module Connection = struct
         Eio.Flow.copy_string encoded conn.flow;
         Eio.traceln "WebSocket send_text: sent successfully";
         Ok ()
-      with e ->
+      with
+      | e ->
         Eio.traceln "WebSocket send_text: ERROR: %s" (Printexc.to_string e);
         Error (`WriteError (Printexc.to_string e))
-    end
 
   (* Receive next frame - uses leftover buffer first, then reads from flow *)
   let receive conn =
-    if conn.closed then
-      Error `ConnectionClosed
-    else begin
+    if conn.closed then Error `ConnectionClosed
+    else
       (* Create a buffered decode that uses leftover bytes first *)
       let leftover_ref = ref conn.leftover in
 
       let read_exact_buffered n =
         let buf = Cstruct.create n in
         let rec fill_buf offset remaining =
-          if remaining <= 0 then
-            Ok (Cstruct.to_string buf)
-          else begin
+          if remaining <= 0 then Ok (Cstruct.to_string buf)
+          else
             (* First use any leftover bytes *)
             let leftover = !leftover_ref in
-            if String.length leftover > 0 then begin
+            if String.length leftover > 0 then (
               let use_len = min remaining (String.length leftover) in
               for i = 0 to use_len - 1 do
                 Cstruct.set_char buf (offset + i) (String.get leftover i)
               done;
-              leftover_ref := String.sub leftover use_len (String.length leftover - use_len);
-              fill_buf (offset + use_len) (remaining - use_len)
-            end else begin
+              leftover_ref :=
+                String.sub leftover use_len (String.length leftover - use_len);
+              fill_buf (offset + use_len) (remaining - use_len))
+            else
               (* Read from flow *)
               try
                 let read_buf = Cstruct.create remaining in
@@ -410,10 +412,9 @@ module Connection = struct
                 Eio.traceln "WebSocket decode: EOF while reading";
                 Error `ConnectionClosed
               | e ->
-                Eio.traceln "WebSocket decode: read error: %s" (Printexc.to_string e);
+                Eio.traceln "WebSocket decode: read error: %s"
+                  (Printexc.to_string e);
                 Error (`ReadError (Printexc.to_string e))
-            end
-          end
         in
         fill_buf 0 n
       in
@@ -425,67 +426,63 @@ module Connection = struct
       let byte0 = Char.code (String.unsafe_get header 0) in
       let byte1 = Char.code (String.unsafe_get header 1) in
 
-      Eio.traceln "WebSocket decode: header bytes: 0x%02X 0x%02X (opcode=%d, len=%d)"
+      Eio.traceln
+        "WebSocket decode: header bytes: 0x%02X 0x%02X (opcode=%d, len=%d)"
         byte0 byte1 (byte0 land 0x0F) (byte1 land 0x7F);
 
-      let fin = (byte0 land 0x80) <> 0 in
+      let fin = byte0 land 0x80 <> 0 in
       let* opcode = Opcode.of_int (byte0 land 0x0F) in
-      let mask = (byte1 land 0x80) <> 0 in
+      let mask = byte1 land 0x80 <> 0 in
       let payload_len = byte1 land 0x7F in
 
       (* Read extended payload length if needed *)
       let* payload_len =
-        if payload_len < 126 then
-          Ok payload_len
+        if payload_len < 126 then Ok payload_len
         else if payload_len = 126 then
           let* len_bytes = read_exact_buffered 2 in
-          Ok ((Char.code (String.unsafe_get len_bytes 0) lsl 8) lor
-              (Char.code (String.unsafe_get len_bytes 1)))
-        else begin
+          Ok
+            ((Char.code (String.unsafe_get len_bytes 0) lsl 8)
+            lor Char.code (String.unsafe_get len_bytes 1))
+        else
           let* len_bytes = read_exact_buffered 8 in
           (* Only use lower 32 bits *)
           let len =
-            (Char.code (String.unsafe_get len_bytes 4) lsl 24) lor
-            (Char.code (String.unsafe_get len_bytes 5) lsl 16) lor
-            (Char.code (String.unsafe_get len_bytes 6) lsl 8) lor
-            (Char.code (String.unsafe_get len_bytes 7))
+            (Char.code (String.unsafe_get len_bytes 4) lsl 24)
+            lor (Char.code (String.unsafe_get len_bytes 5) lsl 16)
+            lor (Char.code (String.unsafe_get len_bytes 6) lsl 8)
+            lor Char.code (String.unsafe_get len_bytes 7)
           in
           Ok len
-        end
       in
 
       (* Read mask key if present *)
-      let* mask_key =
-        if mask then read_exact_buffered 4
-        else Ok ""
-      in
+      let* mask_key = if mask then read_exact_buffered 4 else Ok "" in
 
       (* Read payload *)
       let* payload =
-        if payload_len = 0 then Ok ""
-        else read_exact_buffered payload_len
+        if payload_len = 0 then Ok "" else read_exact_buffered payload_len
       in
 
       (* Unmask payload if needed *)
       let payload =
-        if mask then Frame.apply_mask mask_key payload
-        else payload
+        if mask then Frame.apply_mask mask_key payload else payload
       in
 
       (* Update connection's leftover buffer *)
       conn.leftover <- !leftover_ref;
 
       Ok Frame.{ fin; opcode; mask = false; payload }
-    end
 
   (* Close connection *)
   let close conn =
-    if not conn.closed then begin
+    if not conn.closed then (
       conn.closed <- true;
-      let close_frame = Frame.{ fin = true; opcode = Close; mask = true; payload = "" } in
+      let close_frame =
+        Frame.{ fin = true; opcode = Close; mask = true; payload = "" }
+      in
       let encoded = Frame.encode close_frame in
-      (try Eio.Flow.copy_string encoded conn.flow with _ -> ());
+      (try Eio.Flow.copy_string encoded conn.flow with
+      | _ -> ());
       (* Actually close the underlying flow to release the file descriptor *)
-      conn.close_fn ()
-    end
+      conn.close_fn ())
 end

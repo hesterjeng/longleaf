@@ -13,7 +13,9 @@ module Args = struct
     Cmdliner.Arg.(value & flag & info [ "afterhours" ] ~doc)
 
   let downloader_arg =
-    let doc = "Choose downloader client.  Currently Tiingo, Alpaca, or Massive." in
+    let doc =
+      "Choose downloader client.  Currently Tiingo, Alpaca, or Massive."
+    in
     Cmdliner.Arg.(value & pos 0 (some Ty.conv) None & info [] ~doc)
 
   let begin_arg =
@@ -57,7 +59,8 @@ module Cmd = struct
           begin_arg end_arg timeframe_arg interval_arg
       in
       (* Use minimal allocation for CLI downloader - data will be saved to JSON *)
-      Downloader.download ~minimal_allocation:true eio_env request downloader_arg afterhours_arg
+      Downloader.download ~minimal_allocation:true eio_env request
+        downloader_arg afterhours_arg
     in
     let res =
       Result.Infix.(

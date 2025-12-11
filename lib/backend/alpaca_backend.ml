@@ -15,7 +15,6 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let save_received = opts.flags.save_received
   let received_data = Bars.empty ()
 
-
   open Cohttp_eio
 
   (* Initialize RNG for TLS - must be called before creating HTTPS clients *)
@@ -24,12 +23,9 @@ module Make (Input : BACKEND_INPUT) : S = struct
   (* Create HTTPS wrapper for all clients *)
   let authenticator = Longleaf_apis.Https.authenticator ()
   let https = Longleaf_apis.Https.make_https ~authenticator
-
-  let trading_client =
-    Client.make ~https:(Some https) (Eio.Stdenv.net env)
-
+  let trading_client = Client.make ~https:(Some https) (Eio.Stdenv.net env)
   let get_trading_client _ = Ok trading_client
-  let get_data_client _ = Ok trading_client  (* Use same client *)
+  let get_data_client _ = Ok trading_client (* Use same client *)
 
   module Trading_api = Trading_api.Make (struct
     let client = trading_client
@@ -69,24 +65,28 @@ module Make (Input : BACKEND_INPUT) : S = struct
     | None ->
       Eio.traceln "Alpaca backend: Initializing Massive WebSocket client";
       let ( let* ) = Result.( let* ) in
-      let* massive_key = match opts.longleaf_env.massive_key with
+      let* massive_key =
+        match opts.longleaf_env.massive_key with
         | Some key -> Ok key
         | None -> Error (`MissingData "Massive API key not configured")
       in
-      let* client = Massive_websocket.Client.connect ~sw:switch ~env ~massive_key () in
+      let* client =
+        Massive_websocket.Client.connect ~sw:switch ~env ~massive_key ()
+      in
       (* Subscribe to all symbols *)
       let* () = Massive_websocket.Client.subscribe client symbols in
       massive_ws_client := Some client;
 
       (* Start background fiber for continuous updates *)
-      if not !massive_ws_background_started then begin
-        Massive_websocket.Client.start_background_updates
-          ~sw:switch ~env client bars (fun () -> !current_tick);
+      if not !massive_ws_background_started then (
+        Massive_websocket.Client.start_background_updates ~sw:switch ~env client
+          bars (fun () -> !current_tick);
         massive_ws_background_started := true;
-        Eio.traceln "Alpaca backend: Background Massive WebSocket update fiber started"
-      end;
+        Eio.traceln
+          "Alpaca backend: Background Massive WebSocket update fiber started");
 
-      Eio.traceln "Alpaca backend: Massive WebSocket client initialized and subscribed";
+      Eio.traceln
+        "Alpaca backend: Massive WebSocket client initialized and subscribed";
       Ok client
 
   let init_state () =
@@ -129,10 +129,11 @@ module Make (Input : BACKEND_INPUT) : S = struct
     Eio.traceln "Alpaca backend: Resetting websocket connection state";
     (* Close existing connection if any *)
     (match !massive_ws_client with
-     | Some client ->
-       (try Massive_websocket.Client.close client
-        with _ -> Eio.traceln "Alpaca backend: Error closing old websocket (ignoring)");
-     | None -> ());
+    | Some client ->
+      (try Massive_websocket.Client.close client with
+      | _ ->
+        Eio.traceln "Alpaca backend: Error closing old websocket (ignoring)")
+    | None -> ());
     (* Reset refs so next get_or_create_massive_ws_client creates fresh connection *)
     massive_ws_client := None;
     massive_ws_background_started := false;
@@ -147,14 +148,19 @@ module Make (Input : BACKEND_INPUT) : S = struct
   let prepare_live_trading (state : State.t) =
     let bars = State.bars state in
     let tick = State.tick state in
-    Eio.traceln "Alpaca backend: Preparing live trading (MassiveWebSocket, starting tick=%d)" tick;
+    Eio.traceln
+      "Alpaca backend: Preparing live trading (MassiveWebSocket, starting \
+       tick=%d)"
+      tick;
     match get_or_create_massive_ws_client bars () with
     | Ok _client ->
       current_tick := tick;
       Eio.traceln "Alpaca backend: WebSocket ready, current_tick=%d" tick;
       Ok ()
     | Error e ->
-      Error (`MissingData ("WebSocket initialization failed: " ^ ws_error_to_string e))
+      Error
+        (`MissingData
+           ("WebSocket initialization failed: " ^ ws_error_to_string e))
 
   let update_bars (state : State.t) =
     let tick = State.tick state in

@@ -42,15 +42,15 @@ val files : unit -> string list
 (** Validation *)
 
 val validate_no_nan : t -> (unit, Error.t) result
-(** [validate_no_nan bars] validates that all symbols in bars contain no NaN values
-    in essential price data types across all ticks. Returns an error if any NaN
-    values are detected. This should be called after loading data to ensure data
-    integrity before running strategies. *)
+(** [validate_no_nan bars] validates that all symbols in bars contain no NaN
+    values in essential price data types across all ticks. Returns an error if
+    any NaN values are detected. This should be called after loading data to
+    ensure data integrity before running strategies. *)
 
 val reset_indicators : t -> unit
-(** [reset_indicators bars] clears all computed indicator data for all symbols and
-    resets their indicators_computed flags. Use between optimization iterations to
-    prevent state contamination. Price data is preserved. *)
+(** [reset_indicators bars] clears all computed indicator data for all symbols
+    and resets their indicators_computed flags. Use between optimization
+    iterations to prevent state contamination. Price data is preserved. *)
 
 (* val last_bar : t -> (Latest.t, Error.t) result *)
 (* val to_queue : t -> (Latest.t Queue.t, Error.t) result *)

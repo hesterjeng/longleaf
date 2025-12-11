@@ -6,15 +6,16 @@ type t = (Instrument.t, Column.t) Saturn.Htbl.t
 (* Instrument hashed module for Saturn *)
 module InstrumentHashedType = struct
   type t = Instrument.t
+
   let equal = Instrument.equal
   let hash = Instrument.hash
 end
 
-let create_table () = Saturn.Htbl.create ~hashed_type:(module InstrumentHashedType) ()
+let create_table () =
+  Saturn.Htbl.create ~hashed_type:(module InstrumentHashedType) ()
 
 let fold (x : t) init f =
-  Saturn.Htbl.to_seq x
-  |> Seq.fold_left (fun acc (k, v) -> f k v acc) init
+  Saturn.Htbl.to_seq x |> Seq.fold_left (fun acc (k, v) -> f k v acc) init
 
 let get_opt : t -> Instrument.t -> Column.t option = Saturn.Htbl.find_opt
 let empty () : t = create_table ()

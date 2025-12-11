@@ -3,7 +3,7 @@ module I = Tacaml.Indicator.Raw
 
 (* Create a variable with optional bounds for optimizer
    Default to [5.0, 100.0] to match current NLopt behavior *)
-let var ?(lower=5.0) ?(upper=100.0) ty =
+let var ?(lower = 5.0) ?(upper = 100.0) ty =
   Var (Uuidm.v4_gen Util.random_state (), ty, { lower; upper })
 
 let tacaml x () = Data (App1 (Fun ("tacaml", fun x -> Data.Type.Tacaml x), x))

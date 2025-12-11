@@ -50,7 +50,9 @@ type 'a res = ('a, Error.t) result
 let config x = x.config
 
 let make current_tick bars indicator_config cash print_tick_arg =
-  let config = Config.{ placeholder = true; indicator_config; print_tick_arg } in
+  let config =
+    Config.{ placeholder = true; indicator_config; print_tick_arg }
+  in
   Result.return
     {
       bars;
@@ -119,8 +121,9 @@ let place_order state0 (order : Order.t) =
   (* Add order to state order history *)
   match order.side with
   | Buy ->
-    if state0.cash >=. order_value then
-      let new_state = {
+    if state0.cash >=. order_value then (
+      let new_state =
+        {
           state0 with
           cash = state0.cash -. order_value;
           positions = positions_upd state0;
@@ -129,18 +132,21 @@ let place_order state0 (order : Order.t) =
         }
       in
       if state0.config.print_tick_arg then
-        Eio.traceln "[%d] BUY %s qty=%d price=%f, cash: %f -> %f"
-          tick (Instrument.symbol order.symbol) order.qty order.price state0.cash new_state.cash;
-      Result.return new_state
+        Eio.traceln "[%d] BUY %s qty=%d price=%f, cash: %f -> %f" tick
+          (Instrument.symbol order.symbol)
+          order.qty order.price state0.cash new_state.cash;
+      Result.return new_state)
     else (
-      Eio.traceln "Insufficient cash for buy order (need %f, have %f)" order_value state0.cash;
+      Eio.traceln "Insufficient cash for buy order (need %f, have %f)"
+        order_value state0.cash;
       Result.return state0 (* Error.fatal "Insufficient cash for buy order" *))
   | Sell ->
     let qty_held = qty state0 order.symbol in
-    if qty_held >= order.qty then
+    if qty_held >= order.qty then (
       let positions = positions_upd state0 in
       let new_cash = state0.cash +. order_value in
-      let new_state = {
+      let new_state =
+        {
           state0 with
           cash = new_cash;
           positions;
@@ -149,11 +155,13 @@ let place_order state0 (order : Order.t) =
         }
       in
       if state0.config.print_tick_arg then
-        Eio.traceln "[%d] SELL %s qty=%d price=%f, cash: %f -> %f"
-          tick (Instrument.symbol order.symbol) order.qty order.price state0.cash new_state.cash;
-      Result.return new_state
+        Eio.traceln "[%d] SELL %s qty=%d price=%f, cash: %f -> %f" tick
+          (Instrument.symbol order.symbol)
+          order.qty order.price state0.cash new_state.cash;
+      Result.return new_state)
     else (
-      Eio.traceln "Insufficient shares for sell order (need %d, have %d)" order.qty qty_held;
+      Eio.traceln "Insufficient shares for sell order (need %d, have %d)"
+        order.qty qty_held;
       Error.fatal "Insufficient shares for sell order")
 
 let tick t = t.current_tick

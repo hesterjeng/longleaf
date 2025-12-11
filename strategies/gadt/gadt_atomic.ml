@@ -66,86 +66,98 @@ module Worker = struct
       let result =
         (* Run strategy within its own switch to isolate cancellation context *)
         Eio.Switch.run (fun sw ->
-          try
-            let ( let* ) = Result.( let* ) in
-            let env = Subst.env_of_arr work.params work.vars in
-            let* instantiated_buy =
-              Subst.instantiate env work.strategy.buy_trigger
-            in
-            let* instantiated_sell =
-              Subst.instantiate env work.strategy.sell_trigger
-            in
-            let* instantiated_score =
-              Subst.instantiate env work.strategy.score
-            in
-            let instantiated_strategy =
-              {
-                work.strategy with
-                buy_trigger = instantiated_buy;
-                sell_trigger = instantiated_sell;
-                score = instantiated_score;
-              }
-            in
-            let options_with_sw = { options with Options.switch = sw } in
-            let* res =
-              try
-                Gadt_strategy.run bars options_with_sw mutices instantiated_strategy
-              with
-              | Not_found as exn ->
-                (* Log Not_found with more context *)
-                Eio.traceln "=== NOT_FOUND EXCEPTION ===";
-                Eio.traceln "This likely means Saturn.Htbl.find_exn or similar raised Not_found";
-                Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
-                Eio.traceln "Backtrace recording enabled: %b" (Printexc.backtrace_status ());
-                Eio.traceln "Raw backtrace: %s" (Printexc.raw_backtrace_to_string (Printexc.get_raw_backtrace ()));
-                Eio.traceln "Get backtrace: %s" (Printexc.get_backtrace ());
-                Eio.traceln "===========================";
-                (* Try to get more info by re-raising in a controlled way *)
-                Eio.traceln "Attempting to get backtrace by re-raising...";
-                (try raise exn with Not_found ->
-                  Eio.traceln "Re-raised backtrace: %s" (Printexc.get_backtrace ()));
-                Ok 0.0
-              | e ->
-                (* Log exception details but continue *)
-                Eio.traceln "=== STRATEGY EXECUTION EXCEPTION ===";
-                Eio.traceln "Exception: %s" (Printexc.to_string e);
-                Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
-                Eio.traceln "====================================";
-                Ok 0.0
-            in
-            Eio.traceln "Iteration %d result: %f" work.iteration res;
+            try
+              let ( let* ) = Result.( let* ) in
+              let env = Subst.env_of_arr work.params work.vars in
+              let* instantiated_buy =
+                Subst.instantiate env work.strategy.buy_trigger
+              in
+              let* instantiated_sell =
+                Subst.instantiate env work.strategy.sell_trigger
+              in
+              let* instantiated_score =
+                Subst.instantiate env work.strategy.score
+              in
+              let instantiated_strategy =
+                {
+                  work.strategy with
+                  buy_trigger = instantiated_buy;
+                  sell_trigger = instantiated_sell;
+                  score = instantiated_score;
+                }
+              in
+              let options_with_sw = { options with Options.switch = sw } in
+              let* res =
+                try
+                  Gadt_strategy.run bars options_with_sw mutices
+                    instantiated_strategy
+                with
+                | Not_found as exn ->
+                  (* Log Not_found with more context *)
+                  Eio.traceln "=== NOT_FOUND EXCEPTION ===";
+                  Eio.traceln
+                    "This likely means Saturn.Htbl.find_exn or similar raised \
+                     Not_found";
+                  Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+                  Eio.traceln "Backtrace recording enabled: %b"
+                    (Printexc.backtrace_status ());
+                  Eio.traceln "Raw backtrace: %s"
+                    (Printexc.raw_backtrace_to_string
+                       (Printexc.get_raw_backtrace ()));
+                  Eio.traceln "Get backtrace: %s" (Printexc.get_backtrace ());
+                  Eio.traceln "===========================";
+                  (* Try to get more info by re-raising in a controlled way *)
+                  Eio.traceln "Attempting to get backtrace by re-raising...";
+                  (try raise exn with
+                  | Not_found ->
+                    Eio.traceln "Re-raised backtrace: %s"
+                      (Printexc.get_backtrace ()));
+                  Ok 0.0
+                | e ->
+                  (* Log exception details but continue *)
+                  Eio.traceln "=== STRATEGY EXECUTION EXCEPTION ===";
+                  Eio.traceln "Exception: %s" (Printexc.to_string e);
+                  Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
+                  Eio.traceln "====================================";
+                  Ok 0.0
+              in
+              Eio.traceln "Iteration %d result: %f" work.iteration res;
 
-            (* Compute and store trade statistics *)
-            (try
-              let state = Pmutex.get mutices.state_mutex in
-              let final_cash = State.cash state in
-              let all_orders = State.order_history state in
-              let trade_stats = State.Stats.TradeStats.compute all_orders in
-              let stats_entry = {
-                objective_value = res;
-                final_cash;
-                trade_stats;
-                params = Array.copy work.params;
-              } in
-              ignore (Saturn.Htbl.try_add stats_htbl work.iteration stats_entry);
-              Eio.traceln "Stored stats for iteration %d (cash: %.2f, objective: %.2f)"
-                work.iteration final_cash res
+              (* Compute and store trade statistics *)
+              (try
+                 let state = Pmutex.get mutices.state_mutex in
+                 let final_cash = State.cash state in
+                 let all_orders = State.order_history state in
+                 let trade_stats = State.Stats.TradeStats.compute all_orders in
+                 let stats_entry =
+                   {
+                     objective_value = res;
+                     final_cash;
+                     trade_stats;
+                     params = Array.copy work.params;
+                   }
+                 in
+                 ignore
+                   (Saturn.Htbl.try_add stats_htbl work.iteration stats_entry);
+                 Eio.traceln
+                   "Stored stats for iteration %d (cash: %.2f, objective: %.2f)"
+                   work.iteration final_cash res
+               with
+              | e ->
+                Eio.traceln
+                  "Warning: Failed to compute stats for iteration %d: %s"
+                  work.iteration (Printexc.to_string e));
+
+              Ok (Some res)
             with
             | e ->
-              Eio.traceln "Warning: Failed to compute stats for iteration %d: %s"
-                work.iteration (Printexc.to_string e));
-
-            Ok (Some res)
-          with
-          | e ->
-            (* Catch any other errors during substitution/instantiation *)
-            Eio.traceln "=== INSTANTIATION ERROR ===";
-            Eio.traceln "Exception: %s" (Printexc.to_string e);
-            Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
-            Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
-            Eio.traceln "===========================";
-            Ok (Some 0.0)
-        )
+              (* Catch any other errors during substitution/instantiation *)
+              Eio.traceln "=== INSTANTIATION ERROR ===";
+              Eio.traceln "Exception: %s" (Printexc.to_string e);
+              Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
+              Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+              Eio.traceln "===========================";
+              Ok (Some 0.0))
       in
 
       (* Send result back via Saturn queue and reset indicators *)
@@ -161,7 +173,8 @@ module Worker = struct
     worker_loop ()
 
   (* Objective function that communicates with worker via Saturn queue (works from C) *)
-  let f work_queue stats_htbl strategy vars iteration_counter (l : float array) _grad =
+  let f work_queue stats_htbl strategy vars iteration_counter (l : float array)
+      _grad =
     let iteration = Atomic.fetch_and_add iteration_counter 1 in
     Printf.printf "OBJ FUNC: iteration %d called from Nlopt\n%!" iteration;
 
@@ -222,6 +235,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   (* Create hash table for storing stats per iteration *)
   let module IntHashedType = struct
     type t = int
+
     let equal = Int.equal
     let hash = Hashtbl.hash
   end in
@@ -235,20 +249,16 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   (* Spawn worker in separate domain via executor pool (won't be blocked by Nlopt spin) *)
   Eio.traceln "Starting worker domain via executor pool";
   let _worker_promise =
-    Eio.Executor_pool.submit_fork
-      ~sw:options.switch
-      ~weight:1.0
-      options.executor_pool
-      (fun () ->
+    Eio.Executor_pool.submit_fork ~sw:options.switch ~weight:1.0
+      options.executor_pool (fun () ->
         (* This runs in a separate domain with its own Eio context *)
         Eio_main.run (fun env ->
-          Eio.Switch.run (fun sw ->
-            let options_with_env = { options with Options.eio_env = env; switch = sw } in
-            Printf.printf "Worker domain started\n%!";
-            Worker.top work_queue bars options_with_env mutices
-          )
-        )
-      )
+            Eio.Switch.run (fun sw ->
+                let options_with_env =
+                  { options with Options.eio_env = env; switch = sw }
+                in
+                Printf.printf "Worker domain started\n%!";
+                Worker.top work_queue bars options_with_env mutices)))
   in
   Eio.traceln "Worker spawned in domain";
 
@@ -257,16 +267,19 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   let upper_bounds = Array.map (fun (_, (_, bounds)) -> bounds.upper) vars in
 
   Eio.traceln "--- VARIABLE BOUNDS ---";
-  Array.iteri (fun i (_, (Type.A ty, bounds)) ->
-    let ty_str = match ty with
-      | Type.Int -> "Int"
-      | Type.Float -> "Float"
-      | Type.Bool -> "Bool"
-      | Type.Data -> "Data"
-      | Type.Tacaml -> "Tacaml"
-    in
-    Eio.traceln "  Var %d (%s): [%.2f, %.2f]" i ty_str bounds.lower bounds.upper
-  ) vars;
+  Array.iteri
+    (fun i (_, (Type.A ty, bounds)) ->
+      let ty_str =
+        match ty with
+        | Type.Int -> "Int"
+        | Type.Float -> "Float"
+        | Type.Bool -> "Bool"
+        | Type.Data -> "Data"
+        | Type.Tacaml -> "Tacaml"
+      in
+      Eio.traceln "  Var %d (%s): [%.2f, %.2f]" i ty_str bounds.lower
+        bounds.upper)
+    vars;
 
   let opt = Nlopt.create Nlopt.isres len in
   (* Set per-variable bounds (extracted from GADT Var nodes) *)
@@ -279,9 +292,10 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
     (Worker.f work_queue stats_htbl strategy vars iteration_counter);
   (* Generate random start point within each variable's bounds *)
   let start =
-    Array.map (fun (_, (_, bounds)) ->
-      Float.random_range bounds.lower bounds.upper Util.random_state
-    ) vars
+    Array.map
+      (fun (_, (_, bounds)) ->
+        Float.random_range bounds.lower bounds.upper Util.random_state)
+      vars
   in
   Eio.traceln "Optimization start %a" (Array.pp Float.pp) start;
   let res, xopt, fopt = Nlopt.optimize opt start in
@@ -300,20 +314,18 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   let instantiated_sell_result = Subst.instantiate env strategy.sell_trigger in
 
   (match instantiated_buy_result with
-   | Ok buy_expr ->
-     Eio.traceln "Winning Buy Trigger:";
-     Eio.traceln "  %s" (Gadt.to_string buy_expr)
-   | Error e ->
-     Eio.traceln "Error instantiating buy trigger: %a" Error.pp e);
+  | Ok buy_expr ->
+    Eio.traceln "Winning Buy Trigger:";
+    Eio.traceln "  %s" (Gadt.to_string buy_expr)
+  | Error e -> Eio.traceln "Error instantiating buy trigger: %a" Error.pp e);
 
   Eio.traceln "";
 
   (match instantiated_sell_result with
-   | Ok sell_expr ->
-     Eio.traceln "Winning Sell Trigger:";
-     Eio.traceln "  %s" (Gadt.to_string sell_expr)
-   | Error e ->
-     Eio.traceln "Error instantiating sell trigger: %a" Error.pp e);
+  | Ok sell_expr ->
+    Eio.traceln "Winning Sell Trigger:";
+    Eio.traceln "  %s" (Gadt.to_string sell_expr)
+  | Error e -> Eio.traceln "Error instantiating sell trigger: %a" Error.pp e);
 
   Eio.traceln "";
   Eio.traceln "Raw parameters: %a" (Array.pp Float.pp) xopt;
@@ -325,19 +337,19 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   let best_stats =
     Saturn.Htbl.to_seq stats_htbl
     |> Seq.fold_left
-      (fun acc (_iter, entry) ->
-        match acc with
-        | None -> Some entry
-        | Some best ->
-          if Float.compare entry.objective_value best.objective_value > 0 then
-            Some entry
-          else
-            Some best)
-      None
+         (fun acc (_iter, entry) ->
+           match acc with
+           | None -> Some entry
+           | Some best ->
+             if Float.compare entry.objective_value best.objective_value > 0
+             then Some entry
+             else Some best)
+         None
   in
 
   (match best_stats with
-  | Some { trade_stats = Some stats; objective_value; final_cash; params = _ } ->
+  | Some { trade_stats = Some stats; objective_value; final_cash; params = _ }
+    ->
     Eio.traceln "";
     Eio.traceln "=== BEST TRADE STATISTICS ===";
     Eio.traceln "Final Cash: $%.2f" final_cash;
@@ -349,14 +361,12 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
     (* Display edge analysis *)
     if State.Stats.TradeStats.has_edge stats then
       Eio.traceln "✓ Strategy has a statistically significant edge!"
-    else
-      Eio.traceln "✗ Strategy does not have a statistically significant edge";
+    else Eio.traceln "✗ Strategy does not have a statistically significant edge";
     Eio.traceln ""
   | Some { trade_stats = None; final_cash; objective_value; params = _ } ->
     Eio.traceln "Best iteration had no completed trades";
     Eio.traceln "Final Cash: $%.2f | Objective: %.6f" final_cash objective_value
-  | None ->
-    Eio.traceln "No statistics available (no iterations completed)");
+  | None -> Eio.traceln "No statistics available (no iterations completed)");
 
   Eio.traceln "============================================";
   Eio.traceln "";

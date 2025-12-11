@@ -51,8 +51,8 @@ val get : t -> Type.t -> int -> float
 (** [get data x i] returns the value of the data field [x] at index [i]. *)
 
 val get_unsafe : t -> Type.t -> int -> float
-(** [get_unsafe data x i] returns the raw value without NaN checking.
-    Use only for rendering/display where NaN can be handled gracefully. *)
+(** [get_unsafe data x i] returns the raw value without NaN checking. Use only
+    for rendering/display where NaN can be handled gracefully. *)
 
 (** {1 Column Operations} *)
 
@@ -163,10 +163,10 @@ val make : int -> t
 (** [make size] creates a new data matrix with the given size. *)
 
 val make_for_download : int -> t
-(** [make_for_download size] creates a new data matrix optimized for downloading.
-    Uses minimal row allocation (10 float, 2 int) since only base OHLCV types are
-    stored during download. Indicators are computed later when data is loaded for
-    backtesting/trading. *)
+(** [make_for_download size] creates a new data matrix optimized for
+    downloading. Uses minimal row allocation (10 float, 2 int) since only base
+    OHLCV types are stored during download. Indicators are computed later when
+    data is loaded for backtesting/trading. *)
 
 val copy : t -> t
 (** [copy x] returns a copy of the data matrix [x]. *)
@@ -178,7 +178,8 @@ val grow : t -> (t, Error.t) result
 val forward_fill_next_tick : t -> tick:int -> unit
 (** [forward_fill_next_tick x ~tick] copies price data from [tick] to [tick+1].
     Used for live trading to ensure valid data when no trade occurs. Will NOT
-    overwrite if [tick+1] already has fresh data (different timestamp from [tick]). *)
+    overwrite if [tick+1] already has fresh data (different timestamp from
+    [tick]). *)
 
 val size : t -> int
 
@@ -212,13 +213,15 @@ val yojson_of_t : t -> Yojson.Safe.t
 
 (** {1 Validation} *)
 
-val validate_no_nan : t -> start_tick:int -> end_tick:int -> (unit, Error.t) result
-(** [validate_no_nan data ~start_tick ~end_tick] validates that no essential price
-    data types (Time, Last, Open, High, Low, Close, Volume) contain NaN values
-    in the specified tick range. Returns an error if any NaN values are found. *)
+val validate_no_nan :
+  t -> start_tick:int -> end_tick:int -> (unit, Error.t) result
+(** [validate_no_nan data ~start_tick ~end_tick] validates that no essential
+    price data types (Time, Last, Open, High, Low, Close, Volume) contain NaN
+    values in the specified tick range. Returns an error if any NaN values are
+    found. *)
 
 val reset_indicators : t -> unit
-(** [reset_indicators x] resets the indicators_computed flag, forcing indicators to
-    be recomputed on next use. Mutates in place. Use between optimization iterations
-    to prevent state contamination. Old indicator values will be overwritten during
-    recomputation. *)
+(** [reset_indicators x] resets the indicators_computed flag, forcing indicators
+    to be recomputed on next use. Mutates in place. Use between optimization
+    iterations to prevent state contamination. Old indicator values will be
+    overwritten during recomputation. *)

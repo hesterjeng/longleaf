@@ -15,10 +15,7 @@ type const = VFloat of float | VInt of int
 (* type env = (Uuidm.t, _ const) List.Assoc.t *)
 
 (* Bounds for optimizer variables *)
-type bounds = {
-  lower: float;
-  upper: float;
-}
+type bounds = { lower : float; upper : float }
 
 module Type = struct
   type _ t =
@@ -35,13 +32,18 @@ end
 
 type context = {
   instrument : Instrument.t;
-  data : Data.t;  (* Convenience: data for the current instrument *)
-  bars : Bars.t;  (* All symbols' data - enables pair trading and reliable timestamps *)
+  data : Data.t; (* Convenience: data for the current instrument *)
+  bars : Bars.t;
+      (* All symbols' data - enables pair trading and reliable timestamps *)
   index : int;
-  orders : Order.t list;  (* Order history for this instrument - for position risk management *)
-  tick_time : float;  (* Cached timestamp for current tick - computed once instead of per-symbol *)
-  is_market_open : bool;  (* Cached market open status - computed once per tick instead of per-symbol *)
-  minutes_until_close : float;  (* Cached minutes until close - computed once per tick instead of per-symbol *)
+  orders : Order.t list;
+      (* Order history for this instrument - for position risk management *)
+  tick_time : float;
+      (* Cached timestamp for current tick - computed once instead of per-symbol *)
+  is_market_open : bool;
+      (* Cached market open status - computed once per tick instead of per-symbol *)
+  minutes_until_close : float;
+      (* Cached minutes until close - computed once per tick instead of per-symbol *)
 }
 
 (* GADT AST with phantom types for compile-time type safety *)
@@ -55,14 +57,14 @@ type _ t =
   | App3 : ('a -> 'b -> 'c -> 'd) t * 'a t * 'b t * 'c t -> 'd t
   | Fun : string * ('a -> 'b) -> ('a -> 'b) t
   | ContextModifier : 'a t * (context -> 'a -> context) * 'b t -> 'b t
-  | Var : Uuidm.t * 'a Type.t * bounds -> 'a t  (* Added bounds field *)
+  | Var : Uuidm.t * 'a Type.t * bounds -> 'a t (* Added bounds field *)
   | Symbol : unit -> Instrument.t t
   (* Position risk management nodes *)
   | EntryPrice : float t
   | EntryTick : int t
   | TicksHeld : int t
   | HasPosition : bool t
-  | TickTime : float t  (* Current tick timestamp as Unix time *)
+  | TickTime : float t (* Current tick timestamp as Unix time *)
 
 let data x = Data (Const (x, Data))
 let close = data Data.Type.Close
@@ -75,12 +77,25 @@ let low = data @@ Data.Type.Low
 
 (* Helper: Find entry (Buy) order from the order list *)
 let find_entry_order orders =
-  List.find_opt (fun (order : Order.t) ->
-    match order.side with Buy -> true | Sell -> false) orders
+  List.find_opt
+    (fun (order : Order.t) ->
+      match order.side with
+      | Buy -> true
+      | Sell -> false)
+    orders
 
 (* Type-safe evaluation *)
 let rec eval : type a. context -> a t -> (a, Error.t) result =
- fun ({ instrument; data; bars; index; orders; tick_time = _; is_market_open = _; minutes_until_close = _ } as context) t ->
+ fun ({
+        instrument;
+        data;
+        bars;
+        index;
+        orders;
+        tick_time = _;
+        is_market_open = _;
+        minutes_until_close = _;
+      } as context) t ->
   let ( let* ) = Result.( let* ) in
   (* Bounds checking *)
   if index < 0 || index >= Data.length data then
@@ -100,7 +115,8 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
       (* Optimize specific time functions to use cached values *)
       (match f with
       | Fun ("is_open", _) ->
-        let* _timestamp = eval context x in  (* Evaluate but ignore - we use cached value *)
+        let* _timestamp = eval context x in
+        (* Evaluate but ignore - we use cached value *)
         (* Safe: is_open always returns bool, and this pattern only matches is_open *)
         Result.return (Obj.magic context.is_market_open : a)
       | _ ->
@@ -112,13 +128,14 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
       (* Optimize specific time functions to use cached values *)
       (match f with
       | Fun ("is_close", _) ->
-        let* _timestamp = eval context x in  (* Evaluate but ignore - we use cached value *)
+        let* _timestamp = eval context x in
+        (* Evaluate but ignore - we use cached value *)
         let* threshold = eval context y in
         (* Safe: is_close takes float threshold and returns bool *)
         let threshold_float = (Obj.magic threshold : float) in
         let res =
-          context.minutes_until_close >=. 0.0 &&
-          context.minutes_until_close <=. threshold_float
+          context.minutes_until_close >=. 0.0
+          && context.minutes_until_close <=. threshold_float
         in
         (* Safe: is_close always returns bool, and this pattern only matches is_close *)
         Result.return (Obj.magic res : a)
@@ -152,9 +169,9 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
     | TicksHeld ->
       (match find_entry_order orders with
       | Some order -> Result.return (index - order.tick)
-      | None -> Result.return 0)  (* No position = 0 ticks held *)
-    | HasPosition ->
-      Result.return (not (List.is_empty orders))
+      | None -> Result.return 0)
+      (* No position = 0 ticks held *)
+    | HasPosition -> Result.return (not (List.is_empty orders))
     | TickTime ->
       (* Use pre-computed cached timestamp from context - avoids expensive recomputation *)
       Result.return context.tick_time
@@ -171,7 +188,8 @@ module Subst = struct
       get id map |> function
       | Some x -> Ok x
       | None ->
-        Eio.traceln "BINDINGS GET FAILED: Variable UUID %a not found in map" Uuidm.pp id;
+        Eio.traceln "BINDINGS GET FAILED: Variable UUID %a not found in map"
+          Uuidm.pp id;
         Eio.traceln "Map contains %d bindings" (cardinal map);
         Error.fatal (Format.asprintf "No binding for variable %a" Uuidm.pp id)
   end
@@ -304,7 +322,8 @@ let rec pp : type a. Format.formatter -> a t -> unit =
       | Type.Float -> "Float Var"
       | Type.Int -> "Int Var"
     in
-    Format.fprintf fmt "Var(%s:%s[%.1f,%.1f])" (Uuidm.to_string id) ty_str bounds.lower bounds.upper
+    Format.fprintf fmt "Var(%s:%s[%.1f,%.1f])" (Uuidm.to_string id) ty_str
+      bounds.lower bounds.upper
   | Data e -> Format.fprintf fmt "(@[%a@])" pp e
   (* | Indicator e -> Format.fprintf fmt "Indicator(@[%a@])" pp e *)
   | App1 (Fun ("tacaml", _), x) -> Format.fprintf fmt "@[%a@]" pp x
@@ -314,8 +333,7 @@ let rec pp : type a. Format.formatter -> a t -> unit =
     Format.fprintf fmt "minutes_since_open(@[%a@])" pp x
   | App1 (Fun ("minutes_until_close", _), x) ->
     Format.fprintf fmt "minutes_until_close(@[%a@])" pp x
-  | App1 (Fun ("is_open", _), x) ->
-    Format.fprintf fmt "is_open(@[%a@])" pp x
+  | App1 (Fun ("is_open", _), x) -> Format.fprintf fmt "is_open(@[%a@])" pp x
   | App2 (Fun ("is_close", _), x, y) ->
     Format.fprintf fmt "is_close(@[%a,@ %a@])" pp x pp y
   | App2 (Fun ("is_near_open", _), x, y) ->
@@ -358,7 +376,8 @@ let debug_variables : type a. a t -> unit =
         | Type.Data -> "Data"
         | Type.Tacaml -> "Tacaml"
       in
-      Eio.traceln "  [%d] %s: %s [%.1f, %.1f]" i (Uuidm.to_string id) ty_str bounds.lower bounds.upper)
+      Eio.traceln "  [%d] %s: %s [%.1f, %.1f]" i (Uuidm.to_string id) ty_str
+        bounds.lower bounds.upper)
     vars;
   Eio.traceln "================================"
 
@@ -441,8 +460,7 @@ let minutes_until_close timestamp =
   App1 (Fun ("minutes_until_close", Time.minutes_until_close), timestamp)
 
 (* Check if currently within market hours (9:30 AM - 4:00 PM ET) *)
-let is_open timestamp =
-  App1 (Fun ("is_open", Time.is_open), timestamp)
+let is_open timestamp = App1 (Fun ("is_open", Time.is_open), timestamp)
 
 (* Check if within threshold minutes of market close *)
 (* Example: is_close(tick_time(), 30.0) returns true if less than 30 mins until close *)

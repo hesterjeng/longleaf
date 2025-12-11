@@ -1,10 +1,6 @@
 (executables
- (names longleaf longleaf_downloader
- longleaf_server)
- (public_names
-  longleaf
-  longleaf_downloader
-  longleaf_server)
+ (names longleaf longleaf_downloader longleaf_server)
+ (public_names longleaf longleaf_downloader longleaf_server)
  (package longleaf-strategies)
  (libraries
   fmt

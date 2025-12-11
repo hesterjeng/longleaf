@@ -39,6 +39,7 @@ module Index = struct
   (* Use Saturn for thread-safe index table *)
   module TypeHashedType = struct
     type t = Type.t
+
     let equal = Type.equal
     let hash = Type.hash
   end
@@ -46,17 +47,14 @@ module Index = struct
   type table = (Type.t, int) Saturn.Htbl.t
   type t = { mutable next_float : int; mutable next_int : int; tbl : table }
 
-  let create_table () = Saturn.Htbl.create ~hashed_type:(module TypeHashedType) ()
+  let create_table () =
+    Saturn.Htbl.create ~hashed_type:(module TypeHashedType) ()
 
   let copy x =
     let new_tbl = create_table () in
     Saturn.Htbl.to_seq x.tbl
     |> Seq.iter (fun (k, v) -> ignore (Saturn.Htbl.try_add new_tbl k v));
-    {
-      next_float = x.next_float;
-      next_int = x.next_int;
-      tbl = new_tbl;
-    }
+    { next_float = x.next_float; next_int = x.next_int; tbl = new_tbl }
 
   (* Given a data type, look up the row of the correct matrix to find it. Can return a row *)
   (* of either the int matrix or the float matrix. *)
@@ -76,7 +74,10 @@ module Index = struct
       in
       (* Add to table - should always succeed since we have no concurrent access *)
       if not (Saturn.Htbl.try_add x.tbl ty next) then
-        failwith (Format.asprintf "CRITICAL: try_add failed for %a - this should never happen!" Type.pp ty);
+        failwith
+          (Format.asprintf
+             "CRITICAL: try_add failed for %a - this should never happen!"
+             Type.pp ty);
       next
     | Some i -> i
 
@@ -109,8 +110,8 @@ let set_ source row i value =
 
 exception NaNInData of int * Type.t
 
-(** [get_unsafe] returns the raw value without NaN checking.
-    Use only for rendering/display where NaN can be handled gracefully. *)
+(** [get_unsafe] returns the raw value without NaN checking. Use only for
+    rendering/display where NaN can be handled gracefully. *)
 let get_unsafe (data : t) (ty : Type.t) i =
   assert (i >= 0);
   assert (i < data.size);
@@ -146,7 +147,8 @@ let get (data : t) (ty : Type.t) i =
     Eio.traceln "  Tick: %d (data.size=%d)" i data.size;
     Eio.traceln "  Data Type: %a" Type.pp ty;
     Eio.traceln "  Timestamp: %a" Ptime.pp time;
-    Eio.traceln "  Note: Check which symbol this data belongs to in caller stack trace";
+    Eio.traceln
+      "  Note: Check which symbol this data belongs to in caller stack trace";
     Eio.traceln "========================";
     raise (NaNInData (i, ty))
   | false -> res
@@ -344,9 +346,10 @@ let grow_ (x : t) =
   let old_data_rows = Array2.dim1 x.data in
   let old_int_data_rows = Array2.dim1 x.int_data in
   (* Get the Time row index so we can initialize it to 0.0 instead of NaN *)
-  let time_row = match Saturn.Htbl.find_opt x.index.tbl Type.Time with
+  let time_row =
+    match Saturn.Htbl.find_opt x.index.tbl Type.Time with
     | Some r -> r
-    | None -> -1  (* Time not in index yet *)
+    | None -> -1 (* Time not in index yet *)
   in
   let new_data =
     Array2.init Bigarray.float64 Bigarray.c_layout old_data_rows new_size
@@ -371,24 +374,36 @@ let grow_ (x : t) =
   done;
   (* Forward-fill: copy last old slot to first new slot for PRICE DATA ONLY *)
   (* Indicators will be recomputed, so don't forward-fill them *)
-  if x.size > 0 then begin
-    let last_old_idx = x.size - 1 in
-    let first_new_idx = x.size in
-    (* Only forward-fill raw market data types, not computed indicators *)
-    let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
-                            Type.High; Type.Low; Type.Close; Type.Volume] in
-    List.iter (fun data_type ->
-      (* Check if this data type exists in the index *)
-      match Saturn.Htbl.find_opt x.index.tbl data_type with
-      | Some row ->
-        (* Data type exists - forward-fill it *)
-        if Type.is_int_ty data_type then
-          Array2.set new_int_data row first_new_idx (Array2.get x.int_data row last_old_idx)
-        else
-          Array2.set new_data row first_new_idx (Array2.get x.data row last_old_idx)
-      | None -> ()  (* Data type doesn't exist yet - skip *)
-    ) price_data_types
-  end;
+  (if x.size > 0 then
+     let last_old_idx = x.size - 1 in
+     let first_new_idx = x.size in
+     (* Only forward-fill raw market data types, not computed indicators *)
+     let price_data_types =
+       [
+         Type.Index;
+         Type.Time;
+         Type.Last;
+         Type.Open;
+         Type.High;
+         Type.Low;
+         Type.Close;
+         Type.Volume;
+       ]
+     in
+     List.iter
+       (fun data_type ->
+         (* Check if this data type exists in the index *)
+         match Saturn.Htbl.find_opt x.index.tbl data_type with
+         | Some row ->
+           (* Data type exists - forward-fill it *)
+           if Type.is_int_ty data_type then
+             Array2.set new_int_data row first_new_idx
+               (Array2.get x.int_data row last_old_idx)
+           else
+             Array2.set new_data row first_new_idx
+               (Array2.get x.data row last_old_idx)
+         | None -> () (* Data type doesn't exist yet - skip *))
+       price_data_types);
   {
     data = new_data;
     int_data = new_int_data;
@@ -408,8 +423,15 @@ let grow x =
 let reset_indicators (x : t) =
   (* Price data types that should be preserved *)
   let is_price_type = function
-    | Type.Index | Type.Time | Type.Last | Type.Open
-    | Type.High | Type.Low | Type.Close | Type.Volume -> true
+    | Type.Index
+    | Type.Time
+    | Type.Last
+    | Type.Open
+    | Type.High
+    | Type.Low
+    | Type.Close
+    | Type.Volume ->
+      true
     | _ -> false
   in
 
@@ -419,19 +441,19 @@ let reset_indicators (x : t) =
 
   Saturn.Htbl.to_seq x.index.tbl
   |> Seq.iter (fun (ty, row) ->
-      if is_price_type ty then
-        max_price_row := max !max_price_row row
-      else
-        to_remove := ty :: !to_remove
-    );
+         if is_price_type ty then max_price_row := max !max_price_row row
+         else to_remove := ty :: !to_remove);
 
   (* Remove indicator entries *)
-  List.iter (fun ty -> ignore (Saturn.Htbl.try_remove x.index.tbl ty)) !to_remove;
+  List.iter
+    (fun ty -> ignore (Saturn.Htbl.try_remove x.index.tbl ty))
+    !to_remove;
 
   (* Reset next_float to just after the last price data row *)
   x.index.next_float <- !max_price_row + 1;
-  x.index.next_int <- 0;  (* Reset int counter *)
+  x.index.next_int <- 0;
 
+  (* Reset int counter *)
   x.indicators_computed <- false
 
 (* Forward-fill: copy price data from tick to tick+1 *)
@@ -439,19 +461,31 @@ let reset_indicators (x : t) =
 let forward_fill_next_tick (x : t) ~tick =
   let source_idx = tick in
   let dest_idx = tick + 1 in
-  if source_idx >= 0 && source_idx < x.size && dest_idx >= 0 && dest_idx < x.size then begin
-    let price_data_types = [Type.Index; Type.Time; Type.Last; Type.Open;
-                            Type.High; Type.Low; Type.Close; Type.Volume] in
-    List.iter (fun data_type ->
-      match Saturn.Htbl.find_opt x.index.tbl data_type with
-      | Some row ->
-        if Type.is_int_ty data_type then
-          Array2.set x.int_data row dest_idx (Array2.get x.int_data row source_idx)
-        else
-          Array2.set x.data row dest_idx (Array2.get x.data row source_idx)
-      | None -> ()  (* Type not in index yet, skip *)
-    ) price_data_types
-  end
+  if
+    source_idx >= 0 && source_idx < x.size && dest_idx >= 0 && dest_idx < x.size
+  then
+    let price_data_types =
+      [
+        Type.Index;
+        Type.Time;
+        Type.Last;
+        Type.Open;
+        Type.High;
+        Type.Low;
+        Type.Close;
+        Type.Volume;
+      ]
+    in
+    List.iter
+      (fun data_type ->
+        match Saturn.Htbl.find_opt x.index.tbl data_type with
+        | Some row ->
+          if Type.is_int_ty data_type then
+            Array2.set x.int_data row dest_idx
+              (Array2.get x.int_data row source_idx)
+          else Array2.set x.data row dest_idx (Array2.get x.data row source_idx)
+        | None -> () (* Type not in index yet, skip *))
+      price_data_types
 
 let set_item (x : t) (i : int) (item : Item.t) =
   try
@@ -592,24 +626,36 @@ let yojson_of_t (x : t) : Yojson.Safe.t =
 let validate_no_nan (data : t) ~start_tick ~end_tick =
   let ( let* ) = Result.( let* ) in
   (* Essential data types that must always be present *)
-  let essential_types = [Type.Index; Type.Time; Type.Last; Type.Open;
-                         Type.High; Type.Low; Type.Close; Type.Volume] in
+  let essential_types =
+    [
+      Type.Index;
+      Type.Time;
+      Type.Last;
+      Type.Open;
+      Type.High;
+      Type.Low;
+      Type.Close;
+      Type.Volume;
+    ]
+  in
 
   (* First check: Ensure ALL essential types exist in the index table *)
   let* () =
-    List.fold_left (fun acc data_type ->
-      let* () = acc in
-      match Saturn.Htbl.find_opt data.index.tbl data_type with
-      | None ->
-        (* CRITICAL ERROR: Essential data type completely missing from this symbol *)
-        Error.fatal @@
-        Format.asprintf
-          "CRITICAL: Symbol has NO data for essential type %a!\n\
-           This symbol has never received any data during download.\n\
-           Either the download failed for this symbol, or the symbol doesn't exist."
-          Type.pp data_type
-      | Some _ -> Result.return ()
-    ) (Result.return ()) essential_types
+    List.fold_left
+      (fun acc data_type ->
+        let* () = acc in
+        match Saturn.Htbl.find_opt data.index.tbl data_type with
+        | None ->
+          (* CRITICAL ERROR: Essential data type completely missing from this symbol *)
+          Error.fatal
+          @@ Format.asprintf
+               "CRITICAL: Symbol has NO data for essential type %a!\n\
+                This symbol has never received any data during download.\n\
+                Either the download failed for this symbol, or the symbol \
+                doesn't exist."
+               Type.pp data_type
+        | Some _ -> Result.return ())
+      (Result.return ()) essential_types
   in
 
   (* Second check: Validate no NaN values in the data range *)
@@ -617,26 +663,26 @@ let validate_no_nan (data : t) ~start_tick ~end_tick =
     if tick > end_tick then Result.return ()
     else
       let* () =
-        List.fold_left (fun acc data_type ->
-          let* () = acc in
-          match Saturn.Htbl.find_opt data.index.tbl data_type with
-          | None ->
-            (* Should never happen - we checked above *)
-            Error.fatal "Unexpected: data type disappeared from index"
-          | Some row ->
-            (* Data type exists - check if it's NaN *)
-            let value =
-              if Type.is_int_ty data_type then
-                Int32.to_float (get_ data.int_data row tick)
-              else
-                get_ data.data row tick
-            in
-            if Float.is_nan value then
-              Error.fatal @@
-              Format.asprintf "NaN detected at tick %d for data type %a" tick Type.pp data_type
-            else
-              Result.return ()
-        ) (Result.return ()) essential_types
+        List.fold_left
+          (fun acc data_type ->
+            let* () = acc in
+            match Saturn.Htbl.find_opt data.index.tbl data_type with
+            | None ->
+              (* Should never happen - we checked above *)
+              Error.fatal "Unexpected: data type disappeared from index"
+            | Some row ->
+              (* Data type exists - check if it's NaN *)
+              let value =
+                if Type.is_int_ty data_type then
+                  Int32.to_float (get_ data.int_data row tick)
+                else get_ data.data row tick
+              in
+              if Float.is_nan value then
+                Error.fatal
+                @@ Format.asprintf "NaN detected at tick %d for data type %a"
+                     tick Type.pp data_type
+              else Result.return ())
+          (Result.return ()) essential_types
       in
       check_tick (tick + 1)
   in

@@ -69,16 +69,14 @@ module Make (Config : CONFIG) = struct
   let get path =
     Tools.get_cohttp ~client:Config.client ~headers ~endpoint:(make_url path)
 
-  let test () =
-    get "/api/test"
+  let test () = get "/api/test"
 
   let latest bars tickers tick =
     let ( let* ) = Result.( let* ) in
     let symbols = List.map Instrument.symbol tickers |> String.concat "," in
     let endpoint =
-      Uri.of_string (make_url "/iex/")
-      |> fun u -> Uri.add_query_params' u [ ("tickers", symbols) ]
-      |> Uri.to_string
+      Uri.of_string (make_url "/iex/") |> fun u ->
+      Uri.add_query_params' u [ ("tickers", symbols) ] |> Uri.to_string
     in
     (* Eio.traceln "@[endpoint: %s@]@." endpoint; *)
     let* resp = Tools.get_cohttp ~client:Config.client ~headers ~endpoint in

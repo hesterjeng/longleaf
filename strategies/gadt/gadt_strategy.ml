@@ -9,7 +9,7 @@ type t = {
   name : string;
   buy_trigger : bool Gadt.t;
   sell_trigger : bool Gadt.t;
-  score : float Gadt.t;  (* Ranking: higher score = better opportunity *)
+  score : float Gadt.t; (* Ranking: higher score = better opportunity *)
   max_positions : int;
   position_size : float;
 }
@@ -20,7 +20,8 @@ let buy_disj y (x : t) = { x with buy_trigger = Gadt.(x.buy_trigger ||. y) }
 let sell_disj y (x : t) = { x with sell_trigger = Gadt.(x.sell_trigger ||. y) }
 
 (* Collect all variables from a strategy (buy, sell, score) with deduplication *)
-let collect_all_variables (strategy : t) : (Uuidm.t * (Gadt.Type.shadow * Gadt.bounds)) list =
+let collect_all_variables (strategy : t) :
+    (Uuidm.t * (Gadt.Type.shadow * Gadt.bounds)) list =
   Gadt.Subst.collect_variables strategy.buy_trigger
   @ Gadt.Subst.collect_variables strategy.sell_trigger
   @ Gadt.Subst.collect_variables strategy.score
@@ -33,7 +34,8 @@ let random () =
   in
   let max_positions = 4 in
   let position_size = 0.25 in
-  let score = Gadt.Const (1.0, Float) in  (* Default score: all signals equal *)
+  let score = Gadt.Const (1.0, Float) in
+  (* Default score: all signals equal *)
   { name; buy_trigger; sell_trigger; score; max_positions; position_size }
 
 module CollectIndicators : sig
@@ -147,7 +149,16 @@ end = struct
     let orders = State.Positions.get positions symbol in
     (* Use pre-computed time info passed from order level - avoids redundant computation *)
     let context : Gadt.context =
-      { instrument = symbol; data; bars; index = current_index; orders; tick_time; is_market_open; minutes_until_close }
+      {
+        instrument = symbol;
+        data;
+        bars;
+        index = current_index;
+        orders;
+        tick_time;
+        is_market_open;
+        minutes_until_close;
+      }
     in
     match Gadt.eval context strategy_expr with
     | Ok should_signal -> Result.return @@ Signal.make symbol should_signal
@@ -164,7 +175,16 @@ end = struct
     let orders = State.Positions.get positions symbol in
     (* Use pre-computed time info passed from order level - avoids redundant computation *)
     let context : Gadt.context =
-      { instrument = symbol; data; bars; index = current_index; orders; tick_time; is_market_open; minutes_until_close }
+      {
+        instrument = symbol;
+        data;
+        bars;
+        index = current_index;
+        orders;
+        tick_time;
+        is_market_open;
+        minutes_until_close;
+      }
     in
     Gadt.eval context score_expr
 
@@ -177,7 +197,8 @@ end = struct
     let get_time_info state =
       let current_tick = State.tick state in
       match !time_cache with
-      | Some (cached_tick, tick_time, is_open, mins_until_close) when cached_tick = current_tick ->
+      | Some (cached_tick, tick_time, is_open, mins_until_close)
+        when cached_tick = current_tick ->
         (* Cache hit - reuse values from same tick *)
         Result.return (tick_time, is_open, mins_until_close)
       | _ ->
@@ -187,21 +208,30 @@ end = struct
         let* tick_time_ptime = Longleaf_bars.timestamp bars current_tick in
         let tick_time = Ptime.to_float_s tick_time_ptime in
         let is_market_open = Longleaf_core.Time.is_open tick_time in
-        let minutes_until_close = Longleaf_core.Time.minutes_until_close tick_time in
-        time_cache := Some (current_tick, tick_time, is_market_open, minutes_until_close);
+        let minutes_until_close =
+          Longleaf_core.Time.minutes_until_close tick_time
+        in
+        time_cache :=
+          Some (current_tick, tick_time, is_market_open, minutes_until_close);
         Result.return (tick_time, is_market_open, minutes_until_close)
     in
 
     let module Buy_input : Longleaf_template.Buy_trigger.INPUT = struct
       let pass state symbol =
         let ( let* ) = Result.( let* ) in
-        let* (tick_time, is_market_open, minutes_until_close) = get_time_info state in
-        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close buy_expr state symbol
+        let* tick_time, is_market_open, minutes_until_close =
+          get_time_info state
+        in
+        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
+          buy_expr state symbol
 
       let score state symbol =
         let ( let* ) = Result.( let* ) in
-        let* (tick_time, is_market_open, minutes_until_close) = get_time_info state in
-        eval_score ~tick_time ~is_market_open ~minutes_until_close score_expr state symbol
+        let* tick_time, is_market_open, minutes_until_close =
+          get_time_info state
+        in
+        eval_score ~tick_time ~is_market_open ~minutes_until_close score_expr
+          state symbol
 
       let num_positions = max_positions
       let position_size = position_size
@@ -216,7 +246,8 @@ end = struct
     let get_time_info state =
       let current_tick = State.tick state in
       match !time_cache with
-      | Some (cached_tick, tick_time, is_open, mins_until_close) when cached_tick = current_tick ->
+      | Some (cached_tick, tick_time, is_open, mins_until_close)
+        when cached_tick = current_tick ->
         (* Cache hit - reuse values from same tick *)
         Result.return (tick_time, is_open, mins_until_close)
       | _ ->
@@ -226,16 +257,22 @@ end = struct
         let* tick_time_ptime = Longleaf_bars.timestamp bars current_tick in
         let tick_time = Ptime.to_float_s tick_time_ptime in
         let is_market_open = Longleaf_core.Time.is_open tick_time in
-        let minutes_until_close = Longleaf_core.Time.minutes_until_close tick_time in
-        time_cache := Some (current_tick, tick_time, is_market_open, minutes_until_close);
+        let minutes_until_close =
+          Longleaf_core.Time.minutes_until_close tick_time
+        in
+        time_cache :=
+          Some (current_tick, tick_time, is_market_open, minutes_until_close);
         Result.return (tick_time, is_market_open, minutes_until_close)
     in
 
     let module Sell_impl : Template.Sell_trigger.S = struct
       let make state symbol =
         let ( let* ) = Result.( let* ) in
-        let* (tick_time, is_market_open, minutes_until_close) = get_time_info state in
-        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close sell_expr state symbol
+        let* tick_time, is_market_open, minutes_until_close =
+          get_time_info state
+        in
+        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
+          sell_expr state symbol
     end in
     (module Sell_impl : Template.Sell_trigger.S)
 
@@ -269,29 +306,29 @@ open Gadt
 (* Stop-loss: sell if current price is below entry price by stop_loss_pct (as decimal) *)
 let stop_loss stop_loss_pct : bool Gadt.t =
   (* current_price < entry_price * (1 - stop_loss) *)
-  let multiplier = Float.((-) 1.0 stop_loss_pct) in
-  last <. (EntryPrice *. Const (multiplier, Float))
+  let multiplier = Float.(1.0 - stop_loss_pct) in
+  last <. EntryPrice *. Const (multiplier, Float)
 
 (* Profit target: sell if current price is above entry price by profit_target_pct (as decimal) *)
 let profit_target profit_target_pct : bool Gadt.t =
   (* current_price > entry_price * (1 + profit_target) *)
-  let multiplier = Float.((+) 1.0 profit_target_pct) in
-  last >. (EntryPrice *. Const (multiplier, Float))
+  let multiplier = Float.(1.0 + profit_target_pct) in
+  last >. EntryPrice *. Const (multiplier, Float)
 
 (* Max holding time: sell if held for more than max_ticks *)
 let max_holding_time max_ticks : bool Gadt.t =
   (* Need to compare TicksHeld (int Gadt.t) with max_ticks - create custom comparison *)
   let max_ticks_expr = Const (max_ticks, Int) in
   (* Create a Fun that compares the two int values *)
-  App2 (Fun (">", (>)), TicksHeld, max_ticks_expr)
+  App2 (Fun (">", ( > )), TicksHeld, max_ticks_expr)
 
 (* Intraday trading helpers - avoid overnight positions and closing volatility *)
 
 (* Safe to enter: NOT within close_buffer minutes of market close
    Default 10 minutes avoids closing auction volatility *)
-let safe_to_enter ?(close_buffer=10.0) () : bool Gadt.t =
+let safe_to_enter ?(close_buffer = 10.0) () : bool Gadt.t =
   App1 (Fun ("not", not), is_close TickTime (Const (close_buffer, Float)))
 
 (* Force exit: within close_buffer minutes of market close *)
-let force_exit_eod ?(close_buffer=10.0) () : bool Gadt.t =
+let force_exit_eod ?(close_buffer = 10.0) () : bool Gadt.t =
   is_close TickTime (Const (close_buffer, Float))

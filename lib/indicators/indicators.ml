@@ -76,21 +76,23 @@ module Calc = struct
       (* Use provided pool or create a temporary one *)
       match pool with
       | Some p ->
-          (* Reuse existing pool - no io_uring allocation! *)
-          Util.Work_pool.Work_pool.parallel_map ~pool:p ~clock
-            ~log_performance:config.print_tick_arg ~f:compute_for_symbol_data symbol_data_pairs
-          |> Result.map_l Fun.id
-          |> Result.map @@ fun _ -> ()
+        (* Reuse existing pool - no io_uring allocation! *)
+        Util.Work_pool.Work_pool.parallel_map ~pool:p ~clock
+          ~log_performance:config.print_tick_arg ~f:compute_for_symbol_data
+          symbol_data_pairs
+        |> Result.map_l Fun.id
+        |> Result.map @@ fun _ -> ()
       | None ->
-          (* Create temporary pool only for initialization *)
-          let domain_mgr = Eio.Stdenv.domain_mgr eio_env in
-          let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
-          Eio.Switch.run (fun sw ->
-              let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
-              Util.Work_pool.Work_pool.parallel_map ~pool ~clock
-                ~log_performance:config.print_tick_arg ~f:compute_for_symbol_data symbol_data_pairs
-              |> Result.map_l Fun.id
-              |> Result.map @@ fun _ -> ())
+        (* Create temporary pool only for initialization *)
+        let domain_mgr = Eio.Stdenv.domain_mgr eio_env in
+        let domain_count = max 1 (Domain.recommended_domain_count () - 1) in
+        Eio.Switch.run (fun sw ->
+            let pool = Eio.Executor_pool.create ~sw domain_mgr ~domain_count in
+            Util.Work_pool.Work_pool.parallel_map ~pool ~clock
+              ~log_performance:config.print_tick_arg ~f:compute_for_symbol_data
+              symbol_data_pairs
+            |> Result.map_l Fun.id
+            |> Result.map @@ fun _ -> ())
     in
     let end_total = Unix.gettimeofday () in
     if config.print_tick_arg then
