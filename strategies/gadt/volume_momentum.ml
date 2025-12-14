@@ -1584,6 +1584,124 @@ let nature_boy_5x20 =
     position_size = 0.20;
   }
 
+(** Nature_Boy_Opt_V2 - Dual NATR Filter Optimization
+
+    Builds on Nature Boy's locked entry/exit parameters, but re-optimizes
+    the NATR volatility filter with separate indicators for lower and upper
+    bounds, each with their own period.
+
+    Hypothesis:
+    - Lower bound filters dead/consolidating markets where moves are too small
+    - Upper bound filters chaotic markets where mean reversion fails
+    - These may benefit from different lookback periods:
+      - Lower: shorter period to quickly detect volatility pickup
+      - Upper: longer period to smooth out transient spikes
+
+    Locked parameters (from Nature Boy):
+    - mfi_period = 190, mfi_oversold = 36.59
+    - bb_entry_period = 248, bb_entry_std = 1.61
+    - mfi_exit_level = 52.05, bb_exit_period = 275
+    - min_hold = 36, stop_loss = 9.07%, profit_target = 10.35%
+    - max_hold = 258
+
+    Optimized NATR filter (4 variables):
+    1. natr_lower_period: [3, 275] - Lookback for lower bound check
+    2. natr_lower: [0.1, 10.0] - Minimum volatility threshold (%)
+    3. natr_upper_period: [3, 275] - Lookback for upper bound check
+    4. natr_upper: [0.1, 10.0] - Maximum volatility threshold (%)
+
+    NOTE: Use starting index of at least 350 (-i 350).
+*)
+let nature_boy_opt_v2 =
+  (* NATR lower bound filter *)
+  let natr_lower_period = Gadt_fo.var ~lower:3.0 ~upper:275.0 Gadt.Type.Int in
+  let natr_lower = Gadt_fo.var ~lower:0.1 ~upper:10.0 Gadt.Type.Float in
+
+  (* NATR upper bound filter *)
+  let natr_upper_period = Gadt_fo.var ~lower:3.0 ~upper:275.0 Gadt.Type.Int in
+  let natr_upper = Gadt_fo.var ~lower:0.1 ~upper:10.0 Gadt.Type.Float in
+
+  (* Entry MFI - locked at 190 *)
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (190, Int)) ))
+  in
+
+  (* NATR for lower bound check *)
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_lower_period) ))
+  in
+
+  (* NATR for upper bound check *)
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_upper_period) ))
+  in
+
+  (* Entry Bollinger Band - locked *)
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (248, Int),
+               Const (1.61, Float),
+               Const (1.61, Float) ) ))
+  in
+
+  (* Exit Bollinger Band - locked *)
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (275, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+
+  (* Recovery filter *)
+  let recovering = last >. lag last 1 in
+
+  (* Min hold gate - locked at 36 *)
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (36, Int)) in
+
+  (* Gated exit signals - locked thresholds *)
+  let gated_exits =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (52.05, Float))
+        ||. (last >. EntryPrice *. Const (1.1035, Float)))
+  in
+
+  {
+    name = "Nature_Boy_Opt_V2";
+    buy_trigger =
+      mfi
+      <. Const (36.59, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. natr_lower) (* Lower bound: enough volatility *)
+      &&. (natr_hi <. natr_upper) (* Upper bound: not too chaotic *)
+      &&. recovering &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.9093, Float))
+      ||. gated_exits
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (258, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
@@ -1605,4 +1723,5 @@ let all_strategies =
     nature_boy;
     nature_boy_10x10;
     nature_boy_5x20;
+    nature_boy_opt_v2;
   ]
