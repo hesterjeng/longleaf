@@ -1702,6 +1702,259 @@ let nature_boy_opt_v2 =
     position_size = 0.20;
   }
 
+(** Hippie_Boy_Opt - ADX-Based Regime Filter Optimization
+
+    Alternative to NATR-based regime detection. Uses ADX (Average Directional
+    Index) which measures trend strength rather than price volatility.
+
+    Hypothesis:
+    - Low ADX = choppy/ranging market = mean reversion works
+    - High ADX = strong trend = mean reversion fails (fighting the trend)
+    - This is conceptually different from NATR which measures price swing magnitude
+
+    Locked parameters (from Nature Boy):
+    - mfi_period = 190, mfi_oversold = 36.59
+    - bb_entry_period = 248, bb_entry_std = 1.61
+    - mfi_exit_level = 52.05, bb_exit_period = 275
+    - min_hold = 36, stop_loss = 9.07%, profit_target = 10.35%
+    - max_hold = 258
+
+    Optimized ADX filter (4 variables):
+    1. adx_lower_period: [3, 275] - Lookback for lower bound check
+    2. adx_lower: [0, 50] - Minimum trend strength (filter directionless?)
+    3. adx_upper_period: [3, 275] - Lookback for upper bound check
+    4. adx_upper: [15, 100] - Maximum trend strength (filter strong trends)
+
+    ADX interpretation:
+    - 0-20: Weak or absent trend
+    - 20-40: Strong trend
+    - 40-60: Very strong trend
+    - 60+: Extremely strong trend
+
+    NOTE: Use starting index of at least 350 (-i 350).
+*)
+let hippie_boy_opt =
+  (* ADX lower bound filter *)
+  let adx_lower_period = Gadt_fo.var ~lower:3.0 ~upper:275.0 Gadt.Type.Int in
+  let adx_lower = Gadt_fo.var ~lower:0.0 ~upper:50.0 Gadt.Type.Float in
+
+  (* ADX upper bound filter *)
+  let adx_upper_period = Gadt_fo.var ~lower:3.0 ~upper:275.0 Gadt.Type.Int in
+  let adx_upper = Gadt_fo.var ~lower:15.0 ~upper:100.0 Gadt.Type.Float in
+
+  (* Entry MFI - locked at 190 *)
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (190, Int)) ))
+  in
+
+  (* ADX for lower bound check *)
+  let adx_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_lower_period) ))
+  in
+
+  (* ADX for upper bound check *)
+  let adx_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_upper_period) ))
+  in
+
+  (* Entry Bollinger Band - locked *)
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (248, Int),
+               Const (1.61, Float),
+               Const (1.61, Float) ) ))
+  in
+
+  (* Exit Bollinger Band - locked *)
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (275, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+
+  (* Recovery filter *)
+  let recovering = last >. lag last 1 in
+
+  (* Min hold gate - locked at 36 *)
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (36, Int)) in
+
+  (* Gated exit signals - locked thresholds *)
+  let gated_exits =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (52.05, Float))
+        ||. (last >. EntryPrice *. Const (1.1035, Float)))
+  in
+
+  {
+    name = "Hippie_Boy_Opt";
+    buy_trigger =
+      mfi
+      <. Const (36.59, Float)
+      &&. (last <. bb_lower)
+      &&. (adx_lo >. adx_lower) (* Lower bound: some trend needed? *)
+      &&. (adx_hi <. adx_upper) (* Upper bound: not too trendy *)
+      &&. recovering &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.9093, Float))
+      ||. gated_exits
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (258, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** Nature_Boy_V2 - Dual NATR Filter Winner
+
+    Optimized from Nature_Boy_Opt_V2 on 3-month 1-min data (Aug-Nov 2025).
+
+    Key insight: The two NATR filters serve different purposes:
+    - Lower bound (short period): Detects stale/infilled data or inactive stocks
+    - Upper bound (long period): Filters chaotic market regimes
+
+    NATR filter parameters:
+    - natr_lower_period = 17 (~17 min) - short-term activity check
+    - natr_lower = 0.15% - filters very quiet/stale periods
+    - natr_upper_period = 141 (~2.3 hrs) - longer-term regime check
+    - natr_upper = 3.83% - more permissive than original (2.08%)
+
+    Locked parameters (from Nature Boy):
+    - mfi_period = 190, mfi_oversold = 36.59
+    - bb_entry_period = 248, bb_entry_std = 1.61
+    - mfi_exit_level = 52.05, bb_exit_period = 275
+    - min_hold = 36, stop_loss = 9.07%, profit_target = 10.35%
+    - max_hold = 258
+
+    Training performance (Aug-Nov 2025):
+    - Return: 14.07% ($100k -> $114,074)
+    - Trades: 272 (W: 170, L: 102)
+    - Win Rate: 62.50%
+    - Sharpe: 0.202
+    - Profit Factor: 1.737
+    - P-value: 0.0005
+
+    Out-of-sample performance (Mar-Aug 2025 - tariff chaos):
+    - Return: 3.71% ($100k -> $103,708)
+    - Trades: 436 (W: 248, L: 187)
+    - Win Rate: 56.88%
+    - Sharpe: 0.030
+    - Profit Factor: 1.087
+    - P-value: 0.2666 (not significant)
+    - Note: Mean reversion expected to struggle during trending/chaotic period.
+      Strategy survived without major losses but edge disappeared.
+
+    Out-of-sample performance (Aug-Oct 2024):
+    - Return: 10.61% ($100k -> $110,612)
+    - Trades: 367 (W: 239, L: 128)
+    - Win Rate: 65.12%
+    - Sharpe: 0.099
+    - Profit Factor: 1.337
+    - P-value: 0.029 (significant)
+    - Note: Edge generalizes to different year. Works in normal market conditions.
+
+    NOTE: Use starting index of at least 350 (-i 350).
+*)
+let nature_boy_v2 =
+  (* Entry MFI - locked at 190 *)
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (190, Int)) ))
+  in
+
+  (* NATR for lower bound - short period for stale data detection *)
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (17, Int)) ))
+  in
+
+  (* NATR for upper bound - longer period for regime detection *)
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (141, Int)) ))
+  in
+
+  (* Entry Bollinger Band - locked *)
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (248, Int),
+               Const (1.61, Float),
+               Const (1.61, Float) ) ))
+  in
+
+  (* Exit Bollinger Band - locked *)
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (275, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+
+  (* Recovery filter *)
+  let recovering = last >. lag last 1 in
+
+  (* Min hold gate - locked at 36 *)
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (36, Int)) in
+
+  (* Gated exit signals - locked thresholds *)
+  let gated_exits =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (52.05, Float))
+        ||. (last >. EntryPrice *. Const (1.1035, Float)))
+  in
+
+  {
+    name = "Nature_Boy_V2";
+    buy_trigger =
+      mfi
+      <. Const (36.59, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.15, Float)) (* Stale data filter *)
+      &&. (natr_hi <. Const (3.83, Float)) (* Regime filter *)
+      &&. recovering &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.9093, Float))
+      ||. gated_exits
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (258, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
@@ -1724,4 +1977,6 @@ let all_strategies =
     nature_boy_10x10;
     nature_boy_5x20;
     nature_boy_opt_v2;
+    nature_boy_v2;
+    hippie_boy_opt;
   ]
