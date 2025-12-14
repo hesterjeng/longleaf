@@ -1606,20 +1606,20 @@ let nature_boy_5x20 =
 
     Optimized NATR filter (4 variables):
     1. natr_lower_period: [3, 275] - Lookback for lower bound check
-    2. natr_lower: [0.1, 10.0] - Minimum volatility threshold (%)
+    2. natr_lower: [0.1, 2.0] - Minimum volatility threshold (%)
     3. natr_upper_period: [3, 275] - Lookback for upper bound check
-    4. natr_upper: [0.1, 10.0] - Maximum volatility threshold (%)
+    4. natr_upper: [2.0, 8.0] - Maximum volatility threshold (%)
 
     NOTE: Use starting index of at least 350 (-i 350).
 *)
 let nature_boy_opt_v2 =
   (* NATR lower bound filter *)
   let natr_lower_period = Gadt_fo.var ~lower:3.0 ~upper:275.0 Gadt.Type.Int in
-  let natr_lower = Gadt_fo.var ~lower:0.1 ~upper:10.0 Gadt.Type.Float in
+  let natr_lower = Gadt_fo.var ~lower:0.1 ~upper:2.0 Gadt.Type.Float in
 
   (* NATR upper bound filter *)
   let natr_upper_period = Gadt_fo.var ~lower:3.0 ~upper:275.0 Gadt.Type.Int in
-  let natr_upper = Gadt_fo.var ~lower:0.1 ~upper:10.0 Gadt.Type.Float in
+  let natr_upper = Gadt_fo.var ~lower:2.0 ~upper:8.0 Gadt.Type.Float in
 
   (* Entry MFI - locked at 190 *)
   let mfi =

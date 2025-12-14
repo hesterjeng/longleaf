@@ -285,7 +285,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   (* Set per-variable bounds (extracted from GADT Var nodes) *)
   Nlopt.set_lower_bounds opt lower_bounds;
   Nlopt.set_upper_bounds opt upper_bounds;
-  Nlopt.set_maxeval opt 10000;
+  Nlopt.set_maxeval opt 5000;
 
   (* Set objective function *)
   Nlopt.set_max_objective opt
