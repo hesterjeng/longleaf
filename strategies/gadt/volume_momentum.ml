@@ -1955,6 +1955,141 @@ let nature_boy_v2 =
     position_size = 0.20;
   }
 
+(** Hippie_Boy - ADX-Based Regime Filter Winner
+
+    Optimized from Hippie_Boy_Opt on 3-month 1-min data (Aug-Nov 2025).
+
+    Key insight: Similar to Nature Boy V2, the lower bound is essentially
+    disabled (0.54 on 0-100 scale). The upper bound uses a SHORT period
+    (15 bars) to detect recent trend strength, filtering when ADX > 42.
+
+    ADX filter parameters:
+    - adx_lower_period = 67 (~1 hr) - not really used
+    - adx_lower = 0.54 - effectively disabled
+    - adx_upper_period = 15 (~15 min) - short-term trend detection
+    - adx_upper = 42.32 - filter strong trends
+
+    Locked parameters (from Nature Boy):
+    - mfi_period = 190, mfi_oversold = 36.59
+    - bb_entry_period = 248, bb_entry_std = 1.61
+    - mfi_exit_level = 52.05, bb_exit_period = 275
+    - min_hold = 36, stop_loss = 9.07%, profit_target = 10.35%
+    - max_hold = 258
+
+    Training performance (Aug-Nov 2025):
+    - Return: 16.74% ($100k -> $116,741)
+    - Trades: 465 (W: 297, L: 168)
+    - Win Rate: 63.87%
+    - Sharpe: 0.208
+    - Profit Factor: 1.804
+    - P-value: 0.0000
+    - Caution: Avg winner ($127) ≈ Avg loser ($124). Edge is almost
+      entirely from win rate, not payoff asymmetry. Fragile if win rate drops.
+
+    Out-of-sample performance (Mar-Aug 2025 - tariff chaos):
+    - Return: 1.44% ($100k -> $101,438)
+    - Trades: 705 (W: 414, L: 288)
+    - Win Rate: 58.72%
+    - Sharpe: 0.010
+    - Profit Factor: 1.030
+    - P-value: 0.398 (not significant)
+    - Note: ADX filter more permissive than NATR, let through more bad trades.
+      Underperformed Nature Boy V2 (3.71% return) on same period.
+
+    Out-of-sample performance (Aug-Oct 2024):
+    - Return: 8.67% ($100k -> $108,667)
+    - Trades: 498 (W: 309, L: 187)
+    - Win Rate: 62.05%
+    - Sharpe: 0.077
+    - Profit Factor: 1.270
+    - P-value: 0.042 (significant)
+    - Note: Edge generalizes but underperforms Nature Boy V2 (10.61% return).
+      NATR filtering appears more effective than ADX for this strategy.
+
+    NOTE: Use starting index of at least 350 (-i 350).
+*)
+let hippie_boy =
+  (* Entry MFI - locked at 190 *)
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (190, Int)) ))
+  in
+
+  (* ADX for lower bound - long period, essentially disabled *)
+  let adx_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), Const (67, Int)) ))
+  in
+
+  (* ADX for upper bound - short period for recent trend detection *)
+  let adx_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), Const (15, Int)) ))
+  in
+
+  (* Entry Bollinger Band - locked *)
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (248, Int),
+               Const (1.61, Float),
+               Const (1.61, Float) ) ))
+  in
+
+  (* Exit Bollinger Band - locked *)
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (275, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+
+  (* Recovery filter *)
+  let recovering = last >. lag last 1 in
+
+  (* Min hold gate - locked at 36 *)
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (36, Int)) in
+
+  (* Gated exit signals - locked thresholds *)
+  let gated_exits =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (52.05, Float))
+        ||. (last >. EntryPrice *. Const (1.1035, Float)))
+  in
+
+  {
+    name = "Hippie_Boy";
+    buy_trigger =
+      mfi
+      <. Const (36.59, Float)
+      &&. (last <. bb_lower)
+      &&. (adx_lo >. Const (0.54, Float)) (* Essentially disabled *)
+      &&. (adx_hi <. Const (42.32, Float)) (* Filter strong trends *)
+      &&. recovering &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.9093, Float))
+      ||. gated_exits
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (258, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
@@ -1979,4 +2114,5 @@ let all_strategies =
     nature_boy_opt_v2;
     nature_boy_v2;
     hippie_boy_opt;
+    hippie_boy;
   ]
