@@ -450,9 +450,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ serverData, lastUpdate, refre
                   size="large"
                   icon={<PlayCircleOutlined />}
                   onClick={executeStrategyHandler}
-                  disabled={executing || loading || settingsLoading}
+                  loading={executing}
                 >
-                  {executing ? 'Executing...' : 'Execute Strategy'}
+                  Execute Strategy
                 </Button>
               </Col>
               
