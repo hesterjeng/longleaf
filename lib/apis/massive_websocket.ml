@@ -71,7 +71,8 @@ module Client = struct
   (* Connect to Polygon WebSocket with retry logic *)
   let rec connect_with_retry ~sw ~env ~massive_key ~attempt () =
     let ( let* ) = Result.( let* ) in
-    let url = Uri.of_string "wss://socket.polygon.io/stocks" in
+    (* let url = Uri.of_string "wss://socket.polygon.io/stocks" in *)
+    let url = Uri.of_string "ws://localhost:9999" in
     let authenticator = Https.authenticator () in
 
     if attempt > 0 then
