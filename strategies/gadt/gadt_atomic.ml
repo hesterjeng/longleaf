@@ -39,18 +39,21 @@ type work_with_reply = {
   stats_htbl : (int, stats_entry) Saturn.Htbl.t;
 }
 
+(* Worker message: either work to do or terminate signal *)
+type worker_message = Work of work_with_reply | Terminate
+
 module Worker = struct
   (* Worker loop that processes work from Saturn queue *)
   let top work_queue bars (options : Options.t) mutices =
     let rec worker_loop () =
       Printf.printf "WORKER: waiting for work\n%!";
-      (* Block until work arrives - Saturn queue pop_opt with spin loop *)
-      let { work; result_queue; stats_htbl } =
+      (* Block until message arrives - Saturn queue pop_opt with spin loop *)
+      let message =
         let rec wait () =
           match Saturn.Queue.pop_opt work_queue with
-          | Some work ->
-            Printf.printf "WORKER: got work!\n%!";
-            work
+          | Some msg ->
+            Printf.printf "WORKER: got message!\n%!";
+            msg
           | None ->
             (* Yield to other fibers while waiting *)
             Eio.Fiber.yield ();
@@ -58,6 +61,11 @@ module Worker = struct
         in
         wait ()
       in
+      match message with
+      | Terminate ->
+        Printf.printf "WORKER: received terminate signal, exiting\n%!";
+        ()
+      | Work { work; result_queue; stats_htbl } ->
 
       Printf.printf "WORKER: processing iteration %d\n%!" work.iteration;
       Eio.traceln "=== OPTIMIZATION ITERATION %d ===" work.iteration;
@@ -187,7 +195,7 @@ module Worker = struct
 
     (* Send work to worker via Saturn queue (safe from C) *)
     Printf.printf "OBJ FUNC: pushing work to queue\n%!";
-    Saturn.Queue.push work_queue work_with_reply;
+    Saturn.Queue.push work_queue (Work work_with_reply);
     Printf.printf "OBJ FUNC: work pushed, waiting for result\n%!";
 
     (* Wait for result from Saturn queue (blocking spin loop) *)
@@ -370,5 +378,9 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
 
   Eio.traceln "============================================";
   Eio.traceln "";
+
+  (* Signal worker to terminate *)
+  Eio.traceln "Sending terminate signal to worker";
+  Saturn.Queue.push work_queue Terminate;
 
   Result.return fopt

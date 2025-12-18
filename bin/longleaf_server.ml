@@ -128,7 +128,7 @@ let respond_500 ?(cors_origin = None) message =
   respond_text ~cors_origin ~status:`Internal_server_error message
 
 (* Main request handler *)
-let handler env cors_origin static_dir _conn request body =
+let handler sw env cors_origin static_dir _conn request body =
   let ( let* ) = Result.( let* ) in
   let meth = Cohttp.Request.meth request in
   let uri = Cohttp.Request.uri request in
@@ -145,22 +145,22 @@ let handler env cors_origin static_dir _conn request body =
       let s = Settings.settings in
       s.status <- Started;
       Eio.traceln "running strategy";
-      (* Spawn strategy execution in a separate domain to avoid blocking *)
-      let mgr = Eio.Stdenv.domain_mgr env in
-      let () =
-        Eio.Domain_manager.run mgr @@ fun () ->
-        let mutices = Option.return @@ Longleaf_state.Mutex.create [] in
-        Settings.settings.mutices <- mutices;
-        let res = Longleaf_strategies.Run.top mutices env s.cli_vars s.target in
-        match res with
-        | Ok k ->
-          Eio.traceln "got a result back";
-          Settings.settings.last_value <- k;
-          Settings.settings.status <- Ready
-        | Error e ->
-          Eio.traceln "%a" Error.pp e;
-          Settings.settings.status <- Error
-      in
+      (* Fork a fiber with its own switch for the strategy *)
+      let cli_vars = s.cli_vars in
+      let target = s.target in
+      Eio.Fiber.fork ~sw (fun () ->
+          Eio.Switch.run @@ fun _strategy_sw ->
+          let mutices = Option.return @@ Longleaf_state.Mutex.create [] in
+          Settings.settings.mutices <- mutices;
+          let res = Longleaf_strategies.Run.top mutices env cli_vars target in
+          match res with
+          | Ok k ->
+            Eio.traceln "got a result back";
+            Settings.settings.last_value <- k;
+            Settings.settings.status <- Ready
+          | Error e ->
+            Eio.traceln "%a" Error.pp e;
+            Settings.settings.status <- Error);
       Result.return
       @@ (`Assoc [ ("message", `String "strategy execution started") ]
          |> Yojson.Safe.to_string |> respond_json ~cors_origin)
@@ -595,7 +595,7 @@ module Cmd = struct
         (`Tcp (Eio.Net.Ipaddr.V4.any, port))
     in
     let server =
-      Cohttp_eio.Server.make ~callback:(handler env cors_origin static_dir) ()
+      Cohttp_eio.Server.make ~callback:(handler sw env cors_origin static_dir) ()
     in
     Cohttp_eio.Server.run socket server ~on_error:raise
 

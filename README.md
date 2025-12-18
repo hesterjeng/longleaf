@@ -57,7 +57,6 @@
 
 <!-- **http://localhost:3000** -->
 
-😊
 <!-- The web interface allows you to: -->
 <!-- - Select and configure strategies -->
 <!-- - Start backtesting, paper trading, or live trading -->
