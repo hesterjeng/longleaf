@@ -80,6 +80,12 @@ module Sell_trigger = struct
   end
 end
 
+module type S = sig
+  val run : unit -> (float, Error.t) result
+  val run_state : unit -> (State.t, Error.t) result
+  val shutdown : unit -> unit
+end
+
 (** Partially instantiate this functor with a Buy_trigger.S and Sell_trigger.S
     in your strategy file (see template_example.ml). Afterwards, a hook/handler
     must be added using the partially instantiated functor to start the strategy
@@ -87,9 +93,7 @@ end
 module Make
     (Buy : Buy_trigger.S)
     (Sell : Sell_trigger.S)
-    (Backend : Backend.S) : Strategy.S = struct
-  type state = Longleaf_state.t
-
+    (Backend : Backend.S) : S = struct
   module SU = Longleaf_backend.Utils.Make (Backend)
 
   let shutdown () =
@@ -297,7 +301,7 @@ let mk_options switch eio_env executor_pool flags target tacaml_indicators :
     tacaml_indicators;
   }
 
-module type BUILDER = functor (_ : Backend.S) -> Longleaf_core.Strategy.S
+module type BUILDER = functor (_ : Backend.S) -> S
 
 type builder = (module BUILDER)
 
