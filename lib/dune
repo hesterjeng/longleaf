@@ -12,6 +12,7 @@
   longleaf_apis
   longleaf_state
   longleaf_backend
+  longleaf_battery
   longleaf_server
   fmt
   containers

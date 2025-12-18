@@ -6,7 +6,13 @@ type t = {
   total_cash_traded : float;
   symbols_traded : int;
   profit_loss : float;
+  (* Portfolio-level metrics *)
+  total_return : float;  (** (final - initial) / initial *)
+  max_drawdown : float;  (** Maximum peak-to-trough decline as fraction *)
+  final_value : float;
+  initial_value : float;
 }
+[@@deriving show]
 
 module Bars = Longleaf_bars
 
@@ -14,8 +20,57 @@ let num_orders arr =
   let lengths = Vector.map List.length arr in
   Vector.fold ( + ) 0 lengths
 
-let calculate_order_stats orders =
-  (* Single fold to compute all statistics at once *)
+let calculate_order_stats (orders : Order.t list) =
+  List.fold_left
+    (fun (n, nb, ns, tv, tc, syms, pl) (order : Order.t) ->
+      let n = n + 1 in
+      let nb =
+        if Trading_types.Side.equal order.side Buy then nb + 1 else nb
+      in
+      let ns =
+        if Trading_types.Side.equal order.side Sell then ns + 1 else ns
+      in
+      let tv = tv + order.qty in
+      let tc = tc +. (order.price *. float_of_int order.qty) in
+      let syms = order.symbol :: syms in
+      let pl =
+        match order.profit with
+        | Some p -> pl +. p
+        | None -> pl
+      in
+      (n, nb, ns, tv, tc, syms, pl))
+    (0, 0, 0, 0, 0.0, [], 0.0) orders
+
+let calculate_portfolio_metrics (value_history : (Time.t * float) list) =
+  let chronological = List.rev value_history in
+  match chronological with
+  | [] -> (0.0, 0.0, 0.0, 0.0)
+  | (_, initial_value) :: _ ->
+    let final_value =
+      match value_history with
+      | (_, v) :: _ -> v
+      | [] -> initial_value
+    in
+    let _, max_dd =
+      List.fold_left
+        (fun (peak, max_dd) (_, value) ->
+          let new_peak = Float.max peak value in
+          let drawdown =
+            if Float.compare new_peak 0.0 > 0 then
+              (new_peak -. value) /. new_peak
+            else 0.0
+          in
+          (new_peak, Float.max max_dd drawdown))
+        (initial_value, 0.0) chronological
+    in
+    let total_return =
+      if Float.compare initial_value 0.0 > 0 then
+        (final_value -. initial_value) /. initial_value
+      else 0.0
+    in
+    (total_return, max_dd, final_value, initial_value)
+
+let make (order_history : Order.t list) (value_history : (Time.t * float) list) =
   let ( num_orders,
         num_buy_orders,
         num_sell_orders,
@@ -23,50 +78,13 @@ let calculate_order_stats orders =
         total_cash_traded,
         symbols_list,
         profit_loss ) =
-    Vector.fold
-      (fun (n, nb, ns, tv, tc, syms, pl) order_list ->
-        List.fold_left
-          (fun (n, nb, ns, tv, tc, syms, pl) (order : Order.t) ->
-            let n = n + 1 in
-            let nb =
-              if Trading_types.Side.equal order.side Buy then nb + 1 else nb
-            in
-            let ns =
-              if Trading_types.Side.equal order.side Sell then ns + 1 else ns
-            in
-            let tv = tv + order.qty in
-            let tc = tc +. (order.price *. float_of_int order.qty) in
-            let syms = order.symbol :: syms in
-            let pl =
-              match order.profit with
-              | Some p -> pl +. p
-              | None -> pl
-            in
-            (n, nb, ns, tv, tc, syms, pl))
-          (n, nb, ns, tv, tc, syms, pl)
-          order_list)
-      (0, 0, 0, 0, 0.0, [], 0.0) orders
+    calculate_order_stats order_history
   in
   let symbols_traded =
     symbols_list |> List.uniq ~eq:Instrument.equal |> List.length
   in
-  ( num_orders,
-    num_buy_orders,
-    num_sell_orders,
-    total_volume,
-    total_cash_traded,
-    symbols_traded,
-    profit_loss )
-
-let make orders (_x : Bars.t) =
-  let ( num_orders,
-        num_buy_orders,
-        num_sell_orders,
-        total_volume,
-        total_cash_traded,
-        symbols_traded,
-        profit_loss ) =
-    calculate_order_stats orders
+  let total_return, max_drawdown, final_value, initial_value =
+    calculate_portfolio_metrics value_history
   in
   {
     num_orders;
@@ -76,36 +94,11 @@ let make orders (_x : Bars.t) =
     total_cash_traded;
     symbols_traded;
     profit_loss;
+    total_return;
+    max_drawdown;
+    final_value;
+    initial_value;
   }
-
-let from_positions (positions : Positions.t) (bars : Bars.t) =
-  (* Create a vector from positions data *)
-  let all_orders = ref [] in
-
-  (* Collect all orders from positions *)
-  Positions.fold positions () (fun _symbol order_list () ->
-      all_orders := order_list @ !all_orders);
-
-  (* Determine the maximum tick to size our vector *)
-  let max_tick =
-    if List.is_empty !all_orders then 0
-    else
-      List.fold_left
-        (fun acc (order : Order.t) -> max acc order.tick)
-        0 !all_orders
-  in
-
-  (* Create vector with appropriate size *)
-  let orders_by_tick = Vector.init (max_tick + 1) (fun _ -> []) in
-
-  (* Group orders by tick *)
-  List.iter
-    (fun (order : Order.t) ->
-      let current_orders = Vector.get orders_by_tick order.tick in
-      Vector.set orders_by_tick order.tick (order :: current_orders))
-    !all_orders;
-
-  make orders_by_tick bars
 
 (** TradeStats - Per-trade statistical analysis for edge detection *)
 module TradeStats = struct

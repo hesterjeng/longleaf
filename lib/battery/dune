@@ -1,0 +1,26 @@
+(library
+ (name longleaf_battery)
+ (modules :standard)
+ (public_name longleaf-lib.battery)
+ (libraries
+  longleaf_core
+  longleaf_state
+  containers)
+ (preprocess
+  (pps
+   ppx_deriving.std)))
+
+(env
+ (_
+  (flags
+   :standard
+   -w
+   -32
+   -warn-error
+   -a+8+49+33
+   -open
+   Containers
+   -open
+   Longleaf_core
+   -strict-sequence
+   -safe-string)))

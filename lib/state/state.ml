@@ -168,9 +168,7 @@ let tick t = t.current_tick
 let options t = t.config
 
 let stats x =
-  let bars = bars x in
-  let positions = positions x in
-  Stats.from_positions positions bars
+  Stats.make (order_history x) (value_history x)
 
 let grow x =
   let ( let* ) = Result.( let* ) in
