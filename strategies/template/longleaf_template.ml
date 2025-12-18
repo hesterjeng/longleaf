@@ -313,3 +313,14 @@ let run (module Strat : BUILDER) bars options mutices =
   let* res = S.run () in
   Backend.shutdown ();
   Result.return res
+
+let run_state (module Strat : BUILDER) bars options mutices =
+  (* let options = run_options context in *)
+  let ( let* ) = Result.( let* ) in
+  let* backend = Backend.make mutices bars options in
+  let module Backend = (val backend) in
+  let module S = Strat (Backend) in
+  Eio.traceln "Applied strategy functor to backend, running %s."
+    options.flags.strategy_arg;
+  let* res = S.run_state () in
+  Result.return res
