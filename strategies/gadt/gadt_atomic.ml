@@ -68,117 +68,119 @@ module Worker = struct
         Printf.printf "WORKER: received terminate signal, exiting\n%!";
         ()
       | Work { work; result_queue; stats_htbl } ->
+        Printf.printf "WORKER: processing iteration %d\n%!" work.iteration;
+        Eio.traceln "=== OPTIMIZATION ITERATION %d ===" work.iteration;
+        Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
 
-      Printf.printf "WORKER: processing iteration %d\n%!" work.iteration;
-      Eio.traceln "=== OPTIMIZATION ITERATION %d ===" work.iteration;
-      Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+        let result =
+          (* Run strategy within its own switch to isolate cancellation context *)
+          Eio.Switch.run (fun sw ->
+              try
+                let ( let* ) = Result.( let* ) in
+                let env = Subst.env_of_arr work.params work.vars in
+                let* instantiated_buy =
+                  Subst.instantiate env work.strategy.buy_trigger
+                in
+                let* instantiated_sell =
+                  Subst.instantiate env work.strategy.sell_trigger
+                in
+                let* instantiated_score =
+                  Subst.instantiate env work.strategy.score
+                in
+                let instantiated_strategy =
+                  {
+                    work.strategy with
+                    buy_trigger = instantiated_buy;
+                    sell_trigger = instantiated_sell;
+                    score = instantiated_score;
+                  }
+                in
+                let options_with_sw = { options with Options.switch = sw } in
+                let* res =
+                  try
+                    Gadt_strategy.run bars options_with_sw mutices
+                      instantiated_strategy
+                  with
+                  | Not_found as exn ->
+                    (* Log Not_found with more context *)
+                    Eio.traceln "=== NOT_FOUND EXCEPTION ===";
+                    Eio.traceln
+                      "This likely means Saturn.Htbl.find_exn or similar \
+                       raised Not_found";
+                    Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+                    Eio.traceln "Backtrace recording enabled: %b"
+                      (Printexc.backtrace_status ());
+                    Eio.traceln "Raw backtrace: %s"
+                      (Printexc.raw_backtrace_to_string
+                         (Printexc.get_raw_backtrace ()));
+                    Eio.traceln "Get backtrace: %s" (Printexc.get_backtrace ());
+                    Eio.traceln "===========================";
+                    (* Try to get more info by re-raising in a controlled way *)
+                    Eio.traceln "Attempting to get backtrace by re-raising...";
+                    (try raise exn with
+                    | Not_found ->
+                      Eio.traceln "Re-raised backtrace: %s"
+                        (Printexc.get_backtrace ()));
+                    Ok 0.0
+                  | e ->
+                    (* Log exception details but continue *)
+                    Eio.traceln "=== STRATEGY EXECUTION EXCEPTION ===";
+                    Eio.traceln "Exception: %s" (Printexc.to_string e);
+                    Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
+                    Eio.traceln "====================================";
+                    Ok 0.0
+                in
+                Eio.traceln "Iteration %d result: %f" work.iteration res;
 
-      let result =
-        (* Run strategy within its own switch to isolate cancellation context *)
-        Eio.Switch.run (fun sw ->
-            try
-              let ( let* ) = Result.( let* ) in
-              let env = Subst.env_of_arr work.params work.vars in
-              let* instantiated_buy =
-                Subst.instantiate env work.strategy.buy_trigger
-              in
-              let* instantiated_sell =
-                Subst.instantiate env work.strategy.sell_trigger
-              in
-              let* instantiated_score =
-                Subst.instantiate env work.strategy.score
-              in
-              let instantiated_strategy =
-                {
-                  work.strategy with
-                  buy_trigger = instantiated_buy;
-                  sell_trigger = instantiated_sell;
-                  score = instantiated_score;
-                }
-              in
-              let options_with_sw = { options with Options.switch = sw } in
-              let* res =
-                try
-                  Gadt_strategy.run bars options_with_sw mutices
-                    instantiated_strategy
-                with
-                | Not_found as exn ->
-                  (* Log Not_found with more context *)
-                  Eio.traceln "=== NOT_FOUND EXCEPTION ===";
-                  Eio.traceln
-                    "This likely means Saturn.Htbl.find_exn or similar raised \
-                     Not_found";
-                  Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
-                  Eio.traceln "Backtrace recording enabled: %b"
-                    (Printexc.backtrace_status ());
-                  Eio.traceln "Raw backtrace: %s"
-                    (Printexc.raw_backtrace_to_string
-                       (Printexc.get_raw_backtrace ()));
-                  Eio.traceln "Get backtrace: %s" (Printexc.get_backtrace ());
-                  Eio.traceln "===========================";
-                  (* Try to get more info by re-raising in a controlled way *)
-                  Eio.traceln "Attempting to get backtrace by re-raising...";
-                  (try raise exn with
-                  | Not_found ->
-                    Eio.traceln "Re-raised backtrace: %s"
-                      (Printexc.get_backtrace ()));
-                  Ok 0.0
+                (* Compute and store trade statistics *)
+                (try
+                   let state = Pmutex.get mutices.state_mutex in
+                   let final_cash = State.cash state in
+                   let all_orders = State.order_history state in
+                   let trade_stats =
+                     State.Stats.TradeStats.compute all_orders
+                   in
+                   let stats_entry =
+                     {
+                       objective_value = res;
+                       final_cash;
+                       trade_stats;
+                       params = Array.copy work.params;
+                     }
+                   in
+                   ignore
+                     (Saturn.Htbl.try_add stats_htbl work.iteration stats_entry);
+                   Eio.traceln
+                     "Stored stats for iteration %d (cash: %.2f, objective: \
+                      %.2f)"
+                     work.iteration final_cash res
+                 with
                 | e ->
-                  (* Log exception details but continue *)
-                  Eio.traceln "=== STRATEGY EXECUTION EXCEPTION ===";
-                  Eio.traceln "Exception: %s" (Printexc.to_string e);
-                  Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
-                  Eio.traceln "====================================";
-                  Ok 0.0
-              in
-              Eio.traceln "Iteration %d result: %f" work.iteration res;
+                  Eio.traceln
+                    "Warning: Failed to compute stats for iteration %d: %s"
+                    work.iteration (Printexc.to_string e));
 
-              (* Compute and store trade statistics *)
-              (try
-                 let state = Pmutex.get mutices.state_mutex in
-                 let final_cash = State.cash state in
-                 let all_orders = State.order_history state in
-                 let trade_stats = State.Stats.TradeStats.compute all_orders in
-                 let stats_entry =
-                   {
-                     objective_value = res;
-                     final_cash;
-                     trade_stats;
-                     params = Array.copy work.params;
-                   }
-                 in
-                 ignore
-                   (Saturn.Htbl.try_add stats_htbl work.iteration stats_entry);
-                 Eio.traceln
-                   "Stored stats for iteration %d (cash: %.2f, objective: %.2f)"
-                   work.iteration final_cash res
-               with
+                Ok (Some res)
+              with
               | e ->
-                Eio.traceln
-                  "Warning: Failed to compute stats for iteration %d: %s"
-                  work.iteration (Printexc.to_string e));
+                (* Catch any other errors during substitution/instantiation *)
+                Eio.traceln "=== INSTANTIATION ERROR ===";
+                Eio.traceln "Exception: %s" (Printexc.to_string e);
+                Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
+                Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
+                Eio.traceln "===========================";
+                Ok (Some 0.0))
+        in
 
-              Ok (Some res)
-            with
-            | e ->
-              (* Catch any other errors during substitution/instantiation *)
-              Eio.traceln "=== INSTANTIATION ERROR ===";
-              Eio.traceln "Exception: %s" (Printexc.to_string e);
-              Eio.traceln "Backtrace: %s" (Printexc.get_backtrace ());
-              Eio.traceln "Parameters: %a" (Array.pp Float.pp) work.params;
-              Eio.traceln "===========================";
-              Ok (Some 0.0))
-      in
+        (* Send result back via Saturn queue and reset indicators *)
+        Printf.printf "WORKER: pushing result back\n%!";
+        Saturn.Queue.push result_queue result;
+        Printf.printf "WORKER: result pushed, resetting indicators\n%!";
+        Bars.reset_indicators bars;
 
-      (* Send result back via Saturn queue and reset indicators *)
-      Printf.printf "WORKER: pushing result back\n%!";
-      Saturn.Queue.push result_queue result;
-      Printf.printf "WORKER: result pushed, resetting indicators\n%!";
-      Bars.reset_indicators bars;
-
-      (* Continue processing *)
-      Printf.printf "WORKER: loop iteration complete\n%!";
-      worker_loop ()
+        (* Continue processing *)
+        Printf.printf "WORKER: loop iteration complete\n%!";
+        worker_loop ()
     in
     worker_loop ()
 

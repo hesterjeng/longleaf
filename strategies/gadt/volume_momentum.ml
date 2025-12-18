@@ -1586,16 +1586,16 @@ let nature_boy_5x20 =
 
 (** Nature_Boy_Opt_V2 - Dual NATR Filter Optimization
 
-    Builds on Nature Boy's locked entry/exit parameters, but re-optimizes
-    the NATR volatility filter with separate indicators for lower and upper
-    bounds, each with their own period.
+    Builds on Nature Boy's locked entry/exit parameters, but re-optimizes the
+    NATR volatility filter with separate indicators for lower and upper bounds,
+    each with their own period.
 
     Hypothesis:
     - Lower bound filters dead/consolidating markets where moves are too small
     - Upper bound filters chaotic markets where mean reversion fails
     - These may benefit from different lookback periods:
-      - Lower: shorter period to quickly detect volatility pickup
-      - Upper: longer period to smooth out transient spikes
+    - Lower: shorter period to quickly detect volatility pickup
+    - Upper: longer period to smooth out transient spikes
 
     Locked parameters (from Nature Boy):
     - mfi_period = 190, mfi_oversold = 36.59
@@ -1604,14 +1604,12 @@ let nature_boy_5x20 =
     - min_hold = 36, stop_loss = 9.07%, profit_target = 10.35%
     - max_hold = 258
 
-    Optimized NATR filter (4 variables):
-    1. natr_lower_period: [3, 275] - Lookback for lower bound check
-    2. natr_lower: [0.1, 2.0] - Minimum volatility threshold (%)
-    3. natr_upper_period: [3, 275] - Lookback for upper bound check
-    4. natr_upper: [2.0, 8.0] - Maximum volatility threshold (%)
+    Optimized NATR filter (4 variables): 1. natr_lower_period: [3, 275] -
+    Lookback for lower bound check 2. natr_lower: [0.1, 2.0] - Minimum
+    volatility threshold (%) 3. natr_upper_period: [3, 275] - Lookback for upper
+    bound check 4. natr_upper: [2.0, 8.0] - Maximum volatility threshold (%)
 
-    NOTE: Use starting index of at least 350 (-i 350).
-*)
+    NOTE: Use starting index of at least 350 (-i 350). *)
 let nature_boy_opt_v2 =
   (* NATR lower bound filter *)
   let natr_lower_period = Gadt_fo.var ~lower:3.0 ~upper:275.0 Gadt.Type.Int in
@@ -1634,7 +1632,8 @@ let nature_boy_opt_v2 =
     Gadt.Data
       (App1
          ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_lower_period) ))
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_lower_period)
+         ))
   in
 
   (* NATR for upper bound check *)
@@ -1642,7 +1641,8 @@ let nature_boy_opt_v2 =
     Gadt.Data
       (App1
          ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_upper_period) ))
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_upper_period)
+         ))
   in
 
   (* Entry Bollinger Band - locked *)
@@ -1710,7 +1710,8 @@ let nature_boy_opt_v2 =
     Hypothesis:
     - Low ADX = choppy/ranging market = mean reversion works
     - High ADX = strong trend = mean reversion fails (fighting the trend)
-    - This is conceptually different from NATR which measures price swing magnitude
+    - This is conceptually different from NATR which measures price swing
+      magnitude
 
     Locked parameters (from Nature Boy):
     - mfi_period = 190, mfi_oversold = 36.59
@@ -1719,11 +1720,11 @@ let nature_boy_opt_v2 =
     - min_hold = 36, stop_loss = 9.07%, profit_target = 10.35%
     - max_hold = 258
 
-    Optimized ADX filter (4 variables):
-    1. adx_lower_period: [3, 275] - Lookback for lower bound check
-    2. adx_lower: [0, 50] - Minimum trend strength (filter directionless?)
-    3. adx_upper_period: [3, 275] - Lookback for upper bound check
-    4. adx_upper: [15, 100] - Maximum trend strength (filter strong trends)
+    Optimized ADX filter (4 variables): 1. adx_lower_period: [3, 275] - Lookback
+    for lower bound check 2. adx_lower: [0, 50] - Minimum trend strength (filter
+    directionless?) 3. adx_upper_period: [3, 275] - Lookback for upper bound
+    check 4. adx_upper: [15, 100] - Maximum trend strength (filter strong
+    trends)
 
     ADX interpretation:
     - 0-20: Weak or absent trend
@@ -1731,8 +1732,7 @@ let nature_boy_opt_v2 =
     - 40-60: Very strong trend
     - 60+: Extremely strong trend
 
-    NOTE: Use starting index of at least 350 (-i 350).
-*)
+    NOTE: Use starting index of at least 350 (-i 350). *)
 let hippie_boy_opt =
   (* ADX lower bound filter *)
   let adx_lower_period = Gadt_fo.var ~lower:3.0 ~upper:275.0 Gadt.Type.Int in
@@ -1869,10 +1869,10 @@ let hippie_boy_opt =
     - Sharpe: 0.099
     - Profit Factor: 1.337
     - P-value: 0.029 (significant)
-    - Note: Edge generalizes to different year. Works in normal market conditions.
+    - Note: Edge generalizes to different year. Works in normal market
+      conditions.
 
-    NOTE: Use starting index of at least 350 (-i 350).
-*)
+    NOTE: Use starting index of at least 350 (-i 350). *)
 let nature_boy_v2 =
   (* Entry MFI - locked at 190 *)
   let mfi =
@@ -1960,8 +1960,8 @@ let nature_boy_v2 =
     Optimized from Hippie_Boy_Opt on 3-month 1-min data (Aug-Nov 2025).
 
     Key insight: Similar to Nature Boy V2, the lower bound is essentially
-    disabled (0.54 on 0-100 scale). The upper bound uses a SHORT period
-    (15 bars) to detect recent trend strength, filtering when ADX > 42.
+    disabled (0.54 on 0-100 scale). The upper bound uses a SHORT period (15
+    bars) to detect recent trend strength, filtering when ADX > 42.
 
     ADX filter parameters:
     - adx_lower_period = 67 (~1 hr) - not really used
@@ -1983,8 +1983,8 @@ let nature_boy_v2 =
     - Sharpe: 0.208
     - Profit Factor: 1.804
     - P-value: 0.0000
-    - Caution: Avg winner ($127) ≈ Avg loser ($124). Edge is almost
-      entirely from win rate, not payoff asymmetry. Fragile if win rate drops.
+    - Caution: Avg winner ($127) ≈ Avg loser ($124). Edge is almost entirely
+      from win rate, not payoff asymmetry. Fragile if win rate drops.
 
     Out-of-sample performance (Mar-Aug 2025 - tariff chaos):
     - Return: 1.44% ($100k -> $101,438)
@@ -2006,8 +2006,7 @@ let nature_boy_v2 =
     - Note: Edge generalizes but underperforms Nature Boy V2 (10.61% return).
       NATR filtering appears more effective than ADX for this strategy.
 
-    NOTE: Use starting index of at least 350 (-i 350).
-*)
+    NOTE: Use starting index of at least 350 (-i 350). *)
 let hippie_boy =
   (* Entry MFI - locked at 190 *)
   let mfi =

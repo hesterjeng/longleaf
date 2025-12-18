@@ -47,6 +47,8 @@ module Buy_trigger = struct
 
   (** Functor whose result is used to instantiate the strategy template. *)
   module Make (Input : INPUT) : S = struct
+    type state = Longleaf_state.t
+
     let make state symbols =
       let ( let* ) = Result.( let* ) in
       let fold = fun f -> Result.fold_l f [] symbols in
@@ -86,6 +88,8 @@ module Make
     (Buy : Buy_trigger.S)
     (Sell : Sell_trigger.S)
     (Backend : Backend.S) : Strategy.S = struct
+  type state = Longleaf_state.t
+
   module SU = Longleaf_backend.Utils.Make (Backend)
 
   let shutdown () =
@@ -264,6 +268,16 @@ module Make
       "Final portfolio value: %f (penalty: $%.2f for %d orders, penalized: %f)"
       final_value penalty orders penalized_value;
     Result.return penalized_value
+
+  let run_state () =
+    let ( let* ) = Result.( let* ) in
+    let* init_state = init_state () in
+    Eio.traceln "Initial state - tick: %d, cash: %f" (State.tick init_state)
+      (State.cash init_state);
+    let* res = SU.go order init_state in
+    Eio.traceln "Final state - tick: %d, cash: %f" (State.tick res)
+      (State.cash res);
+    Result.return res
 end
 
 let mk_options switch eio_env executor_pool flags target tacaml_indicators :

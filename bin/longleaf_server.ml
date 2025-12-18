@@ -595,7 +595,9 @@ module Cmd = struct
         (`Tcp (Eio.Net.Ipaddr.V4.any, port))
     in
     let server =
-      Cohttp_eio.Server.make ~callback:(handler sw env cors_origin static_dir) ()
+      Cohttp_eio.Server.make
+        ~callback:(handler sw env cors_origin static_dir)
+        ()
     in
     Cohttp_eio.Server.run socket server ~on_error:raise
 

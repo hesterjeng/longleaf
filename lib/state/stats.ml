@@ -24,9 +24,7 @@ let calculate_order_stats (orders : Order.t list) =
   List.fold_left
     (fun (n, nb, ns, tv, tc, syms, pl) (order : Order.t) ->
       let n = n + 1 in
-      let nb =
-        if Trading_types.Side.equal order.side Buy then nb + 1 else nb
-      in
+      let nb = if Trading_types.Side.equal order.side Buy then nb + 1 else nb in
       let ns =
         if Trading_types.Side.equal order.side Sell then ns + 1 else ns
       in
@@ -70,7 +68,8 @@ let calculate_portfolio_metrics (value_history : (Time.t * float) list) =
     in
     (total_return, max_dd, final_value, initial_value)
 
-let make (order_history : Order.t list) (value_history : (Time.t * float) list) =
+let make (order_history : Order.t list) (value_history : (Time.t * float) list)
+    =
   let ( num_orders,
         num_buy_orders,
         num_sell_orders,

@@ -2,13 +2,9 @@
  (name longleaf_battery)
  (modules :standard)
  (public_name longleaf-lib.battery)
- (libraries
-  longleaf_core
-  longleaf_state
-  containers)
+ (libraries longleaf_core longleaf_state containers)
  (preprocess
-  (pps
-   ppx_deriving.std)))
+  (pps ppx_deriving.std)))
 
 (env
  (_

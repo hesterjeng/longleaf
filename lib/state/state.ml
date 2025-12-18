@@ -166,9 +166,7 @@ let place_order state0 (order : Order.t) =
 
 let tick t = t.current_tick
 let options t = t.config
-
-let stats x =
-  Stats.make (order_history x) (value_history x)
+let stats x = Stats.make (order_history x) (value_history x)
 
 let grow x =
   let ( let* ) = Result.( let* ) in

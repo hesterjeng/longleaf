@@ -9,24 +9,22 @@ module Data = Longleaf_bars.Data
 
 (** Nature_Boy_V3_Opt - Optimizable Mean Reversion Strategy
 
-    Based on Nature Boy V2, with all constants replaced by optimization variables.
-    This allows NLopt to explore the full parameter space.
+    Based on Nature Boy V2, with all constants replaced by optimization
+    variables. This allows NLopt to explore the full parameter space.
 
-    Variables to optimize (14 total):
-    1. mfi_period: [50, 300] - MFI lookback period
-    2. natr_lo_period: [5, 50] - Short NATR period (stale data detection)
-    3. natr_hi_period: [50, 200] - Long NATR period (regime detection)
-    4. bb_entry_period: [100, 400] - Entry Bollinger Band period
-    5. bb_entry_std: [1.0, 3.0] - Entry BB standard deviation
-    6. bb_exit_period: [100, 400] - Exit Bollinger Band period
-    7. mfi_oversold: [20.0, 50.0] - MFI oversold threshold for entry
-    8. mfi_exit: [40.0, 70.0] - MFI exit threshold
-    9. natr_lo_threshold: [0.05, 1.0] - Min NATR (stale data filter)
-    10. natr_hi_threshold: [1.0, 6.0] - Max NATR (regime filter)
-    11. min_hold: [10, 100] - Minimum holding period in ticks
-    12. stop_loss_mult: [0.85, 0.95] - Stop loss as multiplier of entry price
-    13. profit_target_mult: [1.05, 1.20] - Profit target as multiplier of entry
-    14. max_hold: [100, 500] - Maximum holding period in ticks
+    Variables to optimize (14 total): 1. mfi_period: [50, 300] - MFI lookback
+    period 2. natr_lo_period: [5, 50] - Short NATR period (stale data detection)
+    3. natr_hi_period: [50, 200] - Long NATR period (regime detection) 4.
+    bb_entry_period: [100, 400] - Entry Bollinger Band period 5. bb_entry_std:
+    [1.0, 3.0] - Entry BB standard deviation 6. bb_exit_period: [100, 400] -
+    Exit Bollinger Band period 7. mfi_oversold: [20.0, 50.0] - MFI oversold
+    threshold for entry 8. mfi_exit: [40.0, 70.0] - MFI exit threshold 9.
+    natr_lo_threshold: [0.05, 1.0] - Min NATR (stale data filter) 10.
+    natr_hi_threshold: [1.0, 6.0] - Max NATR (regime filter) 11. min_hold:
+    [10, 100] - Minimum holding period in ticks 12. stop_loss_mult: [0.85, 0.95]
+    \- Stop loss as multiplier of entry price 13. profit_target_mult:
+    [1.05, 1.20] - Profit target as multiplier of entry 14. max_hold: [100, 500]
+    \- Maximum holding period in ticks
 
     Base strategy: Nature Boy V2 (locked values):
     - mfi_period = 190, mfi_oversold = 36.59
@@ -38,8 +36,8 @@ module Data = Longleaf_bars.Data
     - min_hold = 36, max_hold = 258
     - stop_loss = 9.07%, profit_target = 10.35%
 
-    NOTE: Use starting index of at least 400 (-i 400) to allow longest
-    indicator periods to warm up. *)
+    NOTE: Use starting index of at least 400 (-i 400) to allow longest indicator
+    periods to warm up. *)
 let nature_boy_v3_opt =
   (* Variable 1: MFI period *)
   let mfi_period_var = Gadt_fo.var ~lower:50.0 ~upper:300.0 Type.Int in
@@ -83,7 +81,8 @@ let nature_boy_v3_opt =
     Gadt.Data
       (App1
          ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_lo_period_var) ))
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_lo_period_var)
+         ))
   in
 
   (* NATR for upper bound - longer period for regime detection *)
@@ -91,7 +90,8 @@ let nature_boy_v3_opt =
     Gadt.Data
       (App1
          ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_hi_period_var) ))
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_hi_period_var)
+         ))
   in
 
   (* Entry Bollinger Band - variable period and std dev *)
@@ -127,16 +127,14 @@ let nature_boy_v3_opt =
   (* Gated exit signals - variable thresholds *)
   let gated_exits =
     past_min_hold
-    &&. (last >. bb_middle
-        ||. (mfi >. mfi_exit_var)
+    &&. (last >. bb_middle ||. (mfi >. mfi_exit_var)
         ||. (last >. EntryPrice *. profit_target_mult_var))
   in
 
   {
     name = "Nature_Boy_V3_Opt";
     buy_trigger =
-      mfi <. mfi_oversold_var
-      &&. (last <. bb_lower)
+      mfi <. mfi_oversold_var &&. (last <. bb_lower)
       &&. (natr_lo >. natr_lo_threshold_var) (* Stale data filter *)
       &&. (natr_hi <. natr_hi_threshold_var) (* Regime filter *)
       &&. recovering &&. safe_to_enter ();

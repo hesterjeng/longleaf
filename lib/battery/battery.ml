@@ -3,11 +3,11 @@
     A battery is a collection of datasets used to validate a trading strategy
     across multiple time periods. Three distinct modes are supported:
 
-    - {b WalkForward}: Sequential periods where we train on N, test on N+1,
-      then advance and repeat. This tests adaptive retraining.
+    - {b WalkForward}: Sequential periods where we train on N, test on N+1, then
+      advance and repeat. This tests adaptive retraining.
 
-    - {b SingleTrain}: One training period with multiple test periods.
-      This tests how well parameters generalize.
+    - {b SingleTrain}: One training period with multiple test periods. This
+      tests how well parameters generalize.
 
     - {b Evaluate}: No training - run a pre-configured strategy on multiple
       datasets. This tests consistency of a fixed strategy. *)
@@ -26,10 +26,7 @@ end
 
 (** Result from one train/test cycle (for WalkForward and SingleTrain) *)
 module Train_test_result = struct
-  type t = {
-    train_source : Target.t;
-    test_results : Eval_result.t list;
-  }
+  type t = { train_source : Target.t; test_results : Eval_result.t list }
   [@@deriving show]
 end
 
@@ -37,7 +34,8 @@ end
 module Result = struct
   type t = {
     mode : string;  (** "walk_forward" | "single_train" | "evaluate" *)
-    train_test_results : Train_test_result.t list;  (** Empty for Evaluate mode *)
+    train_test_results : Train_test_result.t list;
+        (** Empty for Evaluate mode *)
     eval_results : Eval_result.t list;  (** All test/eval results flattened *)
   }
   [@@deriving show]
@@ -46,15 +44,15 @@ end
 (** Three distinct battery modes *)
 type t =
   | WalkForward of Target.t list
-      (** Sequential periods: train on N, test on N+1, advance, repeat.
-          Example: [Q1; Q2; Q3; Q4] becomes train Q1/test Q2, train Q2/test Q3,
-          train Q3/test Q4 *)
+      (** Sequential periods: train on N, test on N+1, advance, repeat. Example:
+          [Q1; Q2; Q3; Q4] becomes train Q1/test Q2, train Q2/test Q3, train
+          Q3/test Q4 *)
   | SingleTrain of { train : Target.t; tests : Target.t list }
-      (** One training period, multiple test periods.
-          Example: train on 2023, test on [Q1'24; Q2'24; Q3'24; Q4'24] *)
+      (** One training period, multiple test periods. Example: train on 2023,
+          test on [Q1'24; Q2'24; Q3'24; Q4'24] *)
   | Evaluate of Target.t list
-      (** No training - run a fixed strategy on multiple datasets.
-          Example: run NatureBoyV2 on [Q1; Q2; Q3; Q4] to measure consistency *)
+      (** No training - run a fixed strategy on multiple datasets. Example: run
+          NatureBoyV2 on [Q1; Q2; Q3; Q4] to measure consistency *)
 [@@deriving show]
 
 (** {1 Constructors} *)
@@ -74,8 +72,8 @@ let single_train ~train ~tests : t = SingleTrain { train; tests }
 
 (** Create an evaluation-only battery (no training).
 
-    Run a pre-configured strategy (e.g., NatureBoyV2) on each dataset
-    in [targets] to measure consistency. *)
+    Run a pre-configured strategy (e.g., NatureBoyV2) on each dataset in
+    [targets] to measure consistency. *)
 let evaluate (targets : Target.t list) : t = Evaluate targets
 
 (** {1 Utility Functions} *)
@@ -168,7 +166,9 @@ let best_by_sharpe (r : Result.t) : Eval_result.t option =
   let with_sharpe =
     List.filter_map
       (fun (e : Eval_result.t) ->
-        Option.map (fun (ts : Stats.TradeStats.t) -> (e, ts.sharpe)) e.trade_stats)
+        Option.map
+          (fun (ts : Stats.TradeStats.t) -> (e, ts.sharpe))
+          e.trade_stats)
       r.eval_results
   in
   match with_sharpe with
@@ -187,7 +187,9 @@ let worst_by_sharpe (r : Result.t) : Eval_result.t option =
   let with_sharpe =
     List.filter_map
       (fun (e : Eval_result.t) ->
-        Option.map (fun (ts : Stats.TradeStats.t) -> (e, ts.sharpe)) e.trade_stats)
+        Option.map
+          (fun (ts : Stats.TradeStats.t) -> (e, ts.sharpe))
+          e.trade_stats)
       r.eval_results
   in
   match with_sharpe with
@@ -206,4 +208,6 @@ let num_periods (r : Result.t) : int = List.length r.eval_results
 
 (** Number of periods with at least one trade *)
 let num_periods_with_trades (r : Result.t) : int =
-  List.count (fun (e : Eval_result.t) -> Option.is_some e.trade_stats) r.eval_results
+  List.count
+    (fun (e : Eval_result.t) -> Option.is_some e.trade_stats)
+    r.eval_results
