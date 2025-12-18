@@ -14,6 +14,8 @@ module Pmutex = Longleaf_util.Pmutex
 (* Re-use types and modules from the original gadt.ml *)
 open Gadt
 
+let num_iterations = 2000
+
 (* Communication types for Saturn-based worker approach (works across C boundary) *)
 type work_request = {
   params : float array;
@@ -293,7 +295,7 @@ let opt_atomic bars (options : Options.t) mutices (strategy : Gadt_strategy.t) =
   (* Set per-variable bounds (extracted from GADT Var nodes) *)
   Nlopt.set_lower_bounds opt lower_bounds;
   Nlopt.set_upper_bounds opt upper_bounds;
-  Nlopt.set_maxeval opt 5000;
+  Nlopt.set_maxeval opt num_iterations;
 
   (* Set objective function *)
   Nlopt.set_max_objective opt

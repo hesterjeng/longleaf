@@ -306,10 +306,10 @@ let to_items (x : t) =
 let make size : t =
   {
     data =
-      Array2.init Bigarray.float64 Bigarray.c_layout 300 size (fun _ _ ->
+      Array2.init Bigarray.float64 Bigarray.c_layout 50 size (fun _ _ ->
           Float.nan);
     int_data =
-      Array2.init Bigarray.int32 Bigarray.c_layout 140 size (fun _ _ ->
+      Array2.init Bigarray.int32 Bigarray.c_layout 10 size (fun _ _ ->
           Int32.zero);
     index = Index.make ();
     size;
