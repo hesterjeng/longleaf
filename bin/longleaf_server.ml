@@ -434,6 +434,11 @@ let handler sw env cors_origin static_dir _conn request body =
             let files = Bars.files () in
             if List.mem ~eq:String.equal s files then Result.return target
             else Error.fatal "Unable to find target file"
+          | BatteryName name ->
+            if List.mem ~eq:String.equal name
+                 Longleaf_strategies.Battery_runner.available_batteries
+            then Result.return target
+            else Error.fatal "Unknown battery name"
         in
         Result.return target
       in

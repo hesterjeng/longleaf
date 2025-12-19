@@ -34,7 +34,8 @@ let make mutices (bars : Bars.t) (options : Options.t) =
     | RandomSliceBacktest
     | RandomTickerBacktest
     | MultiRandomTickerBacktest
-    | MultiRandomSliceBacktest ->
+    | MultiRandomSliceBacktest
+    | Battery ->
       Eio.traceln "@[create_backend: Creating Backtesting backend@]@.";
       Result.return @@ (module Backtesting_backend.Make (Input) : S)
   in

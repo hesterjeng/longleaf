@@ -1,19 +1,14 @@
-(* Start with empty bars, load bars from a file, or download data *)
-type t = Download | File of string
-(* Store file path for deferred loading *)
-(* | Loaded of 'a (\* Placeholder - will be updated when bars are available *\) *)
+(* Start with empty bars, load bars from a file, download data, or run a battery *)
+type t =
+  | Download
+  | File of string
+  | BatteryName of string
 [@@deriving show, variants, yojson]
 
-let of_string_res =
- fun x ->
+let of_string_res x =
   match x with
-  | "Download"
-  | "download" ->
-    Ok Download
-  | s when Sys.file_exists s ->
-    (* Store file path for deferred loading *)
-    Result.return @@ File s
-  | _ ->
-    Error (`Msg "Expected a valid preload selection, or file doesn't exist")
+  | "Download" | "download" -> Ok Download
+  | s when Sys.file_exists s -> Result.return @@ File s
+  | s -> Result.return @@ BatteryName s
 
 let conv : t Cmdliner.Arg.conv = Cmdliner.Arg.conv (of_string_res, pp)

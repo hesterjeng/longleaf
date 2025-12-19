@@ -23,6 +23,8 @@ let load_bars eio_env (target : Target.t) =
     | e -> Error.fatal @@ "Failed to load bars: " ^ Printexc.to_string e)
   | Download ->
     Error.fatal "Download target not yet supported in battery runner"
+  | BatteryName _ ->
+    Error.fatal "BatteryName is not a valid data source for battery runner"
 
 (** Run a single evaluation: execute strategy on bars, return Eval_result *)
 let run_eval builder options mutices source bars =
@@ -35,24 +37,48 @@ let run_eval builder options mutices source bars =
   Result.return { Battery.Eval_result.source; stats; trade_stats }
 
 (** Run a strategy on a target, loading bars and executing *)
-let run_on_target builder options source =
+let run_on_target builder options mutices source =
   let ( let* ) = Result.( let* ) in
   let* bars = load_bars options.Options.eio_env source in
-  let mutices = Mutex.create [] in
   run_eval builder options mutices source bars
 
 (** Run Evaluate battery: execute fixed strategy on each target *)
-let run_evaluate builder options targets =
+let run_evaluate builder options mutices targets =
   let ( let* ) = Result.( let* ) in
-  let* eval_results = Result.map_l (run_on_target builder options) targets in
+  let* eval_results =
+    Result.map_l (run_on_target builder options mutices) targets
+  in
   Result.return
     { Battery.Result.mode = "evaluate"; train_test_results = []; eval_results }
 
 (** Run a battery test *)
-let run builder options battery =
+let run builder options mutices battery =
   match battery with
-  | Battery.Evaluate targets -> run_evaluate builder options targets
+  | Battery.Evaluate targets -> run_evaluate builder options mutices targets
   | Battery.SingleTrain { train = _; tests = _ } ->
     Error.fatal "SingleTrain battery mode not yet implemented"
   | Battery.WalkForward _ ->
     Error.fatal "WalkForward battery mode not yet implemented"
+
+(** {1 Predefined Batteries} *)
+
+(** All half-year periods from 2023-2025 *)
+let quarterly_2023_2025 =
+  Battery.evaluate
+    [
+      Target.File "data/q1q2-2023-1min.json";
+      Target.File "data/q3q4-2023-1min.json";
+      Target.File "data/q1q2-2024-1min.json";
+      Target.File "data/q3q4-2024-1min.json";
+      Target.File "data/q1q2-2025-1min.json";
+      Target.File "data/q3q4-2025-1min.json";
+    ]
+
+(** Lookup a battery by name *)
+let get_battery name =
+  match name with
+  | "quarterly" | "quarterly_2023_2025" -> Some quarterly_2023_2025
+  | _ -> None
+
+(** List of available battery names *)
+let available_batteries = [ "quarterly"; "quarterly_2023_2025" ]
