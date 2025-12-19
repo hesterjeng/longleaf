@@ -53,9 +53,35 @@ module Run = struct
     in
     let builder = Gadt_strategy.Builder.top strategy in
     let* result = Battery_runner.run builder options mutices battery in
-    Eio.traceln "Battery complete: %d periods evaluated" (Longleaf_battery.num_periods result);
+    (* Print per-dataset results *)
+    Eio.traceln "";
+    Eio.traceln "=== Battery Results by Dataset ===";
+    List.iter
+      (fun (e : Longleaf_battery.Eval_result.t) ->
+        let source_name =
+          match e.source with
+          | Target.File s -> Filename.basename s
+          | _ -> Target.show e.source
+        in
+        match e.trade_stats with
+        | Some ts ->
+          Eio.traceln "  %s: Sharpe=%.3f  Return=%.2f%%  Drawdown=%.2f%%  Trades=%d"
+            source_name ts.sharpe (e.stats.total_return *. 100.0)
+            (e.stats.max_drawdown *. 100.0) ts.num_trades
+        | None ->
+          Eio.traceln "  %s: No trades" source_name)
+      result.eval_results;
+    (* Print summary *)
+    Eio.traceln "";
+    Eio.traceln "=== Summary ===";
+    Eio.traceln "Periods evaluated: %d" (Longleaf_battery.num_periods result);
     Eio.traceln "Avg Sharpe: %.3f (std: %.3f)"
       (Longleaf_battery.avg_sharpe result) (Longleaf_battery.std_sharpe result);
+    Eio.traceln "Avg Return: %.2f%% (std: %.2f%%)"
+      (Longleaf_battery.avg_return result *. 100.0)
+      (Longleaf_battery.std_return result *. 100.0);
+    Eio.traceln "Worst Drawdown: %.2f%%"
+      (Longleaf_battery.worst_drawdown result *. 100.0);
     Eio.traceln "Consistency: %.1f%%" (Longleaf_battery.consistency result *. 100.0);
     Result.return 0.0
 
