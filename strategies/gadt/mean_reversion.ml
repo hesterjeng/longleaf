@@ -148,5 +148,127 @@ let nature_boy_v3_opt =
     position_size = 0.20;
   }
 
+(** MR0_Opt - Lean Mean Reversion Strategy (6 variables)
+
+    Streamlined version of Nature Boy with structurally-justified fixed parameters
+    and only essential optimization variables. Designed for S&P 100 stocks.
+
+    Research basis:
+    - S&P 100 spreads: ~3.7 bps (negligible)
+    - Intraday mean reversion half-life: 1-4 hours for liquid large-caps
+    - Daily volatility: 1-2% typical for S&P 100 constituents
+
+    Fixed parameters (derived from first principles):
+    - bb_std = 2.0 (standard Bollinger Band)
+    - stop_loss = 8% (generous for oversold entries)
+    - profit_target = 5% (typical intraday mean reversion)
+    - min_hold = 30 bars (30 min - cover spread, allow reversion time)
+    - max_hold = 240 bars (4 hours - mean reversion window)
+
+    Optimization variables (6 total):
+    1. mfi_period: [50, 200] - MFI lookback (1-3 hours on 1-min bars)
+    2. mfi_oversold: [20, 45] - Entry threshold
+    3. mfi_exit: [45, 65] - Exit threshold
+    4. bb_period: [100, 300] - Bollinger Band period (~1.5-5 hours)
+    5. natr_period: [30, 150] - Volatility regime filter period
+    6. natr_max: [1.5, 5.0] - Max NATR (avoid high volatility regimes)
+
+    Sources:
+    - S&P 100 spreads: https://www.nasdaq.com/articles/sampling-sp-500-minimize-spreads
+    - Mean reversion timescales: https://arxiv.org/html/2501.16772v1
+
+    NOTE: Use starting index of at least 300 (-i 300) for indicator warmup. *)
+let mr0_opt =
+  (* Variable 1: MFI period - core momentum signal *)
+  let mfi_period_var = Gadt_fo.var ~lower:50.0 ~upper:200.0 Type.Int in
+  (* Variable 2: MFI oversold threshold *)
+  let mfi_oversold_var = Gadt_fo.var ~lower:20.0 ~upper:45.0 Type.Float in
+  (* Variable 3: MFI exit threshold *)
+  let mfi_exit_var = Gadt_fo.var ~lower:45.0 ~upper:65.0 Type.Float in
+  (* Variable 4: Bollinger Band period - single period for entry and exit *)
+  let bb_period_var = Gadt_fo.var ~lower:100.0 ~upper:300.0 Type.Int in
+  (* Variable 5: NATR period - volatility regime detection *)
+  let natr_period_var = Gadt_fo.var ~lower:30.0 ~upper:150.0 Type.Int in
+  (* Variable 6: NATR max threshold - avoid high volatility *)
+  let natr_max_var = Gadt_fo.var ~lower:1.5 ~upper:5.0 Type.Float in
+
+  (* Fixed parameters - structurally justified *)
+  let bb_std = Const (2.0, Float) in
+  let stop_loss_mult = Const (0.92, Float) in (* 8% stop *)
+  let profit_target_mult = Const (1.05, Float) in (* 5% target *)
+  let min_hold = Const (30, Int) in (* 30 minutes *)
+  let max_hold = Const (240, Int) in (* 4 hours *)
+
+  (* MFI indicator *)
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period_var) ))
+  in
+
+  (* NATR for volatility regime filter *)
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_period_var) ))
+  in
+
+  (* Bollinger Bands - single period for both entry and exit *)
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               bb_period_var,
+               bb_std,
+               bb_std ) ))
+  in
+
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               bb_period_var,
+               bb_std,
+               bb_std ) ))
+  in
+
+  (* Recovery filter - price recovering from recent low *)
+  let recovering = last >. lag last 1 in
+
+  (* Min hold gate *)
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
+
+  (* Exit conditions *)
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. mfi_exit_var)
+        ||. (last >. EntryPrice *. profit_target_mult))
+  in
+
+  {
+    name = "MR0_Opt";
+    buy_trigger =
+      mfi <. mfi_oversold_var
+      &&. (last <. bb_lower)
+      &&. (natr <. natr_max_var) (* Avoid high volatility regimes *)
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
-let all_strategies = [ nature_boy_v3_opt ]
+let all_strategies = [ nature_boy_v3_opt; mr0_opt ]
