@@ -32,12 +32,9 @@ let find_gadt_strategy name =
 module Run = struct
   module Target = Longleaf_core.Target
 
-  let run_battery eio_env executor_pool flags battery_name mutices () =
+  let run_battery eio_env executor_pool (flags : Options.CLI.t) battery_name mutices () =
     let ( let* ) = Result.( let* ) in
     Eio.Switch.run @@ fun sw ->
-    let options =
-      Longleaf_template.mk_options sw eio_env executor_pool flags Target.Download []
-    in
     let* battery =
       match Battery_runner.get_battery battery_name with
       | Some b -> Result.return b
@@ -50,6 +47,13 @@ module Run = struct
       match find_gadt_strategy flags.strategy_arg with
       | Some s -> Result.return s
       | None -> Error.fatal ("Unknown strategy: " ^ flags.strategy_arg)
+    in
+    (* Collect indicators from the strategy - this is critical!
+       Without this, indicators like MFI won't be computed and will return NaN. *)
+    let tacaml_indicators = Gadt_strategy.CollectIndicators.top strategy in
+    let options =
+      Longleaf_template.mk_options sw eio_env executor_pool flags Target.Download
+        tacaml_indicators
     in
     let builder = Gadt_strategy.Builder.top strategy in
     let* result = Battery_runner.run builder options mutices battery in
