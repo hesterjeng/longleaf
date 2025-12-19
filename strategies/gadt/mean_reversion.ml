@@ -270,5 +270,216 @@ let mr0_opt =
     position_size = 0.20;
   }
 
+(** MRNB_3_A - Nature Boy V3 Winner A (locked)
+
+    Trained on q3q4-2025. Objective: 125,249.73
+    192 trades, 60.94% win rate, Sharpe 0.310, p < 0.0001 *)
+let mrnb_3_a =
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (235, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (9, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (89, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (359, Int),
+               Const (1.636, Float),
+               Const (1.636, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (331, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (72, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (59.09, Float))
+        ||. (last >. EntryPrice *. Const (1.068, Float)))
+  in
+  {
+    name = "MRNB_3_A";
+    buy_trigger =
+      mfi <. Const (49.70, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.492, Float))
+      &&. (natr_hi <. Const (3.261, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.868, Float))
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (171, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** MRNB_3_B - Nature Boy V3 Winner B (locked)
+
+    Trained on q3q4-2025. Objective: 122,756.98
+    249 trades, 60.64% win rate, Sharpe 0.213, p < 0.0004 *)
+let mrnb_3_b =
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (213, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (7, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (186, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (228, Int),
+               Const (1.662, Float),
+               Const (1.662, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (333, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (64, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (65.77, Float))
+        ||. (last >. EntryPrice *. Const (1.150, Float)))
+  in
+  {
+    name = "MRNB_3_B";
+    buy_trigger =
+      mfi <. Const (49.11, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.488, Float))
+      &&. (natr_hi <. Const (2.779, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.871, Float))
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (396, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** MRNB_3_C - Nature Boy V3 Winner C (locked)
+
+    Trained on q3q4-2025. Objective: 123,321.08
+    214 trades, 64.49% win rate, Sharpe 0.246, p < 0.0002 *)
+let mrnb_3_c =
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (230, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (18, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (179, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (315, Int),
+               Const (2.610, Float),
+               Const (2.610, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (287, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (48, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (60.55, Float))
+        ||. (last >. EntryPrice *. Const (1.078, Float)))
+  in
+  {
+    name = "MRNB_3_C";
+    buy_trigger =
+      mfi <. Const (48.98, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.347, Float))
+      &&. (natr_hi <. Const (5.649, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.872, Float))
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (441, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
-let all_strategies = [ nature_boy_v3_opt; mr0_opt ]
+let all_strategies =
+  [ nature_boy_v3_opt; mr0_opt; mrnb_3_a; mrnb_3_b; mrnb_3_c ]
