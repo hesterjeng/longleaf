@@ -746,6 +746,216 @@ let intraday_mr_anytime =
     position_size = 0.20;
   }
 
+(** Intraday_MR_5min - Mean Reversion with 5-Minute Minimum Hold
+
+    Based on Intraday_MR_Anytime but with a 5-minute minimum hold time.
+    This filters out noise trades and retains only significant moves.
+
+    Rationale for 5-minute hold:
+    - Execution: ~30s for order submission + fill + confirmation
+    - Market impact: need time for our entry to not move exit price
+    - Mean reversion: real reversions take time to develop
+    - Reduces trade count dramatically while keeping high-conviction trades
+
+    Entry (anytime during market hours):
+    - Price < price 30 bars ago (down over last 30 min)
+
+    Exit:
+    - End of day (always)
+    - Stop loss: 2% (gated by min hold - gives trade time to work)
+    - Recovery: price > 5-bar ago high (gated by min hold)
+    - OR held for 20+ minutes (max hold for intraday)
+
+    NOTE: Use starting index of at least 50 (-i 50) for lag warmup. *)
+let intraday_mr_5min =
+  (* Minimum hold: 5 bars = 5 minutes on 1-min data *)
+  let min_hold = Const (5, Int) in
+  let max_hold = Const (60, Int) in (* 1 hour max *)
+
+  (* Mean reversion: price is LOWER than 30 bars ago *)
+  let price_30_ago = lag last 30 in
+  let momentum_negative = last <. price_30_ago in
+
+  (* Return calculation for scoring *)
+  let return_30 = (last -. price_30_ago) /. price_30_ago in
+
+  (* Recovery detection: price above recent high = take profit *)
+  let recent_high = lag high 5 in
+  let recovery_exit = last >. recent_high in
+
+  (* Stop loss: 2% *)
+  let stop_loss_mult = Const (0.98, Float) in
+
+  (* Gate exits by minimum hold time *)
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
+  let gated_exits =
+    past_min_hold &&. (
+      recovery_exit
+      ||. (last <. EntryPrice *. stop_loss_mult)
+    )
+  in
+
+  {
+    name = "Intraday_MR_5min";
+    buy_trigger =
+      momentum_negative
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. gated_exits
+      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+    score = Const (0.0, Float) -. (return_30 *. Const (100.0, Float));
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** Intraday_MR_15min - Mean Reversion with 15-Minute Minimum Hold
+
+    More conservative variant with 15-minute hold.
+    Trades even less frequently, targeting only substantial reversions.
+
+    This hold time better matches:
+    - Typical intraday mean reversion half-life (15-60 min for large caps)
+    - Realistic execution window for retail traders
+    - Sufficient time for the trade thesis to play out
+
+    Exit:
+    - End of day (always)
+    - Stop loss: 3% (wider to give trade room)
+    - Profit target: 1.5% (gated by min hold)
+    - Recovery: price > 5-bar ago high (gated by min hold)
+    - Max hold: 2 hours
+
+    NOTE: Use starting index of at least 50 (-i 50) for lag warmup. *)
+let intraday_mr_15min =
+  (* Minimum hold: 15 bars = 15 minutes *)
+  let min_hold = Const (15, Int) in
+  let max_hold = Const (120, Int) in (* 2 hours max *)
+
+  (* Mean reversion: price is LOWER than 30 bars ago *)
+  let price_30_ago = lag last 30 in
+  let momentum_negative = last <. price_30_ago in
+
+  (* Return calculation for scoring *)
+  let return_30 = (last -. price_30_ago) /. price_30_ago in
+
+  (* Recovery detection *)
+  let recent_high = lag high 5 in
+  let recovery_exit = last >. recent_high in
+
+  (* Profit target: 1.5% *)
+  let profit_target_mult = Const (1.015, Float) in
+  let profit_target_hit = last >. EntryPrice *. profit_target_mult in
+
+  (* Stop loss: 3% (wider for longer hold) *)
+  let stop_loss_mult = Const (0.97, Float) in
+
+  (* Gate exits by minimum hold time *)
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
+  let gated_exits =
+    past_min_hold &&. (
+      recovery_exit
+      ||. profit_target_hit
+      ||. (last <. EntryPrice *. stop_loss_mult)
+    )
+  in
+
+  {
+    name = "Intraday_MR_15min";
+    buy_trigger =
+      momentum_negative
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. gated_exits
+      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+    score = Const (0.0, Float) -. (return_30 *. Const (100.0, Float));
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** Intraday_MR_Execution - Execution-Optimized Mean Reversion
+
+    Focuses on trade quality over quantity. Key improvements:
+
+    1. Entry confirmation: Require price to be recovering (last > lag 1)
+       - Avoids catching falling knives
+       - Enters after the bounce has started
+
+    2. Minimum drop threshold: Require at least 0.5% drop over 30 bars
+       - Filters out noise/tiny wiggles
+       - Only trades meaningful oversold conditions
+
+    3. NATR filter: Avoid stale markets and extreme volatility
+       - NATR > 0.3: Market is active (not stale data)
+       - NATR < 4.0: Not in extreme volatility regime
+
+    4. Let winners run:
+       - Wider profit target (1.5%) instead of first uptick exit
+       - Reversal exit only after being in profit
+       - 3% stop loss gives trades room to work
+
+    Expected: Fewer trades, higher win rate, larger average winner.
+
+    NOTE: Use starting index of at least 100 (-i 100) for indicator warmup. *)
+let intraday_mr_execution =
+  (* NATR for liquidity/volatility filter *)
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (60, Int)) ))
+  in
+  let natr_min = Const (0.3, Float) in (* Avoid stale/illiquid conditions *)
+  let natr_max = Const (4.0, Float) in (* Avoid extreme volatility *)
+
+  (* Price movement over 30 bars *)
+  let price_30_ago = lag last 30 in
+  let return_30 = (last -. price_30_ago) /. price_30_ago in
+
+  (* Entry filters *)
+  let significant_drop = return_30 <. Const (-0.005, Float) in (* At least 0.5% drop *)
+  let recovering = last >. lag last 1 in (* Price ticking up - bounce started *)
+
+  (* Exit parameters - let winners run *)
+  let profit_target_mult = Const (1.015, Float) in (* 1.5% profit target *)
+  let stop_loss_mult = Const (0.97, Float) in      (* 3% stop loss *)
+  let min_hold = Const (5, Int) in                 (* 5 min minimum hold *)
+  let max_hold = Const (120, Int) in               (* 2 hour max hold *)
+
+  (* Take profit on reversal: if in profit and price drops below recent low *)
+  let in_profit = last >. EntryPrice in
+  let reversal = last <. lag low 3 in
+  let take_profit_on_reversal = in_profit &&. reversal in
+
+  (* Gate exits by minimum hold *)
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
+  let gated_exits =
+    past_min_hold &&. (
+      (last >. EntryPrice *. profit_target_mult)  (* Hit profit target *)
+      ||. (last <. EntryPrice *. stop_loss_mult)  (* Hit stop loss *)
+      ||. take_profit_on_reversal                  (* Take profit on reversal *)
+    )
+  in
+
+  {
+    name = "Intraday_MR_Execution";
+    buy_trigger =
+      (last <. price_30_ago)        (* Down over 30 bars *)
+      &&. significant_drop          (* At least 0.5% drop *)
+      &&. recovering                (* Bounce has started *)
+      &&. (natr >. natr_min)        (* Market is active *)
+      &&. (natr <. natr_max)        (* Not extreme volatility *)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. gated_exits
+      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+    score = Const (0.0, Float) -. (return_30 *. Const (100.0, Float));
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
@@ -758,4 +968,7 @@ let all_strategies =
     intraday_momentum_10am;
     intraday_mr_10am;
     intraday_mr_anytime;
+    intraday_mr_5min;
+    intraday_mr_15min;
+    intraday_mr_execution;
   ]
