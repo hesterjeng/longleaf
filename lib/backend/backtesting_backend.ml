@@ -57,18 +57,20 @@ module Make (Input : BACKEND_INPUT) : S = struct
           Eio.traceln "[%d] Not placing an order due to random chance" tick;
           None
     in
+    (* Adverse slippage: always hurts. Buys pay 1.0 to 1+pct, sells receive 1-pct to 1.0 *)
     let price_modifier (order : Order.t) =
       match Input.options.flags.slippage_pct with
       | 0.0 -> order
       | pct ->
         assert (pct >=. 0.0);
         assert (pct <=. 1.0);
-        let minmod, maxmod = (1.0 -. pct, 1.0 +. pct) in
-        let pricemin, pricemax =
-          (minmod *. order.price, maxmod *. order.price)
+        let minmod, maxmod =
+          match order.side with
+          | Buy -> (1.0, 1.0 +. pct)        (* Pay at least market, up to pct more *)
+          | Sell -> (1.0 -. pct, 1.0)       (* Receive at most market, down to pct less *)
         in
         let slipped_price =
-          Random.float_range pricemin pricemax @@ random_state
+          Random.float_range (minmod *. order.price) (maxmod *. order.price) @@ random_state
         in
         { order with price = slipped_price }
     in
