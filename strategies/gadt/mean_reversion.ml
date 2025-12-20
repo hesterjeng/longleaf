@@ -746,6 +746,62 @@ let intraday_mr_anytime =
     position_size = 0.20;
   }
 
+(** Intraday_MR_Anytime_2 - Mean Reversion with SMA and Volume Spike
+
+    Improved version of Anytime with filters:
+    - Price at least 0.3% below SMA(30) (significant drop, not noise)
+    - Volume > 2x lagged volume (volume spike confirms selling)
+    - max_positions = 3, position_size = 0.33 (full capital utilization)
+
+    Entry (anytime during market hours):
+    - Price >= 0.3% below SMA(30)
+    - Volume >= 2x volume from 20 bars ago
+
+    Score:
+    - Bigger drop below SMA = higher priority
+
+    Exit:
+    - End of day
+    - Stop loss: 2% below entry
+    - Recovery: price rises above 5-bar ago high
+
+    NOTE: Use starting index of at least 50 (-i 50) for lag warmup. *)
+let intraday_mr_anytime_2 =
+  (* SMA(30) for smoother mean reversion signal *)
+  let sma_30 = Gadt_fo.Constant.sma 30 () in
+
+  (* Percentage below SMA *)
+  let pct_below_sma = (sma_30 -. last) /. sma_30 in
+
+  (* Mean reversion: price at least 0.3% below SMA *)
+  let significantly_below_sma = pct_below_sma >. Const (0.003, Float) in
+
+  (* Volume spike: current volume > 2x volume 20 bars ago *)
+  let volume_spike = volume >. lag volume 20 *. Const (2.0, Float) in
+
+  (* Recovery detection: price above recent high = take profit *)
+  let recent_high = lag high 5 in
+  let recovery_exit = last >. recent_high in
+
+  (* Stop loss: 2% *)
+  let stop_loss_mult = Const (0.98, Float) in
+
+  {
+    name = "Intraday_MR_Anytime_2";
+    buy_trigger =
+      significantly_below_sma
+      &&. volume_spike
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. recovery_exit;
+    (* Bigger drop below SMA = higher score *)
+    score = pct_below_sma *. Const (100.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
 (** Intraday_MR_5min - Mean Reversion with 5-Minute Minimum Hold
 
     Based on Intraday_MR_Anytime but with a 5-minute minimum hold time.
@@ -874,86 +930,143 @@ let intraday_mr_15min =
     position_size = 0.20;
   }
 
-(** Intraday_MR_Execution - Execution-Optimized Mean Reversion
+(** Intraday_MR_Anytime_Opt - Optimizable Mean Reversion Strategy
 
-    Focuses on trade quality over quantity. Key improvements:
+    All key parameters exposed as optimization variables for ISRES tuning.
+    Based on Intraday_MR_Anytime concept but with learnable constants.
 
-    1. Entry confirmation: Require price to be recovering (last > lag 1)
-       - Avoids catching falling knives
-       - Enters after the bounce has started
+    Variables (8 total):
+    1. sma_period: [10, 60] - SMA lookback for mean calculation
+    2. min_drop_pct: [0.001, 0.02] - Minimum % below SMA to enter (0.1% to 2%)
+    3. volume_mult: [1.0, 4.0] - Volume spike multiplier vs lagged volume
+    4. volume_lookback: [5, 30] - How far back to compare volume
+    5. stop_loss_pct: [0.01, 0.05] - Stop loss percentage (1% to 5%)
+    6. profit_target_pct: [0.005, 0.03] - Profit target percentage (0.5% to 3%)
+    7. recovery_lookback: [3, 15] - Bars to look back for recovery high
+    8. max_hold: [30, 240] - Maximum hold time in bars
 
-    2. Minimum drop threshold: Require at least 0.5% drop over 30 bars
-       - Filters out noise/tiny wiggles
-       - Only trades meaningful oversold conditions
+    Entry:
+    - Price >= min_drop_pct below SMA(sma_period)
+    - Volume >= volume_mult * lagged volume
 
-    3. NATR filter: Avoid stale markets and extreme volatility
-       - NATR > 0.3: Market is active (not stale data)
-       - NATR < 4.0: Not in extreme volatility regime
-
-    4. Let winners run:
-       - Wider profit target (1.5%) instead of first uptick exit
-       - Reversal exit only after being in profit
-       - 3% stop loss gives trades room to work
-
-    Expected: Fewer trades, higher win rate, larger average winner.
+    Exit:
+    - EOD, stop loss, profit target, or recovery above recent high
 
     NOTE: Use starting index of at least 100 (-i 100) for indicator warmup. *)
-let intraday_mr_execution =
-  (* NATR for liquidity/volatility filter *)
-  let natr =
+let intraday_mr_anytime_opt =
+  (* Variable 1: SMA period for mean calculation *)
+  let sma_period_var = Gadt_fo.var ~lower:10.0 ~upper:60.0 Type.Int in
+
+  (* Variable 2: Minimum drop below SMA to enter *)
+  let min_drop_var = Gadt_fo.var ~lower:0.001 ~upper:0.02 Type.Float in
+
+  (* Variable 3: Volume spike multiplier *)
+  let volume_mult_var = Gadt_fo.var ~lower:1.0 ~upper:4.0 Type.Float in
+
+  (* Variable 4: Stop loss percentage *)
+  let stop_loss_var = Gadt_fo.var ~lower:0.01 ~upper:0.05 Type.Float in
+
+  (* Variable 5: Profit target percentage *)
+  let profit_target_var = Gadt_fo.var ~lower:0.005 ~upper:0.03 Type.Float in
+
+  (* Variable 6: Maximum hold time *)
+  let max_hold_var = Gadt_fo.var ~lower:30.0 ~upper:240.0 Type.Int in
+
+  (* SMA indicator with variable period *)
+  let sma =
     Gadt.Data
       (App1
          ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (60, Int)) ))
+           App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), sma_period_var) ))
   in
-  let natr_min = Const (0.3, Float) in (* Avoid stale/illiquid conditions *)
-  let natr_max = Const (4.0, Float) in (* Avoid extreme volatility *)
 
-  (* Price movement over 30 bars *)
-  let price_30_ago = lag last 30 in
-  let return_30 = (last -. price_30_ago) /. price_30_ago in
+  (* Percentage below SMA *)
+  let pct_below_sma = (sma -. last) /. sma in
 
-  (* Entry filters *)
-  let significant_drop = return_30 <. Const (-0.005, Float) in (* At least 0.5% drop *)
-  let recovering = last >. lag last 1 in (* Price ticking up - bounce started *)
+  (* Entry: price significantly below SMA *)
+  let below_sma_threshold = pct_below_sma >. min_drop_var in
 
-  (* Exit parameters - let winners run *)
-  let profit_target_mult = Const (1.015, Float) in (* 1.5% profit target *)
-  let stop_loss_mult = Const (0.97, Float) in      (* 3% stop loss *)
-  let min_hold = Const (5, Int) in                 (* 5 min minimum hold *)
-  let max_hold = Const (120, Int) in               (* 2 hour max hold *)
+  (* Volume spike: current volume > multiplier * lagged volume (fixed 20-bar lookback) *)
+  let volume_spike = volume >. lag volume 20 *. volume_mult_var in
 
-  (* Take profit on reversal: if in profit and price drops below recent low *)
-  let in_profit = last >. EntryPrice in
-  let reversal = last <. lag low 3 in
-  let take_profit_on_reversal = in_profit &&. reversal in
+  (* Stop loss and profit target *)
+  let stop_loss_mult = Const (1.0, Float) -. stop_loss_var in
+  let profit_target_mult = Const (1.0, Float) +. profit_target_var in
 
-  (* Gate exits by minimum hold *)
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
-  let gated_exits =
-    past_min_hold &&. (
-      (last >. EntryPrice *. profit_target_mult)  (* Hit profit target *)
-      ||. (last <. EntryPrice *. stop_loss_mult)  (* Hit stop loss *)
-      ||. take_profit_on_reversal                  (* Take profit on reversal *)
-    )
-  in
+  (* Recovery exit: price above recent high (fixed 5-bar lookback) *)
+  let recent_high = lag high 5 in
+  let recovery_exit = last >. recent_high in
 
   {
-    name = "Intraday_MR_Execution";
+    name = "Intraday_MR_Anytime_Opt";
     buy_trigger =
-      (last <. price_30_ago)        (* Down over 30 bars *)
-      &&. significant_drop          (* At least 0.5% drop *)
-      &&. recovering                (* Bounce has started *)
-      &&. (natr >. natr_min)        (* Market is active *)
-      &&. (natr <. natr_max)        (* Not extreme volatility *)
+      below_sma_threshold
+      &&. volume_spike
       &&. safe_to_enter ();
     sell_trigger =
       force_exit_eod ()
-      ||. gated_exits
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. recovery_exit
+      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold_var);
+    (* Bigger drop below SMA = higher score *)
+    score = pct_below_sma *. Const (100.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(** IDMR_A_ISRES_0 - ISRES-trained Intraday Mean Reversion
+
+    Trained on 6 months data, 4k iterations.
+    Objective: 138,040.65
+    6969 trades, 64.04% win rate, $7.46 expectancy, p=0.0001
+
+    Locked parameters:
+    - SMA period: 15
+    - Min drop: 0.301% below SMA
+    - Volume mult: 1.327x
+    - Stop loss: 4.13%
+    - Profit target: 0.80%
+    - Max hold: 33 bars *)
+let idmr_a_isres_0 =
+  (* SMA(15) for mean calculation *)
+  let sma = Gadt_fo.Constant.sma 15 () in
+
+  (* Percentage below SMA *)
+  let pct_below_sma = (sma -. last) /. sma in
+
+  (* Entry: price at least 0.301% below SMA *)
+  let below_sma_threshold = pct_below_sma >. Const (0.00301, Float) in
+
+  (* Volume spike: 1.327x lagged volume *)
+  let volume_spike = volume >. lag volume 20 *. Const (1.327, Float) in
+
+  (* Stop loss: 4.13% and profit target: 0.80% *)
+  let stop_loss_mult = Const (0.9587, Float) in
+  let profit_target_mult = Const (1.008, Float) in
+
+  (* Recovery exit: price above recent high *)
+  let recent_high = lag high 5 in
+  let recovery_exit = last >. recent_high in
+
+  (* Max hold: 33 bars *)
+  let max_hold = Const (33, Int) in
+
+  {
+    name = "IDMR_A_ISRES_0";
+    buy_trigger =
+      below_sma_threshold
+      &&. volume_spike
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. recovery_exit
       ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
-    score = Const (0.0, Float) -. (return_30 *. Const (100.0, Float));
-    max_positions = 5;
-    position_size = 0.20;
+    score = pct_below_sma *. Const (100.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
   }
 
 (* Export all strategies *)
@@ -968,7 +1081,9 @@ let all_strategies =
     intraday_momentum_10am;
     intraday_mr_10am;
     intraday_mr_anytime;
+    intraday_mr_anytime_2;
+    intraday_mr_anytime_opt;
+    idmr_a_isres_0;
     intraday_mr_5min;
     intraday_mr_15min;
-    intraday_mr_execution;
   ]
