@@ -480,6 +480,282 @@ let mrnb_3_c =
     position_size = 0.20;
   }
 
+(** MR_Basic - Baseline Mean Reversion (no optimization)
+
+    Textbook mean reversion with sensible defaults for 1-minute bars.
+    No ISRES training - just reasonable parameters from first principles.
+
+    Purpose: Baseline comparison for optimized strategies. If ISRES-trained
+    strategies can't beat this, the optimization is finding noise, not signal.
+
+    Parameters (all fixed, chosen from common practice):
+    - MFI period: 90 (1.5 hours - smoothed momentum)
+    - MFI oversold: 30 (standard oversold threshold)
+    - MFI exit: 50 (neutral - mean reverted)
+    - BB period: 120 (2 hours)
+    - BB std: 2.0 (standard)
+    - NATR period: 60 (1 hour)
+    - NATR max: 3.0 (avoid high volatility)
+    - Stop loss: 5%
+    - Profit target: 4%
+    - Min hold: 20 bars (20 minutes - avoid noise)
+    - Max hold: 180 bars (3 hours - intraday window)
+
+    NOTE: Use starting index of at least 150 (-i 150) for indicator warmup. *)
+let mr_basic =
+  (* Fixed parameters - textbook values *)
+  let mfi_period = Const (90, Int) in
+  let mfi_oversold = Const (30.0, Float) in
+  let mfi_exit = Const (50.0, Float) in
+  let bb_period = Const (120, Int) in
+  let bb_std = Const (2.0, Float) in
+  let natr_period = Const (60, Int) in
+  let natr_max = Const (3.0, Float) in
+  let stop_loss_mult = Const (0.95, Float) in
+  let profit_target_mult = Const (1.04, Float) in
+  let min_hold = Const (20, Int) in
+  let max_hold = Const (180, Int) in
+
+  (* MFI indicator *)
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period) ))
+  in
+
+  (* NATR for volatility filter *)
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_period) ))
+  in
+
+  (* Bollinger Bands *)
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               bb_period,
+               bb_std,
+               bb_std ) ))
+  in
+
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               bb_period,
+               bb_std,
+               bb_std ) ))
+  in
+
+  (* Simple recovery filter *)
+  let recovering = last >. lag last 1 in
+
+  (* Min hold gate *)
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
+
+  (* Exit conditions *)
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. mfi_exit)
+        ||. (last >. EntryPrice *. profit_target_mult))
+  in
+
+  {
+    name = "MR_Basic";
+    buy_trigger =
+      mfi <. mfi_oversold
+      &&. (last <. bb_lower)
+      &&. (natr <. natr_max)
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** Intraday_Momentum_10AM - Simple Intraday Momentum Strategy
+
+    Tests the hypothesis: "morning winners keep winning through the day"
+
+    Entry (10:00-10:15 AM only):
+    - 30-45 minutes after market open
+    - Price > price 30 bars ago (positive momentum)
+
+    Score:
+    - Return over last 30 bars (higher return = higher priority)
+
+    Exit:
+    - End of day (force_exit_eod)
+    - Stop loss: 2% below entry
+    - Momentum reversal: price drops below 5-bar ago low
+
+    NOTE: Use starting index of at least 50 (-i 50) for lag warmup. *)
+let intraday_momentum_10am =
+  (* Entry window: 30-45 minutes after open (10:00-10:15 AM) *)
+  let minutes_since = minutes_since_open TickTime in
+  let in_entry_window =
+    (minutes_since >=. Const (30.0, Float))
+    &&. (minutes_since <=. Const (45.0, Float))
+  in
+
+  (* Momentum: price is higher than 30 bars ago *)
+  let price_30_ago = lag last 30 in
+  let momentum_positive = last >. price_30_ago in
+
+  (* Return calculation for scoring *)
+  let return_30 = (last -. price_30_ago) /. price_30_ago in
+
+  (* Short-term reversal detection: price below recent low *)
+  let recent_low = lag low 5 in
+  let momentum_reversal = last <. recent_low in
+
+  (* Stop loss: 2% *)
+  let stop_loss_mult = Const (0.98, Float) in
+
+  {
+    name = "Intraday_Momentum_10AM";
+    buy_trigger =
+      in_entry_window
+      &&. momentum_positive
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. momentum_reversal;
+    score = return_30 *. Const (100.0, Float);
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** Intraday_MR_10AM - Inverse of Momentum: Buy Morning Losers
+
+    Tests the hypothesis: "morning losers bounce back through the day"
+    (Mean reversion at 10 AM instead of momentum continuation)
+
+    Entry (10:00-10:15 AM only):
+    - 30-45 minutes after market open
+    - Price < price 30 bars ago (negative momentum = oversold)
+
+    Score:
+    - Negative return over last 30 bars (bigger drop = higher priority)
+
+    Exit:
+    - End of day (force_exit_eod)
+    - Stop loss: 2% below entry
+    - Recovery target: price rises above 5-bar ago high
+
+    NOTE: Use starting index of at least 50 (-i 50) for lag warmup. *)
+let intraday_mr_10am =
+  (* Entry window: 30-45 minutes after open (10:00-10:15 AM) *)
+  let minutes_since = minutes_since_open TickTime in
+  let in_entry_window =
+    (minutes_since >=. Const (30.0, Float))
+    &&. (minutes_since <=. Const (45.0, Float))
+  in
+
+  (* Mean reversion: price is LOWER than 30 bars ago (oversold) *)
+  let price_30_ago = lag last 30 in
+  let momentum_negative = last <. price_30_ago in
+
+  (* Return calculation for scoring - more negative = higher score *)
+  let return_30 = (last -. price_30_ago) /. price_30_ago in
+
+  (* Recovery detection: price above recent high = take profit *)
+  let recent_high = lag high 5 in
+  let recovery_exit = last >. recent_high in
+
+  (* Stop loss: 2% *)
+  let stop_loss_mult = Const (0.98, Float) in
+
+  {
+    name = "Intraday_MR_10AM";
+    buy_trigger =
+      in_entry_window
+      &&. momentum_negative
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. recovery_exit;
+    (* Invert score: more negative return = higher priority (bigger dip = better opportunity) *)
+    score = Const (0.0, Float) -. (return_30 *. Const (100.0, Float));
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** Intraday_MR_Anytime - Mean Reversion Without Time Restriction
+
+    Same as Intraday_MR_10AM but can enter anytime during the day.
+    Tests whether the "buy losers" signal exists throughout the day
+    or is specific to the 10 AM window.
+
+    Entry (anytime during market hours):
+    - Price < price 30 bars ago (down over last 30 min)
+
+    Score:
+    - Bigger drop = higher priority
+
+    Exit:
+    - End of day
+    - Stop loss: 2% below entry
+    - Recovery: price rises above 5-bar ago high
+
+    NOTE: Use starting index of at least 50 (-i 50) for lag warmup. *)
+let intraday_mr_anytime =
+  (* No time restriction - just need safe_to_enter *)
+
+  (* Mean reversion: price is LOWER than 30 bars ago *)
+  let price_30_ago = lag last 30 in
+  let momentum_negative = last <. price_30_ago in
+
+  (* Return calculation for scoring *)
+  let return_30 = (last -. price_30_ago) /. price_30_ago in
+
+  (* Recovery detection: price above recent high = take profit *)
+  let recent_high = lag high 5 in
+  let recovery_exit = last >. recent_high in
+
+  (* Stop loss: 2% *)
+  let stop_loss_mult = Const (0.98, Float) in
+
+  {
+    name = "Intraday_MR_Anytime";
+    buy_trigger =
+      momentum_negative
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. recovery_exit;
+    score = Const (0.0, Float) -. (return_30 *. Const (100.0, Float));
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
 let all_strategies =
-  [ nature_boy_v3_opt; mr0_opt; mrnb_3_a; mrnb_3_b; mrnb_3_c ]
+  [
+    nature_boy_v3_opt;
+    mr0_opt;
+    mrnb_3_a;
+    mrnb_3_b;
+    mrnb_3_c;
+    mr_basic;
+    intraday_momentum_10am;
+    intraday_mr_10am;
+    intraday_mr_anytime;
+  ]
