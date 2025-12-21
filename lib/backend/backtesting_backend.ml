@@ -61,7 +61,7 @@ module Make (Input : BACKEND_INPUT) : S = struct
        3 bps (0.03%) is conservative for large-caps, realistic across the universe.
        Buys pay above last, sells receive below last. Deterministic, no randomness. *)
     let apply_spread (order : Order.t) =
-      let spread_cost = 0.0003 in (* 3 basis points *)
+      let spread_cost = 0.0002 in (* 2 basis points *)
       let adjustment = order.price *. spread_cost in
       let fill_price =
         match order.side with
