@@ -930,46 +930,66 @@ let intraday_mr_15min =
     position_size = 0.20;
   }
 
-(** Intraday_MR_Anytime_Opt - Optimizable Mean Reversion Strategy
+(** Intraday_MR_Anytime_Opt - DEPRECATED, use ID_MR_AT_OPT_0 instead *)
+let intraday_mr_anytime_opt =
+  (* Keeping minimal version for backwards compatibility *)
+  let sma = Gadt_fo.Constant.sma 30 () in
+  let pct_below_sma = (sma -. last) /. sma in
+  {
+    name = "Intraday_MR_Anytime_Opt";
+    buy_trigger = pct_below_sma >. Const (0.003, Float) &&. safe_to_enter ();
+    sell_trigger = force_exit_eod () ||. (last <. EntryPrice *. Const (0.97, Float));
+    score = pct_below_sma *. Const (100.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(** ID_MR_AT_OPT_0 - Intraday Mean Reversion with MFI-based volume confirmation
 
     All key parameters exposed as optimization variables for ISRES tuning.
-    Based on Intraday_MR_Anytime concept but with learnable constants.
+    Uses MFI (Money Flow Index) for volume confirmation instead of raw volume comparison.
 
     Variables (8 total):
-    1. sma_period: [10, 60] - SMA lookback for mean calculation
-    2. min_drop_pct: [0.001, 0.02] - Minimum % below SMA to enter (0.1% to 2%)
-    3. volume_mult: [1.0, 4.0] - Volume spike multiplier vs lagged volume
-    4. volume_lookback: [5, 30] - How far back to compare volume
-    5. stop_loss_pct: [0.01, 0.05] - Stop loss percentage (1% to 5%)
-    6. profit_target_pct: [0.005, 0.03] - Profit target percentage (0.5% to 3%)
-    7. recovery_lookback: [3, 15] - Bars to look back for recovery high
+    1. sma_period: [10, 200] - SMA lookback for mean calculation
+    2. min_drop: [0.001, 0.02] - Minimum % below SMA to enter (0.1% to 2%)
+    3. mfi_period: [10, 200] - MFI lookback period
+    4. mfi_entry: [20, 45] - MFI below this to enter (oversold + volume)
+    5. mfi_exit: [50, 75] - MFI above this to exit (recovered)
+    6. stop_loss: [0.01, 0.05] - Stop loss percentage (1% to 5%)
+    7. profit_target: [0.005, 0.03] - Profit target percentage (0.5% to 3%)
     8. max_hold: [30, 240] - Maximum hold time in bars
 
     Entry:
-    - Price >= min_drop_pct below SMA(sma_period)
-    - Volume >= volume_mult * lagged volume
+    - Price >= min_drop below SMA(sma_period)
+    - MFI < mfi_entry (oversold with volume confirmation)
 
     Exit:
-    - EOD, stop loss, profit target, or recovery above recent high
+    - EOD, stop loss, profit target, MFI > mfi_exit, or max hold
 
-    NOTE: Use starting index of at least 100 (-i 100) for indicator warmup. *)
-let intraday_mr_anytime_opt =
+    NOTE: Use starting index of at least 250 (-i 250) for indicator warmup. *)
+let id_mr_at_opt_0 =
   (* Variable 1: SMA period for mean calculation *)
-  let sma_period_var = Gadt_fo.var ~lower:10.0 ~upper:60.0 Type.Int in
+  let sma_period_var = Gadt_fo.var ~lower:10.0 ~upper:200.0 Type.Int in
 
   (* Variable 2: Minimum drop below SMA to enter *)
   let min_drop_var = Gadt_fo.var ~lower:0.001 ~upper:0.02 Type.Float in
 
-  (* Variable 3: Volume spike multiplier *)
-  let volume_mult_var = Gadt_fo.var ~lower:1.0 ~upper:4.0 Type.Float in
+  (* Variable 3: MFI period *)
+  let mfi_period_var = Gadt_fo.var ~lower:10.0 ~upper:200.0 Type.Int in
 
-  (* Variable 4: Stop loss percentage *)
+  (* Variable 4: MFI entry threshold (below = oversold) *)
+  let mfi_entry_var = Gadt_fo.var ~lower:20.0 ~upper:45.0 Type.Float in
+
+  (* Variable 5: MFI exit threshold (above = recovered) *)
+  let mfi_exit_var = Gadt_fo.var ~lower:50.0 ~upper:75.0 Type.Float in
+
+  (* Variable 6: Stop loss percentage *)
   let stop_loss_var = Gadt_fo.var ~lower:0.01 ~upper:0.05 Type.Float in
 
-  (* Variable 5: Profit target percentage *)
+  (* Variable 7: Profit target percentage *)
   let profit_target_var = Gadt_fo.var ~lower:0.005 ~upper:0.03 Type.Float in
 
-  (* Variable 6: Maximum hold time *)
+  (* Variable 8: Maximum hold time *)
   let max_hold_var = Gadt_fo.var ~lower:30.0 ~upper:240.0 Type.Int in
 
   (* SMA indicator with variable period *)
@@ -980,34 +1000,37 @@ let intraday_mr_anytime_opt =
            App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), sma_period_var) ))
   in
 
+  (* MFI indicator with variable period *)
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period_var) ))
+  in
+
   (* Percentage below SMA *)
   let pct_below_sma = (sma -. last) /. sma in
 
-  (* Entry: price significantly below SMA *)
+  (* Entry conditions *)
   let below_sma_threshold = pct_below_sma >. min_drop_var in
+  let mfi_oversold = mfi <. mfi_entry_var in
 
-  (* Volume spike: current volume > multiplier * lagged volume (fixed 20-bar lookback) *)
-  let volume_spike = volume >. lag volume 20 *. volume_mult_var in
-
-  (* Stop loss and profit target *)
+  (* Exit conditions *)
+  let mfi_recovered = mfi >. mfi_exit_var in
   let stop_loss_mult = Const (1.0, Float) -. stop_loss_var in
   let profit_target_mult = Const (1.0, Float) +. profit_target_var in
 
-  (* Recovery exit: price above recent high (fixed 5-bar lookback) *)
-  let recent_high = lag high 5 in
-  let recovery_exit = last >. recent_high in
-
   {
-    name = "Intraday_MR_Anytime_Opt";
+    name = "ID_MR_AT_OPT_0";
     buy_trigger =
       below_sma_threshold
-      &&. volume_spike
+      &&. mfi_oversold
       &&. safe_to_enter ();
     sell_trigger =
       force_exit_eod ()
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. (last >. EntryPrice *. profit_target_mult)
-      ||. recovery_exit
+      ||. mfi_recovered
       ||. App2 (Fun (">", ( > )), TicksHeld, max_hold_var);
     (* Bigger drop below SMA = higher score *)
     score = pct_below_sma *. Const (100.0, Float);
@@ -1020,6 +1043,10 @@ let intraday_mr_anytime_opt =
     Trained on 6 months data, 4k iterations.
     Objective: 138,040.65
     6969 trades, 64.04% win rate, $7.46 expectancy, p=0.0001
+
+    NOTE: Shows statistically significant edge WITHOUT slippage, but
+    ~$7/trade edge is destroyed by ~$6-13/trade execution costs.
+    At 2 bps slippage: -16% avg return. Not viable for retail execution.
 
     Locked parameters:
     - SMA period: 15
@@ -1074,6 +1101,10 @@ let idmr_a_isres_0 =
     Trained on 6 months data, 4k iterations, 2x per-trade penalty.
     Objective: 121,762.97
     6737 trades, 64.26% win rate, $7.23 expectancy, p=0.0001
+
+    NOTE: Shows statistically significant edge WITHOUT slippage, but
+    ~$7/trade edge is destroyed by ~$6-13/trade execution costs.
+    At 2 bps slippage: -16% avg return. Not viable for retail execution.
 
     Locked parameters:
     - SMA period: 18
@@ -1137,6 +1168,7 @@ let all_strategies =
     intraday_mr_anytime;
     intraday_mr_anytime_2;
     intraday_mr_anytime_opt;
+    id_mr_at_opt_0;
     idmr_a_isres_0;
     idmr_a_isres_1;
     intraday_mr_5min;
