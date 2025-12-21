@@ -120,7 +120,8 @@ module CLI = struct
 
     let slippage_pct =
       let doc =
-        "Prices will be multiplied by a random value in (1-pct,1+pct)"
+        "[DEPRECATED] Unused. Transaction costs are now modeled as a fixed \
+         spread in backtesting_backend.ml. This flag is retained for future use."
       in
       Cmdliner.Arg.(value & opt float 0.0 & info [ "slippage" ] ~doc)
 
