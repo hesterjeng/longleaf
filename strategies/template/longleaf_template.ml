@@ -265,13 +265,10 @@ module Make
     Eio.traceln "Final state - tick: %d, cash: %f, orders_placed: %d"
       (State.tick res) (State.cash res) orders;
     let* final_value = State.value res in
-    (* Apply penalty for excessive trading: subtract $2.00 per order *)
-    let penalty = float_of_int orders *. 2.00 in
-    let penalized_value = final_value -. penalty in
     Eio.traceln
-      "Final portfolio value: %f (penalty: $%.2f for %d orders, penalized: %f)"
-      final_value penalty orders penalized_value;
-    Result.return penalized_value
+      "Final portfolio value: %f (%d orders)"
+      final_value orders;
+    Result.return final_value
 
   let run_state () =
     let ( let* ) = Result.( let* ) in

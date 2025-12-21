@@ -1069,6 +1069,60 @@ let idmr_a_isres_0 =
     position_size = 0.33;
   }
 
+(** IDMR_A_ISRES_1 - ISRES-trained with 2x trade penalty
+
+    Trained on 6 months data, 4k iterations, 2x per-trade penalty.
+    Objective: 121,762.97
+    6737 trades, 64.26% win rate, $7.23 expectancy, p=0.0001
+
+    Locked parameters:
+    - SMA period: 18
+    - Min drop: 0.332% below SMA
+    - Volume mult: 1.339x
+    - Stop loss: 2.57%
+    - Profit target: 1.23%
+    - Max hold: 163 bars *)
+let idmr_a_isres_1 =
+  (* SMA(18) for mean calculation *)
+  let sma = Gadt_fo.Constant.sma 18 () in
+
+  (* Percentage below SMA *)
+  let pct_below_sma = (sma -. last) /. sma in
+
+  (* Entry: price at least 0.332% below SMA *)
+  let below_sma_threshold = pct_below_sma >. Const (0.00332, Float) in
+
+  (* Volume spike: 1.339x lagged volume *)
+  let volume_spike = volume >. lag volume 20 *. Const (1.339, Float) in
+
+  (* Stop loss: 2.57% and profit target: 1.23% *)
+  let stop_loss_mult = Const (0.9743, Float) in
+  let profit_target_mult = Const (1.0123, Float) in
+
+  (* Recovery exit: price above recent high *)
+  let recent_high = lag high 5 in
+  let recovery_exit = last >. recent_high in
+
+  (* Max hold: 163 bars *)
+  let max_hold = Const (163, Int) in
+
+  {
+    name = "IDMR_A_ISRES_1";
+    buy_trigger =
+      below_sma_threshold
+      &&. volume_spike
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. recovery_exit
+      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+    score = pct_below_sma *. Const (100.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
@@ -1084,6 +1138,7 @@ let all_strategies =
     intraday_mr_anytime_2;
     intraday_mr_anytime_opt;
     idmr_a_isres_0;
+    idmr_a_isres_1;
     intraday_mr_5min;
     intraday_mr_15min;
   ]
