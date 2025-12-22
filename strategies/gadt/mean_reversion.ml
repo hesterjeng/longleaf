@@ -21,10 +21,9 @@ module Data = Longleaf_bars.Data
     threshold for entry 8. mfi_exit: [40.0, 70.0] - MFI exit threshold 9.
     natr_lo_threshold: [0.05, 1.0] - Min NATR (stale data filter) 10.
     natr_hi_threshold: [1.0, 6.0] - Max NATR (regime filter) 11. min_hold:
-    [10, 100] - Minimum holding period in ticks 12. stop_loss_mult: [0.85, 0.95]
-    \- Stop loss as multiplier of entry price 13. profit_target_mult:
-    [1.05, 1.20] - Profit target as multiplier of entry 14. max_hold: [100, 500]
-    \- Maximum holding period in ticks
+    [10, 100] - Minimum holding period in ticks 12. stop_loss_mult: [0.95, 0.99]
+    \- Stop loss 1-5% 13. profit_target_mult: [1.01, 1.10] - Profit target 1-10%
+    14. max_hold: [100, 500] - Maximum holding period in ticks
 
     Base strategy: Nature Boy V2 (locked values):
     - mfi_period = 190, mfi_oversold = 36.59
@@ -61,10 +60,10 @@ let nature_boy_v3_opt =
   let natr_hi_threshold_var = Gadt_fo.var ~lower:1.0 ~upper:6.0 Type.Float in
   (* Variable 11: Minimum hold ticks *)
   let min_hold_var = Gadt_fo.var ~lower:10.0 ~upper:100.0 Type.Int in
-  (* Variable 12: Stop loss multiplier *)
-  let stop_loss_mult_var = Gadt_fo.var ~lower:0.85 ~upper:0.95 Type.Float in
-  (* Variable 13: Profit target multiplier *)
-  let profit_target_mult_var = Gadt_fo.var ~lower:1.05 ~upper:1.20 Type.Float in
+  (* Variable 12: Stop loss multiplier - 1-5% stop loss *)
+  let stop_loss_mult_var = Gadt_fo.var ~lower:0.95 ~upper:0.99 Type.Float in
+  (* Variable 13: Profit target multiplier - 1-10% profit target (2x max stop) *)
+  let profit_target_mult_var = Gadt_fo.var ~lower:1.01 ~upper:1.10 Type.Float in
   (* Variable 14: Maximum hold ticks *)
   let max_hold_var = Gadt_fo.var ~lower:100.0 ~upper:500.0 Type.Int in
 
@@ -1038,6 +1037,151 @@ let id_mr_at_opt_0 =
     position_size = 0.33;
   }
 
+(** ID_MR_AT_0 - ISRES-trained Mean Reversion with MFI (locked)
+
+    Trained on ID_MR_AT_OPT_0, 4000 iterations with 2 bps/side spread cost.
+    SURVIVES SLIPPAGE - first strategy to show edge after execution costs.
+
+    Objective: $138,884.45 (38.9% return)
+    372 trades, 61.56% win rate, Sharpe 0.196, profit factor 1.648
+    Expectancy: $112.09/trade, p=0.0001
+
+    Key insight: ~2% drop below 139-bar SMA filters out marginal trades.
+    Trade count reduced from 6000+ to ~370, preserving quality signals.
+
+    NOTE: Use starting index of at least 250 (-i 250) for indicator warmup. *)
+let id_mr_at_0 =
+  let sma =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), Const (139, Int)) ))
+  in
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (81, Int)) ))
+  in
+  let pct_below_sma = (sma -. last) /. sma in
+  let below_sma_threshold = pct_below_sma >. Const (0.019044, Float) in
+  let mfi_oversold = mfi <. Const (36.661, Float) in
+  let mfi_recovered = mfi >. Const (65.796, Float) in
+  let stop_loss_mult = Const (0.9639, Float) in (* 1 - 0.036117 *)
+  let profit_target_mult = Const (1.0245, Float) in (* 1 + 0.024548 *)
+  {
+    name = "ID_MR_AT_0";
+    buy_trigger =
+      below_sma_threshold
+      &&. mfi_oversold
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. mfi_recovered
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (178, Int));
+    score = pct_below_sma *. Const (100.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(** ID_MR_AT_1 - ISRES-trained Mean Reversion with MFI (locked)
+
+    Trained on ID_MR_AT_OPT_0, 4000 iterations with 2 bps/side spread cost.
+    BEST of 3 runs - highest absolute return.
+
+    Objective: $143,277.26 (43.3% return)
+    368 trades, 60.33% win rate, Sharpe 0.195, profit factor 1.645
+    Expectancy: $125.52/trade, p=0.0001
+
+    Slightly wider MFI exit (74.4) allows more profit capture.
+
+    NOTE: Use starting index of at least 250 (-i 250) for indicator warmup. *)
+let id_mr_at_1 =
+  let sma =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), Const (142, Int)) ))
+  in
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (93, Int)) ))
+  in
+  let pct_below_sma = (sma -. last) /. sma in
+  let below_sma_threshold = pct_below_sma >. Const (0.019485, Float) in
+  let mfi_oversold = mfi <. Const (38.356, Float) in
+  let mfi_recovered = mfi >. Const (74.426, Float) in
+  let stop_loss_mult = Const (0.9656, Float) in (* 1 - 0.034398 *)
+  let profit_target_mult = Const (1.0286, Float) in (* 1 + 0.028618 *)
+  {
+    name = "ID_MR_AT_1";
+    buy_trigger =
+      below_sma_threshold
+      &&. mfi_oversold
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. mfi_recovered
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (163, Int));
+    score = pct_below_sma *. Const (100.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(** ID_MR_AT_2 - ISRES-trained Mean Reversion with MFI (locked)
+
+    Trained on ID_MR_AT_OPT_0, 4000 iterations with 2 bps/side spread cost.
+    Best profit factor (1.668) and win rate (62.22%).
+
+    Objective: $141,343.56 (41.3% return)
+    405 trades, 62.22% win rate, Sharpe 0.196, profit factor 1.668
+    Expectancy: $109.91/trade, p=0.0000
+
+    Longest SMA period (155) and max_hold (195) - most patient variant.
+
+    NOTE: Use starting index of at least 250 (-i 250) for indicator warmup. *)
+let id_mr_at_2 =
+  let sma =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), Const (155, Int)) ))
+  in
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (86, Int)) ))
+  in
+  let pct_below_sma = (sma -. last) /. sma in
+  let below_sma_threshold = pct_below_sma >. Const (0.018192, Float) in
+  let mfi_oversold = mfi <. Const (35.991, Float) in
+  let mfi_recovered = mfi >. Const (62.279, Float) in
+  let stop_loss_mult = Const (0.9596, Float) in (* 1 - 0.040387 *)
+  let profit_target_mult = Const (1.0232, Float) in (* 1 + 0.023224 *)
+  {
+    name = "ID_MR_AT_2";
+    buy_trigger =
+      below_sma_threshold
+      &&. mfi_oversold
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. mfi_recovered
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (195, Int));
+    score = pct_below_sma *. Const (100.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
 (** IDMR_A_ISRES_0 - ISRES-trained Intraday Mean Reversion
 
     Trained on 6 months data, 4k iterations.
@@ -1169,6 +1313,9 @@ let all_strategies =
     intraday_mr_anytime_2;
     intraday_mr_anytime_opt;
     id_mr_at_opt_0;
+    id_mr_at_0;
+    id_mr_at_1;
+    id_mr_at_2;
     idmr_a_isres_0;
     idmr_a_isres_1;
     intraday_mr_5min;
