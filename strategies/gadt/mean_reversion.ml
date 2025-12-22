@@ -1,7 +1,39 @@
 (** Mean Reversion Strategies
 
     This module contains mean reversion strategies, particularly those based on
-    the Nature Boy family which use MFI, Bollinger Bands, and NATR filtering. *)
+    the Nature Boy family which use MFI, Bollinger Bands, and NATR filtering.
+
+    == RESEARCH FINDINGS (Dec 2025) ==
+
+    After extensive ISRES optimization and battery testing across 2023-2025 data
+    with realistic execution costs (2 bps/side spread), we found:
+
+    1. WITHOUT SLIPPAGE: Mean reversion shows strong edge (25-45% returns,
+       statistically significant p<0.001, 60%+ win rates)
+
+    2. WITH SLIPPAGE: Edge largely disappears or becomes regime-dependent.
+       Most strategies that showed 40%+ returns in training periods produced
+       -10% to +5% in out-of-sample periods.
+
+    3. BEST RESULT: NB_V3_2 achieved 83.3% consistency (5/6 periods positive)
+       with 4.58% avg return and 8.39% std dev - but this roughly matches
+       passive SPY buy-and-hold, not worth the complexity.
+
+    4. KEY INSIGHT: Tight volatility filtering (NATR_hi < 1.5) is critical for
+       regime robustness. Strategies without this filter showed 2x variance.
+
+    5. CONCLUSION: Simple intraday mean reversion on S&P 100 is a competed-away
+       edge. Whatever signal exists gets eaten by execution costs. The remaining
+       edge (~9% annualized) doesn't justify the effort over passive indexing.
+
+    6. FAILURE MODES:
+       - High-frequency MR (6000+ trades/period): destroyed by execution costs
+       - Regime-fit strategies: +45% in training, -15% out-of-sample
+       - Even "robust" strategies barely match SPY
+
+    Strategies preserved here for reference. See momentum.ml for trend-following
+    approaches. *)
+
 
 open Gadt
 open Gadt_strategy
@@ -1298,6 +1330,236 @@ let idmr_a_isres_1 =
     position_size = 0.33;
   }
 
+(** NB_V3_0 - Nature Boy V3 ISRES-trained (locked)
+
+    Trained on q3q4-2025, 4000 iterations with 2 bps/side spread cost.
+
+    Objective: $120,147.71 (20.1% return)
+    215 trades, 65.58% win rate, Sharpe 0.230, profit factor 1.767
+    Expectancy: $97.97/trade, p=0.0004
+
+    NOTE: Use starting index of at least 400 (-i 400) for indicator warmup. *)
+let nb_v3_0 =
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (186, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (6, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (167, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (323, Int),
+               Const (2.864, Float),
+               Const (2.864, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (326, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (71, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (61.99, Float))
+        ||. (last >. EntryPrice *. Const (1.063, Float)))
+  in
+  {
+    name = "NB_V3_0";
+    buy_trigger =
+      mfi <. Const (47.93, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.509, Float))
+      &&. (natr_hi <. Const (4.174, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.965, Float))
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (190, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** NB_V3_1 - Nature Boy V3 ISRES-trained (locked)
+
+    Trained on q3q4-2025, 4000 iterations with 2 bps/side spread cost.
+    BEST of 3 runs - highest Sharpe (0.288) and profit factor (2.071).
+
+    Objective: $121,488.53 (21.5% return)
+    188 trades, 65.43% win rate, Sharpe 0.288, profit factor 2.071
+    Expectancy: $118.61/trade, p=0.0000
+
+    Shorter MFI period (70) and tighter NATR_hi (58) than other variants.
+
+    NOTE: Use starting index of at least 400 (-i 400) for indicator warmup. *)
+let nb_v3_1 =
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (70, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (9, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (58, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (303, Int),
+               Const (2.750, Float),
+               Const (2.750, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (235, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (57, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (57.89, Float))
+        ||. (last >. EntryPrice *. Const (1.047, Float)))
+  in
+  {
+    name = "NB_V3_1";
+    buy_trigger =
+      mfi <. Const (47.40, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.474, Float))
+      &&. (natr_hi <. Const (3.975, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.951, Float))
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (382, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** NB_V3_2 - Nature Boy V3 ISRES-trained (locked)
+
+    Trained on q3q4-2025, 4000 iterations with 2 bps/side spread cost.
+
+    Objective: $118,931.75 (18.9% return)
+    193 trades, 64.25% win rate, Sharpe 0.239, profit factor 1.777
+    Expectancy: $102.36/trade, p=0.0005
+
+    Tightest NATR_hi threshold (1.41) - most selective for low volatility.
+
+    NOTE: Use starting index of at least 400 (-i 400) for indicator warmup. *)
+let nb_v3_2 =
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (170, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (5, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (127, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (348, Int),
+               Const (2.426, Float),
+               Const (2.426, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (323, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (10, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (67.99, Float))
+        ||. (last >. EntryPrice *. Const (1.070, Float)))
+  in
+  {
+    name = "NB_V3_2";
+    buy_trigger =
+      mfi <. Const (45.18, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.553, Float))
+      &&. (natr_hi <. Const (1.411, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.969, Float))
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (233, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
@@ -1316,6 +1578,9 @@ let all_strategies =
     id_mr_at_0;
     id_mr_at_1;
     id_mr_at_2;
+    nb_v3_0;
+    nb_v3_1;
+    nb_v3_2;
     idmr_a_isres_0;
     idmr_a_isres_1;
     intraday_mr_5min;
