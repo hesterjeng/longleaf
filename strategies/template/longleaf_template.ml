@@ -47,6 +47,8 @@ module Buy_trigger = struct
 
   (** Functor whose result is used to instantiate the strategy template. *)
   module Make (Input : INPUT) : S = struct
+    type state = Longleaf_state.t
+
     let make state symbols =
       let ( let* ) = Result.( let* ) in
       let fold = fun f -> Result.fold_l f [] symbols in
@@ -78,6 +80,12 @@ module Sell_trigger = struct
   end
 end
 
+module type S = sig
+  val run : unit -> (float, Error.t) result
+  val run_state : unit -> (State.t, Error.t) result
+  val shutdown : unit -> unit
+end
+
 (** Partially instantiate this functor with a Buy_trigger.S and Sell_trigger.S
     in your strategy file (see template_example.ml). Afterwards, a hook/handler
     must be added using the partially instantiated functor to start the strategy
@@ -85,7 +93,7 @@ end
 module Make
     (Buy : Buy_trigger.S)
     (Sell : Sell_trigger.S)
-    (Backend : Backend.S) : Strategy.S = struct
+    (Backend : Backend.S) : S = struct
   module SU = Longleaf_backend.Utils.Make (Backend)
 
   let shutdown () =
@@ -257,13 +265,20 @@ module Make
     Eio.traceln "Final state - tick: %d, cash: %f, orders_placed: %d"
       (State.tick res) (State.cash res) orders;
     let* final_value = State.value res in
-    (* Apply penalty for excessive trading: subtract $1.00 per order *)
-    let penalty = float_of_int orders *. 1.00 in
-    let penalized_value = final_value -. penalty in
     Eio.traceln
-      "Final portfolio value: %f (penalty: $%.2f for %d orders, penalized: %f)"
-      final_value penalty orders penalized_value;
-    Result.return penalized_value
+      "Final portfolio value: %f (%d orders)"
+      final_value orders;
+    Result.return final_value
+
+  let run_state () =
+    let ( let* ) = Result.( let* ) in
+    let* init_state = init_state () in
+    Eio.traceln "Initial state - tick: %d, cash: %f" (State.tick init_state)
+      (State.cash init_state);
+    let* res = SU.go order init_state in
+    Eio.traceln "Final state - tick: %d, cash: %f" (State.tick res)
+      (State.cash res);
+    Result.return res
 end
 
 let mk_options switch eio_env executor_pool flags target tacaml_indicators :
@@ -283,7 +298,7 @@ let mk_options switch eio_env executor_pool flags target tacaml_indicators :
     tacaml_indicators;
   }
 
-module type BUILDER = functor (_ : Backend.S) -> Longleaf_core.Strategy.S
+module type BUILDER = functor (_ : Backend.S) -> S
 
 type builder = (module BUILDER)
 
@@ -298,4 +313,15 @@ let run (module Strat : BUILDER) bars options mutices =
     options.flags.strategy_arg;
   let* res = S.run () in
   Backend.shutdown ();
+  Result.return res
+
+let run_state (module Strat : BUILDER) bars options mutices =
+  (* let options = run_options context in *)
+  let ( let* ) = Result.( let* ) in
+  let* backend = Backend.make mutices bars options in
+  let module Backend = (val backend) in
+  let module S = Strat (Backend) in
+  Eio.traceln "Applied strategy functor to backend, running %s."
+    options.flags.strategy_arg;
+  let* res = S.run_state () in
   Result.return res

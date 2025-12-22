@@ -21,5 +21,8 @@ module State = Longleaf_state
 module Backend = Longleaf_backend
 (** Trading backends (live, paper, backtesting) *)
 
+module Battery = Longleaf_battery
+(** Battery testing for strategy validation *)
+
 module Server = Longleaf_server
 (** Web server and visualization *)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Layout, Tabs, Alert } from 'antd';
 import type { TabsProps } from 'antd';
@@ -24,9 +24,10 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  const fetchAllData = useCallback(async () => {
-    if (!serverOnline) return;
+  // Track if initial connection check has been done
+  const initialCheckDone = useRef(false);
 
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     console.log('[API-POLL] 🔄 Starting fetchAllData...');
     try {
@@ -77,12 +78,12 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [serverOnline]);
+  }, []); // No dependencies - this function is stable
 
   const checkServerConnection = useCallback(async () => {
     try {
       console.log('[API-CONNECT] 🔌 Checking server connection...');
-      const response = await axios.get('/status', { timeout: 2000 });
+      const response = await axios.get('/status', { timeout: 5000 });
       if (response.status === 200) {
         console.log('[API-CONNECT] ✅ Server is online');
         setServerOnline(true);
@@ -97,9 +98,12 @@ const App: React.FC = () => {
     }
   }, [fetchAllData]);
 
-  // Check server connection
+  // Check server connection only once on mount
   useEffect(() => {
-    checkServerConnection();
+    if (!initialCheckDone.current) {
+      initialCheckDone.current = true;
+      checkServerConnection();
+    }
   }, [checkServerConnection]);
 
   const refreshData = useCallback(() => {

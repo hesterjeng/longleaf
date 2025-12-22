@@ -4,6 +4,7 @@ module Error = Longleaf_core.Error
 module Gadt = Longleaf_gadt.Gadt
 module Gadt_examples = Longleaf_gadt.Gadt_examples
 module Gadt_strategy = Longleaf_gadt.Gadt_strategy
+module Battery_runner = Battery_runner
 
 (** GADT Strategy Registry All strategies are now defined as Gadt.strategy
     records. To add a new strategy, simply add it to this list. *)
@@ -30,6 +31,63 @@ let find_gadt_strategy name =
 
 module Run = struct
   module Target = Longleaf_core.Target
+
+  let run_battery eio_env executor_pool (flags : Options.CLI.t) battery_name mutices () =
+    let ( let* ) = Result.( let* ) in
+    Eio.Switch.run @@ fun sw ->
+    let* battery =
+      match Battery_runner.get_battery battery_name with
+      | Some b -> Result.return b
+      | None ->
+        Error.fatal
+          (Format.asprintf "Unknown battery: %s. Available: %a" battery_name
+             (List.pp String.pp) Battery_runner.available_batteries)
+    in
+    let* strategy =
+      match find_gadt_strategy flags.strategy_arg with
+      | Some s -> Result.return s
+      | None -> Error.fatal ("Unknown strategy: " ^ flags.strategy_arg)
+    in
+    (* Collect indicators from the strategy - this is critical!
+       Without this, indicators like MFI won't be computed and will return NaN. *)
+    let tacaml_indicators = Gadt_strategy.CollectIndicators.top strategy in
+    let options =
+      Longleaf_template.mk_options sw eio_env executor_pool flags Target.Download
+        tacaml_indicators
+    in
+    let builder = Gadt_strategy.Builder.top strategy in
+    let* result = Battery_runner.run builder options mutices battery in
+    (* Print per-dataset results *)
+    Eio.traceln "";
+    Eio.traceln "=== Battery Results by Dataset ===";
+    List.iter
+      (fun (e : Longleaf_battery.Eval_result.t) ->
+        let source_name =
+          match e.source with
+          | Target.File s -> Filename.basename s
+          | _ -> Target.show e.source
+        in
+        match e.trade_stats with
+        | Some ts ->
+          Eio.traceln "  %s: Sharpe=%.3f  Return=%.2f%%  Drawdown=%.2f%%  Trades=%d"
+            source_name ts.sharpe (e.stats.total_return *. 100.0)
+            (e.stats.max_drawdown *. 100.0) ts.num_trades
+        | None ->
+          Eio.traceln "  %s: No trades" source_name)
+      result.eval_results;
+    (* Print summary *)
+    Eio.traceln "";
+    Eio.traceln "=== Summary ===";
+    Eio.traceln "Periods evaluated: %d" (Longleaf_battery.num_periods result);
+    Eio.traceln "Avg Sharpe: %.3f (std: %.3f)"
+      (Longleaf_battery.avg_sharpe result) (Longleaf_battery.std_sharpe result);
+    Eio.traceln "Avg Return: %.2f%% (std: %.2f%%)"
+      (Longleaf_battery.avg_return result *. 100.0)
+      (Longleaf_battery.std_return result *. 100.0);
+    Eio.traceln "Worst Drawdown: %.2f%%"
+      (Longleaf_battery.worst_drawdown result *. 100.0);
+    Eio.traceln "Consistency: %.1f%%" (Longleaf_battery.consistency result *. 100.0);
+    Result.return 0.0
 
   let run_strategy eio_env executor_pool flags target mutices () =
     (* Load target bars with eio_env if needed *)
@@ -59,6 +117,8 @@ module Run = struct
         let* () = Bars.validate_no_nan bars in
         Eio.traceln "Returning bars from download...";
         Result.return bars
+      | BatteryName _ ->
+        Error.fatal "BatteryName target should use Battery runtype"
     in
     (* Use the strategy specified in flags instead of hardcoding *)
     let* strategy =
@@ -98,7 +158,17 @@ module Run = struct
       | None -> Longleaf_state.Mutex.create []
       | Some m -> m
     in
-    let handler = run_strategy env pool flags target mutices in
+    let handler =
+      match flags.runtype, target with
+      | Longleaf_core.Runtype.Battery, Target.BatteryName battery_name ->
+        run_battery env pool flags battery_name mutices
+      | Longleaf_core.Runtype.Battery, _ ->
+        fun () -> Error.fatal "Battery runtype requires a battery name as target"
+      | _, Target.BatteryName _ ->
+        fun () -> Error.fatal "BatteryName target requires Battery runtype"
+      | _ ->
+        run_strategy env pool flags target mutices
+    in
     let strat_result =
       Eio.Executor_pool.submit_fork ~sw ~weight:1.0 pool handler
     in

@@ -9,7 +9,8 @@ let tick ~(runtype : Runtype.t) env time =
   | RandomSliceBacktest
   | MultiRandomSliceBacktest
   | RandomTickerBacktest
-  | MultiRandomTickerBacktest ->
+  | MultiRandomTickerBacktest
+  | Battery ->
     ()
   | Live
   | Paper ->

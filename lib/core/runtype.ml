@@ -10,6 +10,7 @@ type t =
   | MultiRandomSliceBacktest
   | RandomTickerBacktest
   | MultiRandomTickerBacktest
+  | Battery (* Run strategy on multiple datasets for validation. *)
   | Invalid (* Run multiple tests with ranomly generated target data. *)
 [@@deriving show, eq, yojson, variants]
 

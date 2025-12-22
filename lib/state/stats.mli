@@ -6,10 +6,14 @@ type t = {
   total_cash_traded : float;
   symbols_traded : int;
   profit_loss : float;
+  total_return : float;
+  max_drawdown : float;
+  final_value : float;
+  initial_value : float;
 }
+[@@deriving show]
 
-val make : Order.t list Vector.vector -> Longleaf_bars.t -> t
-val from_positions : Positions.t -> Longleaf_bars.t -> t
+val make : Order.t list -> (Time.t * float) list -> t
 
 module TradeStats : sig
   type t = {

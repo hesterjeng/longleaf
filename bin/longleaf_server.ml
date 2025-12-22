@@ -293,19 +293,20 @@ let handler sw env cors_origin static_dir _conn request body =
     (* GET /symbols - Get current symbols *)
     | `GET, "/symbols" ->
       let response =
-        Option.Infix.(
-          let* mutices = Settings.settings.mutices in
-          let+ symbols = Longleaf_util.Pmutex.get mutices.symbols_mutex in
-          Eio.traceln "returning symbols %s" symbols;
-          symbols)
-        |> function
+        match Settings.settings.mutices with
         | None ->
-          Eio.traceln "mutices not set (symbols)";
+          Eio.traceln "symbols: no strategy running (mutices not set)";
           `List [] |> Yojson.Safe.to_string |> respond_json ~cors_origin
-        | Some symbols ->
-          (String.split ~by:"," symbols |> List.map @@ fun x -> `String x)
-          |> fun x ->
-          `List x |> Yojson.Safe.to_string |> respond_json ~cors_origin
+        | Some mutices ->
+          (match Longleaf_util.Pmutex.get mutices.symbols_mutex with
+          | None ->
+            Eio.traceln "symbols: strategy initializing (symbols not yet set)";
+            `List [] |> Yojson.Safe.to_string |> respond_json ~cors_origin
+          | Some symbols ->
+            Eio.traceln "returning symbols %s" symbols;
+            (String.split ~by:"," symbols |> List.map @@ fun x -> `String x)
+            |> fun x ->
+            `List x |> Yojson.Safe.to_string |> respond_json ~cors_origin)
       in
       Result.return response
     (* GET /data/:symbol/json - Get data for symbol *)
@@ -434,6 +435,11 @@ let handler sw env cors_origin static_dir _conn request body =
             let files = Bars.files () in
             if List.mem ~eq:String.equal s files then Result.return target
             else Error.fatal "Unable to find target file"
+          | BatteryName name ->
+            if List.mem ~eq:String.equal name
+                 Longleaf_strategies.Battery_runner.available_batteries
+            then Result.return target
+            else Error.fatal "Unknown battery name"
         in
         Result.return target
       in
@@ -595,7 +601,9 @@ module Cmd = struct
         (`Tcp (Eio.Net.Ipaddr.V4.any, port))
     in
     let server =
-      Cohttp_eio.Server.make ~callback:(handler sw env cors_origin static_dir) ()
+      Cohttp_eio.Server.make
+        ~callback:(handler sw env cors_origin static_dir)
+        ()
     in
     Cohttp_eio.Server.run socket server ~on_error:raise
 
