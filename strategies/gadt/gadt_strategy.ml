@@ -158,7 +158,7 @@ end = struct
   module Time = Longleaf_core.Time
   module Bars = Longleaf_bars
 
-  (* Intraday session tracking - cached per symbol, updated at day boundaries *)
+  (* Intraday session tracking - cached per symbol, updated incrementally *)
   type session_state = {
     day_start_index : int;
     prev_day_close : float;
@@ -168,6 +168,8 @@ end = struct
     opening_range_low : float;
     opening_range_complete : bool;
     last_tick_date : int;
+    day_high : float;  (* Running high for current day - updated each tick *)
+    day_low : float;   (* Running low for current day - updated each tick *)
   }
 
   let default_session = {
@@ -179,6 +181,8 @@ end = struct
     opening_range_low = Float.nan;
     opening_range_complete = false;
     last_tick_date = -1;
+    day_high = neg_infinity;
+    day_low = infinity;
   }
 
   let opening_range_minutes = 30
@@ -191,22 +195,19 @@ end = struct
     let current_day = day_of_year tick_time in
     let mins_since_open = Time.minutes_since_open tick_time in
 
+    (* Get current bar's high/low for incremental tracking *)
+    let current_high = Data.get data Data.Type.High current_index in
+    let current_low = Data.get data Data.Type.Low current_index in
+
     if current_day <> session.last_tick_date && Float.(mins_since_open >= 0.0) then
-      (* New trading day - compute previous day's stats *)
+      (* New trading day - use already-tracked day_high/day_low as prev_day values *)
       let prev_day_close, prev_day_high, prev_day_low =
         if session.day_start_index >= 0 then
           let last_prev_idx = current_index - 1 in
           if last_prev_idx >= session.day_start_index then
             let close = Data.get data Data.Type.Last last_prev_idx in
-            let rec compute i high low =
-              if i > last_prev_idx then (high, low)
-              else
-                let h = Data.get data Data.Type.High i in
-                let l = Data.get data Data.Type.Low i in
-                compute (i + 1) (Float.max high h) (Float.min low l)
-            in
-            let high, low = compute session.day_start_index neg_infinity infinity in
-            (close, high, low)
+            (* Use incrementally tracked values instead of recomputing *)
+            (close, session.day_high, session.day_low)
           else (session.prev_day_close, session.prev_day_high, session.prev_day_low)
         else (Float.nan, Float.nan, Float.nan)
       in
@@ -219,25 +220,24 @@ end = struct
         opening_range_low = Float.nan;
         opening_range_complete = false;
         last_tick_date = current_day;
+        day_high = current_high;  (* Initialize with first bar of new day *)
+        day_low = current_low;
       }
     else if not session.opening_range_complete && Float.(mins_since_open >= of_int opening_range_minutes) then
-      (* Opening range complete - compute OR high/low *)
-      if session.day_start_index >= 0 then
-        let rec compute i high low =
-          if i > current_index then (high, low)
-          else
-            let tick_time_i = tick_time -. (Float.of_int (current_index - i) *. 60.0) in
-            let mins_i = Time.minutes_since_open tick_time_i in
-            if Float.(mins_i < of_int opening_range_minutes) then
-              let h = Data.get data Data.Type.High i in
-              let l = Data.get data Data.Type.Low i in
-              compute (i + 1) (Float.max high h) (Float.min low l)
-            else (high, low)
-        in
-        let or_high, or_low = compute session.day_start_index neg_infinity infinity in
-        { session with opening_range_high = or_high; opening_range_low = or_low; opening_range_complete = true }
-      else session
-    else session
+      (* Opening range complete - day_high/day_low already tracked, just mark OR complete *)
+      { session with
+        opening_range_high = session.day_high;  (* OR high is tracked day_high at this point *)
+        opening_range_low = session.day_low;
+        opening_range_complete = true;
+        day_high = Float.max session.day_high current_high;
+        day_low = Float.min session.day_low current_low;
+      }
+    else
+      (* Normal tick - incrementally update day_high/day_low *)
+      { session with
+        day_high = Float.max session.day_high current_high;
+        day_low = Float.min session.day_low current_low;
+      }
 
   (* Helper function to evaluate strategy triggers *)
   let eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
@@ -267,6 +267,8 @@ end = struct
         opening_range_minutes;
         opening_range_high = session.opening_range_high;
         opening_range_low = session.opening_range_low;
+        day_high = session.day_high;
+        day_low = session.day_low;
       }
     in
     match Gadt.eval context strategy_expr with
@@ -299,6 +301,8 @@ end = struct
         opening_range_minutes;
         opening_range_high = session.opening_range_high;
         opening_range_low = session.opening_range_low;
+        day_high = session.day_high;
+        day_low = session.day_low;
       }
     in
     Gadt.eval context score_expr

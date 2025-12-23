@@ -59,6 +59,10 @@ type context = {
       (* High of first N minutes - NaN until opening range complete *)
   opening_range_low : float;
       (* Low of first N minutes - NaN until opening range complete *)
+  day_high : float;
+      (* Running high for current trading day - updated incrementally *)
+  day_low : float;
+      (* Running low for current trading day - updated incrementally *)
 }
 
 (* GADT AST with phantom types for compile-time type safety *)
@@ -199,28 +203,8 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
         Error.guard (Error.fatal "Error getting DayOpen") @@ fun () ->
         Data.get data Data.Type.Last ctx.day_start_index
       else Error.fatal "Invalid day_start_index for DayOpen"
-    | DayHigh ->
-      if ctx.day_start_index >= 0 then
-        let rec find_max i max_val =
-          if i > index then max_val
-          else
-            let price = Data.get data Data.Type.High i in
-            find_max (i + 1) (Float.max max_val price)
-        in
-        Error.guard (Error.fatal "Error computing DayHigh") @@ fun () ->
-        find_max ctx.day_start_index neg_infinity
-      else Error.fatal "Invalid day_start_index for DayHigh"
-    | DayLow ->
-      if ctx.day_start_index >= 0 then
-        let rec find_min i min_val =
-          if i > index then min_val
-          else
-            let price = Data.get data Data.Type.Low i in
-            find_min (i + 1) (Float.min min_val price)
-        in
-        Error.guard (Error.fatal "Error computing DayLow") @@ fun () ->
-        find_min ctx.day_start_index infinity
-      else Error.fatal "Invalid day_start_index for DayLow"
+    | DayHigh -> Result.return ctx.day_high
+    | DayLow -> Result.return ctx.day_low
     | DayChangePct ->
       if ctx.day_start_index >= 0 && ctx.day_start_index < Data.length data
       then
