@@ -44,6 +44,21 @@ type context = {
       (* Cached market open status - computed once per tick instead of per-symbol *)
   minutes_until_close : float;
       (* Cached minutes until close - computed once per tick instead of per-symbol *)
+  (* Intraday session tracking - computed once at day boundary *)
+  day_start_index : int;
+      (* Index of first bar of current trading day *)
+  prev_day_close : float;
+      (* Previous trading day's closing price *)
+  prev_day_high : float;
+      (* Previous trading day's high *)
+  prev_day_low : float;
+      (* Previous trading day's low *)
+  opening_range_minutes : int;
+      (* Minutes for opening range calculation (e.g., 30) *)
+  opening_range_high : float;
+      (* High of first N minutes - NaN until opening range complete *)
+  opening_range_low : float;
+      (* Low of first N minutes - NaN until opening range complete *)
 }
 
 (* GADT AST with phantom types for compile-time type safety *)
@@ -65,6 +80,18 @@ type _ t =
   | TicksHeld : int t
   | HasPosition : bool t
   | TickTime : float t (* Current tick timestamp as Unix time *)
+  (* Intraday session nodes - for ORB, gap, and intraday strategies *)
+  | DayOpen : float t (* Today's opening price *)
+  | DayHigh : float t (* Today's high so far *)
+  | DayLow : float t (* Today's low so far *)
+  | DayChangePct : float t (* (current - day_open) / day_open * 100 *)
+  | PrevDayClose : float t (* Yesterday's closing price *)
+  | PrevDayHigh : float t (* Yesterday's high *)
+  | PrevDayLow : float t (* Yesterday's low *)
+  | GapPct : float t (* (day_open - prev_close) / prev_close * 100 *)
+  | OpeningRangeHigh : float t (* High of first N minutes *)
+  | OpeningRangeLow : float t (* Low of first N minutes *)
+  | MinutesSinceOpen : float t (* Minutes since market open (cached) *)
 
 let data x = Data (Const (x, Data))
 let close = data Data.Type.Close
@@ -86,16 +113,8 @@ let find_entry_order orders =
 
 (* Type-safe evaluation *)
 let rec eval : type a. context -> a t -> (a, Error.t) result =
- fun ({
-        instrument;
-        data;
-        bars;
-        index;
-        orders;
-        tick_time = _;
-        is_market_open = _;
-        minutes_until_close = _;
-      } as context) t ->
+ fun (ctx : context) t ->
+  let { instrument; data; bars; index; orders; _ } = ctx in
   let ( let* ) = Result.( let* ) in
   (* Bounds checking *)
   if index < 0 || index >= Data.length data then
@@ -107,55 +126,55 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
     | Const (x, _) -> Result.return x
     | Fun (_, f) -> Result.return f
     | ContextModifier (x, f, expr) ->
-      let* arg = eval context x in
-      let context = f context arg in
-      let* res = eval context expr in
+      let* arg = eval ctx x in
+      let ctx' = f ctx arg in
+      let* res = eval ctx' expr in
       Result.return res
     | App1 (f, x) ->
       (* Optimize specific time functions to use cached values *)
       (match f with
       | Fun ("is_open", _) ->
-        let* _timestamp = eval context x in
+        let* _timestamp = eval ctx x in
         (* Evaluate but ignore - we use cached value *)
         (* Safe: is_open always returns bool, and this pattern only matches is_open *)
-        Result.return (Obj.magic context.is_market_open : a)
+        Result.return (Obj.magic ctx.is_market_open : a)
       | _ ->
-        let* f = eval context f in
-        let* arg = eval context x in
+        let* f = eval ctx f in
+        let* arg = eval ctx x in
         let res = f arg in
         Result.return res)
     | App2 (f, x, y) ->
       (* Optimize specific time functions to use cached values *)
       (match f with
       | Fun ("is_close", _) ->
-        let* _timestamp = eval context x in
+        let* _timestamp = eval ctx x in
         (* Evaluate but ignore - we use cached value *)
-        let* threshold = eval context y in
+        let* threshold = eval ctx y in
         (* Safe: is_close takes float threshold and returns bool *)
         let threshold_float = (Obj.magic threshold : float) in
         let res =
-          context.minutes_until_close >=. 0.0
-          && context.minutes_until_close <=. threshold_float
+          ctx.minutes_until_close >=. 0.0
+          && ctx.minutes_until_close <=. threshold_float
         in
         (* Safe: is_close always returns bool, and this pattern only matches is_close *)
         Result.return (Obj.magic res : a)
       | _ ->
-        let* f = eval context f in
-        let* x = eval context x in
-        let* y = eval context y in
+        let* f = eval ctx f in
+        let* x = eval ctx x in
+        let* y = eval ctx y in
         let res = f x y in
         Result.return res)
     | App3 (f, x, y, z) ->
-      let* f = eval context f in
-      let* x = eval context x in
-      let* y = eval context y in
-      let* z = eval context z in
+      let* f = eval ctx f in
+      let* x = eval ctx x in
+      let* y = eval ctx y in
+      let* z = eval ctx z in
       let res = f x y z in
       Result.return res
     | Symbol () -> Result.return instrument
     | Var _ -> invalid_arg "Cannot evaluate gadts with variables in them"
     | Data ty ->
-      let* ty = eval context ty in
+      let* ty = eval ctx ty in
       Error.guard (Error.fatal "Error in GADT evaluation at Data node")
       @@ fun () -> Data.get data ty index
     | EntryPrice ->
@@ -173,8 +192,56 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
       (* No position = 0 ticks held *)
     | HasPosition -> Result.return (not (List.is_empty orders))
     | TickTime ->
-      (* Use pre-computed cached timestamp from context - avoids expensive recomputation *)
-      Result.return context.tick_time
+      Result.return ctx.tick_time
+    | DayOpen ->
+      if ctx.day_start_index >= 0 && ctx.day_start_index < Data.length data
+      then
+        Error.guard (Error.fatal "Error getting DayOpen") @@ fun () ->
+        Data.get data Data.Type.Last ctx.day_start_index
+      else Error.fatal "Invalid day_start_index for DayOpen"
+    | DayHigh ->
+      if ctx.day_start_index >= 0 then
+        let rec find_max i max_val =
+          if i > index then max_val
+          else
+            let price = Data.get data Data.Type.High i in
+            find_max (i + 1) (Float.max max_val price)
+        in
+        Error.guard (Error.fatal "Error computing DayHigh") @@ fun () ->
+        find_max ctx.day_start_index neg_infinity
+      else Error.fatal "Invalid day_start_index for DayHigh"
+    | DayLow ->
+      if ctx.day_start_index >= 0 then
+        let rec find_min i min_val =
+          if i > index then min_val
+          else
+            let price = Data.get data Data.Type.Low i in
+            find_min (i + 1) (Float.min min_val price)
+        in
+        Error.guard (Error.fatal "Error computing DayLow") @@ fun () ->
+        find_min ctx.day_start_index infinity
+      else Error.fatal "Invalid day_start_index for DayLow"
+    | DayChangePct ->
+      if ctx.day_start_index >= 0 && ctx.day_start_index < Data.length data
+      then
+        Error.guard (Error.fatal "Error computing DayChangePct") @@ fun () ->
+        let day_open = Data.get data Data.Type.Last ctx.day_start_index in
+        let current = Data.get data Data.Type.Last index in
+        (current -. day_open) /. day_open *. 100.0
+      else Error.fatal "Invalid day_start_index for DayChangePct"
+    | PrevDayClose -> Result.return ctx.prev_day_close
+    | PrevDayHigh -> Result.return ctx.prev_day_high
+    | PrevDayLow -> Result.return ctx.prev_day_low
+    | GapPct ->
+      if ctx.day_start_index >= 0 && Float.(ctx.prev_day_close > 0.0) then
+        Error.guard (Error.fatal "Error computing GapPct") @@ fun () ->
+        let day_open = Data.get data Data.Type.Last ctx.day_start_index in
+        (day_open -. ctx.prev_day_close) /. ctx.prev_day_close *. 100.0
+      else Result.return 0.0
+    | OpeningRangeHigh -> Result.return ctx.opening_range_high
+    | OpeningRangeLow -> Result.return ctx.opening_range_low
+    | MinutesSinceOpen ->
+      Result.return (Time.minutes_since_open ctx.tick_time)
 (* | Indicator ty -> *)
 (*   let* ty = eval context ty in *)
 (*   Error.guard (Error.fatal "Error in GADT evaluation at Data node") *)
@@ -214,6 +281,17 @@ module Subst = struct
     | TicksHeld -> []
     | HasPosition -> []
     | TickTime -> []
+    | DayOpen -> []
+    | DayHigh -> []
+    | DayLow -> []
+    | DayChangePct -> []
+    | PrevDayClose -> []
+    | PrevDayHigh -> []
+    | PrevDayLow -> []
+    | GapPct -> []
+    | OpeningRangeHigh -> []
+    | OpeningRangeLow -> []
+    | MinutesSinceOpen -> []
 
   let collect_variables : 'a t -> (Uuidm.t * (Type.shadow * bounds)) list =
    fun x ->
@@ -289,6 +367,17 @@ module Subst = struct
       | TicksHeld -> Result.return TicksHeld
       | HasPosition -> Result.return HasPosition
       | TickTime -> Result.return TickTime
+      | DayOpen -> Result.return DayOpen
+      | DayHigh -> Result.return DayHigh
+      | DayLow -> Result.return DayLow
+      | DayChangePct -> Result.return DayChangePct
+      | PrevDayClose -> Result.return PrevDayClose
+      | PrevDayHigh -> Result.return PrevDayHigh
+      | PrevDayLow -> Result.return PrevDayLow
+      | GapPct -> Result.return GapPct
+      | OpeningRangeHigh -> Result.return OpeningRangeHigh
+      | OpeningRangeLow -> Result.return OpeningRangeLow
+      | MinutesSinceOpen -> Result.return MinutesSinceOpen
   (* | Indicator ty -> *)
   (*   let* ty' = instantiate env ty in *)
   (*   Result.return @@ Indicator ty' *)
@@ -351,6 +440,17 @@ let rec pp : type a. Format.formatter -> a t -> unit =
   | TicksHeld -> Format.fprintf fmt "TicksHeld"
   | HasPosition -> Format.fprintf fmt "HasPosition"
   | TickTime -> Format.fprintf fmt "TickTime"
+  | DayOpen -> Format.fprintf fmt "DayOpen"
+  | DayHigh -> Format.fprintf fmt "DayHigh"
+  | DayLow -> Format.fprintf fmt "DayLow"
+  | DayChangePct -> Format.fprintf fmt "DayChangePct"
+  | PrevDayClose -> Format.fprintf fmt "PrevDayClose"
+  | PrevDayHigh -> Format.fprintf fmt "PrevDayHigh"
+  | PrevDayLow -> Format.fprintf fmt "PrevDayLow"
+  | GapPct -> Format.fprintf fmt "GapPct"
+  | OpeningRangeHigh -> Format.fprintf fmt "OpeningRangeHigh"
+  | OpeningRangeLow -> Format.fprintf fmt "OpeningRangeLow"
+  | MinutesSinceOpen -> Format.fprintf fmt "MinutesSinceOpen"
   | App1 (f, x) -> Format.fprintf fmt "@[%a@ %a@]" pp f pp x
   | App2 (f, x, y) -> Format.fprintf fmt "@[%a@ %a@ %a@]" pp f pp x pp y
   | App3 (f, x, y, z) ->
@@ -471,3 +571,36 @@ let is_close timestamp threshold =
 (* Example: is_near_open(tick_time(), 15.0) returns true if less than 15 mins since open *)
 let is_near_open timestamp threshold =
   App2 (Fun ("is_near_open", Time.is_near_open), timestamp, threshold)
+
+(* Intraday session accessors - for ORB, gap, and intraday strategies *)
+let day_open = DayOpen
+let day_high = DayHigh
+let day_low = DayLow
+let day_change_pct = DayChangePct
+let prev_day_close = PrevDayClose
+let prev_day_high = PrevDayHigh
+let prev_day_low = PrevDayLow
+let gap_pct = GapPct
+let opening_range_high = OpeningRangeHigh
+let opening_range_low = OpeningRangeLow
+let minutes_since_open_cached = MinutesSinceOpen
+
+(* Check if opening range is complete (past first N minutes) *)
+let opening_range_complete threshold =
+  MinutesSinceOpen >. Const (threshold, Float)
+
+(* Check if price broke above opening range high *)
+let broke_orb_high = last >. OpeningRangeHigh
+
+(* Check if price broke below opening range low *)
+let broke_orb_low = last <. OpeningRangeLow
+
+(* Check if stock gapped up by at least threshold percent *)
+let gapped_up threshold = GapPct >. Const (threshold, Float)
+
+(* Check if stock gapped down by at least threshold percent *)
+let gapped_down threshold = GapPct <. Const (Float.neg threshold, Float)
+
+(* Check if price is extended from day open by threshold percent *)
+let extended_up threshold = DayChangePct >. Const (threshold, Float)
+let extended_down threshold = DayChangePct <. Const (Float.neg threshold, Float)

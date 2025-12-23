@@ -77,7 +77,17 @@ end = struct
     | TicksHeld -> Error.fatal "Cannot evaluate TicksHeld in eval_simple"
     | HasPosition -> Error.fatal "Cannot evaluate HasPosition in eval_simple"
     | TickTime -> Error.fatal "Cannot evaluate TickTime in eval_simple"
-  (* | Indicator _ -> Error.fatal "Cannot evaluate Indicator in eval_simple" *)
+    | DayOpen -> Error.fatal "Cannot evaluate DayOpen in eval_simple"
+    | DayHigh -> Error.fatal "Cannot evaluate DayHigh in eval_simple"
+    | DayLow -> Error.fatal "Cannot evaluate DayLow in eval_simple"
+    | DayChangePct -> Error.fatal "Cannot evaluate DayChangePct in eval_simple"
+    | PrevDayClose -> Error.fatal "Cannot evaluate PrevDayClose in eval_simple"
+    | PrevDayHigh -> Error.fatal "Cannot evaluate PrevDayHigh in eval_simple"
+    | PrevDayLow -> Error.fatal "Cannot evaluate PrevDayLow in eval_simple"
+    | GapPct -> Error.fatal "Cannot evaluate GapPct in eval_simple"
+    | OpeningRangeHigh -> Error.fatal "Cannot evaluate OpeningRangeHigh in eval_simple"
+    | OpeningRangeLow -> Error.fatal "Cannot evaluate OpeningRangeLow in eval_simple"
+    | MinutesSinceOpen -> Error.fatal "Cannot evaluate MinutesSinceOpen in eval_simple"
 
   (* Collect all t from GADT expressions *)
   let rec collect_data_types : type a. a Gadt.t -> Data.Type.t list =
@@ -107,6 +117,17 @@ end = struct
     | TicksHeld -> []
     | HasPosition -> []
     | TickTime -> []
+    | DayOpen -> []
+    | DayHigh -> []
+    | DayLow -> []
+    | DayChangePct -> []
+    | PrevDayClose -> []
+    | PrevDayHigh -> []
+    | PrevDayLow -> []
+    | GapPct -> []
+    | OpeningRangeHigh -> []
+    | OpeningRangeLow -> []
+    | MinutesSinceOpen -> []
 
   let collect_indicators x =
     let tys = collect_data_types x in
@@ -134,20 +155,101 @@ module Builder : sig
 end = struct
   module State = Longleaf_state
   module Template = Longleaf_template
+  module Time = Longleaf_core.Time
+  module Bars = Longleaf_bars
+
+  (* Intraday session tracking - cached per symbol, updated at day boundaries *)
+  type session_state = {
+    day_start_index : int;
+    prev_day_close : float;
+    prev_day_high : float;
+    prev_day_low : float;
+    opening_range_high : float;
+    opening_range_low : float;
+    opening_range_complete : bool;
+    last_tick_date : int;
+  }
+
+  let default_session = {
+    day_start_index = -1;
+    prev_day_close = Float.nan;
+    prev_day_high = Float.nan;
+    prev_day_low = Float.nan;
+    opening_range_high = Float.nan;
+    opening_range_low = Float.nan;
+    opening_range_complete = false;
+    last_tick_date = -1;
+  }
+
+  let opening_range_minutes = 30
+
+  let day_of_year tick_time =
+    let tm = Unix.gmtime tick_time in
+    tm.Unix.tm_yday
+
+  let update_session session data current_index tick_time =
+    let current_day = day_of_year tick_time in
+    let mins_since_open = Time.minutes_since_open tick_time in
+
+    if current_day <> session.last_tick_date && Float.(mins_since_open >= 0.0) then
+      (* New trading day - compute previous day's stats *)
+      let prev_day_close, prev_day_high, prev_day_low =
+        if session.day_start_index >= 0 then
+          let last_prev_idx = current_index - 1 in
+          if last_prev_idx >= session.day_start_index then
+            let close = Data.get data Data.Type.Last last_prev_idx in
+            let rec compute i high low =
+              if i > last_prev_idx then (high, low)
+              else
+                let h = Data.get data Data.Type.High i in
+                let l = Data.get data Data.Type.Low i in
+                compute (i + 1) (Float.max high h) (Float.min low l)
+            in
+            let high, low = compute session.day_start_index neg_infinity infinity in
+            (close, high, low)
+          else (session.prev_day_close, session.prev_day_high, session.prev_day_low)
+        else (Float.nan, Float.nan, Float.nan)
+      in
+      {
+        day_start_index = current_index;
+        prev_day_close;
+        prev_day_high;
+        prev_day_low;
+        opening_range_high = Float.nan;
+        opening_range_low = Float.nan;
+        opening_range_complete = false;
+        last_tick_date = current_day;
+      }
+    else if not session.opening_range_complete && Float.(mins_since_open >= of_int opening_range_minutes) then
+      (* Opening range complete - compute OR high/low *)
+      if session.day_start_index >= 0 then
+        let rec compute i high low =
+          if i > current_index then (high, low)
+          else
+            let tick_time_i = tick_time -. (Float.of_int (current_index - i) *. 60.0) in
+            let mins_i = Time.minutes_since_open tick_time_i in
+            if Float.(mins_i < of_int opening_range_minutes) then
+              let h = Data.get data Data.Type.High i in
+              let l = Data.get data Data.Type.Low i in
+              compute (i + 1) (Float.max high h) (Float.min low l)
+            else (high, low)
+        in
+        let or_high, or_low = compute session.day_start_index neg_infinity infinity in
+        { session with opening_range_high = or_high; opening_range_low = or_low; opening_range_complete = true }
+      else session
+    else session
 
   (* Helper function to evaluate strategy triggers *)
   let eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
-      (strategy_expr : bool Gadt.t) (state : Longleaf_state.t) symbol =
+      session (strategy_expr : bool Gadt.t) (state : Longleaf_state.t) symbol =
     let ( let* ) = Result.( let* ) in
     let* data =
       State.data state symbol
-      (* State.get_bars state symbol *)
     in
     let bars = State.bars state in
     let current_index = State.tick state in
     let positions = State.positions state in
     let orders = State.Positions.get positions symbol in
-    (* Use pre-computed time info passed from order level - avoids redundant computation *)
     let context : Gadt.context =
       {
         instrument = symbol;
@@ -158,6 +260,13 @@ end = struct
         tick_time;
         is_market_open;
         minutes_until_close;
+        day_start_index = session.day_start_index;
+        prev_day_close = session.prev_day_close;
+        prev_day_high = session.prev_day_high;
+        prev_day_low = session.prev_day_low;
+        opening_range_minutes;
+        opening_range_high = session.opening_range_high;
+        opening_range_low = session.opening_range_low;
       }
     in
     match Gadt.eval context strategy_expr with
@@ -166,14 +275,13 @@ end = struct
 
   (* Helper function to evaluate score expressions *)
   let eval_score ~tick_time ~is_market_open ~minutes_until_close
-      (score_expr : float Gadt.t) (state : Longleaf_state.t) symbol =
+      session (score_expr : float Gadt.t) (state : Longleaf_state.t) symbol =
     let ( let* ) = Result.( let* ) in
     let* data = State.data state symbol in
     let bars = State.bars state in
     let current_index = State.tick state in
     let positions = State.positions state in
     let orders = State.Positions.get positions symbol in
-    (* Use pre-computed time info passed from order level - avoids redundant computation *)
     let context : Gadt.context =
       {
         instrument = symbol;
@@ -184,6 +292,13 @@ end = struct
         tick_time;
         is_market_open;
         minutes_until_close;
+        day_start_index = session.day_start_index;
+        prev_day_close = session.prev_day_close;
+        prev_day_high = session.prev_day_high;
+        prev_day_low = session.prev_day_low;
+        opening_range_minutes;
+        opening_range_high = session.opening_range_high;
+        opening_range_low = session.opening_range_low;
       }
     in
     Gadt.eval context score_expr
@@ -193,16 +308,18 @@ end = struct
       (max_positions : int) (position_size : float) =
     (* Cache for time info computed once per tick *)
     let time_cache : (int * float * bool * float) option ref = ref None in
+    (* Session state per symbol *)
+    let session_cache : (Longleaf_core.Instrument.t, session_state) Hashtbl.t =
+      Hashtbl.create 100
+    in
 
     let get_time_info state =
       let current_tick = State.tick state in
       match !time_cache with
       | Some (cached_tick, tick_time, is_open, mins_until_close)
         when cached_tick = current_tick ->
-        (* Cache hit - reuse values from same tick *)
         Result.return (tick_time, is_open, mins_until_close)
       | _ ->
-        (* Cache miss - compute once for this tick *)
         let ( let* ) = Result.( let* ) in
         let bars = State.bars state in
         let* tick_time_ptime = Longleaf_bars.timestamp bars current_tick in
@@ -214,6 +331,20 @@ end = struct
         time_cache :=
           Some (current_tick, tick_time, is_market_open, minutes_until_close);
         Result.return (tick_time, is_market_open, minutes_until_close)
+    in
+
+    let get_session state symbol tick_time =
+      let ( let* ) = Result.( let* ) in
+      let* data = State.data state symbol in
+      let current_index = State.tick state in
+      let session =
+        match Hashtbl.find_opt session_cache symbol with
+        | Some s -> s
+        | None -> default_session
+      in
+      let updated = update_session session data current_index tick_time in
+      Hashtbl.replace session_cache symbol updated;
+      Result.return updated
     in
 
     let module Buy_input : Longleaf_template.Buy_trigger.INPUT = struct
@@ -222,16 +353,18 @@ end = struct
         let* tick_time, is_market_open, minutes_until_close =
           get_time_info state
         in
+        let* session = get_session state symbol tick_time in
         eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
-          buy_expr state symbol
+          session buy_expr state symbol
 
       let score state symbol =
         let ( let* ) = Result.( let* ) in
         let* tick_time, is_market_open, minutes_until_close =
           get_time_info state
         in
-        eval_score ~tick_time ~is_market_open ~minutes_until_close score_expr
-          state symbol
+        let* session = get_session state symbol tick_time in
+        eval_score ~tick_time ~is_market_open ~minutes_until_close session
+          score_expr state symbol
 
       let num_positions = max_positions
       let position_size = position_size
@@ -240,18 +373,18 @@ end = struct
     (module Buy_trigger : Template.Buy_trigger.S)
 
   let gadt_to_sell_trigger (sell_expr : bool Gadt.t) =
-    (* Cache for time info computed once per tick *)
     let time_cache : (int * float * bool * float) option ref = ref None in
+    let session_cache : (Longleaf_core.Instrument.t, session_state) Hashtbl.t =
+      Hashtbl.create 100
+    in
 
     let get_time_info state =
       let current_tick = State.tick state in
       match !time_cache with
       | Some (cached_tick, tick_time, is_open, mins_until_close)
         when cached_tick = current_tick ->
-        (* Cache hit - reuse values from same tick *)
         Result.return (tick_time, is_open, mins_until_close)
       | _ ->
-        (* Cache miss - compute once for this tick *)
         let ( let* ) = Result.( let* ) in
         let bars = State.bars state in
         let* tick_time_ptime = Longleaf_bars.timestamp bars current_tick in
@@ -265,14 +398,29 @@ end = struct
         Result.return (tick_time, is_market_open, minutes_until_close)
     in
 
+    let get_session state symbol tick_time =
+      let ( let* ) = Result.( let* ) in
+      let* data = State.data state symbol in
+      let current_index = State.tick state in
+      let session =
+        match Hashtbl.find_opt session_cache symbol with
+        | Some s -> s
+        | None -> default_session
+      in
+      let updated = update_session session data current_index tick_time in
+      Hashtbl.replace session_cache symbol updated;
+      Result.return updated
+    in
+
     let module Sell_impl : Template.Sell_trigger.S = struct
       let make state symbol =
         let ( let* ) = Result.( let* ) in
         let* tick_time, is_market_open, minutes_until_close =
           get_time_info state
         in
+        let* session = get_session state symbol tick_time in
         eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
-          sell_expr state symbol
+          session sell_expr state symbol
     end in
     (module Sell_impl : Template.Sell_trigger.S)
 

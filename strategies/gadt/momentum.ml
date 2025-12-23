@@ -1845,6 +1845,194 @@ let rsi_volume_v2 =
     position_size = 0.20;
   }
 
+(* Opening Range Breakout Strategy - Constant Version
+
+   Entry: After first 30 minutes, buy when price breaks above the opening range high.
+   Only enter if the gap is positive (momentum bias).
+
+   Exit: Stop loss at opening range low, profit target at 2x risk, or EOD exit.
+
+   This tests the new intraday session tracking primitives. *)
+let orb_basic : Gadt_strategy.t =
+  let open Gadt in
+  (* Poor man's volume SMA using lag *)
+  let vol_sma_10 =
+    (volume +. lag volume 1 +. lag volume 2 +. lag volume 3 +. lag volume 4
+     +. lag volume 5 +. lag volume 6 +. lag volume 7 +. lag volume 8 +. lag volume 9)
+    /. Const (10.0, Float)
+  in
+  let volume_above_avg = volume >. vol_sma_10 *. Const (1.5, Float) in
+
+  (* Entry conditions - use crossover to only trigger on the breakout moment *)
+  let or_complete = opening_range_complete 30.0 in
+  let breakout_cross = cross_up last OpeningRangeHigh in  (* Only on the cross, not while above *)
+  let positive_gap = gapped_up 0.0 in
+  let safe = Gadt_strategy.safe_to_enter () in
+  let no_position = not_ HasPosition in
+
+  let buy_trigger =
+    no_position &&. or_complete &&. breakout_cross &&. positive_gap &&. volume_above_avg &&. safe
+  in
+
+  (* Exit conditions *)
+  let stop_at_orl = last <. OpeningRangeLow in
+  let profit_target =
+    (* 2:1 reward/risk - target is OR high + 2x(OR high - OR low) *)
+    let or_range = OpeningRangeHigh -. OpeningRangeLow in
+    last >. OpeningRangeHigh +. or_range *. Const (2.0, Float)
+  in
+  let eod_exit = Gadt_strategy.force_exit_eod () in
+
+  let sell_trigger = stop_at_orl ||. profit_target ||. eod_exit in
+
+  {
+    name = "ORB_Basic";
+    buy_trigger;
+    sell_trigger;
+    score = Const (1.0, Float);  (* Equal priority for all signals *)
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(* Opening Range Breakout Strategy - Optimizable Version
+
+   Variables (10 total):
+   1. or_minutes: [15, 120] - Opening range duration in minutes
+   2. vol_sma_period: [5, 200] - Volume SMA lookback (using lag)
+   3. vol_threshold: [1.0, 4.0] - Volume must be this multiple of SMA
+   4. gap_threshold: [-2.0, 3.0] - Minimum gap % to enter (negative = gap down ok)
+   5. breakout_buffer: [0.0, 1.0] - % above ORH required for breakout
+   6. stop_buffer: [0.0, 1.0] - % below ORL for stop (0 = exact ORL)
+   7. profit_mult: [0.5, 5.0] - Profit target as multiple of OR range
+   8. eod_buffer: [5.0, 60.0] - Minutes before close to force exit
+   9. max_hold: [30, 300] - Maximum hold time in minutes
+   10. rsi_period: [10, 100] - RSI period for momentum confirmation
+
+   For 1-minute bars with ~390 bars/day, periods up to 200 are reasonable.
+*)
+let orb_opt : Gadt_strategy.t =
+  let open Gadt in
+  let open Type in
+
+  (* Variable 1: Opening range duration in minutes *)
+  let or_minutes_var = Gadt_fo.var ~lower:15.0 ~upper:120.0 Float in
+
+  (* Variable 2: Volume SMA period - we'll use a 20-bar approximation *)
+  let vol_threshold_var = Gadt_fo.var ~lower:1.0 ~upper:4.0 Float in
+
+  (* Variable 3: Gap threshold - negative means gap downs are ok *)
+  let gap_threshold_var = Gadt_fo.var ~lower:(-2.0) ~upper:3.0 Float in
+
+  (* Variable 4: Breakout buffer - % above ORH *)
+  let breakout_buffer_var = Gadt_fo.var ~lower:0.0 ~upper:1.0 Float in
+
+  (* Variable 5: Stop buffer - % below ORL *)
+  let stop_buffer_var = Gadt_fo.var ~lower:0.0 ~upper:1.0 Float in
+
+  (* Variable 6: Profit target as multiple of OR range *)
+  let profit_mult_var = Gadt_fo.var ~lower:0.5 ~upper:5.0 Float in
+
+  (* Variable 7: EOD exit buffer in minutes *)
+  let eod_buffer_var = Gadt_fo.var ~lower:5.0 ~upper:60.0 Float in
+
+  (* Variable 8: Maximum hold time in ticks (minutes for 1-min bars) *)
+  let max_hold_var = Gadt_fo.var ~lower:30.0 ~upper:300.0 Int in
+
+  (* Variable 9: RSI period for momentum confirmation *)
+  let rsi_period_var = Gadt_fo.var ~lower:10.0 ~upper:100.0 Int in
+
+  (* Variable 10: RSI threshold - only enter if RSI above this *)
+  let rsi_threshold_var = Gadt_fo.var ~lower:40.0 ~upper:70.0 Float in
+
+  (* RSI indicator *)
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var) ))
+  in
+
+  (* Poor man's volume SMA using 20-bar lookback *)
+  let vol_sma_20 =
+    (volume +. lag volume 1 +. lag volume 2 +. lag volume 3 +. lag volume 4
+     +. lag volume 5 +. lag volume 6 +. lag volume 7 +. lag volume 8 +. lag volume 9
+     +. lag volume 10 +. lag volume 11 +. lag volume 12 +. lag volume 13 +. lag volume 14
+     +. lag volume 15 +. lag volume 16 +. lag volume 17 +. lag volume 18 +. lag volume 19)
+    /. Const (20.0, Float)
+  in
+  let volume_confirmed = volume >. vol_sma_20 *. vol_threshold_var in
+
+  (* Entry conditions *)
+  let or_complete = MinutesSinceOpen >. or_minutes_var in
+  let breakout_level = OpeningRangeHigh *. (Const (1.0, Float) +. breakout_buffer_var /. Const (100.0, Float)) in
+  let breakout_cross = cross_up last breakout_level in
+  let gap_ok = GapPct >. gap_threshold_var in
+  let rsi_momentum = rsi >. rsi_threshold_var in
+  let safe = App1 (Fun ("not", not), is_close TickTime eod_buffer_var) in
+  let no_position = not_ HasPosition in
+
+  let buy_trigger =
+    no_position &&. or_complete &&. breakout_cross &&. gap_ok &&. volume_confirmed &&. rsi_momentum &&. safe
+  in
+
+  (* Exit conditions *)
+  let stop_level = OpeningRangeLow *. (Const (1.0, Float) -. stop_buffer_var /. Const (100.0, Float)) in
+  let stop_hit = last <. stop_level in
+
+  let or_range = OpeningRangeHigh -. OpeningRangeLow in
+  let profit_target = last >. OpeningRangeHigh +. or_range *. profit_mult_var in
+
+  let eod_exit = is_close TickTime eod_buffer_var in
+
+  let max_hold_exit = App2 (Fun (">", ( > )), TicksHeld, max_hold_var) in
+
+  let sell_trigger = stop_hit ||. profit_target ||. eod_exit ||. max_hold_exit in
+
+  (* Score: prioritize by RSI momentum and gap size *)
+  let score = rsi +. GapPct *. Const (10.0, Float) in
+
+  {
+    name = "ORB_Opt";
+    buy_trigger;
+    sell_trigger;
+    score;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(* Gap Fade Strategy
+
+   Entry: After opening range, if stock gapped down significantly (>1%) but is
+   now showing signs of reversal (price back above opening range low), fade the gap.
+
+   Exit: Target previous day close (gap fill), stop at day low. *)
+let gap_fade : Gadt_strategy.t =
+  let open Gadt in
+  let or_complete = opening_range_complete 30.0 in
+  let gapped_down_big = gapped_down 1.0 in
+  let recovery_cross = cross_up last OpeningRangeLow in  (* Cross above OR low = recovery signal *)
+  let not_filled_yet = last <. PrevDayClose in
+  let safe = Gadt_strategy.safe_to_enter () in
+  let no_position = not_ HasPosition in
+
+  let buy_trigger = no_position &&. or_complete &&. gapped_down_big &&. recovery_cross &&. not_filled_yet &&. safe in
+
+  (* Exit at gap fill or stop at day low *)
+  let gap_filled = last >=. PrevDayClose in
+  let stop_at_day_low = last <. DayLow in
+  let eod_exit = Gadt_strategy.force_exit_eod () in
+
+  let sell_trigger = gap_filled ||. stop_at_day_low ||. eod_exit in
+
+  {
+    name = "Gap_Fade";
+    buy_trigger;
+    sell_trigger;
+    score = Const (1.0, Float) -. GapPct;  (* Bigger gaps = higher priority *)
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
@@ -1882,4 +2070,8 @@ let all_strategies =
     macd_momentum_v2;
     mfi_momentum_v2;
     claude_momentum_1;
+    (* Intraday session strategies *)
+    orb_opt;
+    orb_basic;
+    gap_fade;
   ]
