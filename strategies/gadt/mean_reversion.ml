@@ -31,6 +31,44 @@
        - Regime-fit strategies: +45% in training, -15% out-of-sample
        - Even "robust" strategies barely match SPY
 
+    == BATTERY TEST RESULTS (quarterly_2023_2025) ==
+
+    ID_MR_AT_1 (Simple SMA + MFI, trained q3q4-2025):
+      q1q2-2023: +6.87%  | q3q4-2023: -3.44%  | q1q2-2024: -8.87%
+      q3q4-2024: -4.49%  | q1q2-2025: -14.58% | q3q4-2025: +44.81% (training)
+      Avg: 3.38%, Std: 19.62%, Consistency: 33.3%
+      VERDICT: Severe overfitting to training period
+
+    NB_V3_0 (Nature Boy V3, NATR_hi < 4.17):
+      q1q2-2023: +1.37%  | q3q4-2023: +2.37%  | q1q2-2024: -12.95%
+      q3q4-2024: -3.16%  | q1q2-2025: +0.19%  | q3q4-2025: +20.09% (training)
+      Avg: 1.32%, Std: 9.82%, Consistency: 66.7%
+
+    NB_V3_1 (Nature Boy V3, shorter MFI period 70):
+      q1q2-2023: -3.16%  | q3q4-2023: -2.29%  | q1q2-2024: -12.85%
+      q3q4-2024: -3.21%  | q1q2-2025: -0.43%  | q3q4-2025: +21.49% (training)
+      Avg: -0.07%, Std: 10.43%, Consistency: 33.3%
+      VERDICT: Shorter indicators overfit more
+
+    NB_V3_2 (Nature Boy V3, tight NATR_hi < 1.41):
+      q1q2-2023: +6.56%  | q3q4-2023: +1.95%  | q1q2-2024: -8.26%
+      q3q4-2024: -0.25%  | q1q2-2025: +8.47%  | q3q4-2025: +18.99% (training)
+      Avg: 4.58%, Std: 8.39%, Consistency: 83.3%
+      VERDICT: BEST - tight volatility filter provides robustness
+
+    Nature Boy V2 (original, pre-optimization):
+      q1q2-2023: +1.57%  | q3q4-2023: -9.67%  | q1q2-2024: +3.70%
+      q3q4-2024: -3.95%  | q1q2-2025: +0.10%  | q3q4-2025: +9.08%
+      Avg: 0.14%, Std: 5.88%, Consistency: 66.7%
+      VERDICT: Stable but negligible returns
+
+    == KEY TAKEAWAYS ==
+
+    - Volatility filtering (NATR_hi) is the most important parameter
+    - Shorter indicator periods = more overfitting
+    - Even best strategy (NB_V3_2) only achieves ~9% annualized
+    - SPY returned 24% in 2023, 23% in 2024 - MR can't compete
+
     Strategies preserved here for reference. See momentum.ml for trend-following
     approaches. *)
 

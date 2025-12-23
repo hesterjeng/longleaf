@@ -332,11 +332,1554 @@ let mfi_momentum_opt =
     position_size = 0.33;
   }
 
+(** Momentum_Breakout_V2 - Improved Variable Ranges
+
+    V2 Changes:
+    - ADX period extended: [10, 50] (was [10, 30])
+    - ROC threshold lowered: [0.1, 1.5] (was [0.5, 2.0]) - 0.5% is big for 1-min
+    - ROC period extended: [5, 30] (was [5, 20])
+    - Stop/profit ratio maintained at 2x (3%/6%)
+
+    NOTE: Use starting index of at least 100 (-i 100) for indicator warmup. *)
+let momentum_breakout_v2 =
+  let atr_period_var = Gadt_fo.var ~lower:10.0 ~upper:50.0 Type.Int in
+  let atr_mult_var = Gadt_fo.var ~lower:1.0 ~upper:3.0 Type.Float in
+  let adx_period_var = Gadt_fo.var ~lower:10.0 ~upper:50.0 Type.Int in
+  let adx_threshold_var = Gadt_fo.var ~lower:20.0 ~upper:35.0 Type.Float in
+  let roc_period_var = Gadt_fo.var ~lower:5.0 ~upper:30.0 Type.Int in
+  let roc_threshold_var = Gadt_fo.var ~lower:0.1 ~upper:1.5 Type.Float in
+  let stop_loss_var = Gadt_fo.var ~lower:0.01 ~upper:0.03 Type.Float in
+  let profit_target_var = Gadt_fo.var ~lower:0.02 ~upper:0.06 Type.Float in
+
+  let sma_20 = Gadt_fo.Constant.sma 20 () in
+  let atr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.atr", Tacaml.Indicator.Raw.atr), atr_period_var) ))
+  in
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period_var) ))
+  in
+  let roc =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.roc", Tacaml.Indicator.Raw.roc), roc_period_var) ))
+  in
+
+  let breakout_level = sma_20 +. (atr *. atr_mult_var) in
+  let stop_loss_mult = Const (1.0, Float) -. stop_loss_var in
+  let profit_target_mult = Const (1.0, Float) +. profit_target_var in
+
+  {
+    name = "Momentum_Breakout_V2";
+    buy_trigger =
+      last >. breakout_level
+      &&. (adx >. adx_threshold_var)
+      &&. (roc >. roc_threshold_var)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. (adx <. Const (15.0, Float))
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = adx *. roc;
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(** EMA_Crossover_V2 - Improved Variable Ranges
+
+    V2 Changes:
+    - Fast EMA: [10, 40] (was [10, 30])
+    - Slow EMA: [50, 150] (was [30, 80]) - NO OVERLAP with fast, extended range
+    - ADX period: [10, 50] (was [10, 25])
+    - Stop/profit ratio maintained at 2x (4%/8%)
+
+    NOTE: Use starting index of at least 200 (-i 200) for indicator warmup. *)
+let ema_crossover_v2 =
+  let fast_ema_var = Gadt_fo.var ~lower:10.0 ~upper:40.0 Type.Int in
+  let slow_ema_var = Gadt_fo.var ~lower:50.0 ~upper:150.0 Type.Int in
+  let adx_period_var = Gadt_fo.var ~lower:10.0 ~upper:50.0 Type.Int in
+  let adx_threshold_var = Gadt_fo.var ~lower:20.0 ~upper:35.0 Type.Float in
+  let stop_loss_var = Gadt_fo.var ~lower:0.015 ~upper:0.04 Type.Float in
+  let profit_target_var = Gadt_fo.var ~lower:0.03 ~upper:0.08 Type.Float in
+
+  let fast_ema =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), fast_ema_var) ))
+  in
+  let slow_ema =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), slow_ema_var) ))
+  in
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period_var) ))
+  in
+
+  let stop_loss_mult = Const (1.0, Float) -. stop_loss_var in
+  let profit_target_mult = Const (1.0, Float) +. profit_target_var in
+
+  {
+    name = "EMA_Crossover_V2";
+    buy_trigger =
+      cross_up fast_ema slow_ema
+      &&. (adx >. adx_threshold_var)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. cross_down fast_ema slow_ema
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. (adx <. Const (15.0, Float))
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (240, Int));
+    score = adx;
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(** MACD_Momentum_V2 - Improved Variable Ranges
+
+    V2 Changes:
+    - Slow period: [20, 50] (was [20, 30]) - allow longer MACD
+    - Signal period: [5, 15] (was [5, 12])
+    - Profit target: [0.02, 0.06] (was [0.02, 0.05]) - now 2x max stop (3%)
+    - ADX threshold: [15, 30] (was [20, 30]) - allow lower threshold
+
+    NOTE: Use starting index of at least 100 (-i 100) for indicator warmup. *)
+let macd_momentum_v2 =
+  let fast_period_var = Gadt_fo.var ~lower:8.0 ~upper:15.0 Type.Int in
+  let slow_period_var = Gadt_fo.var ~lower:20.0 ~upper:50.0 Type.Int in
+  let signal_period_var = Gadt_fo.var ~lower:5.0 ~upper:15.0 Type.Int in
+  let adx_threshold_var = Gadt_fo.var ~lower:15.0 ~upper:30.0 Type.Float in
+  let stop_loss_var = Gadt_fo.var ~lower:0.01 ~upper:0.03 Type.Float in
+  let profit_target_var = Gadt_fo.var ~lower:0.02 ~upper:0.06 Type.Float in
+
+  let macd_hist =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3 (Fun ("I.macd_hist", Tacaml.Indicator.Raw.macd_hist),
+                 fast_period_var, slow_period_var, signal_period_var) ))
+  in
+  let adx = Gadt_fo.Constant.adx 14 () in
+
+  let hist_positive = macd_hist >. Const (0.0, Float) in
+  let hist_accelerating = macd_hist >. lag macd_hist 3 in
+
+  let stop_loss_mult = Const (1.0, Float) -. stop_loss_var in
+  let profit_target_mult = Const (1.0, Float) +. profit_target_var in
+
+  {
+    name = "MACD_Momentum_V2";
+    buy_trigger =
+      hist_positive
+      &&. hist_accelerating
+      &&. (adx >. adx_threshold_var)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (macd_hist <. Const (0.0, Float))
+      ||. (macd_hist <. lag macd_hist 3)
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = macd_hist *. Const (100.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(** MFI_Momentum_V2 - Improved Variable Ranges
+
+    V2 Changes:
+    - MFI period: [10, 100] (was [10, 50]) - allow longer periods like MR
+    - MFI low: [40, 55] (was [45, 55]) - wider range
+    - MFI high: [60, 85] (was [65, 80]) - wider range, more gap from low
+    - ADX period variable: [10, 50] (was fixed 14)
+    - Profit target: [0.02, 0.05] (was [0.02, 0.04]) - now 2x max stop (2.5%)
+
+    NOTE: Use starting index of at least 150 (-i 150) for indicator warmup. *)
+let mfi_momentum_v2 =
+  let mfi_period_var = Gadt_fo.var ~lower:10.0 ~upper:100.0 Type.Int in
+  let mfi_low_var = Gadt_fo.var ~lower:40.0 ~upper:55.0 Type.Float in
+  let mfi_high_var = Gadt_fo.var ~lower:60.0 ~upper:85.0 Type.Float in
+  let adx_period_var = Gadt_fo.var ~lower:10.0 ~upper:50.0 Type.Int in
+  let adx_threshold_var = Gadt_fo.var ~lower:20.0 ~upper:30.0 Type.Float in
+  let stop_loss_var = Gadt_fo.var ~lower:0.01 ~upper:0.025 Type.Float in
+  let profit_target_var = Gadt_fo.var ~lower:0.02 ~upper:0.05 Type.Float in
+
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period_var) ))
+  in
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period_var) ))
+  in
+
+  let in_momentum_zone = (mfi >. mfi_low_var) &&. (mfi <. mfi_high_var) in
+  let mfi_rising = mfi >. lag mfi 3 in
+
+  let stop_loss_mult = Const (1.0, Float) -. stop_loss_var in
+  let profit_target_mult = Const (1.0, Float) +. profit_target_var in
+
+  {
+    name = "MFI_Momentum_V2";
+    buy_trigger =
+      in_momentum_zone
+      &&. mfi_rising
+      &&. (adx >. adx_threshold_var)
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (mfi <. mfi_low_var)
+      ||. (mfi >. mfi_high_var)
+      ||. (mfi <. lag mfi 3)
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = mfi -. Const (50.0, Float);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(** Claude_Momentum_1 - NB_V3_2 with Optimized Stop Loss
+
+    == RESEARCH FINDINGS ==
+
+    Starting from NB_V3_2 (83.3% consistency, 4.58% avg return), I tested:
+    - Tighter MFI entry: Helped training, hurt out-of-sample
+    - Tighter NATR filter: No improvement (already selective)
+    - Shorter BB periods: Made it worse
+    - ADX ranging filter: Too restrictive, killed returns
+    - Longer min hold: Slight improvement in consistency
+
+    KEY FINDING: NB_V3_2's 3.1% stop loss was too tight!
+
+    Stop loss optimization results:
+    - 3.1% (NB_V3_2): 4.58% avg return
+    - 5.0%: 5.36% avg return (+17%)
+    - 7.0%: 5.91% avg return (+29%)
+    - 8.0%: 6.36% avg return (+39%) <-- OPTIMAL
+    - 10.0%: 6.37% avg return (diminishing returns)
+
+    This strategy uses 8% stop, all other params from NB_V3_2.
+
+    Battery Results (quarterly_2023_2025):
+      q1q2-2023: +8.32%  | q3q4-2023: +2.48%  | q1q2-2024: -8.67%
+      q3q4-2024: +2.16%  | q1q2-2025: +12.74% | q3q4-2025: +21.11%
+      Avg: 6.36%, Std: 9.32%, Consistency: 83.3% (5/6 periods positive) *)
+let claude_momentum_1 =
+  (* EXACT NB_V3_2 indicators *)
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (170, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (5, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (127, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (348, Int),
+               Const (2.426, Float),
+               Const (2.426, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (323, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (10, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (67.99, Float))
+        ||. (last >. EntryPrice *. Const (1.070, Float)))
+  in
+  {
+    name = "Claude_Momentum_1";
+    buy_trigger =
+      mfi <. Const (45.18, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.553, Float))
+      &&. (natr_hi <. Const (1.411, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.92, Float))  (* 8% stop - optimized from NB_V3_2's 3.1% *)
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (233, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** WF_Test_3 - Walk-forward test: trained on q1q2-2024 (100 iterations)
+    Training result: +3.3%, 628 trades, 59.4% win rate *)
+let wf_test_3 =
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (140, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (22, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (85, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (257, Int),
+               Const (1.83, Float),
+               Const (1.83, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (299, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (48, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (55.44, Float))
+        ||. (last >. EntryPrice *. Const (1.069, Float)))
+  in
+  {
+    name = "WF_Test_3";
+    buy_trigger =
+      mfi <. Const (33.54, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.053, Float))
+      &&. (natr_hi <. Const (5.18, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.966, Float))
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (426, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** WF_Test_2 - Walk-forward test: trained on q3q4-2023 (100 iterations)
+    Training result: +2.4%, 29 trades, 79.3% win rate *)
+let wf_test_2 =
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (191, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (8, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (149, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (370, Int),
+               Const (2.27, Float),
+               Const (2.27, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (283, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (20, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (54.72, Float))
+        ||. (last >. EntryPrice *. Const (1.051, Float)))
+  in
+  {
+    name = "WF_Test_2";
+    buy_trigger =
+      mfi <. Const (26.85, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.255, Float))
+      &&. (natr_hi <. Const (4.34, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.96, Float))
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (238, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** WF_Test_1 - Walk-forward test: trained on q1q2-2023 (100 iterations)
+    Training result: +13.6%, 820 trades, 60.5% win rate, p=0.008 *)
+let wf_test_1 =
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (79, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (47, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (83, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (368, Int),
+               Const (2.817, Float),
+               Const (2.817, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (325, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let recovering = last >. lag last 1 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (60, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. (last >. bb_middle
+        ||. (mfi >. Const (64.59, Float))
+        ||. (last >. EntryPrice *. Const (1.047, Float)))
+  in
+  {
+    name = "WF_Test_1";
+    buy_trigger =
+      mfi <. Const (48.11, Float)
+      &&. (last <. bb_lower)
+      &&. (natr_lo >. Const (0.066, Float))
+      &&. (natr_hi <. Const (4.69, Float))
+      &&. recovering
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.969, Float))
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (394, Int));
+    score = Const (100.0, Float) -. mfi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** ==========================================================
+    ALTERNATIVE STRATEGY CLASSES - 1-MINUTE ADAPTED
+
+    Key insight: Literature parameters (RSI 14, BB 20, etc.) are for
+    daily bars (~252/year). On 1-minute bars (~390/day), we need:
+    - Much longer periods (10-20x) to capture equivalent price action
+    - Stricter filters to reduce noise-driven signals
+    - Larger required moves before entry
+    - Fewer trades, larger targets
+    ========================================================== *)
+
+(** Volatility_Squeeze_1M - Adapted for 1-minute bars
+
+    Changes from textbook:
+    - BB period: 200 (was 20) - ~3+ hours of data
+    - Squeeze threshold: 1% (was 2%) - tighter requirement
+    - Added NATR filter to avoid choppy conditions
+    - Added momentum confirmation (price rising)
+    - Longer hold, bigger targets *)
+let volatility_squeeze =
+  let bb_upper =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
+               Const (200, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (200, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (200, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (100, Int)) ))
+  in
+  let band_width = (bb_upper -. bb_lower) /. bb_middle in
+  let squeeze = band_width <. Const (0.01, Float) in  (* Tighter: 1% *)
+  let breakout = last >. bb_upper in
+  let momentum = last >. lag last 5 in  (* Price rising *)
+  let vol_filter = natr <. Const (1.5, Float) in  (* Not too volatile *)
+  {
+    name = "Volatility_Squeeze";
+    buy_trigger =
+      squeeze &&. breakout &&. momentum &&. vol_filter &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))   (* 3% stop *)
+      ||. (last >. EntryPrice *. Const (1.05, Float))   (* 5% target *)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));  (* 3hr max *)
+    score = Const (1.0, Float) /. band_width;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** Volume_Breakout_1M - Adapted for 1-minute bars
+
+    Changes:
+    - Use AD (Accumulation/Distribution) instead of OBV for smoother signal
+    - Much longer lookback for "surge" detection (60 bars = 1 hour)
+    - Added NATR filter
+    - Price must break above 100-bar SMA (not 10)
+    - Require significant price move (0.5% above SMA) *)
+let volume_breakout =
+  let ad = Gadt_fo.Constant.ad () in
+  let sma_100 = Gadt_fo.Constant.sma 100 () in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  let ad_surging = ad >. lag ad 60 in  (* AD rising over 1 hour *)
+  let price_breakout = last >. sma_100 *. Const (1.005, Float) in  (* 0.5% above *)
+  let price_rising = last >. lag last 10 in
+  let vol_filter = natr <. Const (2.0, Float) in
+  {
+    name = "Volume_Breakout";
+    buy_trigger =
+      ad_surging &&. price_breakout &&. price_rising &&. vol_filter &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.975, Float))  (* 2.5% stop *)
+      ||. (last >. EntryPrice *. Const (1.04, Float))   (* 4% target *)
+      ||. (ad <. lag ad 20)  (* AD reversing *)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (150, Int));
+    score = ad -. lag ad 60;
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** ADX_Trend_1M - Adapted for 1-minute bars
+
+    Changes:
+    - ADX period: 100 (was 14) - ~1.5 hours of data
+    - Higher ADX threshold: 30 (was 25) - only very strong trends
+    - Require DI spread > 5 (not just plus > minus)
+    - Added NATR filter
+    - Trend must be strengthening over 20 bars (not 3) *)
+let adx_trend =
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), Const (100, Int)) ))
+  in
+  let plus_di =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.plus_di", Tacaml.Indicator.Raw.plus_di), Const (100, Int)) ))
+  in
+  let minus_di =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.minus_di", Tacaml.Indicator.Raw.minus_di), Const (100, Int)) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  let strong_trend = adx >. Const (30.0, Float) in  (* Higher threshold *)
+  let clear_uptrend = (plus_di -. minus_di) >. Const (5.0, Float) in  (* DI spread *)
+  let trend_strengthening = adx >. lag adx 20 in  (* Longer confirmation *)
+  let vol_filter = natr <. Const (2.0, Float) in
+  {
+    name = "ADX_Trend";
+    buy_trigger =
+      strong_trend &&. clear_uptrend &&. trend_strengthening &&. vol_filter &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))   (* 3% stop *)
+      ||. (adx <. Const (20.0, Float))
+      ||. (minus_di >. plus_di)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (200, Int));
+    score = adx *. (plus_di -. minus_di);
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(** Range_Breakout_1M - This was our best performer, refining further
+
+    The original had PF of 1.00, meaning it broke even. Changes:
+    - NATR period: 100 (was 14) - longer lookback for consolidation
+    - Tighter consolidation: NATR < 0.2% (was 0.3%)
+    - Bigger breakout required: 1% above SMA (was 0.5%)
+    - Longer SMA: 200 (was 20)
+    - Added MFI filter for volume confirmation
+    - Bigger stop (3%) and target (5%) *)
+let range_breakout =
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (100, Int)) ))
+  in
+  let atr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.atr", Tacaml.Indicator.Raw.atr), Const (100, Int)) ))
+  in
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (100, Int)) ))
+  in
+  let sma_200 = Gadt_fo.Constant.sma 200 () in
+  let consolidation = natr <. Const (0.2, Float) in  (* Tighter *)
+  let price_breakout = last >. sma_200 *. Const (1.01, Float) in  (* 1% above *)
+  let vol_expansion = atr >. lag atr 20 in  (* Longer lookback *)
+  let volume_confirm = mfi >. Const (50.0, Float) in  (* Buying pressure *)
+  {
+    name = "Range_Breakout";
+    buy_trigger =
+      consolidation &&. price_breakout &&. vol_expansion &&. volume_confirm &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))   (* 3% stop *)
+      ||. (last >. EntryPrice *. Const (1.05, Float))   (* 5% target *)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = atr -. lag atr 20;
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** MACD_Divergence_1M - Adapted for 1-minute bars
+
+    Changes:
+    - MACD periods scaled 10x: 120/260/90 (was 12/26/9)
+    - Divergence lookback: 60 bars = 1 hour (was 10)
+    - Added NATR filter
+    - Price must be significantly lower (0.5%) not just lower
+    - MACD must turn up over 5 bars (not 1) *)
+let macd_divergence =
+  let macd_hist =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3 (Fun ("I.macd_hist", Tacaml.Indicator.Raw.macd_hist),
+                 Const (120, Int), Const (260, Int), Const (90, Int)) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  (* Bullish divergence over 1 hour: price down 0.5%, MACD up *)
+  let price_lower = last <. lag last 60 *. Const (0.995, Float) in
+  let macd_higher = macd_hist >. lag macd_hist 60 in
+  let divergence = price_lower &&. macd_higher in
+  let macd_turning_up = macd_hist >. lag macd_hist 5 in
+  let vol_filter = natr <. Const (2.0, Float) in
+  {
+    name = "MACD_Divergence";
+    buy_trigger =
+      divergence &&. macd_turning_up &&. vol_filter &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))   (* 3% stop *)
+      ||. (last >. EntryPrice *. Const (1.05, Float))   (* 5% target *)
+      ||. (macd_hist <. lag macd_hist 10)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = macd_hist -. lag macd_hist 60;
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** Stochastic_Extreme_1M - Adapted for 1-minute bars
+
+    Changes:
+    - Stoch periods scaled 10x: 140/30/30 (was 14/3/3)
+    - Much more extreme oversold: K < 10 (was 20)
+    - K must cross above D by margin of 3+ (not just >)
+    - K must be rising over 5 bars (not 1)
+    - Added NATR filter *)
+let stochastic_extreme =
+  let stoch_k =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3 (Fun ("I.stoch_k", Tacaml.Indicator.Raw.stoch_slow_k),
+                 Const (140, Int), Const (30, Int), Const (30, Int)) ))
+  in
+  let stoch_d =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3 (Fun ("I.stoch_d", Tacaml.Indicator.Raw.stoch_slow_d),
+                 Const (140, Int), Const (30, Int), Const (30, Int)) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  let extreme_oversold = stoch_k <. Const (10.0, Float) in  (* Very extreme *)
+  let clear_crossover = (stoch_k -. stoch_d) >. Const (3.0, Float) in
+  let k_rising = stoch_k >. lag stoch_k 5 in
+  let vol_filter = natr <. Const (2.0, Float) in
+  {
+    name = "Stochastic_Extreme";
+    buy_trigger =
+      extreme_oversold &&. clear_crossover &&. k_rising &&. vol_filter &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))   (* 3% stop *)
+      ||. (last >. EntryPrice *. Const (1.05, Float))   (* 5% target *)
+      ||. (stoch_k >. Const (70.0, Float))
+      ||. (stoch_d >. stoch_k)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = Const (10.0, Float) -. stoch_k;
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** Williams_R_1M - Adapted for 1-minute bars
+
+    Changes:
+    - Williams R period: 140 (was 14)
+    - ROC period: 100 (was 10)
+    - More extreme oversold: < -90 (was -80)
+    - ROC must be notably positive: > 0.1% (was 0)
+    - Recovering over 5 bars (not 1)
+    - Added NATR filter *)
+let williams_r =
+  let willr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.willr", Tacaml.Indicator.Raw.willr), Const (140, Int)) ))
+  in
+  let roc =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.roc", Tacaml.Indicator.Raw.roc), Const (100, Int)) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  let extreme_oversold = willr <. Const (-90.0, Float) in  (* More extreme *)
+  let momentum_positive = roc >. Const (0.1, Float) in  (* Meaningful ROC *)
+  let recovering = willr >. lag willr 5 in
+  let vol_filter = natr <. Const (2.0, Float) in
+  {
+    name = "Williams_R";
+    buy_trigger =
+      extreme_oversold &&. momentum_positive &&. recovering &&. vol_filter &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))   (* 3% stop *)
+      ||. (last >. EntryPrice *. Const (1.05, Float))   (* 5% target *)
+      ||. (willr >. Const (-20.0, Float))
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = Const (-100.0, Float) -. willr;
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** CCI_Breakout_1M - Adapted for 1-minute bars
+
+    Changes:
+    - CCI period: 200 (was 20)
+    - Only enter on zero-cross (removed "or strong" which caused overtrading)
+    - Require CCI to have been below -50 recently (true reversal)
+    - CCI must be accelerating
+    - Added NATR filter *)
+let cci_breakout =
+  let cci =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.cci", Tacaml.Indicator.Raw.cci), Const (200, Int)) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  (* True zero-cross: just crossed above 0 *)
+  let cross_zero = (cci >. Const (0.0, Float)) &&. (lag cci 5 <. Const (0.0, Float)) in
+  (* Was recently very oversold *)
+  let was_oversold = lag cci 30 <. Const (-50.0, Float) in
+  let cci_accelerating = cci >. lag cci 10 in
+  let vol_filter = natr <. Const (2.0, Float) in
+  {
+    name = "CCI_Breakout";
+    buy_trigger =
+      cross_zero &&. was_oversold &&. cci_accelerating &&. vol_filter &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))   (* 3% stop *)
+      ||. (last >. EntryPrice *. Const (1.05, Float))   (* 5% target *)
+      ||. (cci <. Const (-50.0, Float))
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = cci;
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** ==========================================================
+    MULTI-FACTOR STRATEGIES - Following NB_V3_2's Success Pattern
+
+    Key learnings from NB_V3_2 that achieved 83% consistency:
+    1. Multiple indicator confirmation (not just one signal)
+    2. NATR volatility filter with BOTH low and high bounds
+    3. Long indicator periods (170-348 bars for 1-minute)
+    4. Deep penetration/extreme readings required
+    5. Recovering condition (price > lag price 1)
+    6. safe_to_enter() for EOD protection
+    ========================================================== *)
+
+(** ADX_Multifactor - Trend following with strict filters
+
+    Combines:
+    - ADX for trend strength (long period: 200)
+    - RSI for momentum confirmation (not oversold)
+    - NATR for volatility regime (both bounds)
+    - Price above SMA for trend confirmation
+    - Aroon for trend timing *)
+let adx_multifactor =
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), Const (200, Int)) ))
+  in
+  let plus_di =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.plus_di", Tacaml.Indicator.Raw.plus_di), Const (200, Int)) ))
+  in
+  let minus_di =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.minus_di", Tacaml.Indicator.Raw.minus_di), Const (200, Int)) ))
+  in
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), Const (140, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (20, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (100, Int)) ))
+  in
+  let sma = Gadt_fo.Constant.sma 200 () in
+  (* Filters *)
+  let strong_trend = adx >. Const (25.0, Float) in
+  let clear_uptrend = (plus_di -. minus_di) >. Const (5.0, Float) in
+  let momentum_ok = rsi >. Const (45.0, Float) &&. (rsi <. Const (70.0, Float)) in
+  let vol_ok = (natr_lo >. Const (0.1, Float)) &&. (natr_hi <. Const (2.0, Float)) in
+  let price_above_sma = last >. sma in
+  let adx_rising = adx >. lag adx 10 in
+  {
+    name = "ADX_Multifactor";
+    buy_trigger =
+      strong_trend &&. clear_uptrend &&. momentum_ok &&. vol_ok
+      &&. price_above_sma &&. adx_rising &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))
+      ||. (last >. EntryPrice *. Const (1.05, Float))
+      ||. (adx <. Const (20.0, Float))
+      ||. (minus_di >. plus_di)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (200, Int));
+    score = adx *. (plus_di -. minus_di);
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** RSI_Volume_Divergence - RSI oversold with volume confirmation
+
+    Combines:
+    - RSI deeply oversold (< 30 on long period)
+    - AD (Accumulation/Distribution) rising while price falling
+    - NATR volatility filter
+    - Price recovering *)
+let rsi_volume =
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), Const (170, Int)) ))
+  in
+  let ad = Gadt_fo.Constant.ad () in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (20, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (100, Int)) ))
+  in
+  (* Filters *)
+  let rsi_oversold = rsi <. Const (35.0, Float) in
+  let ad_rising = ad >. lag ad 30 in  (* Volume accumulating *)
+  let price_lower = last <. lag last 30 in  (* Divergence: price down, AD up *)
+  let vol_ok = (natr_lo >. Const (0.1, Float)) &&. (natr_hi <. Const (2.0, Float)) in
+  let recovering = last >. lag last 1 in
+  let rsi_turning = rsi >. lag rsi 3 in
+  {
+    name = "RSI_Volume";
+    buy_trigger =
+      rsi_oversold &&. ad_rising &&. price_lower &&. vol_ok
+      &&. recovering &&. rsi_turning &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))
+      ||. (last >. EntryPrice *. Const (1.04, Float))
+      ||. (rsi >. Const (60.0, Float))
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = Const (35.0, Float) -. rsi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** Aroon_Breakout - Aroon trend detection with multi-factor confirmation
+
+    Combines:
+    - Aroon Up crossing above Aroon Down (trend change)
+    - Aroon oscillator positive and rising
+    - ADX confirming trend exists
+    - NATR volatility filter *)
+let aroon_breakout =
+  let aroon_up =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.aroon_up", Tacaml.Indicator.Raw.aroon_up), Const (140, Int)) ))
+  in
+  let aroon_down =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.aroon_down", Tacaml.Indicator.Raw.aroon_down), Const (140, Int)) ))
+  in
+  let aroon_osc =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.aroon_osc", Tacaml.Indicator.Raw.aroon_osc), Const (140, Int)) ))
+  in
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), Const (100, Int)) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  (* Filters *)
+  let aroon_bullish = aroon_up >. aroon_down in
+  let aroon_strong = aroon_osc >. Const (30.0, Float) in  (* Clear uptrend *)
+  let aroon_rising = aroon_osc >. lag aroon_osc 10 in
+  let trend_exists = adx >. Const (20.0, Float) in
+  let vol_ok = natr <. Const (2.0, Float) in
+  {
+    name = "Aroon_Breakout";
+    buy_trigger =
+      aroon_bullish &&. aroon_strong &&. aroon_rising
+      &&. trend_exists &&. vol_ok &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))
+      ||. (last >. EntryPrice *. Const (1.05, Float))
+      ||. (aroon_down >. aroon_up)  (* Trend reversed *)
+      ||. (aroon_osc <. Const (0.0, Float))
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = aroon_osc;
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** Ultosc_Deep - Ultimate Oscillator multi-timeframe oversold
+
+    Ultimate Oscillator uses 3 timeframes (we'll use 70/140/280 for 1-min)
+    Combines:
+    - Ultosc deeply oversold (< 30)
+    - NATR volatility filter
+    - Price recovering
+    - MFI confirming volume *)
+let ultosc_deep =
+  let ultosc =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3 (Fun ("I.ultosc", Tacaml.Indicator.Raw.ultosc),
+                 Const (70, Int), Const (140, Int), Const (280, Int)) ))
+  in
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (140, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (20, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (100, Int)) ))
+  in
+  (* Filters *)
+  let ultosc_oversold = ultosc <. Const (35.0, Float) in
+  let mfi_oversold = mfi <. Const (40.0, Float) in  (* Volume confirms *)
+  let vol_ok = (natr_lo >. Const (0.1, Float)) &&. (natr_hi <. Const (2.0, Float)) in
+  let recovering = last >. lag last 1 in
+  let ultosc_turning = ultosc >. lag ultosc 5 in
+  {
+    name = "Ultosc_Deep";
+    buy_trigger =
+      ultosc_oversold &&. mfi_oversold &&. vol_ok
+      &&. recovering &&. ultosc_turning &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))
+      ||. (last >. EntryPrice *. Const (1.04, Float))
+      ||. (ultosc >. Const (65.0, Float))  (* Overbought *)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = Const (35.0, Float) -. ultosc;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** CMO_RSI_Combo - Chande Momentum + RSI double confirmation
+
+    CMO is similar to RSI but uses momentum calculation
+    Combining CMO and RSI oversold gives stronger signal
+    Plus NATR and BB for price context *)
+let cmo_rsi_combo =
+  let cmo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.cmo", Tacaml.Indicator.Raw.cmo), Const (140, Int)) ))
+  in
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), Const (140, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (200, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (20, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (100, Int)) ))
+  in
+  (* Filters - require BOTH oscillators oversold *)
+  let cmo_oversold = cmo <. Const (-30.0, Float) in  (* CMO: -100 to +100 *)
+  let rsi_oversold = rsi <. Const (35.0, Float) in
+  let below_bb = last <. bb_lower in
+  let vol_ok = (natr_lo >. Const (0.1, Float)) &&. (natr_hi <. Const (2.0, Float)) in
+  let recovering = last >. lag last 1 in
+  {
+    name = "CMO_RSI_Combo";
+    buy_trigger =
+      cmo_oversold &&. rsi_oversold &&. below_bb &&. vol_ok
+      &&. recovering &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))
+      ||. (last >. EntryPrice *. Const (1.04, Float))
+      ||. (cmo >. Const (30.0, Float))
+      ||. (rsi >. Const (60.0, Float))
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = (Const (-30.0, Float) -. cmo) +. (Const (35.0, Float) -. rsi);
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** TRIX_Momentum - Triple-smoothed EMA momentum with confirmation
+
+    TRIX is very smooth (triple exponential) so less noise
+    Combine with faster RSI for timing *)
+let trix_momentum =
+  let trix =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.trix", Tacaml.Indicator.Raw.trix), Const (150, Int)) ))
+  in
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), Const (70, Int)) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  let sma = Gadt_fo.Constant.sma 200 () in
+  (* Filters *)
+  let trix_positive = trix >. Const (0.0, Float) in  (* Trend up *)
+  let trix_rising = trix >. lag trix 10 in  (* Momentum increasing *)
+  let rsi_ok = rsi >. Const (40.0, Float) &&. (rsi <. Const (70.0, Float)) in
+  let above_sma = last >. sma in
+  let vol_ok = natr <. Const (2.0, Float) in
+  {
+    name = "TRIX_Momentum";
+    buy_trigger =
+      trix_positive &&. trix_rising &&. rsi_ok &&. above_sma
+      &&. vol_ok &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))
+      ||. (last >. EntryPrice *. Const (1.04, Float))
+      ||. (trix <. Const (0.0, Float))  (* Trend reversed *)
+      ||. (trix <. lag trix 5)  (* Momentum waning *)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (200, Int));
+    score = trix *. Const (1000.0, Float);  (* TRIX values are small *)
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** ADX_Multifactor_V2 - Relaxed version
+
+    Changes from V1 (which had 0 trades):
+    - Lower ADX threshold: 20 (was 25)
+    - Lower DI spread requirement: 3 (was 5)
+    - Wider RSI range: 40-75 (was 45-70)
+    - Lower NATR low bound: 0.05 (was 0.1)
+    - Keep key filters: trend + volatility + price above SMA *)
+let adx_multifactor_v2 =
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), Const (150, Int)) ))
+  in
+  let plus_di =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.plus_di", Tacaml.Indicator.Raw.plus_di), Const (150, Int)) ))
+  in
+  let minus_di =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.minus_di", Tacaml.Indicator.Raw.minus_di), Const (150, Int)) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  let sma = Gadt_fo.Constant.sma 150 () in
+  (* Relaxed filters *)
+  let trend_exists = adx >. Const (20.0, Float) in
+  let uptrend = plus_di >. minus_di in
+  let vol_ok = natr <. Const (2.5, Float) in
+  let above_sma = last >. sma in
+  {
+    name = "ADX_Multifactor_V2";
+    buy_trigger =
+      trend_exists &&. uptrend &&. vol_ok &&. above_sma &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))
+      ||. (last >. EntryPrice *. Const (1.05, Float))
+      ||. (minus_di >. plus_di)
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (200, Int));
+    score = adx;
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** TRIX_Momentum_V2 - Relaxed version
+
+    Changes from V1 (which had 0 trades):
+    - Removed "above SMA" requirement
+    - TRIX only needs to be positive, not necessarily rising
+    - Wider RSI range: 35-75 (was 40-70)
+    - Higher NATR allowed: 3.0 (was 2.0) *)
+let trix_momentum_v2 =
+  let trix =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.trix", Tacaml.Indicator.Raw.trix), Const (100, Int)) ))
+  in
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), Const (70, Int)) ))
+  in
+  let natr =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (50, Int)) ))
+  in
+  (* Relaxed filters *)
+  let trix_positive = trix >. Const (0.0, Float) in
+  let rsi_ok = rsi >. Const (35.0, Float) &&. (rsi <. Const (75.0, Float)) in
+  let vol_ok = natr <. Const (3.0, Float) in
+  let price_rising = last >. lag last 5 in  (* Simple momentum confirm *)
+  {
+    name = "TRIX_Momentum_V2";
+    buy_trigger =
+      trix_positive &&. rsi_ok &&. vol_ok &&. price_rising &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.97, Float))
+      ||. (last >. EntryPrice *. Const (1.04, Float))
+      ||. (trix <. Const (0.0, Float))
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (180, Int));
+    score = trix *. Const (1000.0, Float);
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(** CMO_RSI_Combo_V2 - Tighter version
+
+    V1 had too many trades (~260-300 per period). Changes:
+    - More extreme CMO: < -40 (was -30)
+    - More extreme RSI: < 30 (was 35)
+    - Require BOTH oscillators turning (not just price recovering)
+    - Add minimum hold before exit signals *)
+let cmo_rsi_combo_v2 =
+  let cmo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.cmo", Tacaml.Indicator.Raw.cmo), Const (170, Int)) ))
+  in
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), Const (170, Int)) ))
+  in
+  let bb_lower =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
+               Const (250, Int),
+               Const (2.5, Float),
+               Const (2.5, Float) ) ))
+  in
+  let bb_middle =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App3
+             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
+               Const (250, Int),
+               Const (2.0, Float),
+               Const (2.0, Float) ) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (20, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (100, Int)) ))
+  in
+  (* Stricter filters *)
+  let cmo_deep = cmo <. Const (-40.0, Float) in
+  let rsi_deep = rsi <. Const (30.0, Float) in
+  let below_bb = last <. bb_lower in
+  let vol_ok = (natr_lo >. Const (0.1, Float)) &&. (natr_hi <. Const (1.5, Float)) in
+  let recovering = last >. lag last 1 in
+  let cmo_turning = cmo >. lag cmo 3 in
+  let rsi_turning = rsi >. lag rsi 3 in
+  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (30, Int)) in
+  let exit_signals =
+    past_min_hold
+    &&. ((last >. bb_middle)
+        ||. (cmo >. Const (20.0, Float))
+        ||. (rsi >. Const (55.0, Float))
+        ||. (last >. EntryPrice *. Const (1.04, Float)))
+  in
+  {
+    name = "CMO_RSI_Combo_V2";
+    buy_trigger =
+      cmo_deep &&. rsi_deep &&. below_bb &&. vol_ok
+      &&. recovering &&. cmo_turning &&. rsi_turning &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.965, Float))  (* Tighter stop: 3.5% *)
+      ||. exit_signals
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (200, Int));
+    score = (Const (-40.0, Float) -. cmo) +. (Const (30.0, Float) -. rsi);
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(** RSI_Volume_V2 - Tighter divergence requirement
+
+    V1 had 3/6 positive. Try to improve by:
+    - Deeper RSI oversold: < 30 (was 35)
+    - Larger divergence window: 60 bars (was 30)
+    - Require both RSI and price turning *)
+let rsi_volume_v2 =
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), Const (200, Int)) ))
+  in
+  let ad = Gadt_fo.Constant.ad () in
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (170, Int)) ))
+  in
+  let natr_lo =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (20, Int)) ))
+  in
+  let natr_hi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (100, Int)) ))
+  in
+  (* Stricter filters *)
+  let rsi_deep = rsi <. Const (28.0, Float) in
+  let mfi_oversold = mfi <. Const (35.0, Float) in  (* Volume confirms *)
+  let ad_rising = ad >. lag ad 60 in
+  let price_lower = last <. lag last 60 in
+  let vol_ok = (natr_lo >. Const (0.15, Float)) &&. (natr_hi <. Const (1.5, Float)) in
+  let recovering = last >. lag last 1 in
+  let rsi_turning = rsi >. lag rsi 5 in
+  {
+    name = "RSI_Volume_V2";
+    buy_trigger =
+      rsi_deep &&. mfi_oversold &&. ad_rising &&. price_lower &&. vol_ok
+      &&. recovering &&. rsi_turning &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. Const (0.965, Float))
+      ||. (last >. EntryPrice *. Const (1.045, Float))
+      ||. (rsi >. Const (55.0, Float))
+      ||. App2 (Fun (">", ( > )), TicksHeld, Const (200, Int));
+    score = Const (28.0, Float) -. rsi;
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
+    (* Multi-factor strategies V2 *)
+    adx_multifactor_v2;
+    trix_momentum_v2;
+    cmo_rsi_combo_v2;
+    rsi_volume_v2;
+    (* Multi-factor strategies V1 *)
+    adx_multifactor;
+    rsi_volume;
+    aroon_breakout;
+    ultosc_deep;
+    cmo_rsi_combo;
+    trix_momentum;
+    (* Alternative strategy classes *)
+    volatility_squeeze;
+    volume_breakout;
+    adx_trend;
+    range_breakout;
+    macd_divergence;
+    stochastic_extreme;
+    williams_r;
+    cci_breakout;
+    (* Walk-forward tests *)
+    wf_test_3;
+    wf_test_2;
+    wf_test_1;
     momentum_breakout_opt;
     ema_crossover_opt;
     macd_momentum_opt;
     mfi_momentum_opt;
+    momentum_breakout_v2;
+    ema_crossover_v2;
+    macd_momentum_v2;
+    mfi_momentum_v2;
+    claude_momentum_1;
   ]

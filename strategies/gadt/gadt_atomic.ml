@@ -14,7 +14,7 @@ module Pmutex = Longleaf_util.Pmutex
 (* Re-use types and modules from the original gadt.ml *)
 open Gadt
 
-let num_iterations = 1500
+let num_iterations = 100  (* Reduced for walk-forward experiment *)
 
 (* Communication types for Saturn-based worker approach (works across C boundary) *)
 type work_request = {
