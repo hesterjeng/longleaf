@@ -1814,4 +1814,4 @@ let gadt_examples_strategies =
 let all_strategies =
   gadt_examples_strategies @ Strategy_library.all_strategies
   @ Volume_momentum.all_strategies @ Mean_reversion.all_strategies
-  @ Momentum.all_strategies
+  @ Momentum.all_strategies @ Opening_dip.all_strategies

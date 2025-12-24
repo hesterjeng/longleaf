@@ -240,7 +240,7 @@ end = struct
       }
 
   (* Helper function to evaluate strategy triggers *)
-  let eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
+  let eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close ~minutes_since_open
       session (strategy_expr : bool Gadt.t) (state : Longleaf_state.t) symbol =
     let ( let* ) = Result.( let* ) in
     let* data =
@@ -269,6 +269,7 @@ end = struct
         opening_range_low = session.opening_range_low;
         day_high = session.day_high;
         day_low = session.day_low;
+        minutes_since_open;
       }
     in
     match Gadt.eval context strategy_expr with
@@ -276,7 +277,7 @@ end = struct
     | Error e -> Error e
 
   (* Helper function to evaluate score expressions *)
-  let eval_score ~tick_time ~is_market_open ~minutes_until_close
+  let eval_score ~tick_time ~is_market_open ~minutes_until_close ~minutes_since_open
       session (score_expr : float Gadt.t) (state : Longleaf_state.t) symbol =
     let ( let* ) = Result.( let* ) in
     let* data = State.data state symbol in
@@ -303,6 +304,7 @@ end = struct
         opening_range_low = session.opening_range_low;
         day_high = session.day_high;
         day_low = session.day_low;
+        minutes_since_open;
       }
     in
     Gadt.eval context score_expr
@@ -311,7 +313,7 @@ end = struct
   let gadt_to_buy_trigger (buy_expr : bool Gadt.t) (score_expr : float Gadt.t)
       (max_positions : int) (position_size : float) =
     (* Cache for time info computed once per tick *)
-    let time_cache : (int * float * bool * float) option ref = ref None in
+    let time_cache : (int * float * bool * float * float) option ref = ref None in
     (* Session state per symbol *)
     let session_cache : (Longleaf_core.Instrument.t, session_state) Hashtbl.t =
       Hashtbl.create 100
@@ -320,9 +322,9 @@ end = struct
     let get_time_info state =
       let current_tick = State.tick state in
       match !time_cache with
-      | Some (cached_tick, tick_time, is_open, mins_until_close)
+      | Some (cached_tick, tick_time, is_market_open, minutes_until_close, minutes_since_open)
         when cached_tick = current_tick ->
-        Result.return (tick_time, is_open, mins_until_close)
+        Result.return (tick_time, is_market_open, minutes_until_close, minutes_since_open)
       | _ ->
         let ( let* ) = Result.( let* ) in
         let bars = State.bars state in
@@ -332,9 +334,12 @@ end = struct
         let minutes_until_close =
           Longleaf_core.Time.minutes_until_close tick_time
         in
+        let minutes_since_open =
+          Longleaf_core.Time.minutes_since_open tick_time
+        in
         time_cache :=
-          Some (current_tick, tick_time, is_market_open, minutes_until_close);
-        Result.return (tick_time, is_market_open, minutes_until_close)
+          Some (current_tick, tick_time, is_market_open, minutes_until_close, minutes_since_open);
+        Result.return (tick_time, is_market_open, minutes_until_close, minutes_since_open)
     in
 
     let get_session state symbol tick_time =
@@ -354,21 +359,21 @@ end = struct
     let module Buy_input : Longleaf_template.Buy_trigger.INPUT = struct
       let pass state symbol =
         let ( let* ) = Result.( let* ) in
-        let* tick_time, is_market_open, minutes_until_close =
+        let* tick_time, is_market_open, minutes_until_close, minutes_since_open =
           get_time_info state
         in
         let* session = get_session state symbol tick_time in
-        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
+        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close ~minutes_since_open
           session buy_expr state symbol
 
       let score state symbol =
         let ( let* ) = Result.( let* ) in
-        let* tick_time, is_market_open, minutes_until_close =
+        let* tick_time, is_market_open, minutes_until_close, minutes_since_open =
           get_time_info state
         in
         let* session = get_session state symbol tick_time in
-        eval_score ~tick_time ~is_market_open ~minutes_until_close session
-          score_expr state symbol
+        eval_score ~tick_time ~is_market_open ~minutes_until_close ~minutes_since_open
+          session score_expr state symbol
 
       let num_positions = max_positions
       let position_size = position_size
@@ -377,7 +382,7 @@ end = struct
     (module Buy_trigger : Template.Buy_trigger.S)
 
   let gadt_to_sell_trigger (sell_expr : bool Gadt.t) =
-    let time_cache : (int * float * bool * float) option ref = ref None in
+    let time_cache : (int * float * bool * float * float) option ref = ref None in
     let session_cache : (Longleaf_core.Instrument.t, session_state) Hashtbl.t =
       Hashtbl.create 100
     in
@@ -385,9 +390,9 @@ end = struct
     let get_time_info state =
       let current_tick = State.tick state in
       match !time_cache with
-      | Some (cached_tick, tick_time, is_open, mins_until_close)
+      | Some (cached_tick, tick_time, is_market_open, minutes_until_close, minutes_since_open)
         when cached_tick = current_tick ->
-        Result.return (tick_time, is_open, mins_until_close)
+        Result.return (tick_time, is_market_open, minutes_until_close, minutes_since_open)
       | _ ->
         let ( let* ) = Result.( let* ) in
         let bars = State.bars state in
@@ -397,9 +402,12 @@ end = struct
         let minutes_until_close =
           Longleaf_core.Time.minutes_until_close tick_time
         in
+        let minutes_since_open =
+          Longleaf_core.Time.minutes_since_open tick_time
+        in
         time_cache :=
-          Some (current_tick, tick_time, is_market_open, minutes_until_close);
-        Result.return (tick_time, is_market_open, minutes_until_close)
+          Some (current_tick, tick_time, is_market_open, minutes_until_close, minutes_since_open);
+        Result.return (tick_time, is_market_open, minutes_until_close, minutes_since_open)
     in
 
     let get_session state symbol tick_time =
@@ -419,11 +427,11 @@ end = struct
     let module Sell_impl : Template.Sell_trigger.S = struct
       let make state symbol =
         let ( let* ) = Result.( let* ) in
-        let* tick_time, is_market_open, minutes_until_close =
+        let* tick_time, is_market_open, minutes_until_close, minutes_since_open =
           get_time_info state
         in
         let* session = get_session state symbol tick_time in
-        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close
+        eval_strategy_signal ~tick_time ~is_market_open ~minutes_until_close ~minutes_since_open
           session sell_expr state symbol
     end in
     (module Sell_impl : Template.Sell_trigger.S)

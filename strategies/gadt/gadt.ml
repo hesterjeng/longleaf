@@ -63,6 +63,8 @@ type context = {
       (* Running high for current trading day - updated incrementally *)
   day_low : float;
       (* Running low for current trading day - updated incrementally *)
+  minutes_since_open : float;
+      (* Cached minutes since market open - computed once per tick *)
 }
 
 (* GADT AST with phantom types for compile-time type safety *)
@@ -225,7 +227,7 @@ let rec eval : type a. context -> a t -> (a, Error.t) result =
     | OpeningRangeHigh -> Result.return ctx.opening_range_high
     | OpeningRangeLow -> Result.return ctx.opening_range_low
     | MinutesSinceOpen ->
-      Result.return (Time.minutes_since_open ctx.tick_time)
+      Result.return ctx.minutes_since_open
 (* | Indicator ty -> *)
 (*   let* ty = eval context ty in *)
 (*   Error.guard (Error.fatal "Error in GADT evaluation at Data node") *)
@@ -588,3 +590,9 @@ let gapped_down threshold = GapPct <. Const (Float.neg threshold, Float)
 (* Check if price is extended from day open by threshold percent *)
 let extended_up threshold = DayChangePct >. Const (threshold, Float)
 let extended_down threshold = DayChangePct <. Const (Float.neg threshold, Float)
+
+(* Buy window: only allow buys during a specific 1-minute window after open *)
+let buy_window_at minute =
+  let upper = Float.add minute 1.0 in
+  (MinutesSinceOpen >=. Const (minute, Float)) &&.
+  (MinutesSinceOpen <. Const (upper, Float))

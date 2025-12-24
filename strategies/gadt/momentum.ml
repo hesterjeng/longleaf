@@ -1855,14 +1855,6 @@ let rsi_volume_v2 =
    This tests the new intraday session tracking primitives. *)
 let orb_basic : Gadt_strategy.t =
   let open Gadt in
-  (* Poor man's volume SMA using lag *)
-  let vol_sma_10 =
-    (volume +. lag volume 1 +. lag volume 2 +. lag volume 3 +. lag volume 4
-     +. lag volume 5 +. lag volume 6 +. lag volume 7 +. lag volume 8 +. lag volume 9)
-    /. Const (10.0, Float)
-  in
-  let volume_above_avg = volume >. vol_sma_10 *. Const (1.5, Float) in
-
   (* Entry conditions - use crossover to only trigger on the breakout moment *)
   let or_complete = opening_range_complete 30.0 in
   let breakout_cross = cross_up last OpeningRangeHigh in  (* Only on the cross, not while above *)
@@ -1871,7 +1863,7 @@ let orb_basic : Gadt_strategy.t =
   let no_position = not_ HasPosition in
 
   let buy_trigger =
-    no_position &&. or_complete &&. breakout_cross &&. positive_gap &&. volume_above_avg &&. safe
+    no_position &&. or_complete &&. breakout_cross &&. positive_gap &&. safe
   in
 
   (* Exit conditions *)
@@ -1896,17 +1888,17 @@ let orb_basic : Gadt_strategy.t =
 
 (* Opening Range Breakout Strategy - Optimizable Version
 
-   Variables (10 total):
+   RESULTS: 1500 iterations on q3q4-2024 -> 5% returns (not promising)
+
+   Variables (8 total):
    1. or_minutes: [15, 120] - Opening range duration in minutes
-   2. vol_sma_period: [5, 200] - Volume SMA lookback (using lag)
-   3. vol_threshold: [1.0, 4.0] - Volume must be this multiple of SMA
-   4. gap_threshold: [-2.0, 3.0] - Minimum gap % to enter (negative = gap down ok)
-   5. breakout_buffer: [0.0, 1.0] - % above ORH required for breakout
-   6. stop_buffer: [0.0, 1.0] - % below ORL for stop (0 = exact ORL)
-   7. profit_mult: [0.5, 5.0] - Profit target as multiple of OR range
-   8. eod_buffer: [5.0, 60.0] - Minutes before close to force exit
-   9. max_hold: [30, 300] - Maximum hold time in minutes
-   10. rsi_period: [10, 100] - RSI period for momentum confirmation
+   2. gap_threshold: [-2.0, 3.0] - Minimum gap % to enter (negative = gap down ok)
+   3. breakout_buffer: [0.0, 1.0] - % above ORH required for breakout
+   4. stop_buffer: [0.0, 1.0] - % below ORL for stop (0 = exact ORL)
+   5. profit_mult: [0.5, 5.0] - Profit target as multiple of OR range
+   6. eod_buffer: [5.0, 60.0] - Minutes before close to force exit
+   7. max_hold: [30, 300] - Maximum hold time in minutes
+   8. rsi_period: [10, 100] - RSI period for momentum confirmation
 
    For 1-minute bars with ~390 bars/day, periods up to 200 are reasonable.
 *)
@@ -1917,31 +1909,28 @@ let orb_opt : Gadt_strategy.t =
   (* Variable 1: Opening range duration in minutes *)
   let or_minutes_var = Gadt_fo.var ~lower:15.0 ~upper:120.0 Float in
 
-  (* Variable 2: Volume SMA period - we'll use a 20-bar approximation *)
-  let vol_threshold_var = Gadt_fo.var ~lower:1.0 ~upper:4.0 Float in
-
-  (* Variable 3: Gap threshold - negative means gap downs are ok *)
+  (* Variable 2: Gap threshold - negative means gap downs are ok *)
   let gap_threshold_var = Gadt_fo.var ~lower:(-2.0) ~upper:3.0 Float in
 
-  (* Variable 4: Breakout buffer - % above ORH *)
+  (* Variable 3: Breakout buffer - % above ORH *)
   let breakout_buffer_var = Gadt_fo.var ~lower:0.0 ~upper:1.0 Float in
 
-  (* Variable 5: Stop buffer - % below ORL *)
+  (* Variable 4: Stop buffer - % below ORL *)
   let stop_buffer_var = Gadt_fo.var ~lower:0.0 ~upper:1.0 Float in
 
-  (* Variable 6: Profit target as multiple of OR range *)
+  (* Variable 5: Profit target as multiple of OR range *)
   let profit_mult_var = Gadt_fo.var ~lower:0.5 ~upper:5.0 Float in
 
-  (* Variable 7: EOD exit buffer in minutes *)
+  (* Variable 6: EOD exit buffer in minutes *)
   let eod_buffer_var = Gadt_fo.var ~lower:5.0 ~upper:60.0 Float in
 
-  (* Variable 8: Maximum hold time in ticks (minutes for 1-min bars) *)
+  (* Variable 7: Maximum hold time in ticks (minutes for 1-min bars) *)
   let max_hold_var = Gadt_fo.var ~lower:30.0 ~upper:300.0 Int in
 
-  (* Variable 9: RSI period for momentum confirmation *)
+  (* Variable 8: RSI period for momentum confirmation *)
   let rsi_period_var = Gadt_fo.var ~lower:10.0 ~upper:100.0 Int in
 
-  (* Variable 10: RSI threshold - only enter if RSI above this *)
+  (* Variable 9: RSI threshold - only enter if RSI above this *)
   let rsi_threshold_var = Gadt_fo.var ~lower:40.0 ~upper:70.0 Float in
 
   (* RSI indicator *)
@@ -1951,16 +1940,6 @@ let orb_opt : Gadt_strategy.t =
          ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
            App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var) ))
   in
-
-  (* Poor man's volume SMA using 20-bar lookback *)
-  let vol_sma_20 =
-    (volume +. lag volume 1 +. lag volume 2 +. lag volume 3 +. lag volume 4
-     +. lag volume 5 +. lag volume 6 +. lag volume 7 +. lag volume 8 +. lag volume 9
-     +. lag volume 10 +. lag volume 11 +. lag volume 12 +. lag volume 13 +. lag volume 14
-     +. lag volume 15 +. lag volume 16 +. lag volume 17 +. lag volume 18 +. lag volume 19)
-    /. Const (20.0, Float)
-  in
-  let volume_confirmed = volume >. vol_sma_20 *. vol_threshold_var in
 
   (* Entry conditions *)
   let or_complete = MinutesSinceOpen >. or_minutes_var in
@@ -1972,7 +1951,7 @@ let orb_opt : Gadt_strategy.t =
   let no_position = not_ HasPosition in
 
   let buy_trigger =
-    no_position &&. or_complete &&. breakout_cross &&. gap_ok &&. volume_confirmed &&. rsi_momentum &&. safe
+    no_position &&. or_complete &&. breakout_cross &&. gap_ok &&. rsi_momentum &&. safe
   in
 
   (* Exit conditions *)
@@ -2033,6 +2012,322 @@ let gap_fade : Gadt_strategy.t =
     position_size = 0.20;
   }
 
+(* Previous Day High Breakout - Optimizable
+
+   RESULTS: 500 iterations -> poor performance (negative or barely positive)
+
+   Classic breakout strategy: buy when price breaks above yesterday's high.
+   Yesterday's high is a well-known resistance level. Breaking it with
+   momentum suggests continuation.
+
+   Variables (6 total):
+   1. adx_period: [10, 50] - Trend strength filter period
+   2. adx_threshold: [15, 35] - Minimum ADX for trending market
+   3. buffer_pct: [0.0, 0.5] - % above prev high required
+   4. stop_pct: [0.5, 2.0] - Stop as % below prev high
+   5. profit_mult: [1.5, 4.0] - R multiple for profit target
+   6. max_hold: [60, 240] - Max minutes to hold *)
+let prev_high_breakout_opt : Gadt_strategy.t =
+  let open Gadt in
+  let open Type in
+
+  let adx_period_var = Gadt_fo.var ~lower:10.0 ~upper:50.0 Int in
+  let adx_threshold_var = Gadt_fo.var ~lower:15.0 ~upper:35.0 Float in
+  let buffer_pct_var = Gadt_fo.var ~lower:0.0 ~upper:0.5 Float in
+  let stop_pct_var = Gadt_fo.var ~lower:0.5 ~upper:2.0 Float in
+  let profit_mult_var = Gadt_fo.var ~lower:1.5 ~upper:4.0 Float in
+  let max_hold_var = Gadt_fo.var ~lower:60.0 ~upper:240.0 Int in
+
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period_var) ))
+  in
+
+  (* Entry: Cross above prev high + buffer, with trend strength *)
+  let breakout_level = PrevDayHigh *. (Const (1.0, Float) +. buffer_pct_var /. Const (100.0, Float)) in
+  let breakout_cross = cross_up last breakout_level in
+  let trending = adx >. adx_threshold_var in
+  let no_position = not_ HasPosition in
+  let safe = Gadt_strategy.safe_to_enter () in
+
+  let buy_trigger = no_position &&. breakout_cross &&. trending &&. safe in
+
+  (* Exit: Stop below prev high, profit at R multiple, or max hold *)
+  let stop_level = PrevDayHigh *. (Const (1.0, Float) -. stop_pct_var /. Const (100.0, Float)) in
+  let risk = EntryPrice -. stop_level in
+  let profit_target = EntryPrice +. risk *. profit_mult_var in
+  let stop_hit = last <. stop_level in
+  let target_hit = last >. profit_target in
+  let max_hold_exit = App2 (Fun (">", ( > )), TicksHeld, max_hold_var) in
+  let eod = Gadt_strategy.force_exit_eod () in
+
+  let sell_trigger = stop_hit ||. target_hit ||. max_hold_exit ||. eod in
+
+  {
+    name = "Prev_High_Breakout_Opt";
+    buy_trigger;
+    sell_trigger;
+    score = adx;  (* Higher trend strength = higher priority *)
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(* Gap and Go - Optimizable
+
+   RESULTS: 500 iterations -> poor performance (negative or barely positive)
+
+   Opposite of gap fade: trade in direction of gap when confirmed.
+   Gap ups that hold and make new highs often continue higher.
+
+   Variables (6 total):
+   1. min_gap_pct: [0.5, 3.0] - Minimum gap % required
+   2. or_minutes: [15, 60] - Opening range duration
+   3. adx_period: [10, 40] - ADX period
+   4. adx_threshold: [20, 35] - Minimum ADX
+   5. stop_pct: [0.5, 2.0] - Stop as % below entry
+   6. profit_mult: [1.5, 4.0] - R multiple target *)
+let gap_and_go_opt : Gadt_strategy.t =
+  let open Gadt in
+  let open Type in
+
+  let min_gap_var = Gadt_fo.var ~lower:0.5 ~upper:3.0 Float in
+  let or_minutes_var = Gadt_fo.var ~lower:15.0 ~upper:60.0 Float in
+  let adx_period_var = Gadt_fo.var ~lower:10.0 ~upper:40.0 Int in
+  let adx_threshold_var = Gadt_fo.var ~lower:20.0 ~upper:35.0 Float in
+  let stop_pct_var = Gadt_fo.var ~lower:0.5 ~upper:2.0 Float in
+  let profit_mult_var = Gadt_fo.var ~lower:1.5 ~upper:4.0 Float in
+
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period_var) ))
+  in
+
+  (* Entry: Gapped up, OR complete, breaks above OR high, strong trend *)
+  let gapped_up_enough = GapPct >. min_gap_var in
+  let or_complete = MinutesSinceOpen >. or_minutes_var in
+  let breakout = cross_up last OpeningRangeHigh in
+  let trending = adx >. adx_threshold_var in
+  let no_position = not_ HasPosition in
+  let safe = Gadt_strategy.safe_to_enter () in
+
+  let buy_trigger = no_position &&. gapped_up_enough &&. or_complete &&. breakout &&. trending &&. safe in
+
+  (* Exit: Stop below entry, profit target, EOD *)
+  let stop_mult = Const (1.0, Float) -. stop_pct_var /. Const (100.0, Float) in
+  let stop_hit = last <. EntryPrice *. stop_mult in
+  let risk = EntryPrice *. stop_pct_var /. Const (100.0, Float) in
+  let target_hit = last >. EntryPrice +. risk *. profit_mult_var in
+  let eod = Gadt_strategy.force_exit_eod () in
+
+  let sell_trigger = stop_hit ||. target_hit ||. eod in
+
+  {
+    name = "Gap_And_Go_Opt";
+    buy_trigger;
+    sell_trigger;
+    score = GapPct *. adx;  (* Bigger gap + stronger trend = higher priority *)
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
+(* Intraday Momentum - Optimizable
+
+   RESULTS: 500 iterations -> poor performance (negative or barely positive)
+
+   Buy stocks making new intraday highs with strong momentum.
+   DayChangePct filters for stocks already moving, DayHigh crossover
+   confirms continuation.
+
+   Variables (6 total):
+   1. min_change_pct: [0.5, 3.0] - Minimum intraday gain required
+   2. rsi_period: [10, 50] - RSI period for momentum
+   3. rsi_threshold: [50, 70] - Minimum RSI (momentum confirmation)
+   4. stop_pct: [0.5, 2.0] - Stop as % below entry
+   5. profit_pct: [1.0, 4.0] - Profit target %
+   6. max_hold: [30, 180] - Max minutes to hold *)
+let intraday_momentum_opt : Gadt_strategy.t =
+  let open Gadt in
+  let open Type in
+
+  let min_change_var = Gadt_fo.var ~lower:0.5 ~upper:3.0 Float in
+  let rsi_period_var = Gadt_fo.var ~lower:10.0 ~upper:50.0 Int in
+  let rsi_threshold_var = Gadt_fo.var ~lower:50.0 ~upper:70.0 Float in
+  let stop_pct_var = Gadt_fo.var ~lower:0.5 ~upper:2.0 Float in
+  let profit_pct_var = Gadt_fo.var ~lower:1.0 ~upper:4.0 Float in
+  let max_hold_var = Gadt_fo.var ~lower:30.0 ~upper:180.0 Int in
+
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var) ))
+  in
+
+  (* Entry: Already up on day, making new high, RSI confirms momentum *)
+  let up_on_day = DayChangePct >. min_change_var in
+  let new_day_high = cross_up last DayHigh in  (* Price crossing above day's high *)
+  let momentum_confirmed = rsi >. rsi_threshold_var in
+  let or_complete = MinutesSinceOpen >. Const (30.0, Float) in  (* Wait for opening noise *)
+  let no_position = not_ HasPosition in
+  let safe = Gadt_strategy.safe_to_enter () in
+
+  let buy_trigger = no_position &&. or_complete &&. up_on_day &&. new_day_high &&. momentum_confirmed &&. safe in
+
+  (* Exit: Stop, profit target, max hold, EOD *)
+  let stop_mult = Const (1.0, Float) -. stop_pct_var /. Const (100.0, Float) in
+  let profit_mult = Const (1.0, Float) +. profit_pct_var /. Const (100.0, Float) in
+  let stop_hit = last <. EntryPrice *. stop_mult in
+  let target_hit = last >. EntryPrice *. profit_mult in
+  let max_hold_exit = App2 (Fun (">", ( > )), TicksHeld, max_hold_var) in
+  let eod = Gadt_strategy.force_exit_eod () in
+
+  let sell_trigger = stop_hit ||. target_hit ||. max_hold_exit ||. eod in
+
+  {
+    name = "Intraday_Momentum_Opt";
+    buy_trigger;
+    sell_trigger;
+    score = DayChangePct *. rsi;  (* Bigger move + stronger momentum = higher priority *)
+    max_positions = 4;
+    position_size = 0.25;
+  }
+
+(* Previous Close Bounce - Optimizable
+
+   Uses previous day's close as support level. Buy when price dips below
+   prev close but quickly recovers above it (support test and hold).
+
+   Variables (6 total):
+   1. dip_pct: [0.1, 1.0] - How far below prev close counts as "dip"
+   2. mfi_period: [10, 50] - MFI period for buying pressure
+   3. mfi_threshold: [30, 50] - MFI above this = buying pressure
+   4. stop_pct: [0.5, 2.0] - Stop below prev close
+   5. profit_pct: [0.5, 2.0] - Profit target %
+   6. max_hold: [30, 120] - Max minutes to hold *)
+let prev_close_bounce_opt : Gadt_strategy.t =
+  let open Gadt in
+  let open Type in
+
+  let dip_pct_var = Gadt_fo.var ~lower:0.1 ~upper:1.0 Float in
+  let mfi_period_var = Gadt_fo.var ~lower:10.0 ~upper:50.0 Int in
+  let mfi_threshold_var = Gadt_fo.var ~lower:30.0 ~upper:50.0 Float in
+  let stop_pct_var = Gadt_fo.var ~lower:0.5 ~upper:2.0 Float in
+  let profit_pct_var = Gadt_fo.var ~lower:0.5 ~upper:2.0 Float in
+  let max_hold_var = Gadt_fo.var ~lower:30.0 ~upper:120.0 Int in
+
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period_var) ))
+  in
+
+  (* Entry: Price recovers back above prev close after dipping below *)
+  let dip_level = PrevDayClose *. (Const (1.0, Float) -. dip_pct_var /. Const (100.0, Float)) in
+  let was_below = lag last 1 <. dip_level in
+  let now_above = last >. PrevDayClose in
+  let recovery_cross = was_below &&. now_above in
+  let buying_pressure = mfi >. mfi_threshold_var in
+  let or_complete = MinutesSinceOpen >. Const (15.0, Float) in
+  let no_position = not_ HasPosition in
+  let safe = Gadt_strategy.safe_to_enter () in
+
+  let buy_trigger = no_position &&. or_complete &&. recovery_cross &&. buying_pressure &&. safe in
+
+  (* Exit: Stop below prev close, profit target, max hold, EOD *)
+  let stop_level = PrevDayClose *. (Const (1.0, Float) -. stop_pct_var /. Const (100.0, Float)) in
+  let profit_level = PrevDayClose *. (Const (1.0, Float) +. profit_pct_var /. Const (100.0, Float)) in
+  let stop_hit = last <. stop_level in
+  let target_hit = last >. profit_level in
+  let max_hold_exit = App2 (Fun (">", ( > )), TicksHeld, max_hold_var) in
+  let eod = Gadt_strategy.force_exit_eod () in
+
+  let sell_trigger = stop_hit ||. target_hit ||. max_hold_exit ||. eod in
+
+  {
+    name = "Prev_Close_Bounce_Opt";
+    buy_trigger;
+    sell_trigger;
+    score = mfi;  (* Higher buying pressure = higher priority *)
+    max_positions = 5;
+    position_size = 0.20;
+  }
+
+(* Opening Dip Buy Strategy V2 - Optimizable
+
+   KEY INSIGHT: Stocks often dip in first 15-45 minutes after open,
+   then recover by EOD. Buy weakness during this window, ride the recovery.
+
+   V2 CHANGES:
+   - 30-minute buy window (15-45 min after open) instead of 1-minute
+   - 3 positions at 33% each (better capital participation)
+   - More opportunities to find optimal entry within the window
+
+   Variables (7 total):
+   1. mfi_period: [10, 200] - MFI for oversold detection
+   2. mfi_threshold: [20, 45] - Buy when MFI BELOW this (oversold)
+   3. max_gap: [-5.0, 5.0] - Gap filter (ISRES decides if gap matters)
+   4. max_change: [-3.0, 0.5] - Max % change from open (negative = require dip)
+   5. stop_pct: [1.0, 4.0] - Stop loss % (wider for mean reversion)
+   6. profit_pct: [0.5, 3.0] - Profit target %
+   7. max_hold: [60, 360] - Max hold (likely hold until EOD) *)
+let opening_dip_buy_opt : Gadt_strategy.t =
+  let open Gadt in
+  let open Type in
+
+  let mfi_period_var = Gadt_fo.var ~lower:10.0 ~upper:300.0 Int in
+  let mfi_threshold_var = Gadt_fo.var ~lower:10.0 ~upper:55.0 Float in
+  let max_gap_var = Gadt_fo.var ~lower:(-5.0) ~upper:5.0 Float in
+  let max_change_var = Gadt_fo.var ~lower:(-3.0) ~upper:3.0 Float in
+  let stop_pct_var = Gadt_fo.var ~lower:1.0 ~upper:5.0 Float in
+  let profit_pct_var = Gadt_fo.var ~lower:0.5 ~upper:10.0 Float in
+  let max_hold_var = Gadt_fo.var ~lower:60.0 ~upper:400.0 Int in
+
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period_var) ))
+  in
+
+  (* Entry: 30-minute window from 15-45 minutes after open, targeting WEAKNESS *)
+  let in_buy_window =
+    (MinutesSinceOpen >=. Const (15.0, Float)) &&.
+    (MinutesSinceOpen <. Const (45.0, Float))
+  in
+  let oversold = mfi <. mfi_threshold_var in  (* MFI LOW = oversold *)
+  let gap_ok = GapPct <. max_gap_var in  (* Gap not too extreme *)
+  let dipped = DayChangePct <. max_change_var in  (* Down from open *)
+  let no_position = not_ HasPosition in
+
+  let buy_trigger = no_position &&. in_buy_window &&. oversold &&. gap_ok &&. dipped in
+
+  (* Exit: Stop, profit, max hold, or EOD *)
+  let stop_mult = Const (1.0, Float) -. stop_pct_var /. Const (100.0, Float) in
+  let profit_mult = Const (1.0, Float) +. profit_pct_var /. Const (100.0, Float) in
+  let stop_hit = last <. EntryPrice *. stop_mult in
+  let target_hit = last >. EntryPrice *. profit_mult in
+  let max_hold_exit = App2 (Fun (">", ( > )), TicksHeld, max_hold_var) in
+  let eod = Gadt_strategy.force_exit_eod () in
+
+  let sell_trigger = stop_hit ||. target_hit ||. max_hold_exit ||. eod in
+
+  (* Score: Most oversold + biggest dip = highest priority *)
+  let score = Const (100.0, Float) -. mfi -. DayChangePct *. Const (10.0, Float) in
+
+  {
+    name = "Opening_Dip_Buy_Opt";
+    buy_trigger;
+    sell_trigger;
+    score;
+    max_positions = 3;
+    position_size = 0.33;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
@@ -2074,4 +2369,9 @@ let all_strategies =
     orb_opt;
     orb_basic;
     gap_fade;
+    prev_high_breakout_opt;
+    gap_and_go_opt;
+    intraday_momentum_opt;
+    prev_close_bounce_opt;
+    opening_dip_buy_opt;
   ]
