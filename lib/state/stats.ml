@@ -11,6 +11,8 @@ type t = {
   max_drawdown : float;  (** Maximum peak-to-trough decline as fraction *)
   final_value : float;
   initial_value : float;
+  (* Capital utilization *)
+  capital_participation : float;  (** Average % of capital invested *)
 }
 [@@deriving show]
 
@@ -68,8 +70,21 @@ let calculate_portfolio_metrics (value_history : (Time.t * float) list) =
     in
     (total_return, max_dd, final_value, initial_value)
 
+let calculate_capital_participation (cash_history : (Time.t * float) list)
+    (initial_capital : float) : float =
+  match cash_history with
+  | [] -> 0.0
+  | _ ->
+    let total_cash =
+      List.fold_left (fun acc (_, cash) -> acc +. cash) 0.0 cash_history
+    in
+    let avg_cash = total_cash /. float_of_int (List.length cash_history) in
+    if Float.compare initial_capital 0.0 > 0 then
+      1.0 -. (avg_cash /. initial_capital)
+    else 0.0
+
 let make (order_history : Order.t list) (value_history : (Time.t * float) list)
-    =
+    (cash_history : (Time.t * float) list) =
   let ( num_orders,
         num_buy_orders,
         num_sell_orders,
@@ -85,6 +100,9 @@ let make (order_history : Order.t list) (value_history : (Time.t * float) list)
   let total_return, max_drawdown, final_value, initial_value =
     calculate_portfolio_metrics value_history
   in
+  let capital_participation =
+    calculate_capital_participation cash_history initial_value
+  in
   {
     num_orders;
     num_buy_orders;
@@ -97,6 +115,7 @@ let make (order_history : Order.t list) (value_history : (Time.t * float) list)
     max_drawdown;
     final_value;
     initial_value;
+    capital_participation;
   }
 
 (** TradeStats - Per-trade statistical analysis for edge detection *)

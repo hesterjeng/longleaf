@@ -10,10 +10,11 @@ type t = {
   max_drawdown : float;
   final_value : float;
   initial_value : float;
+  capital_participation : float;
 }
 [@@deriving show]
 
-val make : Order.t list -> (Time.t * float) list -> t
+val make : Order.t list -> (Time.t * float) list -> (Time.t * float) list -> t
 
 module TradeStats : sig
   type t = {

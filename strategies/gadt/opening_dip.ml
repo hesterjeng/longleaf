@@ -577,38 +577,38 @@ let opening_dip_v4_opt : Gadt_strategy.t =
     position_size = 0.50;
   }
 
-(* Opening_Dip_V4: Locked baseline version
+(* Opening_Dip_Capitulation: Weak prev day + morning oversold
 
-   Simple oversold-in-morning-window strategy with sensible defaults.
-   Use this as a baseline before optimization. *)
-let opening_dip_v4 : Gadt_strategy.t =
+   Thesis: Stock was weak yesterday, now oversold in morning.
+   Sellers exhausted, buy the bounce. No gap filter - focus on
+   prev day behavior and short-term MFI. *)
+let opening_dip_capitulation : Gadt_strategy.t =
   let open Type in
 
-  (* Locked parameters - sensible defaults for minute bars *)
-  let mfi_period = 15 in       (* Current session only, no yesterday bleed *)
-  let mfi_threshold = 30.0 in  (* Classic oversold level *)
-  let min_gap = 0.3 in         (* Minimum gap up % - shows overnight strength *)
-  let stop_pct = 0.025 in      (* 2.5% stop *)
-  let profit_pct = 0.20 in     (* 20% - effectively never triggers, let winners run *)
-  let max_hold = 390 in        (* Hold until EOD *)
+  let rsi_period = 15 in
+  let rsi_threshold = 30.0 in
+  let stop_pct = 0.005 in      (* Tight stop *)
+  let profit_pct = 0.20 in
+  let max_hold = 390 in
 
-  let mfi =
+  let rsi =
     Gadt.Data
       (App1
          ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (mfi_period, Int)) ))
+           App1 (Fun ("I.rsi", I.rsi), Const (rsi_period, Int)) ))
   in
 
-  (* Entry: 15-45 minute window, gapped UP but now oversold *)
   let in_buy_window =
     (MinutesSinceOpen >=. Const (15.0, Float)) &&.
     (MinutesSinceOpen <. Const (45.0, Float))
   in
-  let gapped_up = GapPct >. Const (min_gap, Float) in
-  let oversold = mfi <. Const (mfi_threshold, Float) in
+  let oversold = rsi <. Const (rsi_threshold, Float) in
+  (* Prev day closed in LOWER half of range - was weak *)
+  let prev_midpoint = (PrevDayHigh +. PrevDayLow) /. Const (2.0, Float) in
+  let prev_weak = PrevDayClose <. prev_midpoint in
   let no_position = not_ HasPosition in
 
-  let buy_trigger = no_position &&. in_buy_window &&. gapped_up &&. oversold in
+  let buy_trigger = no_position &&. in_buy_window &&. oversold &&. prev_weak in
 
   let sell_trigger =
     stop_loss stop_pct
@@ -617,10 +617,60 @@ let opening_dip_v4 : Gadt_strategy.t =
     ||. force_exit_eod ()
   in
 
-  let score = Const (100.0, Float) -. mfi in
+  let score = Const (100.0, Float) -. rsi in
 
   {
-    name = "Opening_Dip_V4";
+    name = "Opening_Dip_Capitulation";
+    buy_trigger;
+    sell_trigger;
+    score;
+    max_positions = 2;
+    position_size = 0.50;
+  }
+
+(* Opening_Dip_Panic: Strong prev day + morning oversold
+
+   Thesis: Stock was strong yesterday, now oversold in morning.
+   Buy the dip on quality - expect recovery. No gap filter. *)
+let opening_dip_panic : Gadt_strategy.t =
+  let open Type in
+
+  let rsi_period = 15 in
+  let rsi_threshold = 30.0 in
+  let stop_pct = 0.005 in      (* Tight stop *)
+  let profit_pct = 0.20 in
+  let max_hold = 390 in
+
+  let rsi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.rsi", I.rsi), Const (rsi_period, Int)) ))
+  in
+
+  let in_buy_window =
+    (MinutesSinceOpen >=. Const (15.0, Float)) &&.
+    (MinutesSinceOpen <. Const (45.0, Float))
+  in
+  let oversold = rsi <. Const (rsi_threshold, Float) in
+  (* Prev day closed in UPPER half of range - was strong *)
+  let prev_midpoint = (PrevDayHigh +. PrevDayLow) /. Const (2.0, Float) in
+  let prev_strong = PrevDayClose >. prev_midpoint in
+  let no_position = not_ HasPosition in
+
+  let buy_trigger = no_position &&. in_buy_window &&. oversold &&. prev_strong in
+
+  let sell_trigger =
+    stop_loss stop_pct
+    ||. profit_target profit_pct
+    ||. max_holding_time max_hold
+    ||. force_exit_eod ()
+  in
+
+  let score = Const (100.0, Float) -. rsi in
+
+  {
+    name = "Opening_Dip_Panic";
     buy_trigger;
     sell_trigger;
     score;
@@ -639,5 +689,6 @@ let all_strategies =
     opening_dip_v2_c;
     opening_dip_v3_opt;
     opening_dip_v4_opt;
-    opening_dip_v4;
+    opening_dip_capitulation;
+    opening_dip_panic;
   ]

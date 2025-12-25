@@ -69,9 +69,10 @@ module Run = struct
         in
         match e.trade_stats with
         | Some ts ->
-          Eio.traceln "  %s: Sharpe=%.3f  Return=%.2f%%  Drawdown=%.2f%%  Trades=%d"
+          Eio.traceln "  %s: Sharpe=%.3f  Return=%.2f%%  Drawdown=%.2f%%  Invested=%.1f%%  Trades=%d"
             source_name ts.sharpe (e.stats.total_return *. 100.0)
-            (e.stats.max_drawdown *. 100.0) ts.num_trades
+            (e.stats.max_drawdown *. 100.0) (e.stats.capital_participation *. 100.0)
+            ts.num_trades
         | None ->
           Eio.traceln "  %s: No trades" source_name)
       result.eval_results;
@@ -86,6 +87,8 @@ module Run = struct
       (Longleaf_battery.std_return result *. 100.0);
     Eio.traceln "Worst Drawdown: %.2f%%"
       (Longleaf_battery.worst_drawdown result *. 100.0);
+    Eio.traceln "Avg Invested: %.1f%%"
+      (Longleaf_battery.avg_participation result *. 100.0);
     Eio.traceln "Consistency: %.1f%%" (Longleaf_battery.consistency result *. 100.0);
     Result.return 0.0
 

@@ -3,6 +3,7 @@ module CLI = struct
     runtype : Runtype.t;
     stacktrace : bool; [@default false]
     strategy_arg : string;
+    universe : string; [@default "sp100"]
     no_gui : bool; [@default false]
     save_received : bool; [@default false]
     save_to_file : bool; [@default false]
@@ -131,6 +132,15 @@ module CLI = struct
          (to avoid opening volatility). Default is 0 (trade immediately)."
       in
       Cmdliner.Arg.(value & opt int 0 & info [ "opening-wait" ] ~doc)
+
+    let universe =
+      let doc =
+        "Ticker collection/universe to trade. Available: sp100, defensive, \
+         utilities, staples, healthcare, financials, tech, energy, \
+         industrials, consumer, telecom, real_estate, sp100_no_tech, low_vol, spy. \
+         Default is sp100."
+      in
+      Cmdliner.Arg.(value & opt string "sp100" & info [ "u"; "universe" ] ~doc)
   end
 
   let default =
@@ -138,6 +148,7 @@ module CLI = struct
       runtype = Runtype.Invalid;
       stacktrace = false;
       strategy_arg = "";
+      universe = "sp100";
       no_gui = false;
       save_received = false;
       save_to_file = false;
@@ -158,6 +169,7 @@ module CLI = struct
     and+ no_gui = Args.no_gui_arg
     and+ save_received = Args.save_received_arg
     and+ strategy_arg = Args.strategy_arg
+    and+ universe = Args.universe
     and+ save_to_file = Args.save_to_file
     and+ nowait_market_open = Args.nowait_market_open
     and+ print_tick_arg = Args.print_tick_arg
@@ -173,6 +185,7 @@ module CLI = struct
       no_gui;
       save_received;
       strategy_arg;
+      universe;
       save_to_file;
       nowait_market_open;
       print_tick_arg;

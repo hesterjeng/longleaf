@@ -211,3 +211,10 @@ let num_periods_with_trades (r : Result.t) : int =
   List.count
     (fun (e : Eval_result.t) -> Option.is_some e.trade_stats)
     r.eval_results
+
+(** Extract capital participation rates from eval results *)
+let capital_participations (r : Result.t) : float list =
+  List.map (fun (e : Eval_result.t) -> e.stats.capital_participation) r.eval_results
+
+(** Average capital participation across periods *)
+let avg_participation (r : Result.t) : float = avg (capital_participations r)

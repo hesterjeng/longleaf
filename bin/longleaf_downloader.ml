@@ -44,14 +44,24 @@ module Args = struct
     let doc = "Output file for the downloaded data." in
     Cmdliner.Arg.(
       required & pos 1 (some string) None & info [] ~docv:"output file" ~doc)
+
+  let universe_arg =
+    let doc =
+      "Ticker collection/universe to download. Available: sp100, defensive, \
+       utilities, staples, healthcare, financials, tech, energy, \
+       industrials, consumer, telecom, real_estate, sp100_no_tech, low_vol, spy. \
+       Default is sp100."
+    in
+    Cmdliner.Arg.(value & opt string "sp100" & info [ "u"; "universe" ] ~doc)
 end
 
 module Cmd = struct
   let run today begin_arg end_arg timeframe_arg interval_arg output_file_arg
-      downloader_arg afterhours_arg =
+      downloader_arg afterhours_arg universe =
     Fmt_tty.setup_std_outputs ();
     (* let prefix = if today then "download_today" else "download" in *)
-    let collection = Longleaf_util.Ticker_collections.sp100 in
+    let collection = Longleaf_util.Ticker_collections.get_exn universe in
+    Eio.traceln "Downloading universe: %s (%d symbols)" universe (List.length collection);
     let bars =
       Eio_main.run @@ fun eio_env ->
       let request =
@@ -79,7 +89,7 @@ module Cmd = struct
       Cmdliner.Term.(
         const run $ Args.today_arg $ Args.begin_arg $ Args.end_arg
         $ Args.timeframe_arg $ Args.interval_arg $ Args.output_file_arg
-        $ Args.downloader_arg $ Args.afterhours_arg)
+        $ Args.downloader_arg $ Args.afterhours_arg $ Args.universe_arg)
     in
     let doc = "Simple data downloader." in
     let info = Cmdliner.Cmd.info ~doc "longleaf_downloader" in

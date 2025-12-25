@@ -119,9 +119,11 @@ let place_order state0 (order : Order.t) =
     positions
   in
   (* Add order to state order history *)
+  (* Allow small negative balance (margin) up to -$500 *)
+  let min_cash = -500.0 in
   match order.side with
   | Buy ->
-    if state0.cash >=. order_value then (
+    if state0.cash -. order_value >=. min_cash then (
       let new_state =
         {
           state0 with
@@ -137,8 +139,8 @@ let place_order state0 (order : Order.t) =
           order.qty order.price state0.cash new_state.cash;
       Result.return new_state)
     else (
-      Eio.traceln "Insufficient cash for buy order (need %f, have %f)"
-        order_value state0.cash;
+      Eio.traceln "Insufficient cash for buy order (need %f, have %f, min allowed %f)"
+        order_value state0.cash min_cash;
       Result.return state0 (* Error.fatal "Insufficient cash for buy order" *))
   | Sell ->
     let qty_held = qty state0 order.symbol in
@@ -166,7 +168,7 @@ let place_order state0 (order : Order.t) =
 
 let tick t = t.current_tick
 let options t = t.config
-let stats x = Stats.make (order_history x) (value_history x)
+let stats x = Stats.make (order_history x) (value_history x) (cash_history x)
 
 let grow x =
   let ( let* ) = Result.( let* ) in
