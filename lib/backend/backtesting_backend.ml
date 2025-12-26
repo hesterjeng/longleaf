@@ -57,11 +57,12 @@ module Make (Input : BACKEND_INPUT) : S = struct
           Eio.traceln "[%d] Not placing an order due to random chance" tick;
           None
     in
-    (* Fixed spread cost: models the bid-ask spread for liquid S&P 100 stocks.
-       3 bps (0.03%) is conservative for large-caps, realistic across the universe.
+    (* Spread cost: models the bid-ask spread. Configurable via --slippage flag.
+       Default 0 = no penalty. Use --slippage 2 for 2 basis points, etc.
        Buys pay above last, sells receive below last. Deterministic, no randomness. *)
     let apply_spread (order : Order.t) =
-      let spread_cost = 0.0002 in (* 2 basis points *)
+      let slippage_bps = Input.options.flags.slippage_pct in
+      let spread_cost = slippage_bps /. 10000.0 in (* Convert bps to decimal *)
       let adjustment = order.price *. spread_cost in
       let fill_price =
         match order.side with
