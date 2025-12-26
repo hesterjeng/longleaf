@@ -265,25 +265,12 @@ module Client = struct
   (* Receive and parse next message *)
   let receive_update client =
     let frame_result = Websocket.Connection.receive client.conn in
-    (match frame_result with
-    | Ok frame ->
-      Eio.traceln "Massive WS: Got frame opcode=%s len=%d"
-        (Websocket.Opcode.show frame.Websocket.Frame.opcode)
-        (String.length frame.payload)
-    | Error `ConnectionClosed ->
-      Eio.traceln "Massive WS: Connection.receive returned ConnectionClosed"
-    | Error (`InvalidOpcode i) ->
-      Eio.traceln "Massive WS: Connection.receive returned InvalidOpcode %d" i
-    | Error (`ReadError s) ->
-      Eio.traceln "Massive WS: Connection.receive returned ReadError: %s" s);
     let ( let* ) = Result.( let* ) in
     let* frame = frame_result in
 
     match frame.Websocket.Frame.opcode with
     | Text ->
       (* Parse JSON message - Massive sends arrays *)
-      Eio.traceln "Massive WS: TEXT FRAME RECEIVED: %s"
-        (String.sub frame.payload 0 (min 500 (String.length frame.payload)));
       (try
          let json = Yojson.Safe.from_string frame.payload in
          let messages = Yojson.Safe.Util.to_list json in
@@ -293,14 +280,9 @@ module Client = struct
            List.filter_map
              (fun msg_json ->
                match parse_message msg_json with
-               | Status status ->
-                 Eio.traceln "Massive WebSocket: Status - %s: %s" status.status
-                   status.message;
-                 None
+               | Status _ -> None
                | Aggregate agg -> Some agg
-               | Unknown ev ->
-                 Eio.traceln "Massive WebSocket: Unknown event type: %s" ev;
-                 None)
+               | Unknown _ -> None)
              messages
          in
 
@@ -466,30 +448,13 @@ module Client = struct
 
   (* Background fiber that continuously updates bars *)
   let start_background_updates ~sw ~env client bars get_current_tick =
-    Eio.traceln "Massive WebSocket: Starting background update fiber";
-
-    (* Frame statistics *)
-    let text_frames = ref 0 in
-    let ping_frames = ref 0 in
-    let last_stats_time = ref (Unix.gettimeofday ()) in
-
     Eio.Fiber.fork ~sw (fun () ->
-        Eio.traceln "Massive WS background: Fiber started, entering update loop";
         let rec update_loop client_ref =
-          (* Print stats every 30 seconds *)
-          let now = Unix.gettimeofday () in
-          if Float.(now -. !last_stats_time > 30.0) then (
-            Eio.traceln
-              "Massive WS stats: %d text frames, %d ping frames received"
-              !text_frames !ping_frames;
-            last_stats_time := now);
-
           match receive_update !client_ref with
           | Ok [] ->
             (* Empty update, try again *)
             update_loop client_ref
           | Ok aggregates ->
-            incr text_frames;
             (* Get current tick from the strategy *)
             let current_tick = get_current_tick () in
 
@@ -506,7 +471,6 @@ module Client = struct
             (* Continue loop *)
             update_loop client_ref
           | Error `Ping ->
-            incr ping_frames;
             update_loop client_ref
           | Error `ConnectionClosed ->
             Eio.traceln "Massive WebSocket: Connection closed, reconnecting...";

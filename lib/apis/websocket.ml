@@ -359,19 +359,14 @@ module Connection = struct
 
   (* Send a text message *)
   let send_text conn text =
-    if conn.closed then (
-      Eio.traceln "WebSocket send_text: connection is closed!";
-      Error `ConnectionClosed)
+    if conn.closed then Error `ConnectionClosed
     else
       let frame =
         Frame.{ fin = true; opcode = Text; mask = true; payload = text }
       in
       let encoded = Frame.encode frame in
-      Eio.traceln "WebSocket send_text: sending %d bytes (payload: %d bytes)"
-        (String.length encoded) (String.length text);
       try
         Eio.Flow.copy_string encoded conn.flow;
-        Eio.traceln "WebSocket send_text: sent successfully";
         Ok ()
       with
       | e ->
@@ -425,10 +420,6 @@ module Connection = struct
       let* header = read_exact_buffered 2 in
       let byte0 = Char.code (String.unsafe_get header 0) in
       let byte1 = Char.code (String.unsafe_get header 1) in
-
-      Eio.traceln
-        "WebSocket decode: header bytes: 0x%02X 0x%02X (opcode=%d, len=%d)"
-        byte0 byte1 (byte0 land 0x0F) (byte1 land 0x7F);
 
       let fin = byte0 land 0x80 <> 0 in
       let* opcode = Opcode.of_int (byte0 land 0x0F) in
