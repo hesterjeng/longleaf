@@ -59,7 +59,7 @@ module Run = struct
     let* result = Battery_runner.run builder options mutices battery in
     (* Print per-dataset results *)
     Eio.traceln "";
-    Eio.traceln "=== Battery Results by Dataset ===";
+    Eio.traceln "=== Battery Results by Dataset for %s ===" strategy.name;
     List.iter
       (fun (e : Longleaf_battery.Eval_result.t) ->
         let source_name =

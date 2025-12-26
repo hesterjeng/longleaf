@@ -155,6 +155,9 @@ let financials = [ "JPM"; "BAC"; "GS"; "MS"; "C"; "WFC"; "BK"; "COF"; "SCHW"; "A
 (** Tech/Growth - momentum-driven, don't mean-revert well in bull markets *)
 let tech_growth = [ "AAPL"; "MSFT"; "NVDA"; "AMZN"; "GOOGL"; "META"; "NFLX"; "TSLA"; "AMD"; "CRM"; "ADBE"; "INTU"; "ORCL"; "CSCO"; "INTC"; "QCOM"; "TXN" ]
 
+(** Tech + SPY *)
+let tespy = "SPY" :: tech_growth
+
 (** Energy - commodity-driven *)
 let energy = [ "XOM"; "CVX"; "COP" ]
 
@@ -188,6 +191,7 @@ let all_collections : (string * string list) list =
     ("healthcare", healthcare);
     ("financials", financials);
     ("tech", tech_growth);
+    ("tespy", tespy);
     ("energy", energy);
     ("industrials", industrials);
     ("consumer", consumer_discretionary);

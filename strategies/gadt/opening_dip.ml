@@ -678,6 +678,102 @@ let opening_dip_panic : Gadt_strategy.t =
     position_size = 0.50;
   }
 
+(* ============================================================
+   V3 Opening Dip Buy - Locked version from ISRES optimization
+
+   Multi-angle entry filters:
+   1. Trend context (ADX) - Range-bound markets favor mean reversion
+   2. Intraday price location - Near day's low
+   3. Prior momentum - Yesterday's strength indicates quality
+   4. Oversold detection (MFI) - Core signal
+
+   Trained on: q3q4-2025
+   Objective value: 124485.51
+
+   OUT-OF-SAMPLE RESULTS: NOT GOOD
+   - Avg Sharpe: 0.028 (std: 0.103)
+   - Avg Return: 1.64% (std: 12.05%)
+   - Worst Drawdown: 19.83%
+   - Consistency: 50.0%
+   ============================================================ *)
+
+let opening_dip_v3_a : Gadt_strategy.t =
+  let open Type in
+
+  (* Locked parameters from ISRES optimization *)
+  let mfi_period = 80 in
+  let mfi_threshold = 41.35 in
+  let max_gap = 1.56 in
+  let max_change = -1.31 in
+  let adx_period = 73 in
+  let adx_threshold = 27.41 in
+  let near_low_pct = 1.17 in
+  let prev_strength = 0.33 in
+  let stop_pct = 0.0592 in    (* 5.92% *)
+  let profit_pct = 0.0565 in  (* 5.65% *)
+  let max_hold = 176 in
+
+  (* Indicators *)
+  let mfi =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.mfi", I.mfi), Const (mfi_period, Int)) ))
+  in
+
+  let adx =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
+           App1 (Fun ("I.adx", I.adx), Const (adx_period, Int)) ))
+  in
+
+  (* Buy conditions *)
+  let in_buy_window =
+    (MinutesSinceOpen >=. Const (15.0, Float)) &&.
+    (MinutesSinceOpen <. Const (45.0, Float))
+  in
+  let oversold = mfi <. Const (mfi_threshold, Float) in
+  let gap_ok = GapPct <. Const (max_gap, Float) in
+  let change_ok = DayChangePct <. Const (max_change, Float) in
+  let range_bound = adx <. Const (adx_threshold, Float) in
+  let dist_from_low = (last -. DayLow) /. DayLow *. Const (100.0, Float) in
+  let near_low = dist_from_low <. Const (near_low_pct, Float) in
+  let prev_range = PrevDayHigh -. PrevDayLow in
+  let strength_level = PrevDayLow +. prev_range *. Const (prev_strength, Float) in
+  let prev_strong = PrevDayClose >. strength_level in
+  let no_position = not_ HasPosition in
+
+  let buy_trigger =
+    no_position &&. in_buy_window &&.
+    oversold &&. gap_ok &&. change_ok &&.
+    range_bound &&. near_low &&. prev_strong
+  in
+
+  (* Sell conditions *)
+  let sell_trigger =
+    stop_loss stop_pct
+    ||. profit_target profit_pct
+    ||. max_holding_time max_hold
+    ||. force_exit_eod ()
+  in
+
+  let score =
+    Const (100.0, Float) -.
+    mfi -.
+    DayChangePct *. Const (5.0, Float) -.
+    dist_from_low *. Const (10.0, Float)
+  in
+
+  {
+    name = "Opening_Dip_V3_A";
+    buy_trigger;
+    sell_trigger;
+    score;
+    max_positions = 2;
+    position_size = 0.50;
+  }
+
 (* Export all strategies *)
 let all_strategies =
   [
@@ -688,6 +784,7 @@ let all_strategies =
     opening_dip_v2_b;
     opening_dip_v2_c;
     opening_dip_v3_opt;
+    opening_dip_v3_a;
     opening_dip_v4_opt;
     opening_dip_capitulation;
     opening_dip_panic;

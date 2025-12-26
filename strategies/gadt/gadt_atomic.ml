@@ -14,7 +14,7 @@ module Pmutex = Longleaf_util.Pmutex
 (* Re-use types and modules from the original gadt.ml *)
 open Gadt
 
-let num_iterations = 400  (* For thorough ISRES optimization *)
+let num_iterations = 200  (* For thorough ISRES optimization *)
 
 (* Communication types for Saturn-based worker approach (works across C boundary) *)
 type work_request = {
