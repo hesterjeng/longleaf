@@ -1310,6 +1310,38 @@ let idmr_a_isres_0 =
     position_size = 0.33;
   }
 
+(** IDMR_A_ISRES_0_1P - Single position variant
+
+    Same parameters as IDMR_A_ISRES_0 but only takes 1 position at a time.
+    Hypothesis: Taking only the best signal reduces trade count and
+    execution cost exposure while maintaining edge quality. *)
+let idmr_a_isres_0_1p =
+  let sma = Gadt_fo.Constant.sma 15 () in
+  let pct_below_sma = (sma -. last) /. sma in
+  let below_sma_threshold = pct_below_sma >. Const (0.00301, Float) in
+  let volume_spike = volume >. lag volume 20 *. Const (1.327, Float) in
+  let stop_loss_mult = Const (0.9587, Float) in
+  let profit_target_mult = Const (1.008, Float) in
+  let recent_high = lag high 5 in
+  let recovery_exit = last >. recent_high in
+  let max_hold = Const (33, Int) in
+  {
+    name = "IDMR_A_ISRES_0_1P";
+    buy_trigger =
+      below_sma_threshold
+      &&. volume_spike
+      &&. safe_to_enter ();
+    sell_trigger =
+      force_exit_eod ()
+      ||. (last <. EntryPrice *. stop_loss_mult)
+      ||. (last >. EntryPrice *. profit_target_mult)
+      ||. recovery_exit
+      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+    score = pct_below_sma *. Const (100.0, Float);
+    max_positions = 1;
+    position_size = 1.0;
+  }
+
 (** IDMR_A_ISRES_1 - ISRES-trained with 2x trade penalty
 
     Trained on 6 months data, 4k iterations, 2x per-trade penalty.
@@ -1620,6 +1652,7 @@ let all_strategies =
     nb_v3_1;
     nb_v3_2;
     idmr_a_isres_0;
+    idmr_a_isres_0_1p;
     idmr_a_isres_1;
     intraday_mr_5min;
     intraday_mr_15min;

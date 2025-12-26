@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is **Longleaf**, an algorithmic trading platform written in OCaml. It supports live trading, paper trading, backtesting, and battery testing with multiple brokerages (Alpaca) and market data sources (Alpaca, Tiingo, Massive). The platform uses a GADT-based DSL for strategy definition, enabling both type-safe strategy composition and automated parameter optimization via NLopt/ISRES.
+This is **Longleaf**, an algorithmic trading platform written in OCaml. It supports live trading, paper trading, backtesting, and battery testing with multiple brokerages (Alpaca) and market data sources (Massive preferred, Tiingo deprecated). The platform uses a GADT-based DSL for strategy definition, enabling both type-safe strategy composition and automated parameter optimization via NLopt/ISRES.
 
 ## Common Development Commands
 
@@ -22,8 +22,8 @@ odep dune | dot -Tsvg > dune-odep.svg
 
 ### Running the Platform
 ```bash
-# Download market data
-longleaf_downloader tiingo --begin=2024-01-01 --end=2024-12-31 --interval=10 --timeframe=minute data/2024.json
+# Download market data (use Massive, not Tiingo)
+longleaf_downloader massive --begin=2024-01-01 --end=2024-12-31 --interval=1 --timeframe=minute data/2024.json
 
 # Backtest a strategy
 longleaf Backtest <strategy> <data-file> -i <starting-index>
@@ -61,8 +61,8 @@ longleaf/
 ├── lib/
 │   ├── apis/               # External API integrations
 │   │   ├── alpaca_*.ml     # Alpaca brokerage
-│   │   ├── tiingo_api.ml   # Tiingo market data
-│   │   ├── massive_*.ml    # Massive market data
+│   │   ├── massive_*.ml    # Massive market data (preferred)
+│   │   ├── tiingo_api.ml   # Tiingo market data (deprecated)
 │   │   └── downloader.ml   # Data download orchestration
 │   ├── backend/            # Execution backends
 │   │   ├── backend_intf.ml # Backend interface
@@ -214,7 +214,7 @@ Required environment variables (save in `.envrc`):
 ```bash
 export APCA_API_KEY_ID=your_alpaca_key
 export APCA_API_SECRET_KEY=your_alpaca_secret
-export TIINGO_KEY=your_tiingo_key
+export MASSIVE_KEY=your_massive_key
 ```
 
 ### Data Files
@@ -224,7 +224,7 @@ Battery testing expects these files in `data/`:
 - `q1q2-2024-1min.json`, `q3q4-2024-1min.json`
 - `q1q2-2025-1min.json`, `q3q4-2025-1min.json`
 
-Download with `longleaf_downloader tiingo --begin=YYYY-MM-DD --end=YYYY-MM-DD --interval=1 --timeframe=minute <output.json>`
+Download with `longleaf_downloader massive --begin=YYYY-MM-DD --end=YYYY-MM-DD --interval=1 --timeframe=minute <output.json> -u <universe>`
 
 ### Run Types
 
