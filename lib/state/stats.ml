@@ -71,16 +71,19 @@ let calculate_portfolio_metrics (value_history : (Time.t * float) list) =
     (total_return, max_dd, final_value, initial_value)
 
 let calculate_capital_participation (cash_history : (Time.t * float) list)
-    (initial_capital : float) : float =
-  match cash_history with
-  | [] -> 0.0
+    (value_history : (Time.t * float) list) : float =
+  match (cash_history, value_history) with
+  | [], _ | _, [] -> 0.0
   | _ ->
     let total_cash =
       List.fold_left (fun acc (_, cash) -> acc +. cash) 0.0 cash_history
     in
+    let total_value =
+      List.fold_left (fun acc (_, value) -> acc +. value) 0.0 value_history
+    in
     let avg_cash = total_cash /. float_of_int (List.length cash_history) in
-    if Float.compare initial_capital 0.0 > 0 then
-      1.0 -. (avg_cash /. initial_capital)
+    let avg_value = total_value /. float_of_int (List.length value_history) in
+    if Float.compare avg_value 0.0 > 0 then 1.0 -. (avg_cash /. avg_value)
     else 0.0
 
 let make (order_history : Order.t list) (value_history : (Time.t * float) list)
@@ -101,7 +104,7 @@ let make (order_history : Order.t list) (value_history : (Time.t * float) list)
     calculate_portfolio_metrics value_history
   in
   let capital_participation =
-    calculate_capital_participation cash_history initial_value
+    calculate_capital_participation cash_history value_history
   in
   {
     num_orders;
