@@ -1889,6 +1889,82 @@ let spy_mfi_simple : Gadt_strategy.t =
     position_size = 1.0;
   }
 
+(** SPY_SMA_A - Locked SMA strategy trained on q3q4-2025
+
+    Buy: price < SMA(550)
+    Sell: price > SMA(83)
+
+    RESULTS (q3q4-2025, spy universe, no slippage):
+    - Final Cash: $112,052.52 (12% return)
+    - Total Trades: 3945 (W: 2135, L: 1496, BE: 314)
+    - Win Rate: 54.12%
+    - Profit Factor: 1.211
+    - Sharpe: 0.037
+    - P-value: 0.0109 (statistically significant!)
+
+    Simple and elegant - buy dips below long SMA, sell pops above short SMA. *)
+let spy_sma_a : Gadt_strategy.t =
+  let buy_sma =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.sma", I.sma), Const (550, Int)) ))
+  in
+  let sell_sma =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.sma", I.sma), Const (83, Int)) ))
+  in
+
+  {
+    name = "SPY_SMA_A";
+    buy_trigger = last <. buy_sma;
+    sell_trigger = last >. sell_sma;
+    score = buy_sma -. last;
+    max_positions = 1;
+    position_size = 1.0;
+  }
+
+(** SPY_SMA_Opt - Simple 2-variable SMA strategy for SPY
+
+    Buy: price < SMA(buy_period)
+    Sell: price > SMA(sell_period)
+
+    Variables:
+    1. buy_period: [5, 1000] - SMA period for buy signal
+    2. sell_period: [5, 1000] - SMA period for sell signal
+
+    High frequency scalping on 1-min bars. *)
+let spy_sma_opt : Gadt_strategy.t =
+  let buy_period_var = Gadt_fo.var ~lower:5.0 ~upper:1000.0 Type.Int in
+  let sell_period_var = Gadt_fo.var ~lower:5.0 ~upper:1000.0 Type.Int in
+
+  let buy_sma =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.sma", I.sma), buy_period_var) ))
+  in
+  let sell_sma =
+    Gadt.Data
+      (App1
+         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+           App1 (Fun ("I.sma", I.sma), sell_period_var) ))
+  in
+
+  let cheap = last <. buy_sma in
+  let expensive = last >. sell_sma in
+
+  {
+    name = "SPY_SMA_Opt";
+    buy_trigger = cheap;
+    sell_trigger = expensive;
+    score = buy_sma -. last;
+    max_positions = 1;
+    position_size = 1.0;
+  }
+
 (** SPY_MFI_Opt - 4-variable optimizable MFI strategy for SPY
 
     Buy: MFI(buy_period) < buy_threshold
@@ -2007,6 +2083,8 @@ let all_strategies =
     tech_dip_buy_v12;
     tech_dip_buy_v13;
     spy_mfi_simple;
+    spy_sma_a;
+    spy_sma_opt;
     spy_mfi_opt;
     spy_mfi_flipped;
     buy_and_hold_tech;

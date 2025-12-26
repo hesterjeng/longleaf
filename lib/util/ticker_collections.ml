@@ -26,6 +26,23 @@ let some_symbols =
 let oex = [ "OEX" ]
 let spy = [ "SPY" ]
 
+(** Major liquid ETFs - high volume, tight spreads, ideal for HFT-style strategies *)
+let etfs = [
+  "SPY";   (* S&P 500 *)
+  "QQQ";   (* Nasdaq 100 *)
+  "IWM";   (* Russell 2000 *)
+  "DIA";   (* Dow 30 *)
+  "GLD";   (* Gold *)
+  "TLT";   (* 20+ Year Treasury *)
+  "XLF";   (* Financials *)
+  "XLE";   (* Energy *)
+  "XLK";   (* Tech *)
+  "XLV";   (* Healthcare *)
+  "EEM";   (* Emerging Markets *)
+  "HYG";   (* High Yield Corporate *)
+  "LQD";   (* Investment Grade Corporate *)
+]
+
 let sp100 =
   [
     "PLTR";
@@ -200,6 +217,7 @@ let all_collections : (string * string list) list =
     ("sp100_no_tech", sp100_no_tech);
     ("low_vol", low_vol);
     ("spy", spy);
+    ("etfs", etfs);
   ]
 
 (** Get collection by name, returns None if not found *)
