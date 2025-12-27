@@ -76,6 +76,7 @@
 open Gadt
 open Gadt_strategy
 module Data = Longleaf_bars.Data
+module Ind = Gadt_fo.Indicator
 module Var = Gadt_fo.Variable
 module Real = Gadt_fo.Constant
 
@@ -140,60 +141,25 @@ let nature_boy_v3_opt =
   let max_hold_var = Gadt_fo.var ~lower:100.0 ~upper:500.0 Type.Int in
 
   (* Entry MFI indicator with variable period *)
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period_var) ))
-  in
+  let mfi = Ind.mfi mfi_period_var in
 
   (* NATR for lower bound - short period for stale data detection *)
-  let natr_lo =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_lo_period_var)
-         ))
-  in
+  let natr_lo = Ind.natr natr_lo_period_var in
 
   (* NATR for upper bound - longer period for regime detection *)
-  let natr_hi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_hi_period_var)
-         ))
-  in
+  let natr_hi = Ind.natr natr_hi_period_var in
 
   (* Entry Bollinger Band - variable period and std dev *)
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_entry_period_var,
-               bb_entry_std_var,
-               bb_entry_std_var ) ))
-  in
+  let bb_lower = Ind.lower_bband bb_entry_period_var bb_entry_std_var bb_entry_std_var in
 
   (* Exit Bollinger Band middle - variable period *)
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_exit_period_var,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
+  let bb_middle = Ind.middle_bband bb_exit_period_var (Const (2.0, Float)) (Const (2.0, Float)) in
 
   (* Recovery filter - price recovering from recent low *)
   let recovering = last >. lag last 1 in
 
   (* Min hold gate - variable minimum holding period *)
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold_var) in
+  let past_min_hold = min_holding_time_expr min_hold_var in
 
   (* Gated exit signals - variable thresholds *)
   let gated_exits =
@@ -213,7 +179,7 @@ let nature_boy_v3_opt =
       force_exit_eod ()
       ||. (last <. EntryPrice *. stop_loss_mult_var)
       ||. gated_exits
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold_var);
+      ||. max_holding_time_expr max_hold_var;
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;
@@ -271,49 +237,20 @@ let mr0_opt =
   let max_hold = Const (240, Int) in (* 4 hours *)
 
   (* MFI indicator *)
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period_var) ))
-  in
+  let mfi = Ind.mfi mfi_period_var in
 
   (* NATR for volatility regime filter *)
-  let natr =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_period_var) ))
-  in
+  let natr = Ind.natr natr_period_var in
 
   (* Bollinger Bands - single period for both entry and exit *)
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period_var,
-               bb_std,
-               bb_std ) ))
-  in
-
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period_var,
-               bb_std,
-               bb_std ) ))
-  in
+  let bb_lower = Ind.lower_bband bb_period_var bb_std bb_std in
+  let bb_middle = Ind.middle_bband bb_period_var bb_std bb_std in
 
   (* Recovery filter - price recovering from recent low *)
   let recovering = last >. lag last 1 in
 
   (* Min hold gate *)
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
+  let past_min_hold = min_holding_time_expr min_hold in
 
   (* Exit conditions *)
   let exit_signals =
@@ -335,7 +272,7 @@ let mr0_opt =
       force_exit_eod ()
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. exit_signals
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+      ||. max_holding_time_expr max_hold;
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;
@@ -346,13 +283,13 @@ let mr0_opt =
     Trained on q3q4-2025. Objective: 125,249.73
     192 trades, 60.94% win rate, Sharpe 0.310, p < 0.0001 *)
 let mrnb_3_a =
-  let mfi = Real.mfi 235 () in
-  let natr_lo = Real.natr 9 () in
-  let natr_hi = Real.natr 89 () in
-  let bb_lower = Real.lower_bband 359 1.636 1.636 () in
-  let bb_middle = Real.middle_bband 331 2.0 2.0 () in
+  let mfi = Real.mfi 235 in
+  let natr_lo = Real.natr 9 in
+  let natr_hi = Real.natr 89 in
+  let bb_lower = Real.lower_bband 359 1.636 1.636 in
+  let bb_middle = Real.middle_bband 331 2.0 2.0 in
   let recovering = last >. lag last 1 in
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (72, Int)) in
+  let past_min_hold = min_holding_time 72 in
   let exit_signals =
     past_min_hold
     &&. (last >. bb_middle
@@ -372,7 +309,7 @@ let mrnb_3_a =
       force_exit_eod ()
       ||. (last <. EntryPrice *. Const (0.868, Float))
       ||. exit_signals
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (171, Int));
+      ||. max_holding_time 171;
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;
@@ -383,13 +320,13 @@ let mrnb_3_a =
     Trained on q3q4-2025. Objective: 122,756.98
     249 trades, 60.64% win rate, Sharpe 0.213, p < 0.0004 *)
 let mrnb_3_b =
-  let mfi = Real.mfi 213 () in
-  let natr_lo = Real.natr 7 () in
-  let natr_hi = Real.natr 186 () in
-  let bb_lower = Real.lower_bband 228 1.662 1.662 () in
-  let bb_middle = Real.middle_bband 333 2.0 2.0 () in
+  let mfi = Real.mfi 213 in
+  let natr_lo = Real.natr 7 in
+  let natr_hi = Real.natr 186 in
+  let bb_lower = Real.lower_bband 228 1.662 1.662 in
+  let bb_middle = Real.middle_bband 333 2.0 2.0 in
   let recovering = last >. lag last 1 in
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (64, Int)) in
+  let past_min_hold = min_holding_time 64 in
   let exit_signals =
     past_min_hold
     &&. (last >. bb_middle
@@ -409,7 +346,7 @@ let mrnb_3_b =
       force_exit_eod ()
       ||. (last <. EntryPrice *. Const (0.871, Float))
       ||. exit_signals
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (396, Int));
+      ||. max_holding_time 396;
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;
@@ -420,13 +357,13 @@ let mrnb_3_b =
     Trained on q3q4-2025. Objective: 123,321.08
     214 trades, 64.49% win rate, Sharpe 0.246, p < 0.0002 *)
 let mrnb_3_c =
-  let mfi = Real.mfi 230 () in
-  let natr_lo = Real.natr 18 () in
-  let natr_hi = Real.natr 179 () in
-  let bb_lower = Real.lower_bband 315 2.610 2.610 () in
-  let bb_middle = Real.middle_bband 287 2.0 2.0 () in
+  let mfi = Real.mfi 230 in
+  let natr_lo = Real.natr 18 in
+  let natr_hi = Real.natr 179 in
+  let bb_lower = Real.lower_bband 315 2.610 2.610 in
+  let bb_middle = Real.middle_bband 287 2.0 2.0 in
   let recovering = last >. lag last 1 in
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (48, Int)) in
+  let past_min_hold = min_holding_time 48 in
   let exit_signals =
     past_min_hold
     &&. (last >. bb_middle
@@ -446,7 +383,7 @@ let mrnb_3_c =
       force_exit_eod ()
       ||. (last <. EntryPrice *. Const (0.872, Float))
       ||. exit_signals
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (441, Int));
+      ||. max_holding_time 441;
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;
@@ -489,49 +426,20 @@ let mr_basic =
   let max_hold = Const (180, Int) in
 
   (* MFI indicator *)
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period) ))
-  in
+  let mfi = Ind.mfi mfi_period in
 
   (* NATR for volatility filter *)
-  let natr =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), natr_period) ))
-  in
+  let natr = Ind.natr natr_period in
 
   (* Bollinger Bands *)
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
-
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
+  let bb_lower = Ind.lower_bband bb_period bb_std bb_std in
+  let bb_middle = Ind.middle_bband bb_period bb_std bb_std in
 
   (* Simple recovery filter *)
   let recovering = last >. lag last 1 in
 
   (* Min hold gate *)
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
+  let past_min_hold = min_holding_time_expr min_hold in
 
   (* Exit conditions *)
   let exit_signals =
@@ -553,7 +461,7 @@ let mr_basic =
       force_exit_eod ()
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. exit_signals
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+      ||. max_holding_time_expr max_hold;
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;
@@ -740,7 +648,7 @@ let intraday_mr_anytime =
     NOTE: Use starting index of at least 50 (-i 50) for lag warmup. *)
 let intraday_mr_anytime_2 =
   (* SMA(30) for smoother mean reversion signal *)
-  let sma_30 = Gadt_fo.Constant.sma 30 () in
+  let sma_30 = Gadt_fo.Constant.sma 30 in
 
   (* Percentage below SMA *)
   let pct_below_sma = (sma_30 -. last) /. sma_30 in
@@ -815,7 +723,7 @@ let intraday_mr_5min =
   let stop_loss_mult = Const (0.98, Float) in
 
   (* Gate exits by minimum hold time *)
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
+  let past_min_hold = min_holding_time_expr min_hold in
   let gated_exits =
     past_min_hold &&. (
       recovery_exit
@@ -831,7 +739,7 @@ let intraday_mr_5min =
     sell_trigger =
       force_exit_eod ()
       ||. gated_exits
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+      ||. max_holding_time_expr max_hold;
     score = Const (0.0, Float) -. (return_30 *. Const (100.0, Float));
     max_positions = 5;
     position_size = 0.20;
@@ -879,7 +787,7 @@ let intraday_mr_15min =
   let stop_loss_mult = Const (0.97, Float) in
 
   (* Gate exits by minimum hold time *)
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, min_hold) in
+  let past_min_hold = min_holding_time_expr min_hold in
   let gated_exits =
     past_min_hold &&. (
       recovery_exit
@@ -896,7 +804,7 @@ let intraday_mr_15min =
     sell_trigger =
       force_exit_eod ()
       ||. gated_exits
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+      ||. max_holding_time_expr max_hold;
     score = Const (0.0, Float) -. (return_30 *. Const (100.0, Float));
     max_positions = 5;
     position_size = 0.20;
@@ -905,7 +813,7 @@ let intraday_mr_15min =
 (** Intraday_MR_Anytime_Opt - DEPRECATED, use ID_MR_AT_OPT_0 instead *)
 let intraday_mr_anytime_opt =
   (* Keeping minimal version for backwards compatibility *)
-  let sma = Gadt_fo.Constant.sma 30 () in
+  let sma = Gadt_fo.Constant.sma 30 in
   let pct_below_sma = (sma -. last) /. sma in
   {
     name = "Intraday_MR_Anytime_Opt";
@@ -965,20 +873,10 @@ let id_mr_at_opt_0 =
   let max_hold_var = Gadt_fo.var ~lower:30.0 ~upper:240.0 Type.Int in
 
   (* SMA indicator with variable period *)
-  let sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), sma_period_var) ))
-  in
+  let sma = Ind.sma sma_period_var in
 
   (* MFI indicator with variable period *)
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), mfi_period_var) ))
-  in
+  let mfi = Ind.mfi mfi_period_var in
 
   (* Percentage below SMA *)
   let pct_below_sma = (sma -. last) /. sma in
@@ -1003,7 +901,7 @@ let id_mr_at_opt_0 =
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. (last >. EntryPrice *. profit_target_mult)
       ||. mfi_recovered
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold_var);
+      ||. max_holding_time_expr max_hold_var;
     (* Bigger drop below SMA = higher score *)
     score = pct_below_sma *. Const (100.0, Float);
     max_positions = 3;
@@ -1024,18 +922,8 @@ let id_mr_at_opt_0 =
 
     NOTE: Use starting index of at least 250 (-i 250) for indicator warmup. *)
 let id_mr_at_0 =
-  let sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), Const (139, Int)) ))
-  in
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (81, Int)) ))
-  in
+  let sma = Real.sma 139 in
+  let mfi = Real.mfi 81 in
   let pct_below_sma = (sma -. last) /. sma in
   let below_sma_threshold = pct_below_sma >. Const (0.019044, Float) in
   let mfi_oversold = mfi <. Const (36.661, Float) in
@@ -1053,7 +941,7 @@ let id_mr_at_0 =
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. (last >. EntryPrice *. profit_target_mult)
       ||. mfi_recovered
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (178, Int));
+      ||. max_holding_time 178;
     score = pct_below_sma *. Const (100.0, Float);
     max_positions = 3;
     position_size = 0.33;
@@ -1072,18 +960,8 @@ let id_mr_at_0 =
 
     NOTE: Use starting index of at least 250 (-i 250) for indicator warmup. *)
 let id_mr_at_1 =
-  let sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), Const (142, Int)) ))
-  in
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (93, Int)) ))
-  in
+  let sma = Real.sma 142 in
+  let mfi = Real.mfi 93 in
   let pct_below_sma = (sma -. last) /. sma in
   let below_sma_threshold = pct_below_sma >. Const (0.019485, Float) in
   let mfi_oversold = mfi <. Const (38.356, Float) in
@@ -1101,7 +979,7 @@ let id_mr_at_1 =
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. (last >. EntryPrice *. profit_target_mult)
       ||. mfi_recovered
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (163, Int));
+      ||. max_holding_time 163;
     score = pct_below_sma *. Const (100.0, Float);
     max_positions = 3;
     position_size = 0.33;
@@ -1120,18 +998,8 @@ let id_mr_at_1 =
 
     NOTE: Use starting index of at least 250 (-i 250) for indicator warmup. *)
 let id_mr_at_2 =
-  let sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), Const (155, Int)) ))
-  in
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (86, Int)) ))
-  in
+  let sma = Real.sma 155 in
+  let mfi = Real.mfi 86 in
   let pct_below_sma = (sma -. last) /. sma in
   let below_sma_threshold = pct_below_sma >. Const (0.018192, Float) in
   let mfi_oversold = mfi <. Const (35.991, Float) in
@@ -1149,7 +1017,7 @@ let id_mr_at_2 =
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. (last >. EntryPrice *. profit_target_mult)
       ||. mfi_recovered
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (195, Int));
+      ||. max_holding_time 195;
     score = pct_below_sma *. Const (100.0, Float);
     max_positions = 3;
     position_size = 0.33;
@@ -1174,7 +1042,7 @@ let id_mr_at_2 =
     - Max hold: 33 bars *)
 let idmr_a_isres_0 =
   (* SMA(15) for mean calculation *)
-  let sma = Gadt_fo.Constant.sma 15 () in
+  let sma = Gadt_fo.Constant.sma 15 in
 
   (* Percentage below SMA *)
   let pct_below_sma = (sma -. last) /. sma in
@@ -1207,7 +1075,7 @@ let idmr_a_isres_0 =
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. (last >. EntryPrice *. profit_target_mult)
       ||. recovery_exit
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+      ||. max_holding_time_expr max_hold;
     score = pct_below_sma *. Const (100.0, Float);
     max_positions = 3;
     position_size = 0.33;
@@ -1219,7 +1087,7 @@ let idmr_a_isres_0 =
     Hypothesis: Taking only the best signal reduces trade count and
     execution cost exposure while maintaining edge quality. *)
 let idmr_a_isres_0_1p =
-  let sma = Gadt_fo.Constant.sma 15 () in
+  let sma = Gadt_fo.Constant.sma 15 in
   let pct_below_sma = (sma -. last) /. sma in
   let below_sma_threshold = pct_below_sma >. Const (0.00301, Float) in
   let volume_spike = volume >. lag volume 20 *. Const (1.327, Float) in
@@ -1239,7 +1107,7 @@ let idmr_a_isres_0_1p =
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. (last >. EntryPrice *. profit_target_mult)
       ||. recovery_exit
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+      ||. max_holding_time_expr max_hold;
     score = pct_below_sma *. Const (100.0, Float);
     max_positions = 1;
     position_size = 1.0;
@@ -1264,7 +1132,7 @@ let idmr_a_isres_0_1p =
     - Max hold: 163 bars *)
 let idmr_a_isres_1 =
   (* SMA(18) for mean calculation *)
-  let sma = Gadt_fo.Constant.sma 18 () in
+  let sma = Gadt_fo.Constant.sma 18 in
 
   (* Percentage below SMA *)
   let pct_below_sma = (sma -. last) /. sma in
@@ -1297,7 +1165,7 @@ let idmr_a_isres_1 =
       ||. (last <. EntryPrice *. stop_loss_mult)
       ||. (last >. EntryPrice *. profit_target_mult)
       ||. recovery_exit
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold);
+      ||. max_holding_time_expr max_hold;
     score = pct_below_sma *. Const (100.0, Float);
     max_positions = 3;
     position_size = 0.33;
@@ -1313,46 +1181,13 @@ let idmr_a_isres_1 =
 
     NOTE: Use starting index of at least 400 (-i 400) for indicator warmup. *)
 let nb_v3_0 =
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (186, Int)) ))
-  in
-  let natr_lo =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (6, Int)) ))
-  in
-  let natr_hi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (167, Int)) ))
-  in
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               Const (323, Int),
-               Const (2.864, Float),
-               Const (2.864, Float) ) ))
-  in
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               Const (326, Int),
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
+  let mfi = Real.mfi 186 in
+  let natr_lo = Real.natr 6 in
+  let natr_hi = Real.natr 167 in
+  let bb_lower = Real.lower_bband 323 2.864 2.864 in
+  let bb_middle = Real.middle_bband 326 2.0 2.0 in
   let recovering = last >. lag last 1 in
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (71, Int)) in
+  let past_min_hold = min_holding_time 71 in
   let exit_signals =
     past_min_hold
     &&. (last >. bb_middle
@@ -1372,7 +1207,7 @@ let nb_v3_0 =
       force_exit_eod ()
       ||. (last <. EntryPrice *. Const (0.965, Float))
       ||. exit_signals
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (190, Int));
+      ||. max_holding_time 190;
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;
@@ -1391,46 +1226,13 @@ let nb_v3_0 =
 
     NOTE: Use starting index of at least 400 (-i 400) for indicator warmup. *)
 let nb_v3_1 =
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (70, Int)) ))
-  in
-  let natr_lo =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (9, Int)) ))
-  in
-  let natr_hi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (58, Int)) ))
-  in
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               Const (303, Int),
-               Const (2.750, Float),
-               Const (2.750, Float) ) ))
-  in
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               Const (235, Int),
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
+  let mfi = Real.mfi 70 in
+  let natr_lo = Real.natr 9 in
+  let natr_hi = Real.natr 58 in
+  let bb_lower = Real.lower_bband 303 2.750 2.750 in
+  let bb_middle = Real.middle_bband 235 2.0 2.0 in
   let recovering = last >. lag last 1 in
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (57, Int)) in
+  let past_min_hold = min_holding_time 57 in
   let exit_signals =
     past_min_hold
     &&. (last >. bb_middle
@@ -1450,7 +1252,7 @@ let nb_v3_1 =
       force_exit_eod ()
       ||. (last <. EntryPrice *. Const (0.951, Float))
       ||. exit_signals
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (382, Int));
+      ||. max_holding_time 382;
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;
@@ -1468,46 +1270,13 @@ let nb_v3_1 =
 
     NOTE: Use starting index of at least 400 (-i 400) for indicator warmup. *)
 let nb_v3_2 =
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (170, Int)) ))
-  in
-  let natr_lo =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (5, Int)) ))
-  in
-  let natr_hi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (127, Int)) ))
-  in
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               Const (348, Int),
-               Const (2.426, Float),
-               Const (2.426, Float) ) ))
-  in
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               Const (323, Int),
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
+  let mfi = Real.mfi 170 in
+  let natr_lo = Real.natr 5 in
+  let natr_hi = Real.natr 127 in
+  let bb_lower = Real.lower_bband 348 2.426 2.426 in
+  let bb_middle = Real.middle_bband 323 2.0 2.0 in
   let recovering = last >. lag last 1 in
-  let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (10, Int)) in
+  let past_min_hold = min_holding_time 10 in
   let exit_signals =
     past_min_hold
     &&. (last >. bb_middle
@@ -1527,7 +1296,7 @@ let nb_v3_2 =
       force_exit_eod ()
       ||. (last <. EntryPrice *. Const (0.969, Float))
       ||. exit_signals
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (233, Int));
+      ||. max_holding_time 233;
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;

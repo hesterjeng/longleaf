@@ -105,7 +105,7 @@ let tech_momentum_opt : Gadt_strategy.t =
       ||. (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
       ||. trend_weakening
-      ||. App2 (Fun (">", ( > )), TicksHeld, max_hold_var);
+      ||. max_holding_time_expr max_hold_var;
     (* Score: Higher ADX * ROC = stronger signal *)
     score = adx *. roc;
     max_positions = 1;
@@ -151,7 +151,7 @@ let tech_momentum_opt : Gadt_strategy.t =
     NOTE: Use -i 100 for warmup. Use -u tech. *)
 let tech_breakout_opt : Gadt_strategy.t =
   (* Indicators with optimizable bounds *)
-  let atr = Gadt_fo.Constant.atr 14 () in
+  let atr = Gadt_fo.Constant.atr 14 in
   let adx = Var.adx ~lower:10.0 ~upper:120.0 () in
   let mfi = Var.mfi ~lower:10.0 ~upper:100.0 () in
 
@@ -187,7 +187,7 @@ let tech_breakout_opt : Gadt_strategy.t =
       force_exit_eod ()
       ||. (last <. stop_level)
       ||. (last >. target_level)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (240, Int));
+      ||. max_holding_time 240;
     (* Score: How far above breakout level *)
     score = last -. breakout_level;
     max_positions = 1;
@@ -265,7 +265,7 @@ let tech_ema_cross_opt : Gadt_strategy.t =
       ||. (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
       ||. (adx <. Const (15.0, Float))
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (240, Int));
+      ||. max_holding_time 240;
     (* Score: ADX * ROC - stronger trend and momentum = higher priority *)
     score = adx *. roc;
     max_positions = 1;
@@ -345,7 +345,7 @@ let tech_gap_go_opt : Gadt_strategy.t =
       ||. gap_fill
       ||. (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (300, Int));
+      ||. max_holding_time 300;
     (* Score: Bigger gap + higher above open = better *)
     score = GapPct +. DayChangePct;
     max_positions = 1;
@@ -407,7 +407,7 @@ let tech_gap_go_a : Gadt_strategy.t =
       ||. gap_fill
       ||. (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (300, Int));
+      ||. max_holding_time 300;
     score = GapPct +. DayChangePct;
     max_positions = 1;
     position_size = 1.0;
@@ -459,7 +459,7 @@ let tech_gap_go_b : Gadt_strategy.t =
       ||. gap_fill
       ||. (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (300, Int));
+      ||. max_holding_time 300;
     score = GapPct +. DayChangePct;
     max_positions = 2;
     position_size = 0.5;
@@ -492,7 +492,7 @@ let tech_gap_go_c : Gadt_strategy.t =
   let profit_target = Const (0.040237, Float) in
 
   (* Long-term trend filter - 1000 bars = ~2.5 trading days *)
-  let sma_long = Real.sma 1000 () in
+  let sma_long = Real.sma 1000 in
   let in_uptrend = last >. sma_long in
 
   (* Entry Conditions *)
@@ -518,7 +518,7 @@ let tech_gap_go_c : Gadt_strategy.t =
       ||. gap_fill
       ||. (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (300, Int));
+      ||. max_holding_time 300;
     score = GapPct +. DayChangePct;
     max_positions = 2;
     position_size = 0.5;
@@ -558,7 +558,7 @@ let tech_gap_go_c : Gadt_strategy.t =
 
 let tech_long_ma_mr : Gadt_strategy.t =
   (* Fixed long-period SMA - 3900 bars = ~2 weeks *)
-  let sma_long = Real.sma 3900 () in
+  let sma_long = Real.sma 3900 in
 
   (* Entry: price 2% below SMA *)
   let dip_threshold = Const (0.98, Float) in
@@ -574,7 +574,7 @@ let tech_long_ma_mr : Gadt_strategy.t =
     sell_trigger =
       recovered
       ||. (last <. EntryPrice *. stop_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1500, Int));
+      ||. max_holding_time 1500;
     score = sma_long -. last;  (* Bigger dip = higher priority *)
     max_positions = 2;
     position_size = 0.5;
@@ -607,7 +607,7 @@ let tech_long_ma_mr : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_ma_trend : Gadt_strategy.t =
   (* Fixed long-period SMA - 3900 bars = ~2 weeks *)
-  let sma_long = Real.sma 3900 () in
+  let sma_long = Real.sma 3900 in
 
   (* Entry: price 1% above SMA (confirmed uptrend) *)
   let trend_threshold = Const (1.01, Float) in
@@ -623,7 +623,7 @@ let tech_long_ma_trend : Gadt_strategy.t =
     sell_trigger =
       trend_broken
       ||. (last <. EntryPrice *. stop_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1500, Int));
+      ||. max_holding_time 1500;
     score = last -. sma_long;  (* Further above MA = stronger trend *)
     max_positions = 2;
     position_size = 0.5;
@@ -647,8 +647,8 @@ let tech_long_ma_trend : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_bb_mr : Gadt_strategy.t =
   (* Long-period Bollinger Bands - 3900 bars, 2.0 std *)
-  let bb_lower = Real.lower_bband 3900 2.0 2.0 () in
-  let bb_middle = Real.middle_bband 3900 2.0 2.0 () in
+  let bb_lower = Real.lower_bband 3900 2.0 2.0 in
+  let bb_middle = Real.middle_bband 3900 2.0 2.0 in
 
   (* Entry: price touches lower band *)
   let oversold = last <. bb_lower in
@@ -663,7 +663,7 @@ let tech_long_bb_mr : Gadt_strategy.t =
     sell_trigger =
       reverted
       ||. (last <. EntryPrice *. stop_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1500, Int));
+      ||. max_holding_time 1500;
     score = bb_middle -. last;  (* Further below middle = higher priority *)
     max_positions = 2;
     position_size = 0.5;
@@ -687,8 +687,8 @@ let tech_long_bb_mr : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_bb_trend : Gadt_strategy.t =
   (* Long-period Bollinger Bands - 3900 bars, 2.0 std *)
-  let bb_upper = Real.upper_bband 3900 2.0 2.0 () in
-  let bb_middle = Real.middle_bband 3900 2.0 2.0 () in
+  let bb_upper = Real.upper_bband 3900 2.0 2.0 in
+  let bb_middle = Real.middle_bband 3900 2.0 2.0 in
 
   (* Entry: price breaks above upper band *)
   let breakout = last >. bb_upper in
@@ -703,7 +703,7 @@ let tech_long_bb_trend : Gadt_strategy.t =
     sell_trigger =
       trend_exhausted
       ||. (last <. EntryPrice *. stop_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1500, Int));
+      ||. max_holding_time 1500;
     score = last -. bb_upper;  (* Further above upper = stronger breakout *)
     max_positions = 2;
     position_size = 0.5;
@@ -724,10 +724,10 @@ let tech_long_bb_trend : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_bb_mr_v2 : Gadt_strategy.t =
   (* Long-period Bollinger Bands - 3900 bars, 2.0 std *)
-  let bb_lower = Real.lower_bband 3900 2.0 2.0 () in
-  let bb_middle = Real.middle_bband 3900 2.0 2.0 () in
+  let bb_lower = Real.lower_bband 3900 2.0 2.0 in
+  let bb_middle = Real.middle_bband 3900 2.0 2.0 in
   (* Short-period MFI for timing - 15 bars = 15 minutes *)
-  let mfi_short = Real.mfi 15 () in
+  let mfi_short = Real.mfi 15 in
 
   (* Entry: below lower band AND weak MFI (capitulation) *)
   let below_band = last <. bb_lower in
@@ -745,7 +745,7 @@ let tech_long_bb_mr_v2 : Gadt_strategy.t =
     sell_trigger =
       take_profit
       ||. (last <. EntryPrice *. stop_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1500, Int));
+      ||. max_holding_time 1500;
     score = bb_middle -. last;  (* Further below middle = higher priority *)
     max_positions = 3;
     position_size = 0.33;
@@ -763,10 +763,10 @@ let tech_long_bb_mr_v2 : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_bb_mr_v3 : Gadt_strategy.t =
   (* Long-period Bollinger Bands - 3900 bars, 2.0 std *)
-  let bb_lower = Real.lower_bband 3900 2.0 2.0 () in
-  let bb_middle = Real.middle_bband 3900 2.0 2.0 () in
+  let bb_lower = Real.lower_bband 3900 2.0 2.0 in
+  let bb_middle = Real.middle_bband 3900 2.0 2.0 in
   (* Short-period MFI for timing - 15 bars = 15 minutes *)
-  let mfi_short = Real.mfi 15 () in
+  let mfi_short = Real.mfi 15 in
 
   (* Entry: below lower band AND weak MFI *)
   let below_band = last <. bb_lower in
@@ -784,7 +784,7 @@ let tech_long_bb_mr_v3 : Gadt_strategy.t =
     sell_trigger =
       take_profit
       ||. (last <. EntryPrice *. stop_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1500, Int));
+      ||. max_holding_time 1500;
     score = bb_middle -. last;
     max_positions = 2;
     position_size = 0.5;
@@ -810,9 +810,9 @@ let tech_long_bb_mr_v3 : Gadt_strategy.t =
     NOTE: Requires -i 1200 for warmup *)
 let tech_dip_buy : Gadt_strategy.t =
   (* 3-day SMA - 1170 bars *)
-  let sma_3day = Real.sma 1170 () in
+  let sma_3day = Real.sma 1170 in
   (* 30-period MFI for timing *)
-  let mfi_30 = Real.mfi 30 () in
+  let mfi_30 = Real.mfi 30 in
 
   (* Entry: uptrend AND weak short-term MFI *)
   let in_uptrend = last >. sma_3day in
@@ -830,7 +830,7 @@ let tech_dip_buy : Gadt_strategy.t =
       (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
       ||. mfi_spike
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = Const (30.0, Float) -. mfi_30;  (* Lower MFI = better opportunity *)
     max_positions = 2;
     position_size = 0.5;
@@ -838,8 +838,8 @@ let tech_dip_buy : Gadt_strategy.t =
 
 (** Tech_Dip_Buy_TightStop - Variant with 3% stop instead of 5% *)
 let tech_dip_buy_tight_stop : Gadt_strategy.t =
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
   let in_uptrend = last >. sma_3day in
   let dip = mfi_30 <. Const (30.0, Float) in
   let stop_mult = Const (0.97, Float) in  (* 3% stop *)
@@ -852,7 +852,7 @@ let tech_dip_buy_tight_stop : Gadt_strategy.t =
       (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
       ||. mfi_spike
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = Const (30.0, Float) -. mfi_30;
     max_positions = 2;
     position_size = 0.5;
@@ -860,8 +860,8 @@ let tech_dip_buy_tight_stop : Gadt_strategy.t =
 
 (** Tech_Dip_Buy_Recovery - Variant requiring price bounce (price > lag 1) *)
 let tech_dip_buy_recovery : Gadt_strategy.t =
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
   let in_uptrend = last >. sma_3day in
   let dip = mfi_30 <. Const (30.0, Float) in
   let recovering = last >. lag last 1 in  (* Price bouncing *)
@@ -875,7 +875,7 @@ let tech_dip_buy_recovery : Gadt_strategy.t =
       (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
       ||. mfi_spike
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = Const (30.0, Float) -. mfi_30;
     max_positions = 2;
     position_size = 0.5;
@@ -883,8 +883,8 @@ let tech_dip_buy_recovery : Gadt_strategy.t =
 
 (** Tech_Dip_Buy_RisingSMA - Variant requiring SMA to be rising *)
 let tech_dip_buy_rising_sma : Gadt_strategy.t =
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
   let in_uptrend = last >. sma_3day in
   let sma_rising = sma_3day >. lag sma_3day 30 in  (* SMA higher than 30 bars ago *)
   let dip = mfi_30 <. Const (30.0, Float) in
@@ -898,7 +898,7 @@ let tech_dip_buy_rising_sma : Gadt_strategy.t =
       (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
       ||. mfi_spike
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = Const (30.0, Float) -. mfi_30;
     max_positions = 2;
     position_size = 0.5;
@@ -906,8 +906,8 @@ let tech_dip_buy_rising_sma : Gadt_strategy.t =
 
 (** Tech_Dip_Buy_QuickProfit - Variant with 6% profit target instead of 10% *)
 let tech_dip_buy_quick_profit : Gadt_strategy.t =
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
   let in_uptrend = last >. sma_3day in
   let dip = mfi_30 <. Const (30.0, Float) in
   let stop_mult = Const (0.95, Float) in
@@ -920,7 +920,7 @@ let tech_dip_buy_quick_profit : Gadt_strategy.t =
       (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
       ||. mfi_spike
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = Const (30.0, Float) -. mfi_30;
     max_positions = 2;
     position_size = 0.5;
@@ -945,10 +945,10 @@ let tech_dip_buy_quick_profit : Gadt_strategy.t =
     - Max hold 1170 bars *)
 let tech_dip_buy_v2 : Gadt_strategy.t =
   (* Multi-period SMAs for trend alignment *)
-  let sma_1day = Real.sma 390 () in
-  let sma_2day = Real.sma 780 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
+  let sma_1day = Real.sma 390 in
+  let sma_2day = Real.sma 780 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
 
   (* Stacked SMAs: 1-day > 2-day > 3-day = bullish alignment *)
   let stacked_bullish = (sma_1day >. sma_2day) &&. (sma_2day >. sma_3day) in
@@ -966,7 +966,7 @@ let tech_dip_buy_v2 : Gadt_strategy.t =
       (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
       ||. mfi_spike
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = Const (30.0, Float) -. mfi_30;
     max_positions = 2;
     position_size = 0.5;
@@ -995,9 +995,9 @@ let tech_dip_buy_v2 : Gadt_strategy.t =
     - Plus: SMA(390) - SMA(1170) (stronger trend = higher priority) *)
 let tech_dip_buy_v3 : Gadt_strategy.t =
   (* SMAs for trend detection *)
-  let sma_1day = Real.sma 390 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
+  let sma_1day = Real.sma 390 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
 
   (* Entry: relaxed trend filter - just short > long *)
   let in_uptrend = last >. sma_3day in
@@ -1020,7 +1020,7 @@ let tech_dip_buy_v3 : Gadt_strategy.t =
       (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
       ||. mfi_spike
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score +. trend_strength;
     max_positions = 2;
     position_size = 0.5;
@@ -1032,9 +1032,9 @@ let tech_dip_buy_v3 : Gadt_strategy.t =
     Remove it - only exit on stop, profit target, or max hold.
     3% stop, 10% profit target. *)
 let tech_dip_buy_v4 : Gadt_strategy.t =
-  let sma_1day = Real.sma 390 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
+  let sma_1day = Real.sma 390 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1053,7 +1053,7 @@ let tech_dip_buy_v4 : Gadt_strategy.t =
     sell_trigger =
       (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score +. trend_strength;
     max_positions = 2;
     position_size = 0.5;
@@ -1076,11 +1076,11 @@ let tech_dip_buy_v4 : Gadt_strategy.t =
 
     Best result so far. Goal: >0.1 Sharpe in 5/6 periods. *)
 let tech_dip_buy_v5 : Gadt_strategy.t =
-  let sma_1day = Real.sma 390 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
+  let sma_1day = Real.sma 390 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
   (* Daily MFI for exit *)
-  let mfi_daily = Real.mfi 390 () in
+  let mfi_daily = Real.mfi 390 in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1099,7 +1099,7 @@ let tech_dip_buy_v5 : Gadt_strategy.t =
     sell_trigger =
       momentum_exhausted
       ||. hard_stop
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score +. trend_strength;
     max_positions = 2;
     position_size = 0.5;
@@ -1111,9 +1111,9 @@ let tech_dip_buy_v5 : Gadt_strategy.t =
     Match stop to target: 2% stop, 2% profit.
     Quick in/out - don't wait for home runs. *)
 let tech_dip_buy_v6 : Gadt_strategy.t =
-  let sma_1day = Real.sma 390 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
+  let sma_1day = Real.sma 390 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1132,7 +1132,7 @@ let tech_dip_buy_v6 : Gadt_strategy.t =
     sell_trigger =
       (last <. EntryPrice *. stop_mult)
       ||. (last >. EntryPrice *. profit_mult)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (390, Int));  (* 1 day max *)
+      ||. max_holding_time 390;  (* 1 day max *)
     score = base_score +. trend_strength;
     max_positions = 2;
     position_size = 0.5;
@@ -1142,10 +1142,10 @@ let tech_dip_buy_v6 : Gadt_strategy.t =
 
     Testing if tighter stop improves risk-adjusted returns. *)
 let tech_dip_buy_v7 : Gadt_strategy.t =
-  let sma_1day = Real.sma 390 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
-  let mfi_daily = Real.mfi 390 () in
+  let sma_1day = Real.sma 390 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
+  let mfi_daily = Real.mfi 390 in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1163,7 +1163,7 @@ let tech_dip_buy_v7 : Gadt_strategy.t =
     sell_trigger =
       momentum_exhausted
       ||. hard_stop
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score +. trend_strength;
     max_positions = 2;
     position_size = 0.5;
@@ -1173,10 +1173,10 @@ let tech_dip_buy_v7 : Gadt_strategy.t =
 
     Testing if exiting earlier on momentum preserves more gains. *)
 let tech_dip_buy_v8 : Gadt_strategy.t =
-  let sma_1day = Real.sma 390 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
-  let mfi_daily = Real.mfi 390 () in
+  let sma_1day = Real.sma 390 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
+  let mfi_daily = Real.mfi 390 in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1194,7 +1194,7 @@ let tech_dip_buy_v8 : Gadt_strategy.t =
     sell_trigger =
       momentum_exhausted
       ||. hard_stop
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score +. trend_strength;
     max_positions = 2;
     position_size = 0.5;
@@ -1204,10 +1204,10 @@ let tech_dip_buy_v8 : Gadt_strategy.t =
 
     Testing if longer MFI period lets winners run even more. *)
 let tech_dip_buy_v9 : Gadt_strategy.t =
-  let sma_1day = Real.sma 390 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
-  let mfi_2day = Real.mfi 780 () in
+  let sma_1day = Real.sma 390 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
+  let mfi_2day = Real.mfi 780 in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1225,7 +1225,7 @@ let tech_dip_buy_v9 : Gadt_strategy.t =
     sell_trigger =
       momentum_exhausted
       ||. hard_stop
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score +. trend_strength;
     max_positions = 2;
     position_size = 0.5;
@@ -1240,11 +1240,11 @@ let tech_dip_buy_v9 : Gadt_strategy.t =
     Exit: daily MFI > 70 OR smoothed price stop OR max hold *)
 let tech_dip_buy_v10 : Gadt_strategy.t =
   (* Smoothed price - 5 bar SMA *)
-  let price_smoothed = Real.sma 5 () in
-  let sma_1day = Real.sma 390 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
-  let mfi_daily = Real.mfi 390 () in
+  let price_smoothed = Real.sma 5 in
+  let sma_1day = Real.sma 390 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
+  let mfi_daily = Real.mfi 390 in
 
   (* All price comparisons use smoothed price *)
   let in_uptrend = price_smoothed >. sma_3day in
@@ -1263,7 +1263,7 @@ let tech_dip_buy_v10 : Gadt_strategy.t =
     sell_trigger =
       momentum_exhausted
       ||. hard_stop
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score +. trend_strength;
     max_positions = 2;
     position_size = 0.5;
@@ -1294,11 +1294,11 @@ let tech_dip_buy_v10 : Gadt_strategy.t =
     Still underperforms Buy & Hold Tech (0.609 Sharpe, 17.86% return, 100% consistency)
     but this is the best active strategy we've found for tech stocks. *)
 let tech_dip_buy_v11 : Gadt_strategy.t =
-  let price_smoothed = Real.sma 5 () in
-  let sma_1day = Real.sma 390 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
-  let mfi_daily = Real.mfi 390 () in
+  let price_smoothed = Real.sma 5 in
+  let sma_1day = Real.sma 390 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
+  let mfi_daily = Real.mfi 390 in
 
   let in_uptrend = price_smoothed >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1316,7 +1316,7 @@ let tech_dip_buy_v11 : Gadt_strategy.t =
     sell_trigger =
       momentum_exhausted
       ||. hard_stop
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score +. trend_strength;
     max_positions = 2;
     position_size = 0.5;
@@ -1326,10 +1326,10 @@ let tech_dip_buy_v11 : Gadt_strategy.t =
 
     Only require price > SMA(1170), drop the SMA(390) > SMA(1170) filter. *)
 let tech_dip_buy_v12 : Gadt_strategy.t =
-  let price_smoothed = Real.sma 5 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
-  let mfi_daily = Real.mfi 390 () in
+  let price_smoothed = Real.sma 5 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
+  let mfi_daily = Real.mfi 390 in
 
   let in_uptrend = price_smoothed >. sma_3day in
   (* No SMA stacking requirement *)
@@ -1346,7 +1346,7 @@ let tech_dip_buy_v12 : Gadt_strategy.t =
     sell_trigger =
       momentum_exhausted
       ||. hard_stop
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score;
     max_positions = 2;
     position_size = 0.5;
@@ -1356,10 +1356,10 @@ let tech_dip_buy_v12 : Gadt_strategy.t =
 
     Combines V11 and V12 for maximum trade generation. *)
 let tech_dip_buy_v13 : Gadt_strategy.t =
-  let price_smoothed = Real.sma 5 () in
-  let sma_3day = Real.sma 1170 () in
-  let mfi_30 = Real.mfi 30 () in
-  let mfi_daily = Real.mfi 390 () in
+  let price_smoothed = Real.sma 5 in
+  let sma_3day = Real.sma 1170 in
+  let mfi_30 = Real.mfi 30 in
+  let mfi_daily = Real.mfi 390 in
 
   let in_uptrend = price_smoothed >. sma_3day in
   let dip = mfi_30 <. Const (40.0, Float) in  (* Looser *)
@@ -1375,7 +1375,7 @@ let tech_dip_buy_v13 : Gadt_strategy.t =
     sell_trigger =
       momentum_exhausted
       ||. hard_stop
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (1170, Int));
+      ||. max_holding_time 1170;
     score = base_score;
     max_positions = 2;
     position_size = 0.5;
@@ -1390,7 +1390,7 @@ let tech_dip_buy_v13 : Gadt_strategy.t =
     RESULT: 0% consistency, -23% avg return. Perfectly wrong!
     Mean reversion doesn't work on SPY - momentum does. *)
 let spy_mfi_simple : Gadt_strategy.t =
-  let mfi_15 = Real.mfi 15 () in
+  let mfi_15 = Real.mfi 15 in
 
   let oversold = mfi_15 <. Const (30.0, Float) in
   let overbought = mfi_15 >. Const (70.0, Float) in
@@ -1419,8 +1419,8 @@ let spy_mfi_simple : Gadt_strategy.t =
 
     Simple and elegant - buy dips below long SMA, sell pops above short SMA. *)
 let spy_sma_a : Gadt_strategy.t =
-  let buy_sma = Real.sma 550 () in
-  let sell_sma = Real.sma 83 () in
+  let buy_sma = Real.sma 550 in
+  let sell_sma = Real.sma 83 in
 
   {
     name = "SPY_SMA_A";
@@ -1495,7 +1495,7 @@ let spy_mfi_opt : Gadt_strategy.t =
 
     Opposite of SPY_MFI_Simple which was 0% consistent. *)
 let spy_mfi_flipped : Gadt_strategy.t =
-  let mfi_15 = Real.mfi 15 () in
+  let mfi_15 = Real.mfi 15 in
 
   let strong = mfi_15 >. Const (70.0, Float) in
   let weak = mfi_15 <. Const (30.0, Float) in

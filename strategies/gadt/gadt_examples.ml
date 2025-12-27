@@ -26,7 +26,7 @@ let stupid =
     buy_trigger =
       close
       >. Const (100.0, Float)
-      &&. (Gadt_fo.Constant.rsi 18 () >. Const (40.0, Float));
+      &&. (Gadt_fo.Constant.rsi 18 >. Const (40.0, Float));
     sell_trigger = close <. Const (100.0, Float);
     score = Const (1.0, Float);
     (* Simple test strategy - all equal *)
@@ -53,15 +53,16 @@ let dual_sma_rsi =
   }
 
 module Real = Gadt_fo.Constant
+module Ind = Gadt_fo.Indicator
 
 let golden_cross_1 =
   (* Classic moving average crossover strategy *)
   {
     name = "GCONST";
     (* Buy when fast EMA crosses above slow SMA *)
-    buy_trigger = cross_up (Real.ema 50 ()) (Real.sma 57 ());
+    buy_trigger = cross_up (Real.ema 50) (Real.sma 57);
     (* Sell when fast EMA crosses below slow SMA *)
-    sell_trigger = cross_down (Real.ema 60 ()) (Real.sma 58 ());
+    sell_trigger = cross_down (Real.ema 60) (Real.sma 58);
     score = Const (1.0, Float);
     (* Simple crossover - all signals equal *)
     max_positions = 1;
@@ -70,9 +71,9 @@ let golden_cross_1 =
 
 let smarsi0 =
   (* Dual SMA + RSI *)
-  let sma = Real.sma 10 () in
-  let tema = Real.tema 8 () in
-  let rsi = Real.rsi 4 () in
+  let sma = Real.sma 10 in
+  let tema = Real.tema 8 in
+  let rsi = Real.rsi 4 in
   {
     name = "SMARSI0";
     (* Buy when fast SMA > slow SMA and RSI < 30 (oversold) *)
@@ -87,9 +88,9 @@ let smarsi0 =
 
 let smarsi1 =
   (* Dual SMA + RSI *)
-  let sma = Real.sma 12 () in
-  let tema = Real.tema 13 () in
-  let rsi = Real.rsi 7 () in
+  let sma = Real.sma 12 in
+  let tema = Real.tema 13 in
+  let rsi = Real.rsi 7 in
   {
     name = "SMARSI1";
     (* Buy when fast SMA > slow SMA and RSI < 30 (oversold) *)
@@ -119,8 +120,8 @@ let golden_cross =
 
 let golden_cross_0 =
   (* Classic moving average crossover strategy *)
-  let ema = Real.ema 58 () in
-  let sma = Real.sma 36 () in
+  let ema = Real.ema 58 in
+  let sma = Real.sma 36 in
 
   {
     name = "GoldenCrossSa";
@@ -136,8 +137,8 @@ let golden_cross_0 =
 
 let plurple =
   (* Classic moving average crossover strategy *)
-  let ema = Real.ema 58 () in
-  let sma = Real.sma 36 () in
+  let ema = Real.ema 58 in
+  let sma = Real.sma 36 in
 
   {
     name = "Pflurple";
@@ -153,8 +154,8 @@ let plurple =
 
 let pflurple_kelly =
   (* Improved Pflurple using Kelly-inspired position sizing *)
-  let ema = Real.ema 58 () in
-  let sma = Real.sma 36 () in
+  let ema = Real.ema 58 in
+  let sma = Real.sma 36 in
 
   {
     name = "PflurpleKelly";
@@ -172,8 +173,8 @@ let pflurple_kelly =
 
 let pflurple_conservative =
   (* Conservative version with proper risk management *)
-  let ema = Real.ema 58 () in
-  let sma = Real.sma 36 () in
+  let ema = Real.ema 58 in
+  let sma = Real.sma 36 in
 
   {
     name = "PflurpleConservative";
@@ -191,15 +192,15 @@ let pflurple_conservative =
 
 let pflurple_enhanced =
   (* Enhanced version with momentum filter *)
-  let ema = Real.ema 58 () in
-  let sma = Real.sma 36 () in
+  let ema = Real.ema 58 in
+  let sma = Real.sma 36 in
 
   {
     name = "PflurpleEnhanced";
     (* Buy when EMA crosses SMA AND momentum is positive *)
-    buy_trigger = cross_up ema sma &&. (Real.mom 10 () >. Const (0.0, Float));
+    buy_trigger = cross_up ema sma &&. (Real.mom 10 >. Const (0.0, Float));
     (* Sell when EMA crosses below SMA OR momentum turns negative *)
-    sell_trigger = cross_down ema sma ||. (Real.mom 10 () <. Const (-1.0, Float));
+    sell_trigger = cross_down ema sma ||. (Real.mom 10 <. Const (-1.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 12;
@@ -213,10 +214,10 @@ let mean_reversion_lag =
     name = "MeanReversionlag";
     (* Buy when current price is below lagged price by significant margin and RSI oversold *)
     buy_trigger =
-      close <. lag close 5 &&. (Real.rsi 14 () <. Const (25.0, Float));
+      close <. lag close 5 &&. (Real.rsi 14 <. Const (25.0, Float));
     (* Sell when current price recovers above lagged SMA or RSI overbought *)
     sell_trigger =
-      close >. lag (Real.sma 20 ()) 3 ||. (Real.rsi 14 () >. Const (75.0, Float));
+      close >. lag (Real.sma 20) 3 ||. (Real.rsi 14 >. Const (75.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 3;
@@ -230,13 +231,13 @@ let bollinger_breakout =
     (* Buy when price breaks above upper band and momentum is positive *)
     buy_trigger =
       close
-      >. Real.upper_bband 20 2.0 2.0 ()
-      &&. (Real.mom 10 () >. Const (0.0, Float));
+      >. Real.upper_bband 20 2.0 2.0
+      &&. (Real.mom 10 >. Const (0.0, Float));
     (* Sell when price falls back to middle band or momentum turns negative *)
     sell_trigger =
       close
-      <. Real.middle_bband 20 2.0 2.0 ()
-      ||. (Real.mom 10 () <. Const (-1.0, Float));
+      <. Real.middle_bband 20 2.0 2.0
+      ||. (Real.mom 10 <. Const (-1.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 2;
@@ -249,13 +250,13 @@ let triple_crossover =
     name = "TripleCross";
     (* Buy when fast > medium > slow MA and volume above average *)
     buy_trigger =
-      Real.ema 12 () >. Real.sma 26 ()
-      &&. (Real.sma 26 () >. Real.tema 50 ())
+      Real.ema 12 >. Real.sma 26
+      &&. (Real.sma 26 >. Real.tema 50)
       &&. (volume >. lag volume 10);
     (* Sell when any MA order breaks or volume dries up *)
     sell_trigger =
-      Real.ema 12 () <. Real.sma 26 ()
-      ||. (Real.sma 26 () <. Real.tema 50 ())
+      Real.ema 12 <. Real.sma 26
+      ||. (Real.sma 26 <. Real.tema 50)
       ||. (volume <. lag volume 20);
     score = Const (1.0, Float);
     (* Default score *)
@@ -270,12 +271,12 @@ let momentum_divergence =
     (* Buy when price makes new low but momentum is improving (divergence) *)
     buy_trigger =
       close <. lag close 5
-      &&. (Real.mom 10 () >. lag (Real.mom 10 ()) 5)
-      &&. (Real.rsi 14 () <. Const (40.0, Float));
+      &&. (Real.mom 10 >. lag (Real.mom 10) 5)
+      &&. (Real.rsi 14 <. Const (40.0, Float));
     (* Sell when momentum peaks or price recovers strongly *)
     sell_trigger =
-      Real.mom 10 ()
-      <. lag (Real.mom 10 ()) 2
+      Real.mom 10
+      <. lag (Real.mom 10) 2
       ||. (close >. lag close 10 +. Const (2.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
@@ -288,9 +289,9 @@ let adaptive_channels =
   {
     name = "AdaptiveChannels";
     (* Buy when price breaks above SMA + ATR channel *)
-    buy_trigger = close >. Real.sma 20 () +. Real.atr 14 ();
+    buy_trigger = close >. Real.sma 20 +. Real.atr 14;
     (* Sell when price breaks below SMA - ATR channel *)
-    sell_trigger = close <. Real.sma 20 () -. Real.atr 14 ();
+    sell_trigger = close <. Real.sma 20 -. Real.atr 14;
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 1;
@@ -304,11 +305,11 @@ let contrarian_spike =
     (* Buy when price spikes down significantly from recent average *)
     buy_trigger =
       close
-      <. lag (Real.sma 20 ()) 3 *. Const (0.95, Float)
-      &&. (Real.rsi 14 () <. Const (20.0, Float));
+      <. lag (Real.sma 20) 3 *. Const (0.95, Float)
+      &&. (Real.rsi 14 <. Const (20.0, Float));
     (* Sell when price recovers to normal levels or gets overbought *)
     sell_trigger =
-      close >. lag (Real.sma 20 ()) 1 ||. (Real.rsi 14 () >. Const (80.0, Float));
+      close >. lag (Real.sma 20) 1 ||. (Real.rsi 14 >. Const (80.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 4;
@@ -321,11 +322,11 @@ let rsi_divergence_crossover =
     name = "RSI(/.)Cross";
     (* Buy when RSI crosses above 30 and EMA crosses above SMA *)
     buy_trigger =
-      cross_up (Real.rsi 14 ()) (Const (30.0, Float))
+      cross_up (Real.rsi 14) (Const (30.0, Float))
       &&. cross_up (Gadt_fo.Variable.ema ()) (Gadt_fo.Variable.sma ());
     (* Sell when RSI crosses below 70 or EMA crosses below SMA *)
     sell_trigger =
-      cross_down (Real.rsi 14 ()) (Const (70.0, Float))
+      cross_down (Real.rsi 14) (Const (70.0, Float))
       ||. cross_down (Gadt_fo.Variable.ema ()) (Gadt_fo.Variable.sma ());
     score = Const (1.0, Float);
     (* Default score *)
@@ -339,15 +340,15 @@ let macd_momentum_lag =
     name = "MACDMomlag";
     (* Buy when MACD > signal momentum positive and price > 5-period lag *)
     buy_trigger =
-      Real.macd_macd 12 26 9 ()
-      >. Real.macd_signal 12 26 9 ()
-      &&. (Real.mom 10 () >. Const (0.0, Float))
+      Real.macd_macd 12 26 9
+      >. Real.macd_signal 12 26 9
+      &&. (Real.mom 10 >. Const (0.0, Float))
       &&. (close >. lag close 5);
     (* Sell when MACD < signal or price drops below 3-period lag SMA *)
     sell_trigger =
-      Real.macd_macd 12 26 9 ()
-      <. Real.macd_signal 12 26 9 ()
-      ||. (close <. lag (Real.sma 20 ()) 3);
+      Real.macd_macd 12 26 9
+      <. Real.macd_signal 12 26 9
+      ||. (close <. lag (Real.sma 20) 3);
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 1;
@@ -360,11 +361,11 @@ let stochastic_crossover_volume =
     name = "StochCrossVol";
     (* Buy when slow %K crosses above slow %D and volume > 10-period average *)
     buy_trigger =
-      cross_up (Real.stoch_slow_k 14 3 3 ()) (Real.stoch_slow_d 14 3 3 ())
-      &&. (volume >. lag (Real.sma 10 ()) 10);
+      cross_up (Real.stoch_slow_k 14 3 3) (Real.stoch_slow_d 14 3 3)
+      &&. (volume >. lag (Real.sma 10) 10);
     (* Sell when slow %K crosses below slow %D or volume dries up *)
     sell_trigger =
-      cross_down (Real.stoch_slow_k 14 3 3 ()) (Real.stoch_slow_d 14 3 3 ())
+      cross_down (Real.stoch_slow_k 14 3 3) (Real.stoch_slow_d 14 3 3)
       ||. (volume <. lag volume 20 /. Const (2.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
@@ -378,13 +379,13 @@ let williams_r_reversal =
     name = "WillRReversal";
     (* Buy when Williams %R oversold and price below lagged low *)
     buy_trigger =
-      Real.willr 14 ()
+      Real.willr 14
       <. Const (-80.0, Float)
       &&. (close <. lag low 3)
-      &&. (Real.rsi 14 () <. Const (35.0, Float));
+      &&. (Real.rsi 14 <. Const (35.0, Float));
     (* Sell when Williams %R overbought or price above lagged high *)
     sell_trigger =
-      Real.willr 14 () >. Const (-20.0, Float) ||. (close >. lag high 2);
+      Real.willr 14 >. Const (-20.0, Float) ||. (close >. lag high 2);
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 2;
@@ -397,14 +398,14 @@ let triple_ema_crossover =
     name = "TripleEMA";
     (* Buy when fast EMA > medium EMA > slow EMA (all aligned) *)
     buy_trigger =
-      Real.ema 12 () >. Real.tema 26 ()
-      &&. (Real.tema 26 () >. Real.dema 50 ())
-      &&. cross_up (Real.ema 12 ()) (Real.tema 26 ());
+      Real.ema 12 >. Real.tema 26
+      &&. (Real.tema 26 >. Real.dema 50)
+      &&. cross_up (Real.ema 12) (Real.tema 26);
     (* Sell when any EMA alignment breaks *)
     sell_trigger =
-      Real.ema 12 () <. Real.tema 26 ()
-      ||. (Real.tema 26 () <. Real.dema 50 ())
-      ||. cross_down (Real.ema 12 ()) (Real.tema 26 ());
+      Real.ema 12 <. Real.tema 26
+      ||. (Real.tema 26 <. Real.dema 50)
+      ||. cross_down (Real.ema 12) (Real.tema 26);
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 1;
@@ -417,15 +418,15 @@ let cci_overbought_oversold =
     name = "CCIMomentum";
     (* Buy when CCI oversold and momentum turning positive *)
     buy_trigger =
-      Real.cci 14 ()
+      Real.cci 14
       <. Const (-100.0, Float)
-      &&. cross_up (Real.mom 10 ()) (Const (0.0, Float))
+      &&. cross_up (Real.mom 10) (Const (0.0, Float))
       &&. (close >. lag close 2);
     (* Sell when CCI overbought or momentum turning negative *)
     sell_trigger =
-      Real.cci 14 ()
+      Real.cci 14
       >. Const (100.0, Float)
-      ||. cross_down (Real.mom 10 ()) (Const (0.0, Float));
+      ||. cross_down (Real.mom 10) (Const (0.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 2;
@@ -438,13 +439,13 @@ let aroon_trend_following =
     name = "AroonTrend";
     (* Buy when Aroon Up > Aroon Down and oscillator > 50 *)
     buy_trigger =
-      Real.aroon_up 14 () >. Real.aroon_down 14 ()
-      &&. (Real.aroon_osc 14 () >. Const (50.0, Float))
+      Real.aroon_up 14 >. Real.aroon_down 14
+      &&. (Real.aroon_osc 14 >. Const (50.0, Float))
       &&. (volume >. lag volume 5);
     (* Sell when Aroon Down > Aroon Up or oscillator < -50 *)
     sell_trigger =
-      Real.aroon_down 14 () >. Real.aroon_up 14 ()
-      ||. (Real.aroon_osc 14 () <. Const (-50.0, Float));
+      Real.aroon_down 14 >. Real.aroon_up 14
+      ||. (Real.aroon_osc 14 <. Const (-50.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 1;
@@ -457,13 +458,13 @@ let parabolic_sar_trend =
     name = "ParabolicSARTrend";
     (* Buy when price crosses above SAR and is above 5-period high *)
     buy_trigger =
-      cross_up close (Real.sar 0.02 0.2 ())
+      cross_up close (Real.sar 0.02 0.2)
       &&. (close >. lag high 5)
-      &&. (Real.adx 14 () >. Const (25.0, Float));
+      &&. (Real.adx 14 >. Const (25.0, Float));
     (* Sell when price crosses below SAR *)
     sell_trigger =
-      cross_down close (Real.sar 0.02 0.2 ())
-      ||. (Real.adx 14 () <. Const (20.0, Float));
+      cross_down close (Real.sar 0.02 0.2)
+      ||. (Real.adx 14 <. Const (20.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 1;
@@ -476,15 +477,15 @@ let multi_timeframe_rsi =
     name = "MultiTimeframeRSI";
     (* Buy when short-term RSI oversold but long-term trend up *)
     buy_trigger =
-      Real.rsi 14 ()
+      Real.rsi 14
       <. Const (30.0, Float)
-      &&. (lag (Real.rsi 14 ()) 10 >. lag (Real.rsi 14 ()) 20)
-      &&. (close >. lag (Real.sma 20 ()) 20);
+      &&. (lag (Real.rsi 14) 10 >. lag (Real.rsi 14) 20)
+      &&. (close >. lag (Real.sma 20) 20);
     (* Sell when RSI overbought or long-term trend turns down *)
     sell_trigger =
-      Real.rsi 14 ()
+      Real.rsi 14
       >. Const (70.0, Float)
-      ||. (lag (Real.rsi 14 ()) 5 <. lag (Real.rsi 14 ()) 15);
+      ||. (lag (Real.rsi 14) 5 <. lag (Real.rsi 14) 15);
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 3;
@@ -497,13 +498,13 @@ let roc_momentum_cross =
     name = "ROCMomentumCross";
     (* Buy when short ROC crosses above long ROC and both positive *)
     buy_trigger =
-      cross_up (Real.roc 10 ()) (lag (Real.roc 10 ()) 5)
-      &&. (Real.roc 10 () >. Const (0.0, Float))
-      &&. (lag (Real.roc 10 ()) 5 >. Const (0.0, Float));
+      cross_up (Real.roc 10) (lag (Real.roc 10) 5)
+      &&. (Real.roc 10 >. Const (0.0, Float))
+      &&. (lag (Real.roc 10) 5 >. Const (0.0, Float));
     (* Sell when short ROC crosses below long ROC *)
     sell_trigger =
-      cross_down (Real.roc 10 ()) (lag (Real.roc 10 ()) 5)
-      ||. (Real.roc 10 () <. Const (-2.0, Float));
+      cross_down (Real.roc 10) (lag (Real.roc 10) 5)
+      ||. (Real.roc 10 <. Const (-2.0, Float));
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 2;
@@ -549,10 +550,10 @@ let always_trading =
     - Max positions: 10 (diversification across mean-reverting stocks)
     - Position size: 10% (allows full deployment across 10 stocks) *)
 let mean_reversion_1min =
-  let rsi_2 = Real.rsi 2 () in
-  let bb_lower = Real.lower_bband 20 2.0 2.0 () in
-  let bb_middle = Real.middle_bband 20 2.0 2.0 () in
-  let bb_upper = Real.upper_bband 20 2.0 2.0 () in
+  let rsi_2 = Real.rsi 2 in
+  let bb_lower = Real.lower_bband 20 2.0 2.0 in
+  let bb_middle = Real.middle_bband 20 2.0 2.0 in
+  let bb_upper = Real.upper_bband 20 2.0 2.0 in
 
   {
     name = "MeanReversion1Min";
@@ -602,45 +603,15 @@ let mean_reversion_opt =
   (* Variable: BB period (10-30) *)
 
   (* Create indicators with mixed variable/constant parameters *)
-  let rsi_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var) ))
-  in
+  let rsi_var = Ind.rsi rsi_period_var in
   let bb_lower_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               (* Fixed: std dev multiplier *)
-               Const (2.0, Float) ) ))
-    (* Fixed: deviation *)
+    Ind.lower_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
   let bb_middle_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period_var,
-               (* Same period variable reused *)
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.middle_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
   let bb_upper_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
-               bb_period_var,
-               (* Same period variable reused *)
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.upper_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
 
   {
@@ -674,10 +645,10 @@ let mean_reversion_opt =
     Entry: RSI(8) < 30 AND Last < BB_lower(27, 2σ) Exit: Last > BB_middle OR
     RSI(8) > 70 OR Last > BB_upper *)
 let mean_reversion_8_27 =
-  let rsi_8 = Real.rsi 8 () in
-  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
-  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
-  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  let rsi_8 = Real.rsi 8 in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 in
 
   {
     name = "MeanReversion_8_27";
@@ -703,10 +674,10 @@ let mean_reversion_8_27 =
     Entry: RSI(8) < 30 AND Last < BB_lower(27, 2σ) Exit: Original signals OR
     stop-loss OR profit target OR max hold time *)
 let mean_reversion_8_27_safe =
-  let rsi_8 = Real.rsi 8 () in
-  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
-  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
-  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  let rsi_8 = Real.rsi 8 in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 in
 
   {
     name = "MeanReversion_8_27_Safe";
@@ -759,43 +730,15 @@ let mean_reversion_safe_opt =
   (* Variable 4: RSI overbought threshold *)
 
   (* Create indicators with variable parameters *)
-  let rsi_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var) ))
-  in
+  let rsi_var = Ind.rsi rsi_period_var in
   let bb_lower_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               (* Fixed: std dev multiplier *)
-               Const (2.0, Float) ) ))
-    (* Fixed: deviation *)
+    Ind.lower_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
   let bb_middle_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.middle_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
   let bb_upper_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.upper_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
 
   {
@@ -853,10 +796,10 @@ let mean_reversion_safe_opt =
     - RSI sell threshold: 51.43 (optimized from range 50-80)
     - BB period: 27 (optimized from range 15-35) *)
 let rocket_reef =
-  let rsi_53 = Real.rsi 53 () in
-  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
-  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
-  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  let rsi_53 = Real.rsi 53 in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 in
 
   {
     name = "RocketReef";
@@ -884,10 +827,10 @@ let rocket_reef =
     RocketReef adapted for intraday trading with no overnight positions. Avoids
     the closing auction volatility window (last 10 minutes). *)
 let rocket_reef_day_only =
-  let rsi_53 = Real.rsi 53 () in
-  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 () in
-  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 () in
-  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 () in
+  let rsi_53 = Real.rsi 53 in
+  let bb_lower_27 = Real.lower_bband 27 2.0 2.0 in
+  let bb_middle_27 = Real.middle_bband 27 2.0 2.0 in
+  let bb_upper_27 = Real.upper_bband 27 2.0 2.0 in
 
   {
     name = "RocketReef_DayOnly";
@@ -953,43 +896,17 @@ let rocket_reef_day_only_opt =
   (* Variable 7 *)
 
   (* Create RSI indicator with variable period *)
-  let rsi_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var) ))
-  in
+  let rsi_var = Ind.rsi rsi_period_var in
 
   (* Create Bollinger Band indicators with variable period *)
   let bb_lower_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.lower_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
   let bb_middle_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.middle_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
   let bb_upper_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.upper_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
 
   (* Variable risk management *)
@@ -1000,7 +917,7 @@ let rocket_reef_day_only_opt =
     last >. EntryPrice *. (Const (1.0, Float) +. profit_target_var)
   in
   let max_hold_var_risk =
-    App2 (Fun (">", ( > )), TicksHeld, max_hold_ticks_var)
+    max_holding_time_expr max_hold_ticks_var
   in
 
   {
@@ -1062,56 +979,22 @@ let rocket_reef_stoch_opt =
   (* Variable 5: Stochastic oversold threshold *)
 
   (* Create RSI indicator with variable period *)
-  let rsi_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period_var) ))
-  in
+  let rsi_var = Ind.rsi rsi_period_var in
 
   (* Create Bollinger Band indicators with variable period *)
   let bb_lower_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               (* Fixed: std dev multiplier *)
-               Const (2.0, Float) ) ))
-    (* Fixed: deviation *)
+    Ind.lower_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
   let bb_middle_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.middle_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
   let bb_upper_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.upper_bband", Tacaml.Indicator.Raw.upper_bband),
-               bb_period_var,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.upper_bband bb_period_var (Const (2.0, Float)) (Const (2.0, Float))
   in
 
   (* Create Fast Stochastic indicator with variable periods *)
   let stoch_fast_k_var =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App2
-             ( Fun ("I.stoch_f_fast_k", Tacaml.Indicator.Raw.stoch_f_fast_k),
-               stoch_fastk_period_var,
-               stoch_fastd_period_var ) ))
+    Ind.stoch_f_fast_k stoch_fastk_period_var stoch_fastd_period_var
   in
 
   {
@@ -1164,44 +1047,11 @@ let stochness =
   let stoch_threshold = 5.108469 in
 
   (* Create indicators *)
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const (Tacaml.Indicator.Raw.rsi rsi_period, Tacaml) ))
-  in
-
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const (Tacaml.Indicator.Raw.lower_bband bb_period 2.0 2.0, Tacaml) ))
-  in
-
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const (Tacaml.Indicator.Raw.middle_bband bb_period 2.0 2.0, Tacaml)
-         ))
-  in
-
-  let bb_upper =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const (Tacaml.Indicator.Raw.upper_bband bb_period 2.0 2.0, Tacaml) ))
-  in
-
-  let stoch_fast_k =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const
-             ( Tacaml.Indicator.Raw.stoch_f_fast_k stoch_fastk_period
-                 stoch_fastd_period,
-               Tacaml ) ))
-  in
+  let rsi = Real.rsi rsi_period in
+  let bb_lower = Real.lower_bband bb_period 2.0 2.0 in
+  let bb_middle = Real.middle_bband bb_period 2.0 2.0 in
+  let bb_upper = Real.upper_bband bb_period 2.0 2.0 in
+  let stoch_fast_k = Real.stoch_f_fast_k stoch_fastk_period stoch_fastd_period in
 
   {
     name = "Stochness";
@@ -1253,48 +1103,11 @@ let stochness_monster =
   (* Medium BB for exits *)
 
   (* Create indicators *)
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const (Tacaml.Indicator.Raw.rsi rsi_period, Tacaml) ))
-  in
-
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const (Tacaml.Indicator.Raw.lower_bband bb_period_buy 2.0 2.0, Tacaml)
-         ))
-  in
-
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const
-             (Tacaml.Indicator.Raw.middle_bband bb_period_sell 2.0 2.0, Tacaml)
-         ))
-  in
-
-  let bb_upper =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const
-             (Tacaml.Indicator.Raw.upper_bband bb_period_sell 2.0 2.0, Tacaml)
-         ))
-  in
-
-  let stoch_fast_k =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const
-             ( Tacaml.Indicator.Raw.stoch_f_fast_k stoch_fastk_period
-                 stoch_fastd_period,
-               Tacaml ) ))
-  in
+  let rsi = Real.rsi rsi_period in
+  let bb_lower = Real.lower_bband bb_period_buy 2.0 2.0 in
+  let bb_middle = Real.middle_bband bb_period_sell 2.0 2.0 in
+  let bb_upper = Real.upper_bband bb_period_sell 2.0 2.0 in
+  let stoch_fast_k = Real.stoch_f_fast_k stoch_fastk_period stoch_fastd_period in
 
   {
     name = "StochnessMonster";
@@ -1329,10 +1142,10 @@ let stochness_monster =
 
     Intraday-only with 10-minute close buffer. *)
 let rr1_0 =
-  let rsi = Real.rsi 25 () in
-  let bb_lower = Real.lower_bband 45 2.0 2.0 () in
-  let bb_middle = Real.middle_bband 45 2.0 2.0 () in
-  let bb_upper = Real.upper_bband 45 2.0 2.0 () in
+  let rsi = Real.rsi 25 in
+  let bb_lower = Real.lower_bband 45 2.0 2.0 in
+  let bb_middle = Real.middle_bband 45 2.0 2.0 in
+  let bb_upper = Real.upper_bband 45 2.0 2.0 in
   {
     name = "RR1.0";
     buy_trigger =
@@ -1347,7 +1160,7 @@ let rr1_0 =
           (* 40.3% stop loss *)
       ||. (last >. EntryPrice *. Const (1.37123664, Float))
           (* 37.1% profit target *)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (58, Int));
+      ||. max_holding_time 58;
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 10;
@@ -1373,10 +1186,10 @@ let rr1_0 =
 
     Intraday-only with 10-minute close buffer. *)
 let deep_reef =
-  let rsi = Real.rsi 95 () in
-  let bb_lower = Real.lower_bband 41 2.0 2.0 () in
-  let bb_middle = Real.middle_bband 41 2.0 2.0 () in
-  let bb_upper = Real.upper_bband 41 2.0 2.0 () in
+  let rsi = Real.rsi 95 in
+  let bb_lower = Real.lower_bband 41 2.0 2.0 in
+  let bb_middle = Real.middle_bband 41 2.0 2.0 in
+  let bb_upper = Real.upper_bband 41 2.0 2.0 in
   {
     name = "DeepReef";
     buy_trigger =
@@ -1391,7 +1204,7 @@ let deep_reef =
           <. EntryPrice -. (Const (1.0, Float) *. Const (51.904005, Float)))
       ||. (last
           >. EntryPrice +. (Const (1.0, Float) *. Const (82.403944, Float)))
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (55, Int));
+      ||. max_holding_time 55;
     score = Const (1.0, Float);
     (* Default score *)
     max_positions = 10;
@@ -1451,40 +1264,15 @@ let trend_rider_opt =
   (* Variable 6 *)
 
   (* Create EMA indicators with variable periods *)
-  let fast_ema =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), fast_ema_period) ))
-  in
-  let slow_ema =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), slow_ema_period) ))
-  in
+  let fast_ema = Ind.ema fast_ema_period in
+  let slow_ema = Ind.ema slow_ema_period in
 
   (* Create ADX indicator with variable period *)
-  let adx =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period) ))
-  in
+  let adx = Ind.adx adx_period in
 
   (* MACD indicators with standard periods (12, 26, 9) *)
-  let macd_main =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const (Tacaml.Indicator.Raw.macd_macd 12 26 9, Tacaml) ))
-  in
-  let macd_signal =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           Const (Tacaml.Indicator.Raw.macd_signal 12 26 9, Tacaml) ))
-  in
+  let macd_main = Real.macd_macd 12 26 9 in
+  let macd_signal = Real.macd_signal 12 26 9 in
 
   (* Variable risk management *)
   let stop_loss_var_risk =
@@ -1548,11 +1336,11 @@ let trend_rider_opt =
 *)
 let slow_glide =
   (* Optimized parameters *)
-  let fast_ema_79 = Real.ema 79 () in
-  let slow_ema_90 = Real.ema 90 () in
-  let adx_51 = Real.adx 51 () in
-  let macd_main = Real.macd_macd 12 26 9 () in
-  let macd_signal = Real.macd_signal 12 26 9 () in
+  let fast_ema_79 = Real.ema 79 in
+  let slow_ema_90 = Real.ema 90 in
+  let adx_51 = Real.adx 51 in
+  let macd_main = Real.macd_macd 12 26 9 in
+  let macd_signal = Real.macd_signal 12 26 9 in
 
   {
     name = "SlowGlide";
@@ -1614,10 +1402,10 @@ let slow_glide =
     Performance: 2.6% in 2 weeks (solid for mean reversion) *)
 let quick_snap =
   (* Optimized parameters *)
-  let rsi_11 = Real.rsi 11 () in
-  let bb_lower_51 = Real.lower_bband 51 2.0 2.0 () in
-  let bb_middle_51 = Real.middle_bband 51 2.0 2.0 () in
-  let bb_upper_51 = Real.upper_bband 51 2.0 2.0 () in
+  let rsi_11 = Real.rsi 11 in
+  let bb_lower_51 = Real.lower_bband 51 2.0 2.0 in
+  let bb_middle_51 = Real.middle_bband 51 2.0 2.0 in
+  let bb_upper_51 = Real.upper_bband 51 2.0 2.0 in
 
   {
     name = "QuickSnap";
@@ -1704,39 +1492,15 @@ let professional_mean_rev_opt =
   (* Var 6 *)
 
   (* Create ENTRY indicators *)
-  let entry_rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), entry_rsi_period) ))
-  in
+  let entry_rsi = Ind.rsi entry_rsi_period in
   let entry_bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               entry_bb_period,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.lower_bband entry_bb_period (Const (2.0, Float)) (Const (2.0, Float))
   in
 
   (* Create EXIT indicators - using DIFFERENT period variables *)
-  let exit_rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), exit_rsi_period) ))
-  in
+  let exit_rsi = Ind.rsi exit_rsi_period in
   let exit_bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               exit_bb_period,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
+    Ind.middle_bband exit_bb_period (Const (2.0, Float)) (Const (2.0, Float))
   in
 
   {

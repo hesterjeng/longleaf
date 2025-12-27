@@ -117,14 +117,15 @@ type t = {
   position_size : float;
 }
 
-(* Example: Simple mean reversion strategy *)
+(* Example: Simple mean reversion strategy using gadt_fo helpers *)
 let example_strategy =
-  let mfi = Gadt.Data (App1 (Fun ("mfi", I.mfi), Const (90, Int))) in
-  let bb_lower = ... in
+  let module Real = Gadt_fo.Constant in
+  let mfi = Real.mfi 90 in
+  let bb_lower = Real.lower_bband 20 2.0 2.0 in
   {
     name = "Example";
-    buy_trigger = mfi <. Const (30.0, Float) &&. (last <. bb_lower);
-    sell_trigger = mfi >. Const (50.0, Float) ||. force_exit_eod ();
+    buy_trigger = mfi <. Const (30.0, Float) &&. (last <. bb_lower) &&. safe_to_enter ();
+    sell_trigger = mfi >. Const (50.0, Float) ||. max_holding_time 120 ||. force_exit_eod ();
     score = Const (100.0, Float) -. mfi;
     max_positions = 5;
     position_size = 0.20;
@@ -136,11 +137,12 @@ let example_strategy =
 Strategies can include optimization variables that NLopt tunes:
 
 ```ocaml
-(* Define a variable with bounds *)
+(* Option 1: Create shared variable, use Indicator module *)
 let mfi_period_var = Gadt_fo.var ~lower:50.0 ~upper:200.0 Type.Int
+let mfi = Gadt_fo.Indicator.mfi mfi_period_var
 
-(* Use in indicator - ISRES will optimize this value *)
-let mfi = Gadt.Data (App1 (Fun ("mfi", I.mfi), mfi_period_var))
+(* Option 2: Use Variable module for independent optimization vars *)
+let mfi = Gadt_fo.Variable.mfi ~lower:50.0 ~upper:200.0 ()
 ```
 
 Optimization runs via `Gadt_atomic.opt_atomic` during backtesting.
@@ -174,6 +176,7 @@ let ( =. ) = Gadt.eq
 (* Boolean *)
 let ( &&. ) = Gadt.and_
 let ( ||. ) = Gadt.or_
+let not_ = Gadt.not_           (* Negation *)
 
 (* Arithmetic *)
 let ( +. ) = Gadt.add
@@ -186,9 +189,100 @@ let lag x n = Gadt.lag x n     (* Lagged value *)
 let EntryPrice                 (* Position entry price *)
 let TicksHeld                  (* Bars since entry *)
 
-(* Safety *)
+(* Safety - from Gadt_strategy *)
 let safe_to_enter ()           (* Not near EOD *)
 let force_exit_eod ()          (* Force exit at EOD *)
+```
+
+### Indicator Constructors (gadt_fo.ml) - IMPORTANT
+
+**Always use `Gadt_fo` for technical indicators instead of manually constructing GADT expressions.**
+
+The module provides a 3-tier architecture for indicator construction:
+
+#### 1. Constant Module - Fixed parameter values
+Use for strategies with hardcoded indicator parameters:
+
+```ocaml
+module Real = Gadt_fo.Constant
+
+(* Single-argument indicators *)
+let rsi = Real.rsi 14
+let sma = Real.sma 20
+let ema = Real.ema 50
+let mfi = Real.mfi 90
+let adx = Real.adx 14
+let atr = Real.atr 14
+
+(* Multi-argument indicators *)
+let bb_lower = Real.lower_bband 20 2.0 2.0    (* period, nbdev_up, nbdev_dn *)
+let bb_upper = Real.upper_bband 20 2.0 2.0
+let macd = Real.macd_macd 12 26 9             (* fast, slow, signal *)
+let stoch_k = Real.stoch_slow_k 14 3 3        (* fast_k, slow_k, slow_d *)
+```
+
+#### 2. Indicator Module - Expression-based parameters
+Use when sharing variables between indicators or passing complex expressions:
+
+```ocaml
+module Ind = Gadt_fo.Indicator
+
+(* Shared period variable across multiple indicators *)
+let period_var = Gadt_fo.var ~lower:10.0 ~upper:50.0 Type.Int
+let rsi = Ind.rsi period_var
+let bb_lower = Ind.lower_bband period_var (Const (2.0, Float)) (Const (2.0, Float))
+let bb_upper = Ind.upper_bband period_var (Const (2.0, Float)) (Const (2.0, Float))
+```
+
+#### 3. Variable Module - Fresh optimization variables
+Use for creating independent optimization variables (each call creates a new UUID):
+
+```ocaml
+module Opt = Gadt_fo.Variable
+
+(* Each indicator gets its own optimizable period *)
+let rsi = Opt.rsi ~lower:5.0 ~upper:30.0 ()
+let mfi = Opt.mfi ~lower:50.0 ~upper:200.0 ()
+let adx = Opt.adx ~lower:10.0 ~upper:30.0 ()
+```
+
+#### DO NOT manually construct indicators like this:
+```ocaml
+(* BAD - verbose and error-prone *)
+let rsi =
+  Gadt.Data
+    (App1
+       ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
+         App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), Const (14, Int)) ))
+
+(* GOOD - use the helper *)
+let rsi = Real.rsi 14
+```
+
+### Strategy Helper Functions (gadt_strategy.ml)
+
+Common exit conditions and safety checks:
+
+```ocaml
+(* Exit conditions *)
+stop_loss 0.02                    (* Exit if price drops 2% below entry *)
+profit_target 0.05                (* Exit if price rises 5% above entry *)
+max_holding_time 120              (* Exit after 120 bars *)
+max_holding_time_expr var         (* Exit after variable bars *)
+min_holding_time 10               (* Gate: held at least 10 bars *)
+min_holding_time_expr var         (* Gate: held at least variable bars *)
+
+(* Intraday safety *)
+safe_to_enter ()                  (* Not within 10 min of close *)
+safe_to_enter ~close_buffer:15.0 ()  (* Custom buffer *)
+force_exit_eod ()                 (* Within 10 min of close *)
+
+(* Example sell trigger using helpers *)
+let sell_trigger =
+  stop_loss 0.02
+  ||. profit_target 0.05
+  ||. max_holding_time 120
+  ||. force_exit_eod ()
 ```
 
 ### Adding New Strategies

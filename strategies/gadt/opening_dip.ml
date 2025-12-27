@@ -30,6 +30,9 @@ let profit_target profit_target_pct : bool Gadt.t =
 let max_holding_time max_ticks : bool Gadt.t =
   App2 (Fun (">", ( > )), TicksHeld, Const (max_ticks, Int))
 
+let max_holding_time_expr max_ticks_expr : bool Gadt.t =
+  App2 (Fun (">", ( > )), TicksHeld, max_ticks_expr)
+
 (* Opening_Dip_A: Shortest hold, widest gap tolerance
 
    Training results (q3q4-2024):
@@ -51,7 +54,7 @@ let opening_dip_a : Gadt_strategy.t =
   let profit_pct = 0.0296 in  (* 2.96% as decimal *)
   let max_hold = 197 in
 
-  let mfi = Real.mfi mfi_period () in
+  let mfi = Real.mfi mfi_period in
 
   (* Entry: ONLY at minute 15, targeting WEAKNESS *)
   let in_buy_window = buy_window_at 15.0 in
@@ -103,7 +106,7 @@ let opening_dip_b : Gadt_strategy.t =
   let profit_pct = 0.0259 in  (* 2.59% as decimal *)
   let max_hold = 327 in
 
-  let mfi = Real.mfi mfi_period () in
+  let mfi = Real.mfi mfi_period in
 
   (* Entry: ONLY at minute 15, targeting WEAKNESS *)
   let in_buy_window = buy_window_at 15.0 in
@@ -155,7 +158,7 @@ let opening_dip_c : Gadt_strategy.t =
   let profit_pct = 0.0238 in  (* 2.38% as decimal *)
   let max_hold = 262 in
 
-  let mfi = Real.mfi mfi_period () in
+  let mfi = Real.mfi mfi_period in
 
   (* Entry: ONLY at minute 15, targeting WEAKNESS *)
   let in_buy_window = buy_window_at 15.0 in
@@ -214,7 +217,7 @@ let opening_dip_v2_a : Gadt_strategy.t =
   let profit_pct = 0.0502 in  (* 5.02% *)
   let max_hold = 170 in
 
-  let mfi = Real.mfi mfi_period () in
+  let mfi = Real.mfi mfi_period in
 
   (* Entry: 15-45 minute window, targeting gap-down weakness *)
   let in_buy_window =
@@ -267,7 +270,7 @@ let opening_dip_v2_b : Gadt_strategy.t =
   let profit_pct = 0.0601 in  (* 6.01% *)
   let max_hold = 257 in
 
-  let mfi = Real.mfi mfi_period () in
+  let mfi = Real.mfi mfi_period in
 
   (* Entry: 15-45 minute window *)
   let in_buy_window =
@@ -320,7 +323,7 @@ let opening_dip_v2_c : Gadt_strategy.t =
   let profit_pct = 0.0594 in  (* 5.94% *)
   let max_hold = 204 in
 
-  let mfi = Real.mfi mfi_period () in
+  let mfi = Real.mfi mfi_period in
 
   (* Entry: 15-45 minute window, targeting gap-down weakness *)
   let in_buy_window =
@@ -443,7 +446,7 @@ let opening_dip_v3_opt : Gadt_strategy.t =
   let profit_mult = Const (1.0, Float) +. profit_pct_var /. Const (100.0, Float) in
   let stop_hit = last <. EntryPrice *. stop_mult in
   let target_hit = last >. EntryPrice *. profit_mult in
-  let max_hold_exit = App2 (Fun (">", ( > )), TicksHeld, max_hold_var) in
+  let max_hold_exit = max_holding_time_expr max_hold_var in
   let eod = Gadt_strategy.force_exit_eod () in
 
   let sell_trigger = stop_hit ||. target_hit ||. max_hold_exit ||. eod in
@@ -514,7 +517,7 @@ let opening_dip_v4_opt : Gadt_strategy.t =
   let profit_mult = Const (1.0, Float) +. profit_pct_var /. Const (100.0, Float) in
   let stop_hit = last <. EntryPrice *. stop_mult in
   let target_hit = last >. EntryPrice *. profit_mult in
-  let max_hold_exit = App2 (Fun (">", ( > )), TicksHeld, max_hold_var) in
+  let max_hold_exit = max_holding_time_expr max_hold_var in
   let eod = Gadt_strategy.force_exit_eod () in
 
   let sell_trigger = stop_hit ||. target_hit ||. max_hold_exit ||. eod in
@@ -545,7 +548,7 @@ let opening_dip_capitulation : Gadt_strategy.t =
   let profit_pct = 0.20 in
   let max_hold = 390 in
 
-  let rsi = Real.rsi rsi_period () in
+  let rsi = Real.rsi rsi_period in
 
   let in_buy_window =
     (MinutesSinceOpen >=. Const (15.0, Float)) &&.
@@ -590,7 +593,7 @@ let opening_dip_panic : Gadt_strategy.t =
   let profit_pct = 0.20 in
   let max_hold = 390 in
 
-  let rsi = Real.rsi rsi_period () in
+  let rsi = Real.rsi rsi_period in
 
   let in_buy_window =
     (MinutesSinceOpen >=. Const (15.0, Float)) &&.
@@ -658,8 +661,8 @@ let opening_dip_v3_a : Gadt_strategy.t =
   let max_hold = 176 in
 
   (* Indicators *)
-  let mfi = Real.mfi mfi_period () in
-  let adx = Real.adx adx_period () in
+  let mfi = Real.mfi mfi_period in
+  let adx = Real.adx adx_period in
 
   (* Buy conditions *)
   let in_buy_window =
