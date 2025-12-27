@@ -37,25 +37,25 @@ module ComparisonClass = struct
    Standard thresholds: >80 overbought, >50 bullish, <20 oversold, <50 bearish *)
   let bounded_0_100_bullish_high =
     [
-      rsi;
+      rsi ();
       (* Relative Strength Index: >80 overbought, <20 oversold, 14-period default *)
-      stoch_slow_k;
+      stoch_slow_k ();
       (* Slow Stochastic %K: >80 overbought, <20 oversold *)
-      stoch_slow_d;
+      stoch_slow_d ();
       (* Slow Stochastic %D: smoothed %K, >80 overbought, <20 oversold *)
-      stoch_f_fast_k;
+      stoch_f_fast_k ();
       (* Fast Stochastic %K: more sensitive, >80 overbought, <20 oversold *)
-      stoch_f_fast_d;
+      stoch_f_fast_d ();
       (* Fast Stochastic %D: smoothed fast %K, >80 overbought, <20 oversold *)
-      stoch_rsi_fast_k;
+      stoch_rsi_fast_k ();
       (* Stochastic RSI %K: combines RSI with stochastic, >80 overbought, <20 oversold *)
-      stoch_rsi_fast_d;
+      stoch_rsi_fast_d ();
       (* Stochastic RSI %D: smoothed stochastic RSI, >80 overbought, <20 oversold *)
-      ultosc;
+      ultosc ();
       (* Ultimate Oscillator: >80 overbought, <20 oversold, multi-timeframe *)
-      mfi;
+      mfi ();
       (* Money Flow Index: volume-weighted RSI, >80 overbought, <20 oversold *)
-      imi;
+      imi ();
       (* Intraday Momentum Index: intraday price momentum, >80 overbought, <20 oversold *)
     ]
 
@@ -63,19 +63,19 @@ module ComparisonClass = struct
    Standard thresholds: >25 strong, >50 very strong, <25 weak trend *)
   let bounded_0_100_strength =
     [
-      adx;
+      adx ();
       (* Average Directional Index: >25 strong trend, >50 very strong, <25 weak trend *)
-      adxr;
+      adxr ();
       (* ADX Rating: smoothed ADX, >25 strong trend, >50 very strong, <25 weak trend *)
-      dx;
+      dx ();
       (* Directional Movement Index: >25 strong, >50 very strong, <25 weak *)
-      aroon_up;
+      aroon_up ();
       (* Aroon Up: >50 recent high likely, >80 very recent high, <50 stale high *)
-      aroon_down;
+      aroon_down ();
       (* Aroon Down: >50 recent low likely, >80 very recent low, <50 stale low *)
-      plus_di;
+      plus_di ();
       (* Plus Directional Indicator: >25 strong upward movement, >50 very strong *)
-      minus_di;
+      minus_di ();
       (* Minus Directional Indicator: >25 strong downward movement, >50 very strong *)
     ]
 
@@ -83,11 +83,11 @@ module ComparisonClass = struct
    Standard thresholds: >50 overbought, >0 bullish, <-50 oversold, <0 bearish *)
   let bounded_neg100_pos100 =
     [
-      cmo;
+      cmo ();
       (* Chande Momentum Oscillator: >50 overbought, <-50 oversold, >0 bullish *)
-      aroon_osc;
+      aroon_osc ();
       (* Aroon Oscillator: >50 strong uptrend, <-50 strong downtrend, >0 bullish *)
-      cci;
+      cci ();
       (* Commodity Channel Index: >50 overbought, <-50 oversold, >0 bullish (can exceed ±100) *)
     ]
 
@@ -95,7 +95,7 @@ module ComparisonClass = struct
    Standard thresholds: >-20 overbought, >-50 bullish, <-80 oversold, <-50 bearish *)
   let bounded_neg100_0 =
     [
-      willr;
+      willr ();
       (* Williams %R: >-20 overbought, >-50 bullish, <-80 oversold, <-50 bearish *)
     ]
 
@@ -106,81 +106,81 @@ module ComparisonClass = struct
   let price_comparable =
     [
       (* Moving averages - smooth price trends, act as dynamic support/resistance *)
-      dema;
+      dema ();
       (* Double Exponential MA: reduced lag, responsive to price changes *)
-      ema;
+      ema ();
       (* Exponential MA: gives more weight to recent prices *)
-      kama;
+      kama ();
       (* Kaufman Adaptive MA: adapts to market volatility *)
-      ma;
+      ma ();
       (* Simple MA: basic average of prices *)
-      sma;
+      sma ();
       (* Simple MA: arithmetic mean of prices over period *)
-      tema;
+      tema ();
       (* Triple Exponential MA: even more responsive than DEMA *)
-      trima;
+      trima ();
       (* Triangular MA: double-smoothed, very smooth *)
-      wma;
+      wma ();
       (* Weighted MA: linear weighting favoring recent prices *)
 
       (* Price-based indicators - derived from OHLC data *)
-      midpoint;
+      midpoint ();
       (* (High + Low) / 2 over period *)
-      midprice;
+      midprice ();
       (* Same as midpoint *)
-      linearreg;
+      linearreg ();
       (* Linear regression line value *)
-      tsf;
+      tsf ();
       (* Time Series Forecast: projected price *)
 
       (* Price aggregations - typical price calculations *)
-      avg_price;
+      avg_price ();
       (* (OHLC)/4 *)
-      med_price;
+      med_price ();
       (* (High + Low)/2 *)
-      typ_price;
+      typ_price ();
       (* (High + Low + Close)/3 *)
-      wcl_price;
+      wcl_price ();
       (* (High + Low + 2*Close)/4 *)
 
       (* Bollinger Bands - volatility-based bands around price *)
-      upper_bband;
+      upper_bband ();
       (* Upper band: SMA + (stddev * multiplier) *)
-      middle_bband;
+      middle_bband ();
       (* Middle band: typically SMA *)
-      lower_bband;
+      lower_bband ();
       (* Lower band: SMA - (stddev * multiplier) *)
 
       (* Parabolic SAR - trend-following stop and reverse *)
-      sar;
+      sar ();
       (* Stop and Reverse: trailing stop levels *)
 
       (* MAMA/FAMA adaptive moving averages *)
-      mama_mama;
+      mama_mama ();
       (* MESA Adaptive MA: adapts to cycle *)
-      mama_fama;
+      mama_fama ();
       (* Following Adaptive MA: smoother MAMA *)
 
       (* Linear regression components *)
-      linearreg_intercept;
+      linearreg_intercept ();
       (* Y-intercept of linear regression *)
 
       (* Min/Max values over periods *)
-      min_max_min;
+      min_max_min ();
       (* Minimum value over period *)
-      min_max_max;
+      min_max_max ();
       (* Maximum value over period *)
-      max;
+      max ();
       (* Highest value over period *)
-      min;
+      min ();
       (* Lowest value over period *)
 
       (* Acceleration Bands - volatility-based price bands *)
-      accbands_upper;
+      accbands_upper ();
       (* Upper acceleration band *)
-      accbands_middle;
+      accbands_middle ();
       (* Middle acceleration band *)
-      accbands_lower;
+      accbands_lower ();
       (* Lower acceleration band *)
     ]
 
@@ -189,25 +189,25 @@ module ComparisonClass = struct
    (Values scaled to typical price units for MACD-type indicators) *)
   let momentum_centered_zero =
     [
-      macd_macd;
+      macd_macd ();
       (* MACD Line: 12EMA - 26EMA, positive = bullish momentum *)
-      macd_signal;
+      macd_signal ();
       (* MACD Signal: EMA of MACD line, positive = bullish trend *)
-      macd_hist;
+      macd_hist ();
       (* MACD Histogram: MACD - Signal, positive = bullish divergence *)
-      macd_ext_macd;
+      macd_ext_macd ();
       (* Extended MACD: customizable periods *)
-      macd_ext_signal;
+      macd_ext_signal ();
       (* Extended MACD Signal: customizable smoothing *)
-      macd_ext_hist;
+      macd_ext_hist ();
       (* Extended MACD Histogram: extended version *)
-      apo;
+      apo ();
       (* Absolute Price Oscillator: fast MA - slow MA in price units *)
-      trix;
+      trix ();
       (* TRIX: triple-smoothed EMA rate of change, momentum oscillator *)
-      mom;
+      mom ();
       (* Momentum: current price - price N periods ago *)
-      ppo;
+      ppo ();
       (* Percentage Price Oscillator: APO as percentage, positive = bullish *)
     ]
 
@@ -215,9 +215,9 @@ module ComparisonClass = struct
    Standard thresholds: >1.02 bullish, >1.05 strong bullish, <0.98 bearish, <0.95 strong bearish *)
   let rate_of_change_around_one =
     [
-      rocr;
+      rocr ();
       (* Rate of Change Ratio: >1.02 bullish, >1.05 strong bullish, <0.98 bearish, <0.95 strong bearish *)
-      rocr100;
+      rocr100 ();
       (* ROC Ratio * 100: >102 bullish, >105 strong bullish, <98 bearish, <95 strong bearish *)
     ]
 
@@ -225,9 +225,9 @@ module ComparisonClass = struct
    Standard thresholds: >2% bullish, >5% strong bullish, <-2% bearish, <-5% strong bearish *)
   let rate_of_change_percentage =
     [
-      roc;
+      roc ();
       (* Rate of Change: >2.0 bullish, >5.0 strong bullish, <-2.0 bearish, <-5.0 strong bearish *)
-      rocp;
+      rocp ();
       (* ROC Percentage: >0.02 bullish, >0.05 strong bullish, <-0.02 bearish, <-0.05 strong bearish *)
     ]
 
@@ -236,11 +236,11 @@ module ComparisonClass = struct
    Compare current vs previous periods, or use rate of change >2% significant increase *)
   let volume_indicators =
     [
-      ad;
+      ad ();
       (* Accumulation/Distribution: volume-weighted price momentum *)
-      obv;
+      obv ();
       (* On-Balance Volume: running total of volume based on price direction *)
-      adosc;
+      adosc ();
       (* A/D Oscillator: fast A/D MA - slow A/D MA *)
     ]
 
@@ -249,21 +249,21 @@ module ComparisonClass = struct
    (Compare current reading vs 20-period moving average of same indicator) *)
   let volatility_positive =
     [
-      atr;
+      atr ();
       (* Average True Range: average of true range over period *)
-      natr;
+      natr ();
       (* Normalized ATR: ATR as percentage of price *)
-      trange;
+      trange ();
       (* True Range: max(high-low, high-prev_close, prev_close-low) *)
-      avgdev;
+      avgdev ();
       (* Average Deviation: average distance from mean *)
-      stddev;
+      stddev ();
       (* Standard Deviation: statistical measure of price dispersion *)
-      var_indicator;
+      var_indicator ();
       (* Variance: square of standard deviation *)
-      plus_dm;
+      plus_dm ();
       (* Plus Directional Movement: upward price movement magnitude *)
-      minus_dm;
+      minus_dm ();
       (* Minus Directional Movement: downward price movement magnitude *)
     ]
 
@@ -271,7 +271,7 @@ module ComparisonClass = struct
    Standard thresholds: >0.8 strong positive, >0.5 moderate positive, <-0.8 strong negative, <-0.5 moderate negative *)
   let correlation_indicators =
     [
-      correl
+      correl ()
       (* Pearson Correlation: >0.8 strong positive, >0.5 moderate positive, <-0.8 strong negative, <-0.5 moderate negative *);
     ]
 
@@ -279,7 +279,7 @@ module ComparisonClass = struct
    Standard thresholds: >1.2 high volatility, >1.5 very high volatility, <0.8 low volatility, <0.5 very low volatility *)
   let beta_indicators =
     [
-      beta
+      beta ()
       (* Beta coefficient: >1.2 high volatility, >1.5 very high volatility, <0.8 low volatility, <0.5 very low volatility *);
     ]
 
@@ -288,9 +288,9 @@ module ComparisonClass = struct
    (slope in price units/period), >10° bullish angle, >30° strong bullish, <-10° bearish, <-30° strong bearish *)
   let slope_indicators =
     [
-      linearreg_slope;
+      linearreg_slope ();
       (* Linear Regression Slope: >0.1 bullish, >0.5 strong bullish, <-0.1 bearish, <-0.5 strong bearish *)
-      linearreg_angle;
+      linearreg_angle ();
       (* Linear Regression Angle: >10° bullish, >30° strong bullish, <-10° bearish, <-30° strong bearish *)
     ]
 
@@ -299,61 +299,61 @@ module ComparisonClass = struct
    (For typical 20-period lookback) *)
   let index_indicators =
     [
-      min_index;
+      min_index ();
       (* Index of Minimum: periods ago when lowest value occurred *)
-      max_index;
+      max_index ();
       (* Index of Maximum: periods ago when highest value occurred *)
-      min_max_index_min;
+      min_max_index_min ();
       (* Min/Max Index Min: periods ago when minimum occurred *)
-      min_max_index_max;
+      min_max_index_max ();
       (* Min/Max Index Max: periods ago when maximum occurred *)
     ]
 
   (* Moving averages only - for pure trend-following strategies *)
   let moving_averages_only =
-    [ dema; ema; kama; ma; sma; tema; trima; wma; mama_mama; mama_fama ]
+    [ dema (); ema (); kama (); ma (); sma (); tema (); trima (); wma (); mama_mama (); mama_fama () ]
 
   (* Bollinger Bands family - volatility-based bands *)
-  let bollinger_bands_only = [ upper_bband; middle_bband; lower_bband ]
+  let bollinger_bands_only = [ upper_bband (); middle_bband (); lower_bband () ]
 
   (* MACD indicator family - all MACD variations *)
   let macd_family =
     [
-      macd_macd;
-      macd_signal;
-      macd_hist;
-      macd_ext_macd;
-      macd_ext_signal;
-      macd_ext_hist;
-      apo;
-      ppo;
+      macd_macd ();
+      macd_signal ();
+      macd_hist ();
+      macd_ext_macd ();
+      macd_ext_signal ();
+      macd_ext_hist ();
+      apo ();
+      ppo ();
       (* Related oscillators *)
     ]
 
   (* Stochastic oscillator family - all stochastic variations *)
   let stochastic_family =
     [
-      stoch_slow_k;
-      stoch_slow_d;
-      stoch_f_fast_k;
-      stoch_f_fast_d;
-      stoch_rsi_fast_k;
-      stoch_rsi_fast_d;
+      stoch_slow_k ();
+      stoch_slow_d ();
+      stoch_f_fast_k ();
+      stoch_f_fast_d ();
+      stoch_rsi_fast_k ();
+      stoch_rsi_fast_d ();
     ]
 
   (* Directional Movement family - ADX and related indicators *)
   let directional_movement_family =
     [
-      adx;
-      adxr;
-      dx;
-      plus_di;
-      minus_di;
-      plus_dm;
-      minus_dm;
-      aroon_up;
-      aroon_down;
-      aroon_osc;
+      adx ();
+      adxr ();
+      dx ();
+      plus_di ();
+      minus_di ();
+      plus_dm ();
+      minus_dm ();
+      aroon_up ();
+      aroon_down ();
+      aroon_osc ();
     ]
 
   (* Additional useful groupings *)
@@ -361,112 +361,112 @@ module ComparisonClass = struct
   (* Candlestick pattern indicators - binary signals *)
   let candlestick_patterns =
     [
-      cdl_2crows;
-      cdl_3blackcrows;
-      cdl_3inside;
-      cdl_3linestrike;
-      cdl_3outside;
-      cdl_3starsinsouth;
-      cdl_3whitesoldiers;
-      cdl_abandonedbaby;
-      cdl_advanceblock;
-      cdl_belthold;
-      cdl_breakaway;
-      cdl_closingmarubozu;
-      cdl_concealbabyswall;
-      cdl_counterattack;
-      cdl_darkcloudcover;
-      cdl_doji;
-      cdl_dojistar;
-      cdl_dragonflydoji;
-      cdl_engulfing;
-      cdl_eveningdojistar;
-      cdl_eveningstar;
-      cdl_gap_side_side_white;
-      cdl_gravestonedoji;
-      cdl_hammer;
-      cdl_hangingman;
-      cdl_harami;
-      cdl_haramicross;
-      cdl_highwave;
-      cdl_hikkake;
-      cdl_hikkakemod;
-      cdl_homingpigeon;
-      cdl_identical3crows;
-      cdl_inneck;
-      cdl_invertedhammer;
-      cdl_kicking;
-      cdl_kickingbylength;
-      cdl_ladderbottom;
-      cdl_longleggedDoji;
-      cdl_longline;
-      cdl_marubozu;
-      cdl_matchinglow;
-      cdl_mathold;
-      cdl_morningdojistar;
-      cdl_morningstar;
-      cdl_onneck;
-      cdl_piercing;
-      cdl_rickshawman;
-      cdl_risefall3methods;
-      cdl_separatinglines;
-      cdl_shootingstar;
-      cdl_shortline;
-      cdl_spinningtop;
-      cdl_stalledpattern;
-      cdl_sticksandwich;
-      cdl_takuri;
-      cdl_tasukigap;
-      cdl_thrusting;
-      cdl_tristar;
-      cdl_unique3river;
-      cdl_upsidegap2crows;
-      cdl_xsidegap3methods;
+      cdl_2crows ();
+      cdl_3blackcrows ();
+      cdl_3inside ();
+      cdl_3linestrike ();
+      cdl_3outside ();
+      cdl_3starsinsouth ();
+      cdl_3whitesoldiers ();
+      cdl_abandonedbaby ();
+      cdl_advanceblock ();
+      cdl_belthold ();
+      cdl_breakaway ();
+      cdl_closingmarubozu ();
+      cdl_concealbabyswall ();
+      cdl_counterattack ();
+      cdl_darkcloudcover ();
+      cdl_doji ();
+      cdl_dojistar ();
+      cdl_dragonflydoji ();
+      cdl_engulfing ();
+      cdl_eveningdojistar ();
+      cdl_eveningstar ();
+      cdl_gap_side_side_white ();
+      cdl_gravestonedoji ();
+      cdl_hammer ();
+      cdl_hangingman ();
+      cdl_harami ();
+      cdl_haramicross ();
+      cdl_highwave ();
+      cdl_hikkake ();
+      cdl_hikkakemod ();
+      cdl_homingpigeon ();
+      cdl_identical3crows ();
+      cdl_inneck ();
+      cdl_invertedhammer ();
+      cdl_kicking ();
+      cdl_kickingbylength ();
+      cdl_ladderbottom ();
+      cdl_longleggedDoji ();
+      cdl_longline ();
+      cdl_marubozu ();
+      cdl_matchinglow ();
+      cdl_mathold ();
+      cdl_morningdojistar ();
+      cdl_morningstar ();
+      cdl_onneck ();
+      cdl_piercing ();
+      cdl_rickshawman ();
+      cdl_risefall3methods ();
+      cdl_separatinglines ();
+      cdl_shootingstar ();
+      cdl_shortline ();
+      cdl_spinningtop ();
+      cdl_stalledpattern ();
+      cdl_sticksandwich ();
+      cdl_takuri ();
+      cdl_tasukigap ();
+      cdl_thrusting ();
+      cdl_tristar ();
+      cdl_unique3river ();
+      cdl_upsidegap2crows ();
+      cdl_xsidegap3methods ();
     ]
 
   (* Mathematical transform functions *)
   let mathematical_transforms =
     [
-      acos;
-      asin;
-      atan;
-      ceil;
-      cos;
-      cosh;
-      exp;
-      floor;
-      ln;
-      log10;
-      sin;
-      sinh;
-      sqrt;
-      tan;
-      tanh;
-      add;
-      div;
-      mult;
-      sub;
+      acos ();
+      asin ();
+      atan ();
+      ceil ();
+      cos ();
+      cosh ();
+      exp ();
+      floor ();
+      ln ();
+      log10 ();
+      sin ();
+      sinh ();
+      sqrt ();
+      tan ();
+      tanh ();
+      add ();
+      div ();
+      mult ();
+      sub ();
     ]
 
   (* Pure price aggregation indicators *)
   let price_aggregations_only =
-    [ avg_price; med_price; typ_price; wcl_price; midpoint; midprice ]
+    [ avg_price (); med_price (); typ_price (); wcl_price (); midpoint (); midprice () ]
 
   (* Linear regression family *)
   let linear_regression_family =
-    [ linearreg; linearreg_slope; linearreg_angle; linearreg_intercept; tsf ]
+    [ linearreg (); linearreg_slope (); linearreg_angle (); linearreg_intercept (); tsf () ]
 
   (* Hilbert Transform family - cycle analysis *)
   let hilbert_transform_family =
     [
-      ht_trendline;
-      ht_dc_period;
-      ht_dc_phase;
-      ht_phasor_inphase;
-      ht_phasor_quadrature;
-      ht_sine_sine;
-      ht_sine_leadsine;
-      ht_trend_mode;
+      ht_trendline ();
+      ht_dc_period ();
+      ht_dc_phase ();
+      ht_phasor_inphase ();
+      ht_phasor_quadrature ();
+      ht_sine_sine ();
+      ht_sine_leadsine ();
+      ht_trend_mode ();
     ]
 
   (* Function to get the indicator list for a given group type *)
@@ -800,62 +800,62 @@ module Crossover = struct
   let all =
     [
       (* Moving Average Crossovers *)
-      (ema, ema);
+      (ema (), ema ());
       (* Fast EMA / Slow EMA: e.g., 12/26, 5/20, 8/21 *)
-      (sma, sma);
+      (sma (), sma ());
       (* Fast SMA / Slow SMA: e.g., 10/30, 20/50 *)
-      (ema, sma);
+      (ema (), sma ());
       (* EMA / SMA: combines responsive with smooth *)
-      (dema, ema);
+      (dema (), ema ());
       (* DEMA / EMA: very responsive vs standard *)
-      (tema, ema);
+      (tema (), ema ());
       (* TEMA / EMA: ultra-responsive vs standard *)
-      (kama, ema);
+      (kama (), ema ());
       (* Adaptive MA / EMA: adaptive vs standard *)
-      (tema, dema);
+      (tema (), dema ());
       (* TEMA / DEMA: ultra-responsive vs very responsive *)
-      (wma, ema);
+      (wma (), ema ());
       (* Weighted MA / EMA: linear vs exponential weighting *)
-      (kama, sma);
+      (kama (), sma ());
       (* Adaptive MA / SMA: adaptive vs simple *)
 
       (* MACD System Crossovers *)
-      (macd_macd, macd_signal);
+      (macd_macd (), macd_signal ());
       (* MACD Line / Signal Line: classic MACD crossover *)
-      (macd_ext_macd, macd_ext_signal);
+      (macd_ext_macd (), macd_ext_signal ());
       (* Extended MACD crossover *)
 
       (* Adaptive MA Crossovers *)
-      (mama_mama, mama_fama);
+      (mama_mama (), mama_fama ());
       (* MAMA / FAMA: adaptive trend following *)
 
       (* Stochastic Crossovers (FSO = Fast Stochastic Oscillator) *)
-      (stoch_f_fast_k, stoch_f_fast_d);
+      (stoch_f_fast_k (), stoch_f_fast_d ());
       (* Fast %K / Fast %D: quick reversals *)
-      (stoch_slow_k, stoch_slow_d);
+      (stoch_slow_k (), stoch_slow_d ());
       (* Slow %K / Slow %D: smoother signals *)
-      (stoch_rsi_fast_k, stoch_rsi_fast_d);
+      (stoch_rsi_fast_k (), stoch_rsi_fast_d ());
       (* Stoch RSI %K / %D: RSI-based stochastic *)
 
       (* Directional Indicator Crossovers *)
-      (plus_di, minus_di);
+      (plus_di (), minus_di ());
       (* +DI / -DI: directional movement crossover *)
 
       (* Price vs Indicator Crossovers (when price data available) *)
-      (sar, sar);
+      (sar (), sar ());
       (* Price / SAR: trend reversal signals (placeholder for price) *)
 
       (* Linear Regression Crossovers *)
-      (linearreg, tsf);
+      (linearreg (), tsf ());
       (* Linear Reg / Time Series Forecast *)
 
       (* Aroon Crossovers *)
-      (aroon_up, aroon_down);
+      (aroon_up (), aroon_down ());
       (* Aroon Up / Aroon Down: trend direction *)
     ]
 
   let random state =
-    let l, r = List.random_choose all state |> fun (f, g) -> (f (), g ()) in
+    let l, r = List.random_choose all state in
     match Random.bool () with
     | true -> Gadt.cross_up l r
     | false -> Gadt.cross_down l r
@@ -863,7 +863,7 @@ end
 
 module Comparator = struct
   let random state =
-    let lhs = ComparisonClass.random state () in
+    let lhs = ComparisonClass.random state in
     match Random.bool () with
     | true -> Gadt.(lhs >. Gadt_fo.var Gadt.Type.Float)
     | false -> Gadt.(lhs <. Gadt_fo.var Gadt.Type.Float)

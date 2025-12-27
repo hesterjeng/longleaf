@@ -15,6 +15,8 @@
 open Gadt
 open Gadt_strategy
 module I = Tacaml.Indicator.Raw
+module Var = Gadt_fo.Variable
+module Real = Gadt_fo.Constant
 
 (* Helper functions - same pattern as strategy_library.ml *)
 let stop_loss stop_loss_pct : bool Gadt.t =
@@ -49,12 +51,7 @@ let opening_dip_a : Gadt_strategy.t =
   let profit_pct = 0.0296 in  (* 2.96% as decimal *)
   let max_hold = 197 in
 
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (mfi_period, Int)) ))
-  in
+  let mfi = Real.mfi mfi_period () in
 
   (* Entry: ONLY at minute 15, targeting WEAKNESS *)
   let in_buy_window = buy_window_at 15.0 in
@@ -106,12 +103,7 @@ let opening_dip_b : Gadt_strategy.t =
   let profit_pct = 0.0259 in  (* 2.59% as decimal *)
   let max_hold = 327 in
 
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (mfi_period, Int)) ))
-  in
+  let mfi = Real.mfi mfi_period () in
 
   (* Entry: ONLY at minute 15, targeting WEAKNESS *)
   let in_buy_window = buy_window_at 15.0 in
@@ -163,12 +155,7 @@ let opening_dip_c : Gadt_strategy.t =
   let profit_pct = 0.0238 in  (* 2.38% as decimal *)
   let max_hold = 262 in
 
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (mfi_period, Int)) ))
-  in
+  let mfi = Real.mfi mfi_period () in
 
   (* Entry: ONLY at minute 15, targeting WEAKNESS *)
   let in_buy_window = buy_window_at 15.0 in
@@ -227,12 +214,7 @@ let opening_dip_v2_a : Gadt_strategy.t =
   let profit_pct = 0.0502 in  (* 5.02% *)
   let max_hold = 170 in
 
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (mfi_period, Int)) ))
-  in
+  let mfi = Real.mfi mfi_period () in
 
   (* Entry: 15-45 minute window, targeting gap-down weakness *)
   let in_buy_window =
@@ -285,12 +267,7 @@ let opening_dip_v2_b : Gadt_strategy.t =
   let profit_pct = 0.0601 in  (* 6.01% *)
   let max_hold = 257 in
 
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (mfi_period, Int)) ))
-  in
+  let mfi = Real.mfi mfi_period () in
 
   (* Entry: 15-45 minute window *)
   let in_buy_window =
@@ -343,12 +320,7 @@ let opening_dip_v2_c : Gadt_strategy.t =
   let profit_pct = 0.0594 in  (* 5.94% *)
   let max_hold = 204 in
 
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (mfi_period, Int)) ))
-  in
+  let mfi = Real.mfi mfi_period () in
 
   (* Entry: 15-45 minute window, targeting gap-down weakness *)
   let in_buy_window =
@@ -398,8 +370,7 @@ let opening_dip_v3_opt : Gadt_strategy.t =
 
   (* === OPTIMIZABLE PARAMETERS === *)
 
-  (* Core oversold detection *)
-  let mfi_period_var = Gadt_fo.var ~lower:10.0 ~upper:200.0 Int in
+  (* Core oversold detection - period is in Var.mfi call *)
   let mfi_threshold_var = Gadt_fo.var ~lower:15.0 ~upper:55.0 Float in
 
   (* Gap and day change filters (from V2) *)
@@ -407,7 +378,7 @@ let opening_dip_v3_opt : Gadt_strategy.t =
   let max_change_var = Gadt_fo.var ~lower:(-3.0) ~upper:3.0 Float in
 
   (* NEW: Trend context - ADX below threshold means range-bound *)
-  let adx_period_var = Gadt_fo.var ~lower:10.0 ~upper:100.0 Int in
+  (* ADX period is in Var.adx call *)
   let adx_threshold_var = Gadt_fo.var ~lower:15.0 ~upper:40.0 Float in
 
   (* NEW: Intraday price location - how close to day's low (as %) *)
@@ -423,19 +394,8 @@ let opening_dip_v3_opt : Gadt_strategy.t =
 
   (* === INDICATORS === *)
 
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), mfi_period_var) ))
-  in
-
-  let adx =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.adx", I.adx), adx_period_var) ))
-  in
+  let mfi = Var.mfi ~lower:10.0 ~upper:200.0 () in
+  let adx = Var.adx ~lower:10.0 ~upper:100.0 () in
 
   (* === BUY CONDITIONS === *)
 
@@ -521,8 +481,7 @@ let opening_dip_v4_opt : Gadt_strategy.t =
 
   (* === OPTIMIZABLE PARAMETERS === *)
 
-  (* Core oversold detection *)
-  let mfi_period_var = Gadt_fo.var ~lower:10.0 ~upper:200.0 Int in
+  (* Core oversold detection - period is in Var.mfi call *)
   let mfi_threshold_var = Gadt_fo.var ~lower:15.0 ~upper:55.0 Float in
 
   (* Exit parameters *)
@@ -532,12 +491,7 @@ let opening_dip_v4_opt : Gadt_strategy.t =
 
   (* === INDICATORS === *)
 
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), mfi_period_var) ))
-  in
+  let mfi = Var.mfi ~lower:10.0 ~upper:200.0 () in
 
   (* === BUY CONDITIONS === *)
 
@@ -591,12 +545,7 @@ let opening_dip_capitulation : Gadt_strategy.t =
   let profit_pct = 0.20 in
   let max_hold = 390 in
 
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", I.rsi), Const (rsi_period, Int)) ))
-  in
+  let rsi = Real.rsi rsi_period () in
 
   let in_buy_window =
     (MinutesSinceOpen >=. Const (15.0, Float)) &&.
@@ -641,12 +590,7 @@ let opening_dip_panic : Gadt_strategy.t =
   let profit_pct = 0.20 in
   let max_hold = 390 in
 
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", I.rsi), Const (rsi_period, Int)) ))
-  in
+  let rsi = Real.rsi rsi_period () in
 
   let in_buy_window =
     (MinutesSinceOpen >=. Const (15.0, Float)) &&.
@@ -714,19 +658,8 @@ let opening_dip_v3_a : Gadt_strategy.t =
   let max_hold = 176 in
 
   (* Indicators *)
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (mfi_period, Int)) ))
-  in
-
-  let adx =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.adx", I.adx), Const (adx_period, Int)) ))
-  in
+  let mfi = Real.mfi mfi_period () in
+  let adx = Real.adx adx_period () in
 
   (* Buy conditions *)
   let in_buy_window =

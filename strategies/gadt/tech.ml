@@ -64,51 +64,25 @@ module I = Tacaml.Indicator.Raw
 
     NOTE: Use starting index of at least 200 (-i 200) for indicator warmup.
     NOTE: Use with -u tech for the tech universe. *)
-let tech_momentum_opt : Gadt_strategy.t =
-  (* Trend Detection Variables - for 1-min bars, 200 = ~3.3 hours *)
-  let adx_period_var = Gadt_fo.var ~lower:14.0 ~upper:200.0 Type.Int in
-  let adx_threshold_var = Gadt_fo.var ~lower:15.0 ~upper:45.0 Type.Float in
-  let sma_period_var = Gadt_fo.var ~lower:20.0 ~upper:250.0 Type.Int in
+module Var = Gadt_fo.Variable
+module Real = Gadt_fo.Constant
 
-  (* Momentum Confirmation Variables *)
-  let roc_period_var = Gadt_fo.var ~lower:5.0 ~upper:60.0 Type.Int in
+let tech_momentum_opt : Gadt_strategy.t =
+  (* Indicators with optimizable bounds *)
+  let adx = Var.adx ~lower:14.0 ~upper:200.0 () in
+  let sma = Var.sma ~lower:20.0 ~upper:250.0 () in
+  let roc = Var.roc ~lower:5.0 ~upper:60.0 () in
+  let mfi = Var.mfi ~lower:14.0 ~upper:150.0 () in
+
+  (* Threshold variables *)
+  let adx_threshold_var = Gadt_fo.var ~lower:15.0 ~upper:45.0 Type.Float in
   let roc_threshold_var = Gadt_fo.var ~lower:0.05 ~upper:3.0 Type.Float in
-  let mfi_period_var = Gadt_fo.var ~lower:14.0 ~upper:150.0 Type.Int in
   let mfi_threshold_var = Gadt_fo.var ~lower:45.0 ~upper:80.0 Type.Float in
 
   (* Risk Management Variables *)
   let stop_loss_var = Gadt_fo.var ~lower:0.005 ~upper:0.08 Type.Float in
   let profit_target_var = Gadt_fo.var ~lower:0.01 ~upper:0.15 Type.Float in
   let max_hold_var = Gadt_fo.var ~lower:15.0 ~upper:350.0 Type.Int in
-
-  (* Indicators *)
-  let adx =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.adx", I.adx), adx_period_var) ))
-  in
-
-  let sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), sma_period_var) ))
-  in
-
-  let roc =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.roc", I.roc), roc_period_var) ))
-  in
-
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), mfi_period_var) ))
-  in
 
   (* Entry Conditions - ALL must be true *)
   let strong_trend = adx >. adx_threshold_var in
@@ -176,43 +150,22 @@ let tech_momentum_opt : Gadt_strategy.t =
 
     NOTE: Use -i 100 for warmup. Use -u tech. *)
 let tech_breakout_opt : Gadt_strategy.t =
-  (* Opening Range Variables - for 1-min bars *)
+  (* Indicators with optimizable bounds *)
+  let atr = Gadt_fo.Constant.atr 14 () in
+  let adx = Var.adx ~lower:10.0 ~upper:120.0 () in
+  let mfi = Var.mfi ~lower:10.0 ~upper:100.0 () in
+
+  (* Opening Range Variables *)
   let range_minutes_var = Gadt_fo.var ~lower:10.0 ~upper:90.0 Type.Float in
   let breakout_atr_mult_var = Gadt_fo.var ~lower:0.2 ~upper:3.0 Type.Float in
 
-  (* Trend Filter Variables *)
-  let adx_period_var = Gadt_fo.var ~lower:10.0 ~upper:120.0 Type.Int in
+  (* Filter thresholds *)
   let adx_min_var = Gadt_fo.var ~lower:10.0 ~upper:40.0 Type.Float in
-
-  (* Volume Variables *)
-  let mfi_period_var = Gadt_fo.var ~lower:10.0 ~upper:100.0 Type.Int in
   let mfi_min_var = Gadt_fo.var ~lower:40.0 ~upper:80.0 Type.Float in
 
   (* Risk Variables *)
   let stop_atr_mult_var = Gadt_fo.var ~lower:0.3 ~upper:3.0 Type.Float in
   let profit_atr_mult_var = Gadt_fo.var ~lower:0.5 ~upper:6.0 Type.Float in
-
-  (* Indicators *)
-  let atr =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.atr", I.atr), Const (14, Int)) ))
-  in
-
-  let adx =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.adx", I.adx), adx_period_var) ))
-  in
-
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), mfi_period_var) ))
-  in
 
   (* Entry Conditions *)
   let past_opening_range = MinutesSinceOpen >. range_minutes_var in
@@ -278,50 +231,19 @@ let tech_breakout_opt : Gadt_strategy.t =
 
     NOTE: Use -i 150 for warmup. Use -u tech. *)
 let tech_ema_cross_opt : Gadt_strategy.t =
-  (* EMA Variables - for 1-min bars *)
-  let fast_ema_var = Gadt_fo.var ~lower:3.0 ~upper:60.0 Type.Int in
-  let slow_ema_var = Gadt_fo.var ~lower:20.0 ~upper:200.0 Type.Int in
+  (* Indicators with optimizable bounds *)
+  let fast_ema = Var.ema ~lower:3.0 ~upper:60.0 () in
+  let slow_ema = Var.ema ~lower:20.0 ~upper:200.0 () in
+  let roc = Var.roc ~lower:3.0 ~upper:45.0 () in
+  let adx = Var.adx ~lower:10.0 ~upper:100.0 () in
 
-  (* Momentum Variables *)
-  let roc_period_var = Gadt_fo.var ~lower:3.0 ~upper:45.0 Type.Int in
+  (* Threshold variables *)
   let roc_min_var = Gadt_fo.var ~lower:0.0 ~upper:2.0 Type.Float in
-
-  (* Trend Variables *)
-  let adx_period_var = Gadt_fo.var ~lower:10.0 ~upper:100.0 Type.Int in
   let adx_min_var = Gadt_fo.var ~lower:15.0 ~upper:45.0 Type.Float in
 
   (* Risk Variables *)
   let stop_loss_var = Gadt_fo.var ~lower:0.005 ~upper:0.06 Type.Float in
   let profit_target_var = Gadt_fo.var ~lower:0.01 ~upper:0.12 Type.Float in
-
-  (* Indicators *)
-  let fast_ema =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.ema", I.ema), fast_ema_var) ))
-  in
-
-  let slow_ema =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.ema", I.ema), slow_ema_var) ))
-  in
-
-  let roc =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.roc", I.roc), roc_period_var) ))
-  in
-
-  let adx =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.adx", I.adx), adx_period_var) ))
-  in
 
   (* Entry Conditions *)
   let ema_cross_up = cross_up fast_ema slow_ema in
@@ -570,12 +492,7 @@ let tech_gap_go_c : Gadt_strategy.t =
   let profit_target = Const (0.040237, Float) in
 
   (* Long-term trend filter - 1000 bars = ~2.5 trading days *)
-  let sma_long =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1000, Int)) ))
-  in
+  let sma_long = Real.sma 1000 () in
   let in_uptrend = last >. sma_long in
 
   (* Entry Conditions *)
@@ -638,14 +555,10 @@ let tech_gap_go_c : Gadt_strategy.t =
     VERDICT: One lucky period carried average. Does not generalize.
 
     NOTE: Requires -i 4000 for warmup *)
+
 let tech_long_ma_mr : Gadt_strategy.t =
   (* Fixed long-period SMA - 3900 bars = ~2 weeks *)
-  let sma_long =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (3900, Int)) ))
-  in
+  let sma_long = Real.sma 3900 () in
 
   (* Entry: price 2% below SMA *)
   let dip_threshold = Const (0.98, Float) in
@@ -694,12 +607,7 @@ let tech_long_ma_mr : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_ma_trend : Gadt_strategy.t =
   (* Fixed long-period SMA - 3900 bars = ~2 weeks *)
-  let sma_long =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (3900, Int)) ))
-  in
+  let sma_long = Real.sma 3900 () in
 
   (* Entry: price 1% above SMA (confirmed uptrend) *)
   let trend_threshold = Const (1.01, Float) in
@@ -739,30 +647,8 @@ let tech_long_ma_trend : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_bb_mr : Gadt_strategy.t =
   (* Long-period Bollinger Bands - 3900 bars, 2.0 std *)
-  let bb_period = Const (3900, Int) in
-  let bb_std = Const (2.0, Float) in
-
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", I.lower_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
-
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", I.middle_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
+  let bb_lower = Real.lower_bband 3900 2.0 2.0 () in
+  let bb_middle = Real.middle_bband 3900 2.0 2.0 () in
 
   (* Entry: price touches lower band *)
   let oversold = last <. bb_lower in
@@ -801,30 +687,8 @@ let tech_long_bb_mr : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_bb_trend : Gadt_strategy.t =
   (* Long-period Bollinger Bands - 3900 bars, 2.0 std *)
-  let bb_period = Const (3900, Int) in
-  let bb_std = Const (2.0, Float) in
-
-  let bb_upper =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.upper_bband", I.upper_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
-
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", I.middle_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
+  let bb_upper = Real.upper_bband 3900 2.0 2.0 () in
+  let bb_middle = Real.middle_bband 3900 2.0 2.0 () in
 
   (* Entry: price breaks above upper band *)
   let breakout = last >. bb_upper in
@@ -860,38 +724,10 @@ let tech_long_bb_trend : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_bb_mr_v2 : Gadt_strategy.t =
   (* Long-period Bollinger Bands - 3900 bars, 2.0 std *)
-  let bb_period = Const (3900, Int) in
-  let bb_std = Const (2.0, Float) in
-
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", I.lower_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
-
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", I.middle_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
-
+  let bb_lower = Real.lower_bband 3900 2.0 2.0 () in
+  let bb_middle = Real.middle_bband 3900 2.0 2.0 () in
   (* Short-period MFI for timing - 15 bars = 15 minutes *)
-  let mfi_short =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (15, Int)) ))
-  in
+  let mfi_short = Real.mfi 15 () in
 
   (* Entry: below lower band AND weak MFI (capitulation) *)
   let below_band = last <. bb_lower in
@@ -927,38 +763,10 @@ let tech_long_bb_mr_v2 : Gadt_strategy.t =
     NOTE: Requires -i 4000 for warmup *)
 let tech_long_bb_mr_v3 : Gadt_strategy.t =
   (* Long-period Bollinger Bands - 3900 bars, 2.0 std *)
-  let bb_period = Const (3900, Int) in
-  let bb_std = Const (2.0, Float) in
-
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", I.lower_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
-
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", I.middle_bband),
-               bb_period,
-               bb_std,
-               bb_std ) ))
-  in
-
+  let bb_lower = Real.lower_bband 3900 2.0 2.0 () in
+  let bb_middle = Real.middle_bband 3900 2.0 2.0 () in
   (* Short-period MFI for timing - 15 bars = 15 minutes *)
-  let mfi_short =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (15, Int)) ))
-  in
+  let mfi_short = Real.mfi 15 () in
 
   (* Entry: below lower band AND weak MFI *)
   let below_band = last <. bb_lower in
@@ -1002,20 +810,9 @@ let tech_long_bb_mr_v3 : Gadt_strategy.t =
     NOTE: Requires -i 1200 for warmup *)
 let tech_dip_buy : Gadt_strategy.t =
   (* 3-day SMA - 1170 bars *)
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-
+  let sma_3day = Real.sma 1170 () in
   (* 30-period MFI for timing *)
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let mfi_30 = Real.mfi 30 () in
 
   (* Entry: uptrend AND weak short-term MFI *)
   let in_uptrend = last >. sma_3day in
@@ -1041,18 +838,8 @@ let tech_dip_buy : Gadt_strategy.t =
 
 (** Tech_Dip_Buy_TightStop - Variant with 3% stop instead of 5% *)
 let tech_dip_buy_tight_stop : Gadt_strategy.t =
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
   let in_uptrend = last >. sma_3day in
   let dip = mfi_30 <. Const (30.0, Float) in
   let stop_mult = Const (0.97, Float) in  (* 3% stop *)
@@ -1073,18 +860,8 @@ let tech_dip_buy_tight_stop : Gadt_strategy.t =
 
 (** Tech_Dip_Buy_Recovery - Variant requiring price bounce (price > lag 1) *)
 let tech_dip_buy_recovery : Gadt_strategy.t =
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
   let in_uptrend = last >. sma_3day in
   let dip = mfi_30 <. Const (30.0, Float) in
   let recovering = last >. lag last 1 in  (* Price bouncing *)
@@ -1106,18 +883,8 @@ let tech_dip_buy_recovery : Gadt_strategy.t =
 
 (** Tech_Dip_Buy_RisingSMA - Variant requiring SMA to be rising *)
 let tech_dip_buy_rising_sma : Gadt_strategy.t =
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
   let in_uptrend = last >. sma_3day in
   let sma_rising = sma_3day >. lag sma_3day 30 in  (* SMA higher than 30 bars ago *)
   let dip = mfi_30 <. Const (30.0, Float) in
@@ -1139,18 +906,8 @@ let tech_dip_buy_rising_sma : Gadt_strategy.t =
 
 (** Tech_Dip_Buy_QuickProfit - Variant with 6% profit target instead of 10% *)
 let tech_dip_buy_quick_profit : Gadt_strategy.t =
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
   let in_uptrend = last >. sma_3day in
   let dip = mfi_30 <. Const (30.0, Float) in
   let stop_mult = Const (0.95, Float) in
@@ -1188,31 +945,10 @@ let tech_dip_buy_quick_profit : Gadt_strategy.t =
     - Max hold 1170 bars *)
 let tech_dip_buy_v2 : Gadt_strategy.t =
   (* Multi-period SMAs for trend alignment *)
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_2day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (780, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let sma_1day = Real.sma 390 () in
+  let sma_2day = Real.sma 780 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
 
   (* Stacked SMAs: 1-day > 2-day > 3-day = bullish alignment *)
   let stacked_bullish = (sma_1day >. sma_2day) &&. (sma_2day >. sma_3day) in
@@ -1259,25 +995,9 @@ let tech_dip_buy_v2 : Gadt_strategy.t =
     - Plus: SMA(390) - SMA(1170) (stronger trend = higher priority) *)
 let tech_dip_buy_v3 : Gadt_strategy.t =
   (* SMAs for trend detection *)
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let sma_1day = Real.sma 390 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
 
   (* Entry: relaxed trend filter - just short > long *)
   let in_uptrend = last >. sma_3day in
@@ -1312,24 +1032,9 @@ let tech_dip_buy_v3 : Gadt_strategy.t =
     Remove it - only exit on stop, profit target, or max hold.
     3% stop, 10% profit target. *)
 let tech_dip_buy_v4 : Gadt_strategy.t =
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let sma_1day = Real.sma 390 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1371,31 +1076,11 @@ let tech_dip_buy_v4 : Gadt_strategy.t =
 
     Best result so far. Goal: >0.1 Sharpe in 5/6 periods. *)
 let tech_dip_buy_v5 : Gadt_strategy.t =
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let sma_1day = Real.sma 390 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
   (* Daily MFI for exit *)
-  let mfi_daily =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (390, Int)) ))
-  in
+  let mfi_daily = Real.mfi 390 () in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1426,24 +1111,9 @@ let tech_dip_buy_v5 : Gadt_strategy.t =
     Match stop to target: 2% stop, 2% profit.
     Quick in/out - don't wait for home runs. *)
 let tech_dip_buy_v6 : Gadt_strategy.t =
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
+  let sma_1day = Real.sma 390 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1472,30 +1142,10 @@ let tech_dip_buy_v6 : Gadt_strategy.t =
 
     Testing if tighter stop improves risk-adjusted returns. *)
 let tech_dip_buy_v7 : Gadt_strategy.t =
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
-  let mfi_daily =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (390, Int)) ))
-  in
+  let sma_1day = Real.sma 390 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
+  let mfi_daily = Real.mfi 390 () in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1523,30 +1173,10 @@ let tech_dip_buy_v7 : Gadt_strategy.t =
 
     Testing if exiting earlier on momentum preserves more gains. *)
 let tech_dip_buy_v8 : Gadt_strategy.t =
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
-  let mfi_daily =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (390, Int)) ))
-  in
+  let sma_1day = Real.sma 390 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
+  let mfi_daily = Real.mfi 390 () in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1574,30 +1204,10 @@ let tech_dip_buy_v8 : Gadt_strategy.t =
 
     Testing if longer MFI period lets winners run even more. *)
 let tech_dip_buy_v9 : Gadt_strategy.t =
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
-  let mfi_2day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (780, Int)) ))
-  in
+  let sma_1day = Real.sma 390 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
+  let mfi_2day = Real.mfi 780 () in
 
   let in_uptrend = last >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1630,36 +1240,11 @@ let tech_dip_buy_v9 : Gadt_strategy.t =
     Exit: daily MFI > 70 OR smoothed price stop OR max hold *)
 let tech_dip_buy_v10 : Gadt_strategy.t =
   (* Smoothed price - 5 bar SMA *)
-  let price_smoothed =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (5, Int)) ))
-  in
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
-  let mfi_daily =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (390, Int)) ))
-  in
+  let price_smoothed = Real.sma 5 () in
+  let sma_1day = Real.sma 390 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
+  let mfi_daily = Real.mfi 390 () in
 
   (* All price comparisons use smoothed price *)
   let in_uptrend = price_smoothed >. sma_3day in
@@ -1709,36 +1294,11 @@ let tech_dip_buy_v10 : Gadt_strategy.t =
     Still underperforms Buy & Hold Tech (0.609 Sharpe, 17.86% return, 100% consistency)
     but this is the best active strategy we've found for tech stocks. *)
 let tech_dip_buy_v11 : Gadt_strategy.t =
-  let price_smoothed =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (5, Int)) ))
-  in
-  let sma_1day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (390, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
-  let mfi_daily =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (390, Int)) ))
-  in
+  let price_smoothed = Real.sma 5 () in
+  let sma_1day = Real.sma 390 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
+  let mfi_daily = Real.mfi 390 () in
 
   let in_uptrend = price_smoothed >. sma_3day in
   let short_above_long = sma_1day >. sma_3day in
@@ -1766,30 +1326,10 @@ let tech_dip_buy_v11 : Gadt_strategy.t =
 
     Only require price > SMA(1170), drop the SMA(390) > SMA(1170) filter. *)
 let tech_dip_buy_v12 : Gadt_strategy.t =
-  let price_smoothed =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (5, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
-  let mfi_daily =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (390, Int)) ))
-  in
+  let price_smoothed = Real.sma 5 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
+  let mfi_daily = Real.mfi 390 () in
 
   let in_uptrend = price_smoothed >. sma_3day in
   (* No SMA stacking requirement *)
@@ -1816,30 +1356,10 @@ let tech_dip_buy_v12 : Gadt_strategy.t =
 
     Combines V11 and V12 for maximum trade generation. *)
 let tech_dip_buy_v13 : Gadt_strategy.t =
-  let price_smoothed =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (5, Int)) ))
-  in
-  let sma_3day =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (1170, Int)) ))
-  in
-  let mfi_30 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (30, Int)) ))
-  in
-  let mfi_daily =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (390, Int)) ))
-  in
+  let price_smoothed = Real.sma 5 () in
+  let sma_3day = Real.sma 1170 () in
+  let mfi_30 = Real.mfi 30 () in
+  let mfi_daily = Real.mfi 390 () in
 
   let in_uptrend = price_smoothed >. sma_3day in
   let dip = mfi_30 <. Const (40.0, Float) in  (* Looser *)
@@ -1870,12 +1390,7 @@ let tech_dip_buy_v13 : Gadt_strategy.t =
     RESULT: 0% consistency, -23% avg return. Perfectly wrong!
     Mean reversion doesn't work on SPY - momentum does. *)
 let spy_mfi_simple : Gadt_strategy.t =
-  let mfi_15 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (15, Int)) ))
-  in
+  let mfi_15 = Real.mfi 15 () in
 
   let oversold = mfi_15 <. Const (30.0, Float) in
   let overbought = mfi_15 >. Const (70.0, Float) in
@@ -1904,18 +1419,8 @@ let spy_mfi_simple : Gadt_strategy.t =
 
     Simple and elegant - buy dips below long SMA, sell pops above short SMA. *)
 let spy_sma_a : Gadt_strategy.t =
-  let buy_sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (550, Int)) ))
-  in
-  let sell_sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), Const (83, Int)) ))
-  in
+  let buy_sma = Real.sma 550 () in
+  let sell_sma = Real.sma 83 () in
 
   {
     name = "SPY_SMA_A";
@@ -1937,21 +1442,8 @@ let spy_sma_a : Gadt_strategy.t =
 
     High frequency scalping on 1-min bars. *)
 let spy_sma_opt : Gadt_strategy.t =
-  let buy_period_var = Gadt_fo.var ~lower:5.0 ~upper:1000.0 Type.Int in
-  let sell_period_var = Gadt_fo.var ~lower:5.0 ~upper:1000.0 Type.Int in
-
-  let buy_sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), buy_period_var) ))
-  in
-  let sell_sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", I.sma), sell_period_var) ))
-  in
+  let buy_sma = Var.sma ~lower:5.0 ~upper:1000.0 () in
+  let sell_sma = Var.sma ~lower:5.0 ~upper:1000.0 () in
 
   let cheap = last <. buy_sma in
   let expensive = last >. sell_sma in
@@ -1979,23 +1471,10 @@ let spy_sma_opt : Gadt_strategy.t =
     Philosophy: SPY drifts up forever, buy oversold, sell overbought.
     ISRES finds optimal periods and thresholds. *)
 let spy_mfi_opt : Gadt_strategy.t =
-  let buy_period_var = Gadt_fo.var ~lower:5.0 ~upper:1000.0 Type.Int in
+  let buy_mfi = Var.mfi ~lower:5.0 ~upper:1000.0 () in
   let buy_threshold_var = Gadt_fo.var ~lower:10.0 ~upper:50.0 Type.Float in
-  let sell_period_var = Gadt_fo.var ~lower:5.0 ~upper:1000.0 Type.Int in
+  let sell_mfi = Var.mfi ~lower:5.0 ~upper:1000.0 () in
   let sell_threshold_var = Gadt_fo.var ~lower:50.0 ~upper:90.0 Type.Float in
-
-  let buy_mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), buy_period_var) ))
-  in
-  let sell_mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), sell_period_var) ))
-  in
 
   let oversold = buy_mfi <. buy_threshold_var in
   let overbought = sell_mfi >. sell_threshold_var in
@@ -2016,12 +1495,7 @@ let spy_mfi_opt : Gadt_strategy.t =
 
     Opposite of SPY_MFI_Simple which was 0% consistent. *)
 let spy_mfi_flipped : Gadt_strategy.t =
-  let mfi_15 =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", I.mfi), Const (15, Int)) ))
-  in
+  let mfi_15 = Real.mfi 15 () in
 
   let strong = mfi_15 >. Const (70.0, Float) in
   let weak = mfi_15 <. Const (30.0, Float) in

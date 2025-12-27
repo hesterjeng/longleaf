@@ -76,6 +76,8 @@
 open Gadt
 open Gadt_strategy
 module Data = Longleaf_bars.Data
+module Var = Gadt_fo.Variable
+module Real = Gadt_fo.Constant
 
 (** Nature_Boy_V3_Opt - Optimizable Mean Reversion Strategy
 
@@ -344,44 +346,11 @@ let mr0_opt =
     Trained on q3q4-2025. Objective: 125,249.73
     192 trades, 60.94% win rate, Sharpe 0.310, p < 0.0001 *)
 let mrnb_3_a =
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (235, Int)) ))
-  in
-  let natr_lo =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (9, Int)) ))
-  in
-  let natr_hi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (89, Int)) ))
-  in
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               Const (359, Int),
-               Const (1.636, Float),
-               Const (1.636, Float) ) ))
-  in
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               Const (331, Int),
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
+  let mfi = Real.mfi 235 () in
+  let natr_lo = Real.natr 9 () in
+  let natr_hi = Real.natr 89 () in
+  let bb_lower = Real.lower_bband 359 1.636 1.636 () in
+  let bb_middle = Real.middle_bband 331 2.0 2.0 () in
   let recovering = last >. lag last 1 in
   let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (72, Int)) in
   let exit_signals =
@@ -414,44 +383,11 @@ let mrnb_3_a =
     Trained on q3q4-2025. Objective: 122,756.98
     249 trades, 60.64% win rate, Sharpe 0.213, p < 0.0004 *)
 let mrnb_3_b =
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (213, Int)) ))
-  in
-  let natr_lo =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (7, Int)) ))
-  in
-  let natr_hi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (186, Int)) ))
-  in
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               Const (228, Int),
-               Const (1.662, Float),
-               Const (1.662, Float) ) ))
-  in
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               Const (333, Int),
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
+  let mfi = Real.mfi 213 () in
+  let natr_lo = Real.natr 7 () in
+  let natr_hi = Real.natr 186 () in
+  let bb_lower = Real.lower_bband 228 1.662 1.662 () in
+  let bb_middle = Real.middle_bband 333 2.0 2.0 () in
   let recovering = last >. lag last 1 in
   let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (64, Int)) in
   let exit_signals =
@@ -484,44 +420,11 @@ let mrnb_3_b =
     Trained on q3q4-2025. Objective: 123,321.08
     214 trades, 64.49% win rate, Sharpe 0.246, p < 0.0002 *)
 let mrnb_3_c =
-  let mfi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.mfi", Tacaml.Indicator.Raw.mfi), Const (230, Int)) ))
-  in
-  let natr_lo =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (18, Int)) ))
-  in
-  let natr_hi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.natr", Tacaml.Indicator.Raw.natr), Const (179, Int)) ))
-  in
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               Const (315, Int),
-               Const (2.610, Float),
-               Const (2.610, Float) ) ))
-  in
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               Const (287, Int),
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
+  let mfi = Real.mfi 230 () in
+  let natr_lo = Real.natr 18 () in
+  let natr_hi = Real.natr 179 () in
+  let bb_lower = Real.lower_bband 315 2.610 2.610 () in
+  let bb_middle = Real.middle_bband 287 2.0 2.0 () in
   let recovering = last >. lag last 1 in
   let past_min_hold = App2 (Fun (">=", ( >= )), TicksHeld, Const (48, Int)) in
   let exit_signals =
