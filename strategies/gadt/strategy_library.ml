@@ -3,6 +3,7 @@
 open Gadt
 open Gadt_strategy
 module Real = Gadt_fo.Constant
+module Ind = Gadt_fo.Indicator
 
 (* Helper functions from gadt_examples *)
 let stop_loss stop_loss_pct : bool Gadt.t =
@@ -19,7 +20,7 @@ let max_holding_time max_ticks : bool Gadt.t =
 
 let safe_to_enter ?(close_buffer = 10.0) () : bool Gadt.t =
   is_open TickTime
-  &&. App1 (Fun ("not", not), is_close TickTime (Const (close_buffer, Float)))
+  &&. not_ (is_close TickTime (Const (close_buffer, Float)))
 
 let force_exit_eod ?(close_buffer = 10.0) () : bool Gadt.t =
   is_close TickTime (Const (close_buffer, Float))
@@ -59,9 +60,9 @@ let force_exit_eod ?(close_buffer = 10.0) () : bool Gadt.t =
     - No overnight positions (force_exit_eod) *)
 let estridatter_fixed =
   (* RSI and Bollinger Band indicators *)
-  let rsi_19 = Real.rsi 19 () in
-  let bb_lower_48 = Real.lower_bband 48 2.0 2.0 () in
-  let bb_middle_48 = Real.middle_bband 48 2.0 2.0 () in
+  let rsi_19 = Real.rsi 19 in
+  let bb_lower_48 = Real.lower_bband 48 2.0 2.0 in
+  let bb_middle_48 = Real.middle_bband 48 2.0 2.0 in
 
   (* Optimized threshold values *)
   let rsi_buy_threshold = 39.008806 in
@@ -152,13 +153,13 @@ let estridatter_fixed =
     - No overnight positions (force_exit_eod + safe_to_enter) *)
 let estridatter_1_0_0 =
   (* Fast RSI for reactive signals *)
-  let rsi_9 = Real.rsi 9 () in
+  let rsi_9 = Real.rsi 9 in
 
   (* Entry bands - slightly wider (2.12 std) *)
-  let bb_lower_entry = Real.lower_bband 58 2.122944 2.122944 () in
+  let bb_lower_entry = Real.lower_bband 58 2.122944 2.122944 in
 
   (* Exit bands - tighter (1.61 std) for earlier exits *)
-  let bb_middle_exit = Real.middle_bband 58 1.612366 1.612366 () in
+  let bb_middle_exit = Real.middle_bband 58 1.612366 1.612366 in
 
   {
     name = "Estridatter.1.0.0";
@@ -203,37 +204,10 @@ let estridatter_var =
   let bb_std_entry = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
   let bb_std_exit = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
 
-  (* Create RSI indicator with variable period *)
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period) ))
-  in
-
-  (* Create entry Bollinger Bands (lower band with variable std) *)
-  let bb_lower_entry =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period,
-               bb_std_entry,
-               bb_std_entry ) ))
-  in
-
-  (* Create exit Bollinger Bands (middle with variable std) *)
-  let bb_middle_exit =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period,
-               bb_std_exit,
-               bb_std_exit ) ))
-  in
+  (* Indicators with shared variables *)
+  let rsi = Ind.rsi rsi_period in
+  let bb_lower_entry = Ind.lower_bband bb_period bb_std_entry bb_std_entry in
+  let bb_middle_exit = Ind.middle_bband bb_period bb_std_exit bb_std_exit in
 
   {
     name = "Estridatter_Var";
@@ -272,37 +246,10 @@ let estridatter_var_wide =
   let bb_std_entry = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
   let bb_std_exit = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
 
-  (* Create RSI indicator with variable period *)
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period) ))
-  in
-
-  (* Create entry Bollinger Bands (lower band with variable std) *)
-  let bb_lower_entry =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period,
-               bb_std_entry,
-               bb_std_entry ) ))
-  in
-
-  (* Create exit Bollinger Bands (middle with variable std) *)
-  let bb_middle_exit =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period,
-               bb_std_exit,
-               bb_std_exit ) ))
-  in
+  (* Indicators with shared variables *)
+  let rsi = Ind.rsi rsi_period in
+  let bb_lower_entry = Ind.lower_bband bb_period bb_std_entry bb_std_entry in
+  let bb_middle_exit = Ind.middle_bband bb_period bb_std_exit bb_std_exit in
 
   {
     name = "Estridatter_Var_Wide";
@@ -344,37 +291,10 @@ let estridatter_var_ultra_wide =
   let bb_std_entry = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
   let bb_std_exit = Gadt_fo.var ~lower:1.5 ~upper:3.0 Gadt.Type.Float in
 
-  (* Create RSI indicator with variable period *)
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period) ))
-  in
-
-  (* Create entry Bollinger Bands (lower band with variable std) *)
-  let bb_lower_entry =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period,
-               bb_std_entry,
-               bb_std_entry ) ))
-  in
-
-  (* Create exit Bollinger Bands (middle with variable std) *)
-  let bb_middle_exit =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period,
-               bb_std_exit,
-               bb_std_exit ) ))
-  in
+  (* Indicators with shared variables *)
+  let rsi = Ind.rsi rsi_period in
+  let bb_lower_entry = Ind.lower_bband bb_period bb_std_entry bb_std_entry in
+  let bb_middle_exit = Ind.middle_bband bb_period bb_std_exit bb_std_exit in
 
   {
     name = "Estridatter_Var_Ultra_Wide";
@@ -413,13 +333,13 @@ let estridatter_var_ultra_wide =
     - EOD protection (10 min buffer) *)
 let estridatter_2_0_0 =
   (* RSI indicator - period 27 *)
-  let rsi_27 = Real.rsi 27 () in
+  let rsi_27 = Real.rsi 27 in
 
   (* Entry Bollinger Bands - period 24, std 1.8045 *)
-  let bb_lower_entry = Real.lower_bband 24 1.804500 1.804500 () in
+  let bb_lower_entry = Real.lower_bband 24 1.804500 1.804500 in
 
   (* Exit Bollinger Bands - period 24, std 2.29 *)
-  let bb_middle_exit = Real.middle_bband 24 2.290597 2.290597 () in
+  let bb_middle_exit = Real.middle_bband 24 2.290597 2.290597 in
 
   {
     name = "Estridatter.2.0.0";
@@ -468,13 +388,13 @@ let estridatter_2_0_0 =
 *)
 let estridatter_3_0_0 =
   (* RSI indicator - period 20 *)
-  let rsi_20 = Real.rsi 20 () in
+  let rsi_20 = Real.rsi 20 in
 
   (* Entry Bollinger Bands - period 71, std 1.60 *)
-  let bb_lower_entry = Real.lower_bband 71 1.604088 1.604088 () in
+  let bb_lower_entry = Real.lower_bband 71 1.604088 1.604088 in
 
   (* Exit Bollinger Bands - period 71, std 2.62 *)
-  let bb_middle_exit = Real.middle_bband 71 2.624549 2.624549 () in
+  let bb_middle_exit = Real.middle_bband 71 2.624549 2.624549 in
 
   {
     name = "Estridatter.3.0.0";
@@ -511,13 +431,13 @@ let estridatter_3_0_0 =
     than the most oversold (lowest RSI), then the scoring system is broken. *)
 let estridatter_3_0_0_debug =
   (* RSI indicator - period 20 *)
-  let rsi_20 = Real.rsi 20 () in
+  let rsi_20 = Real.rsi 20 in
 
   (* Entry Bollinger Bands - period 71, std 1.60 *)
-  let bb_lower_entry = Real.lower_bband 71 1.604088 1.604088 () in
+  let bb_lower_entry = Real.lower_bband 71 1.604088 1.604088 in
 
   (* Exit Bollinger Bands - period 71, std 2.62 *)
-  let bb_middle_exit = Real.middle_bband 71 2.624549 2.624549 () in
+  let bb_middle_exit = Real.middle_bband 71 2.624549 2.624549 in
 
   {
     name = "Estridatter_3_0_0_Debug";
@@ -577,13 +497,13 @@ let estridatter_3_0_0_debug =
     before production use. *)
 let estridatter_4_0_0 =
   (* RSI indicator - period 29 *)
-  let rsi_29 = Real.rsi 29 () in
+  let rsi_29 = Real.rsi 29 in
 
   (* Entry Bollinger Bands - period 26, std 1.67 *)
-  let bb_lower_entry = Real.lower_bband 26 1.674544 1.674544 () in
+  let bb_lower_entry = Real.lower_bband 26 1.674544 1.674544 in
 
   (* Exit Bollinger Bands - period 26, std 2.64 *)
-  let bb_middle_exit = Real.middle_bband 26 2.643326 2.643326 () in
+  let bb_middle_exit = Real.middle_bband 26 2.643326 2.643326 in
 
   {
     name = "Estridatter.4.0.0";
@@ -665,13 +585,13 @@ let estridatter_4_0_0 =
 *)
 let estridatter_5_0_0 =
   (* RSI indicator - period 29 *)
-  let rsi_29 = Real.rsi 29 () in
+  let rsi_29 = Real.rsi 29 in
 
   (* Entry Bollinger Bands - period 46, std 1.798 *)
-  let bb_lower_entry = Real.lower_bband 46 1.797883 1.797883 () in
+  let bb_lower_entry = Real.lower_bband 46 1.797883 1.797883 in
 
   (* Exit Bollinger Bands - period 46, std 2.474 *)
-  let bb_middle_exit = Real.middle_bband 46 2.474220 2.474220 () in
+  let bb_middle_exit = Real.middle_bband 46 2.474220 2.474220 in
 
   {
     name = "Estridatter.5.0.0";
@@ -756,37 +676,10 @@ let cosmiccowgirl_var =
   (* Derived: Take profit = 2.5× stop loss for consistent risk/reward *)
   let take_profit_pct = stop_loss_pct *. Const (2.5, Float) in
 
-  (* Create RSI indicator using shared period *)
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), shared_period) ))
-  in
-
-  (* Create entry Bollinger Band (lower band using shared period and std) *)
-  let bb_lower_entry =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               shared_period,
-               bb_std,
-               bb_std ) ))
-  in
-
-  (* Create exit Bollinger Band (middle band using shared period and std) *)
-  let bb_middle_exit =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Longleaf_bars.Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               shared_period,
-               bb_std,
-               bb_std ) ))
-  in
+  (* Indicators with shared period variable *)
+  let rsi = Ind.rsi shared_period in
+  let bb_lower_entry = Ind.lower_bband shared_period bb_std bb_std in
+  let bb_middle_exit = Ind.middle_bband shared_period bb_std bb_std in
 
   (* Compute stop loss and take profit multipliers *)
   let stop_loss_mult = Const (1.0, Float) -. stop_loss_pct in
@@ -820,9 +713,9 @@ let cosmiccowgirl_var =
 (* Keep original estridatter for comparison/reference *)
 let estridatter =
   (* RSI and Bollinger Band indicators *)
-  let rsi_19 = Real.rsi 19 () in
-  let bb_lower_48 = Real.lower_bband 48 2.0 2.0 () in
-  let bb_middle_48 = Real.middle_bband 48 2.0 2.0 () in
+  let rsi_19 = Real.rsi 19 in
+  let bb_lower_48 = Real.lower_bband 48 2.0 2.0 in
+  let bb_middle_48 = Real.middle_bband 48 2.0 2.0 in
 
   (* Optimized threshold values *)
   let rsi_buy_threshold = 39.008806 in
@@ -857,7 +750,7 @@ let estridatter =
       (* Take profit: 5% above entry *)
       ||. (last >. EntryPrice *. Const (take_profit_multiplier, Float))
       (* Time-based exit: held too long *)
-      ||. App2 (Fun (">", ( > )), TicksHeld, Const (max_hold_ticks, Int));
+      ||. max_holding_time max_hold_ticks;
     (* Score: Prioritize stocks with lower RSI (more oversold = higher score) *)
     score = Const (100.0, Float) -. rsi_19;
     (* Portfolio parameters *)
@@ -904,12 +797,12 @@ let estridatter =
     design of ProfessionalMeanRev_Opt with distinct variables. *)
 let cosmic_cowgirl_25_52_90 =
   (* Entry indicators - stable, medium-term *)
-  let entry_rsi_25 = Real.rsi 25 () in
-  let entry_bb_lower_52 = Real.lower_bband 52 2.0 2.0 () in
+  let entry_rsi_25 = Real.rsi 25 in
+  let entry_bb_lower_52 = Real.lower_bband 52 2.0 2.0 in
 
   (* Exit indicators - very long-term, patient *)
-  let exit_rsi_90 = Real.rsi 90 () in
-  let exit_bb_middle_84 = Real.middle_bband 84 2.0 2.0 () in
+  let exit_rsi_90 = Real.rsi 90 in
+  let exit_bb_middle_84 = Real.middle_bband 84 2.0 2.0 in
 
   {
     name = "CosmicCowgirl_25_52_90";
@@ -977,12 +870,12 @@ let cosmic_cowgirl_25_52_90 =
     to catching mean reversion opportunities. *)
 let sharp_entry_patient_exit =
   (* Entry indicators - very reactive *)
-  let entry_rsi_50 = Real.rsi 50 () in
-  let entry_bb_lower_16 = Real.lower_bband 16 2.0 2.0 () in
+  let entry_rsi_50 = Real.rsi 50 in
+  let entry_bb_lower_16 = Real.lower_bband 16 2.0 2.0 in
 
   (* Exit indicators - very patient *)
-  let exit_rsi_98 = Real.rsi 98 () in
-  let exit_bb_middle_60 = Real.middle_bband 60 2.0 2.0 () in
+  let exit_rsi_98 = Real.rsi 98 in
+  let exit_bb_middle_60 = Real.middle_bband 60 2.0 2.0 in
 
   {
     name = "SharpEntry_PatientExit_50_16_98";
@@ -1050,12 +943,12 @@ let sharp_entry_patient_exit =
     shot." *)
 let patient_entry_77_46 =
   (* Entry indicators - glacially smooth *)
-  let entry_rsi_77 = Real.rsi 77 () in
-  let entry_bb_lower_97 = Real.lower_bband 97 2.0 2.0 () in
+  let entry_rsi_77 = Real.rsi 77 in
+  let entry_bb_lower_97 = Real.lower_bband 97 2.0 2.0 in
 
   (* Exit indicators - medium-term *)
-  let exit_rsi_46 = Real.rsi 46 () in
-  let exit_bb_middle_80 = Real.middle_bband 80 2.0 2.0 () in
+  let exit_rsi_46 = Real.rsi 46 in
+  let exit_bb_middle_80 = Real.middle_bband 80 2.0 2.0 in
 
   {
     name = "PatientEntry_77_46";
@@ -1129,35 +1022,11 @@ let volatility_breakout_opt =
   let bb_period = Gadt_fo.var Gadt.Type.Int in
   (* Var 6 *)
 
-  (* Create ATR indicator *)
-  let atr =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.atr", Tacaml.Indicator.Raw.atr), atr_period) ))
-  in
+  (* Indicators *)
+  let atr = Ind.atr atr_period in
   let atr_lagged = lag atr 10 in
-  (* Compare to 10-period ago *)
-
-  (* Create RSI indicator *)
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period) ))
-  in
-
-  (* Create Bollinger Band middle for trend context *)
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
+  let rsi = Ind.rsi rsi_period in
+  let bb_middle = Ind.middle_bband bb_period (Const (2.0, Float)) (Const (2.0, Float)) in
 
   (* Volume comparisons *)
   let volume_lagged = lag volume 10 in
@@ -1238,35 +1107,11 @@ let momentum_volume_opt =
   let adx_period = Gadt_fo.var Gadt.Type.Int in
   (* Var 6 *)
 
-  (* Create EMAs *)
-  let fast_ema =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), fast_ema_period) ))
-  in
-  let slow_ema =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.ema", Tacaml.Indicator.Raw.ema), slow_ema_period) ))
-  in
-
-  (* Create RSI *)
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period) ))
-  in
-
-  (* Create ADX *)
-  let adx =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.adx", Tacaml.Indicator.Raw.adx), adx_period) ))
-  in
+  (* Indicators *)
+  let fast_ema = Ind.ema fast_ema_period in
+  let slow_ema = Ind.ema slow_ema_period in
+  let rsi = Ind.rsi rsi_period in
+  let adx = Ind.adx adx_period in
 
   let volume_lagged = lag volume 10 in
 
@@ -1356,51 +1201,12 @@ let volatile_dip_opt =
   (* Capped at 2.5x *)
   let trend_sma_period = Gadt_fo.var ~lower:30.0 ~upper:80.0 Gadt.Type.Int in
 
-  (* Create RSI *)
-  let rsi =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.rsi", Tacaml.Indicator.Raw.rsi), rsi_period) ))
-  in
-
-  (* Create Bollinger Bands *)
-  let bb_lower =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.lower_bband", Tacaml.Indicator.Raw.lower_bband),
-               bb_period,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
-  let bb_middle =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App3
-             ( Fun ("I.middle_bband", Tacaml.Indicator.Raw.middle_bband),
-               bb_period,
-               Const (2.0, Float),
-               Const (2.0, Float) ) ))
-  in
-
-  (* Create ATR for volatility filter - absolute threshold, not expansion *)
-  let atr =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.atr", Tacaml.Indicator.Raw.atr), atr_period) ))
-  in
-
-  (* Create variable-period SMA for trend filter (more generous than EMA(20)) *)
-  let trend_sma =
-    Gadt.Data
-      (App1
-         ( Fun ("tacaml", fun x -> Data.Type.Tacaml x),
-           App1 (Fun ("I.sma", Tacaml.Indicator.Raw.sma), trend_sma_period) ))
-  in
+  (* Indicators *)
+  let rsi = Ind.rsi rsi_period in
+  let bb_lower = Ind.lower_bband bb_period (Const (2.0, Float)) (Const (2.0, Float)) in
+  let bb_middle = Ind.middle_bband bb_period (Const (2.0, Float)) (Const (2.0, Float)) in
+  let atr = Ind.atr atr_period in
+  let trend_sma = Ind.sma trend_sma_period in
 
   (* Volume: Use simple lagged comparison (stable baseline)
      We compare current volume to volume 20 periods ago, multiplied by threshold.

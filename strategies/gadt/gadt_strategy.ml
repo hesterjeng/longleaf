@@ -477,17 +477,26 @@ let profit_target profit_target_pct : bool Gadt.t =
 
 (* Max holding time: sell if held for more than max_ticks *)
 let max_holding_time max_ticks : bool Gadt.t =
-  (* Need to compare TicksHeld (int Gadt.t) with max_ticks - create custom comparison *)
-  let max_ticks_expr = Const (max_ticks, Int) in
-  (* Create a Fun that compares the two int values *)
+  App2 (Fun (">", ( > )), TicksHeld, Const (max_ticks, Int))
+
+(* Max holding time with expression: for variable-based max hold times *)
+let max_holding_time_expr max_ticks_expr : bool Gadt.t =
   App2 (Fun (">", ( > )), TicksHeld, max_ticks_expr)
+
+(* Min holding time: true if held for at least min_ticks (for exit gating) *)
+let min_holding_time min_ticks : bool Gadt.t =
+  App2 (Fun (">=", ( >= )), TicksHeld, Const (min_ticks, Int))
+
+(* Min holding time with expression: for variable-based min hold times *)
+let min_holding_time_expr min_ticks_expr : bool Gadt.t =
+  App2 (Fun (">=", ( >= )), TicksHeld, min_ticks_expr)
 
 (* Intraday trading helpers - avoid overnight positions and closing volatility *)
 
 (* Safe to enter: NOT within close_buffer minutes of market close
    Default 10 minutes avoids closing auction volatility *)
 let safe_to_enter ?(close_buffer = 10.0) () : bool Gadt.t =
-  App1 (Fun ("not", not), is_close TickTime (Const (close_buffer, Float)))
+  not_ (is_close TickTime (Const (close_buffer, Float)))
 
 (* Force exit: within close_buffer minutes of market close *)
 let force_exit_eod ?(close_buffer = 10.0) () : bool Gadt.t =
