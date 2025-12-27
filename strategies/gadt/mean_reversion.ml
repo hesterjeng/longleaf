@@ -969,7 +969,7 @@ let id_mr_at_1 =
   let stop_loss_mult = Const (0.9656, Float) in (* 1 - 0.034398 *)
   let profit_target_mult = Const (1.0286, Float) in (* 1 + 0.028618 *)
   {
-
+    name = "ID_MR_AT_1";
     buy_trigger =
       below_sma_threshold
       &&. mfi_oversold
